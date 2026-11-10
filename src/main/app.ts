@@ -1337,17 +1337,33 @@ export class ReframeApp {
     });
     try {
       if (!locked.length) return results;
+      // A Reframe entry whose Claude chat never wrote any history (for example a chat closed before its first
+      // message) has nothing for the helper to plan. Delete removes only Reframe's entry; archive has nothing to keep.
+      const recordOnly: typeof locked = [];
+      const withHistory: typeof locked = [];
+      for (const target of locked) {
+        if (this.hasClaudeHistory(target.record.claudeSessionId)) withHistory.push(target);
+        else if (operation === 'delete') recordOnly.push(target);
+        else
+          skip(
+            target.record,
+            target.key,
+            'This chat has no Claude history to archive; Delete removes its entry.',
+            'failed',
+          );
+      }
       const prepared = new Map<string, PreparedHistory>();
-      const ids = locked.map(({ record }) => record.claudeSessionId);
-      for (const outcome of await this.history.prepare(this.claudeHome, ids)) {
+      const ids = withHistory.map(({ record }) => record.claudeSessionId);
+      for (const outcome of ids.length ? await this.history.prepare(this.claudeHome, ids) : []) {
         if (outcome.ok) prepared.set(outcome.id, outcome);
         else {
-          const target = locked.find(({ record }) => record.claudeSessionId === outcome.id);
+          const target = withHistory.find(({ record }) => record.claudeSessionId === outcome.id);
           if (target) skip(target.record, target.key, outcome.error, 'failed');
         }
       }
-      const ready = locked.filter(({ record }) => prepared.has(record.claudeSessionId));
-      if (!ready.length) return results;
+      const ready = withHistory.filter(({ record }) => prepared.has(record.claudeSessionId));
+      const confirmed = [...ready, ...recordOnly];
+      if (!confirmed.length) return results;
       const win = this.windows.get(windowId);
       if (!win) throw Error('The requesting window closed; chats preserved.');
       const plan = (record: SessionRecord) => prepared.get(record.claudeSessionId)!;
@@ -1361,18 +1377,39 @@ export class ReframeApp {
         cancelId: 1,
         buttons: [operation === 'archive' ? 'Archive' : 'Delete permanently', 'Cancel'],
         message:
-          ready.length === 1 ? `${verb} “${label(ready[0]!.record)}”?` : `${verb} ${ready.length} selected chats?`,
+          confirmed.length === 1
+            ? `${verb} “${label(confirmed[0]!.record)}”?`
+            : `${verb} ${confirmed.length} selected chats?`,
         detail:
-          ready.map(({ record }) => `${label(record)} · ${record.claudeSessionId}\n${record.cwd}`).join('\n\n') +
-          `\n\n${files} exact chat files (${bytes.toLocaleString()} bytes).\n` +
+          confirmed
+            .map(
+              ({ record }) =>
+                `${label(record)} · ${record.claudeSessionId}\n${record.cwd}` +
+                (prepared.has(record.claudeSessionId) ? '' : '\nNo Claude history: only the Reframe entry is removed.'),
+            )
+            .join('\n\n') +
+          (ready.length ? `\n\n${files} exact chat files (${bytes.toLocaleString()} bytes).\n` : '\n\n') +
           (operation === 'archive'
             ? 'Each chat gets a verified restorable ZIP before its live files are removed. Restore remains available in Archived chats.'
             : 'Transcripts, owned session/subagent files and matching history entries are permanently removed. This cannot be undone.') +
           '\nProject files and other chats are preserved. A chat that is running by then is skipped.',
       });
       if (answer.response !== 0 || this.shuttingDown) {
-        for (const { record, key } of ready) skip(record, key, 'Cancelled; unchanged.');
+        for (const { record, key } of confirmed) skip(record, key, 'Cancelled; unchanged.');
         return results;
+      }
+      let changed = false;
+      for (const { record, key } of recordOnly) {
+        try {
+          this.assertChatStillInactive(record);
+          if (this.hasClaudeHistory(record.claudeSessionId))
+            throw Error('Claude history appeared since the confirmation; nothing was deleted.');
+          this.state = this.withoutHistory(record.claudeSessionId);
+          changed = true;
+          results.push({ id: key, label: label(record), status: 'completed' });
+        } catch (error) {
+          skip(record, key, String(error));
+        }
       }
       const jobs: RetireJob[] = [];
       for (const { record, key } of ready) {
@@ -1392,8 +1429,7 @@ export class ReframeApp {
           skip(record, key, String(error));
         }
       }
-      if (!jobs.length) return results;
-      for (const outcome of await this.history.retire(this.claudeHome, jobs)) {
+      for (const outcome of jobs.length ? await this.history.retire(this.claudeHome, jobs) : []) {
         const target = ready.find(({ record }) => record.claudeSessionId === outcome.id);
         const job = jobs.find((entry) => entry.prepared.id === outcome.id);
         if (!target || !job) continue;
@@ -1409,8 +1445,10 @@ export class ReframeApp {
             archives: [...(this.state.archives || []), { ...archive, operation: job.prepared.operation }],
           };
         }
+        changed = true;
         results.push({ id: target.key, label: label(target.record), status: 'completed' });
       }
+      if (!changed) return results;
       this.save();
       this.transcripts.invalidate('all');
       this.outside = null;
@@ -1454,6 +1492,26 @@ export class ReframeApp {
     } finally {
       this.historyBusy.delete(id);
     }
+  }
+
+  /** Whether Claude wrote anything for this session that the history helper would plan (read-only check). */
+  private hasClaudeHistory(id: string): boolean {
+    const home = this.claudeHome;
+    const exists = (...parts: string[]) => fs.existsSync(path.join(home, ...parts));
+    let projects: string[];
+    try {
+      projects = fs
+        .readdirSync(path.join(home, 'projects'), { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name);
+    } catch {
+      projects = [];
+    }
+    return (
+      projects.some((project) => exists('projects', project, `${id}.jsonl`) || exists('projects', project, id)) ||
+      ['file-history', 'session-env', 'tasks'].some((root) => exists(root, id)) ||
+      exists('debug', `${id}.txt`)
+    );
   }
 
   private withoutHistory(tid: string): AppState {
