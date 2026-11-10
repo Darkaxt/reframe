@@ -2,7 +2,7 @@
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
   "sourceBase": "61669f9465c77b5ba4535ee7df7433cfe8557b28",
-  "scope": "0.10.0-claudegpt.7: delete of a chat without Claude history removes only the Reframe entry (on top of 0.10.0-claudegpt.6)",
+  "scope": "0.10.0-claudegpt.7: delete of a chat without Claude history removes only the Reframe entry and installation-scoped app detection in the idle checks (on top of 0.10.0-claudegpt.6)",
   "inputHashes": [
     {
       "file": ".github/workflows/ci.yml",
@@ -22,7 +22,7 @@
     },
     {
       "file": "docs/releases/v0.10.0-claudegpt.7.md",
-      "sha256": "f06b3d74f199b5aef16065e81489b06e51a3ebb67f6f663a6d4bda092876cbd7"
+      "sha256": "c87c9e73b8b36a72c1aab5a11db717450a7da2b5f1ececfef69af133f0c60b2f"
     },
     {
       "file": "e2e/bulk-chats.spec.ts",
@@ -50,7 +50,7 @@
     },
     {
       "file": "maintenance/windows/release-files.ps1",
-      "sha256": "877361d8f78cdcc2d576629ea81504bc475babd834c0de1e492494bc5e480973"
+      "sha256": "003114ae321bd94ca8fd852a0c0dd4697593b1dc99f76ddc1be2e22286a75b0f"
     },
     {
       "file": "maintenance/windows/restore-managed.ps1",
