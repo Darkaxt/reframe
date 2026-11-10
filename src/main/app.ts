@@ -61,6 +61,7 @@ import {
   type NewSessionRequest,
   type NewSessionResult,
   type AppListItem,
+  type FoundListItem,
   type ForeignCandidate,
   type ForeignDropAnswer,
   type ForeignPointerReport,
@@ -129,6 +130,7 @@ import { cleanUp, dropsDir } from './cleanup';
 import { History } from './history';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
 import { folderKey, folderWorkspaces } from '@shared/folder-workspaces';
+import { chatKey, parseChatKey } from '@shared/sidebar-chats';
 
 export interface AppAssets {
   icon: string;
@@ -1027,10 +1029,31 @@ export class ReframeApp {
 
   /** Only single, exact inactive histories can change route or leave the live history store. */
   private chatActions(windowId: string, item: ListItemRef): MenuItemConstructorOptions[] {
-    if (item.kind === 'running') return [];
     const record = item.kind === 'app' ? this.state.sessions[item.sessionId] : undefined;
+    if (item.kind === 'app' && !record) return [];
+    const identity = item.kind === 'app' ? record!.claudeSessionId : item.claudeSessionId;
+    const distro = item.kind === 'app' ? this.wslPath(record!.cwd)?.distro : item.distro;
+    const key = chatKey(identity, distro);
+    const pinned = this.state.pinnedChats?.includes(key) || false;
+    const pinActions: MenuItemConstructorOptions[] = [
+      { type: 'separator' },
+      {
+        label: pinned ? 'Unpin chat' : 'Pin chat',
+        click: () => {
+          this.state = {
+            ...this.state,
+            pinnedChats: pinned
+              ? (this.state.pinnedChats || []).filter((entry) => entry !== key)
+              : [...new Set([...(this.state.pinnedChats || []), key])],
+          };
+          this.save();
+          this.listChanged();
+        },
+      },
+    ];
+    if (item.kind === 'running') return pinActions;
     const tid = record?.claudeSessionId || (item.kind === 'found' ? item.claudeSessionId : '');
-    if (!tid || (item.kind === 'found' && item.distro) || (record && this.wslPath(record.cwd))) return [];
+    if (!tid || (item.kind === 'found' && item.distro) || (record && this.wslPath(record.cwd))) return pinActions;
     const inactive =
       (!record || (!this.sessions.isRunning(record.id) && record.lifecycle === 'ended')) && !this.historyBusy.has(tid);
     const run = (operation: 'archive' | 'delete') =>
@@ -1038,6 +1061,7 @@ export class ReframeApp {
         this.showError(windowId, String(error)),
       );
     return [
+      ...pinActions,
       { type: 'separator' },
       {
         label: inactive ? 'Model provider' : 'Model provider (end chat first)',
@@ -1200,6 +1224,10 @@ export class ReframeApp {
     return {
       ...this.state,
       sessions: Object.fromEntries(Object.entries(this.state.sessions).filter(([, r]) => r.claudeSessionId !== tid)),
+      pinnedChats: (this.state.pinnedChats || []).filter((key) => {
+        const pin = parseChatKey(key);
+        return !pin || pin.id !== tid || !!pin.distro;
+      }),
       windows: this.state.windows.map((w) => removed.reduce((next, id) => dropSession(next, id), w)),
       workspaces: this.state.workspaces.map((w) => ({
         ...w,
@@ -1279,6 +1307,8 @@ export class ReframeApp {
         const elsewhere = resumedElsewhere.has(record.claudeSessionId) && !this.sessions.keepsRunning(record.id);
         return {
           kind: 'app',
+          claudeSessionId: record.claudeSessionId,
+          ...(this.wslPath(record.cwd)?.distro ? { distro: this.wslPath(record.cwd)!.distro } : {}),
           provider: view.provider,
           id: record.id,
           label: view.label,
@@ -1341,6 +1371,31 @@ export class ReframeApp {
       open: !!this.windowOfWorkspace(w.id),
     }));
     const hasMore = found.length > limit || pages.some(({ page }) => page.hasMore);
+    const pinnedItems: FoundListItem[] = [];
+    const knownKeys = new Set([
+      ...records.map((record) => chatKey(record.claudeSessionId, this.wslPath(record.cwd)?.distro)),
+      ...scanned.flatMap(({ source, running: entries }) =>
+        entries.map((entry) => chatKey(entry.sessionId, source.distro)),
+      ),
+    ]);
+    for (const key of this.state.pinnedChats || []) {
+      const pin = parseChatKey(key);
+      if (!pin || knownKeys.has(key) || found.some((item) => chatKey(item.claudeSessionId, item.distro) === key))
+        continue;
+      const source = sources.find((entry) => (entry.distro?.toLowerCase() || '') === (pin.distro || ''));
+      const info = await source?.transcripts.find(pin.id);
+      if (!source || !info?.cwd) continue;
+      const cwd = source.windowsPath(info.cwd);
+      if (!matches(info.title, cwd) || (folder && folderKey(folder) !== folderKey(cwd))) continue;
+      pinnedItems.push({
+        kind: 'found',
+        claudeSessionId: pin.id,
+        cwd,
+        title: info.title,
+        modifiedAt: info.modifiedAt,
+        ...(source.distro ? { distro: source.distro } : {}),
+      });
+    }
     const automatic = folderWorkspaces([
       ...records.map((r) => ({ cwd: r.cwd, id: r.claudeSessionId })),
       ...scanned.flatMap((s) =>
@@ -1356,6 +1411,9 @@ export class ReframeApp {
     }
     return {
       workspaces,
+      pinnedChats: this.state.pinnedChats || [],
+      pinnedItems,
+      expandedProjects: this.state.expandedProjects || [],
       folderWorkspaces: automatic,
       archives: this.state.archives || [],
       app,
@@ -1930,6 +1988,10 @@ export class ReframeApp {
       save: () => this.windows.send(windowId, IPC.promptWorkspaceName, null),
       update: () => this.updateWorkspace(windowId),
       open: (id) => this.openWorkspace(id),
+      manage: (id) => [
+        { label: this.t('workspace.rename'), click: () => this.windows.send(windowId, IPC.startRenameWorkspace, id) },
+        { label: this.t('workspace.delete'), click: () => void this.deleteWorkspace(windowId, id) },
+      ],
     });
     this.popup(menu, browserWindow);
   }
@@ -2441,6 +2503,19 @@ export class ReframeApp {
     on(IPC.listMenu, (id, _event, items: unknown) => {
       if (isListItems(items)) this.showListMenu(id, items);
     });
+    on(IPC.setProjectExpanded, (_id, _event, folder: unknown, expanded: unknown) => {
+      if (typeof folder !== 'string' || typeof expanded !== 'boolean') return;
+      const key = folderKey(folder);
+      if (!this.state.folderWorkspaces?.some((project) => project.id === key)) return;
+      this.state = {
+        ...this.state,
+        expandedProjects: expanded
+          ? [...new Set([...(this.state.expandedProjects || []), key])]
+          : (this.state.expandedProjects || []).filter((entry) => entry !== key),
+      };
+      this.save();
+      this.listChanged();
+    });
     on(IPC.openSessions, (id, _event, request: Partial<OpenSessionsRequest> | null) => {
       if (!isListItems(request?.items) || !OPEN_MODES.includes(request.mode as OpenMode)) return;
       if (request.target !== null && !isDropTarget(request.target)) return;
@@ -2545,7 +2620,7 @@ export class ReframeApp {
       await this.scanOutside(LIST_ASKED_MS);
       return this.sessionList(
         typeof query === 'string' ? query : '',
-        typeof limit === 'number' ? Math.min(limit, 500) : LIST_PAGE,
+        typeof limit === 'number' && Number.isSafeInteger(limit) && limit > 0 ? limit : LIST_PAGE,
         typeof folder === 'string' ? folder : undefined,
       );
     });

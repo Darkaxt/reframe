@@ -104,6 +104,8 @@ export interface TransferRequest {
 
 /** A session reframe manages, for the session list. */
 export interface AppListItem {
+  claudeSessionId: string;
+  distro?: string;
   provider?: Provider;
   kind: 'app';
   id: string;
@@ -154,6 +156,9 @@ export interface WorkspaceListItem {
 }
 
 export interface SessionList {
+  pinnedChats?: string[];
+  pinnedItems?: (AppListItem | RunningListItem | FoundListItem)[];
+  expandedProjects?: string[];
   folderWorkspaces?: FolderWorkspace[];
   archives?: { id: string; label: string; cwd: string; provider?: Provider; archive: string }[];
   workspaces: WorkspaceListItem[];
@@ -312,6 +317,7 @@ export interface ReframeApi {
   /** The group menu's "Rename" asks the window to edit the group's name in place. */
   onRenameGroup(listener: (groupId: string) => void): () => void;
   getSessionList(query: string, limit: number, folder?: string): Promise<SessionList>;
+  setProjectExpanded(folder: string, expanded: boolean): void;
   restoreArchive(id: string): Promise<{ ok: boolean; error?: string }>;
   /** The session list's first page (no search), sent whenever it changed. */
   onSessionList(listener: (list: SessionList) => void): () => void;
@@ -376,6 +382,7 @@ export const IPC = {
   renameSession: 'reframe:rename-session',
   startRenameSession: 'reframe:start-rename-session',
   sessionList: 'reframe:session-list',
+  setProjectExpanded: 'reframe:set-project-expanded',
   sessionListChanged: 'reframe:session-list-changed',
   openSession: 'reframe:open-session',
   removeSession: 'reframe:remove-session',

@@ -26,7 +26,7 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     void window.reframe.getDialogDefaults().then(({ recentFolders, preferences }) => {
       setRecent(recentFolders);
-      setCwd((current) => current || localStorage.getItem('claudegpt.folder') || recentFolders[0] || '');
+      setCwd((current) => current || recentFolders[0] || '');
       setNameFromFolder(preferences.nameFromFolder);
       // What Settings says new sessions start with, unless something was picked here already.
       setModel((current) => current || (providerRef.current === 'chatgpt' ? preferences.defaultModel : '') || '');

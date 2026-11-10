@@ -1,135 +1,219 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react';
-import type { FoundListItem, ListItemRef, RunningListItem } from '@shared/ipc';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react';
+import type { ListItemRef, SessionList } from '@shared/ipc';
 import { tileKey } from '@shared/layout';
-import { parseWslPath } from '@shared/wsl';
+import { folderKey } from '@shared/folder-workspaces';
+import { sidebarChats, type SidebarChat } from '@shared/sidebar-chats';
 import { useApp } from '../context';
 import { dragKind, setListDrag, setNodeDrag } from '../dnd';
 import { PAGE, type SessionListState } from '../session-list';
 import { exactTime, shortTime } from '../time';
-import { CloseIcon, LayersIcon } from './icons';
+import { CloseIcon, CollapseIcon, FolderIcon } from './icons';
 import { NameInput } from './NameInput';
 import { StatusDot } from './StatusDot';
 import { ProviderIcon } from './ProviderIcon';
-import { folderKey } from '@shared/folder-workspaces';
 
 const folderName = (cwd: string) => cwd.split(/[\\/]/).filter(Boolean).pop() ?? cwd;
 
-// What opening a list entry refers to; one in WSL carries its distribution along.
-const runningRef = (i: RunningListItem): ListItemRef => ({
-  kind: 'running',
-  pid: i.pid,
-  claudeSessionId: i.claudeSessionId,
-  ...(i.distro ? { distro: i.distro } : {}),
-});
-const foundRef = (i: FoundListItem): ListItemRef => ({
-  kind: 'found',
-  claudeSessionId: i.claudeSessionId,
-  ...(i.distro ? { distro: i.distro } : {}),
-});
-
-interface Row {
-  key: string;
-  ref: ListItemRef;
-}
-
-/**
- * All sessions: the ones reframe manages, and ones found outside it (running or past). A click opens one;
- * Shift+click selects a range and Ctrl+click (Cmd on macOS) single entries, to open them together from the
- * right-click menu or by dragging them into a window.
- */
+/** One conversation catalogue: pinned chats, project branches, then recents. */
 export function SessionSidebar({ sessionList }: { sessionList: SessionListState }) {
   const { t, locale, renamingSession, setRenamingSession, setDragging } = useApp();
-  const { list, query, setQuery, setLimit, fresh, reload, folder, setFolder } = sessionList;
+  const { list, query, setQuery, limit, setLimit, fresh, reload } = sessionList;
   const [archiveError, setArchiveError] = useState('');
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [projectPages, setProjectPages] = useState<Record<string, SessionList>>({});
+  const [projectErrors, setProjectErrors] = useState<Record<string, string>>({});
+  const [projectLimits, setProjectLimits] = useState<Record<string, number>>({});
+  const projectRequests = useRef(new Map<string, string>());
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [selected, setSelected] = useState<string[]>([]);
+  const [activeSection, setActiveSection] = useState('recents');
   const anchor = useRef<string | null>(null);
-  const [renamingWorkspace, setRenamingWorkspace] = useState<string | null>(null);
-  useEffect(() => window.reframe.onRenameWorkspace(setRenamingWorkspace), []);
-  // "5 minutes ago" moves on while the list stays the same. A time newer than `now` (used since) shows as now.
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
   }, []);
 
-  const ago = useMemo(() => {
-    const format = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
-    return (time: number) => {
-      const minutes = Math.round((time - Date.now()) / 60_000);
-      if (Math.abs(minutes) < 60) return format.format(minutes, 'minute');
-      const hours = Math.round(minutes / 60);
-      if (Math.abs(hours) < 24) return format.format(hours, 'hour');
-      return format.format(Math.round(hours / 24), 'day');
-    };
-  }, [locale]);
-  /** When a session was last used, short for its row and exact for hovering it. */
-  const used = (time: number | undefined): UsedTime | undefined =>
-    time === undefined
-      ? undefined
-      : {
-          short: shortTime(time, now, t, locale),
-          exact: t('list.usedAt', { when: exactTime(time, locale) }),
-        };
+  // Expanded branches request their own pages. Expanding a project never filters another section.
+  useEffect(() => {
+    for (const project of list?.folderWorkspaces || []) {
+      if (!list?.expandedProjects?.includes(project.id)) continue;
+      const requestKey = JSON.stringify([
+        query,
+        projectLimits[project.id] || PAGE,
+        project.sessionIds,
+        list.app,
+        list.running,
+        list.found,
+      ]);
+      if (projectRequests.current.get(project.id) === requestKey) continue;
+      projectRequests.current.set(project.id, requestKey);
+      void window.reframe.getSessionList(query, projectLimits[project.id] || PAGE, project.cwd).then(
+        (page) => {
+          if (!mounted.current || projectRequests.current.get(project.id) !== requestKey) return;
+          setProjectPages((current) => ({ ...current, [project.id]: page }));
+          setProjectErrors((current) => ({ ...current, [project.id]: '' }));
+        },
+        (error: unknown) => {
+          if (mounted.current && projectRequests.current.get(project.id) === requestKey)
+            setProjectErrors((current) => ({ ...current, [project.id]: String(error) }));
+        },
+      );
+    }
+  }, [list, query, projectLimits]);
 
-  const rows = useMemo<Row[]>(
-    () =>
-      list
-        ? [
-            ...list.app.map((i) => ({ key: `app:${i.id}`, ref: { kind: 'app' as const, sessionId: i.id } })),
-            ...list.running.map((i) => ({ key: `claude:${i.claudeSessionId}`, ref: runningRef(i) })),
-            ...list.found.map((i) => ({ key: `claude:${i.claudeSessionId}`, ref: foundRef(i) })),
-          ]
-        : [],
-    [list],
-  );
-  const chosen = selected.filter((key) => rows.some((r) => r.key === key));
-  const refsOf = (keys: string[]) => rows.filter((r) => keys.includes(r.key)).map((r) => r.ref);
+  const catalogue = useMemo(() => (list ? sidebarChats(list) : []), [list]);
+  const pinned = (list?.pinnedChats || []).flatMap((key) => {
+    const chat = catalogue.find((entry) => entry.key === key);
+    return chat ? [chat] : [];
+  });
+  const recent = catalogue.slice(0, limit);
+  const branches = (list?.folderWorkspaces || []).map((project) => ({
+    ...project,
+    expanded: list?.expandedProjects?.includes(project.id) || false,
+    page: projectPages[project.id],
+    chats: sidebarChats(
+      projectPages[project.id] ? { ...projectPages[project.id]!, app: list!.app, running: list!.running } : list!,
+    ).filter((chat) => folderKey(chat.cwd) === project.id),
+    limit: projectLimits[project.id] || PAGE,
+  }));
+  const rows = [
+    ...new Map(
+      [
+        ...pinned,
+        ...branches.filter((project) => project.expanded).flatMap((project) => project.chats.slice(0, project.limit)),
+        ...recent,
+      ].map((chat) => [chat.key, chat]),
+    ).values(),
+  ];
+  const chosen = selected.filter((key) => rows.some((row) => row.key === key));
+  const refsOf = (keys: string[]): ListItemRef[] => rows.filter((row) => keys.includes(row.key)).map((row) => row.ref);
 
-  const open = (item: ListItemRef) => {
-    window.reframe.openSession({ item, target: null });
-    setTimeout(reload, 300);
-  };
-
-  const onRowClick = (row: Row, event: MouseEvent) => {
-    const from = anchor.current ? rows.findIndex((r) => r.key === anchor.current) : -1;
+  const onRowClick = (chat: SidebarChat, section: string, event: MouseEvent) => {
+    setActiveSection(section);
+    const from = anchor.current ? rows.findIndex((row) => row.key === anchor.current) : -1;
     if (event.shiftKey && from >= 0) {
-      const to = rows.findIndex((r) => r.key === row.key);
-      setSelected(rows.slice(Math.min(from, to), Math.max(from, to) + 1).map((r) => r.key));
+      const to = rows.findIndex((row) => row.key === chat.key);
+      setSelected(rows.slice(Math.min(from, to), Math.max(from, to) + 1).map((row) => row.key));
       return;
     }
-    anchor.current = row.key;
+    anchor.current = chat.key;
     if (event.ctrlKey || event.metaKey) {
-      setSelected((keys) => (keys.includes(row.key) ? keys.filter((k) => k !== row.key) : [...keys, row.key]));
+      setSelected((keys) => (keys.includes(chat.key) ? keys.filter((key) => key !== chat.key) : [...keys, chat.key]));
       return;
     }
-    setSelected([row.key]);
-    open(row.ref);
+    setSelected([chat.key]);
+    window.reframe.openSession({ item: chat.ref, target: null });
   };
-  const onRowMenu = (row: Row, event: MouseEvent) => {
+  const onRowMenu = (chat: SidebarChat, section: string, event: MouseEvent) => {
     event.preventDefault();
-    const keys = chosen.includes(row.key) ? chosen : [row.key];
-    if (!chosen.includes(row.key)) {
+    setActiveSection(section);
+    const keys = chosen.includes(chat.key) ? chosen : [chat.key];
+    if (!chosen.includes(chat.key)) {
       setSelected(keys);
-      anchor.current = row.key;
+      anchor.current = chat.key;
     }
     window.reframe.showListMenu(refsOf(keys));
-    setTimeout(reload, 600);
   };
-  /** Dragging one of several selected entries takes all of them along. */
-  const onRowDrag = (row: Row, event: DragEvent, single: () => void) => {
-    if (chosen.length > 1 && chosen.includes(row.key)) setListDrag(event, refsOf(chosen));
-    else single();
-    // The tiles show where it can go at once, as for a dragged tile (otherwise only once it entered one of them).
+  const onRowDrag = (chat: SidebarChat, event: DragEvent) => {
+    if (chosen.length > 1 && chosen.includes(chat.key)) setListDrag(event, refsOf(chosen));
+    else if (chat.item.kind === 'app' && chat.item.windowId)
+      setNodeDrag(event, 'tile', { key: tileKey(chat.item.id), windowId: chat.item.windowId });
+    else setListDrag(event, [chat.ref]);
     const kind = dragKind(event);
-    const tile = kind === 'tile' && row.ref.kind === 'app' ? tileKey(row.ref.sessionId) : null;
-    if (kind) setDragging({ key: tile, kind });
+    if (kind)
+      setDragging({ key: kind === 'tile' && chat.ref.kind === 'app' ? tileKey(chat.ref.sessionId) : null, kind });
   };
-  const rowProps = (row: Row) => ({
-    selected: chosen.includes(row.key),
-    onClick: (event: MouseEvent) => onRowClick(row, event),
-    onContextMenu: (event: MouseEvent) => onRowMenu(row, event),
-  });
+
+  const renderChat = (chat: SidebarChat, section: string) => {
+    const item = chat.item;
+    const managed = item.kind === 'app' ? item : undefined;
+    const stamp = chat.lastActiveAt ? shortTime(chat.lastActiveAt, now, t, locale) : undefined;
+    const status = managed?.elsewhere
+      ? 'Running'
+      : managed
+        ? managed.windowNumber
+          ? t('list.window', { n: managed.windowNumber })
+          : t('list.ended')
+        : item.kind === 'running'
+          ? 'Running'
+          : t('list.ended');
+    const meta = [section.startsWith('project:') ? '' : folderName(chat.cwd), status].filter(Boolean).join(' · ');
+    const hint = managed?.windowId ? t('list.showHint') : t('list.openHint');
+    const tooltip = [
+      chat.label,
+      chat.cwd,
+      hint,
+      chat.lastActiveAt ? t('list.usedAt', { when: exactTime(chat.lastActiveAt, locale) }) : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+    return (
+      <div className="sidebar-row-wrap" key={chat.key}>
+        {managed &&
+        renamingSession?.place === 'list' &&
+        renamingSession.sessionId === managed.id &&
+        activeSection === section ? (
+          <div className="sidebar-row is-selected">
+            <NameInput
+              className="sidebar-name-input"
+              initial={chat.label}
+              placeholder={t('session.automaticName')}
+              onCommit={(name) => window.reframe.renameSession(managed.id, name)}
+              onDone={() => setRenamingSession(null)}
+            />
+          </div>
+        ) : (
+          <button
+            className={`sidebar-row${chosen.includes(chat.key) ? ' is-selected' : ''}${fresh.has(item.claudeSessionId) ? ' is-new' : ''}`}
+            data-session={managed?.id}
+            data-chat={chat.key}
+            aria-pressed={chosen.includes(chat.key)}
+            title={tooltip}
+            draggable
+            onMouseDown={(event) => event.shiftKey && event.preventDefault()}
+            onClick={(event) => onRowClick(chat, section, event)}
+            onContextMenu={(event) => onRowMenu(chat, section, event)}
+            onDragStart={(event) => onRowDrag(chat, event)}
+          >
+            {item.kind === 'running' ? (
+              <span className="running-mark" aria-label="Running">
+                ▶
+              </span>
+            ) : (
+              <StatusDot status={chat.status} />
+            )}
+            <ProviderIcon provider={chat.provider} defaulted={chat.defaulted} />
+            <span className="sidebar-text">
+              <span className="sidebar-title-line">
+                <span className="sidebar-title sidebar-chat-title" title={chat.label}>
+                  {chat.label}
+                </span>
+                {stamp && <span className="sidebar-used">{stamp}</span>}
+              </span>
+              <span className="sidebar-meta">{meta}</span>
+            </span>
+          </button>
+        )}
+        {managed && !managed.windowId && (
+          <button
+            className="icon-button sidebar-remove"
+            title={t('list.remove')}
+            aria-label={t('list.remove')}
+            onClick={() => window.reframe.removeSession(managed.id)}
+          >
+            <CloseIcon />
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <aside
@@ -146,296 +230,140 @@ export function SessionSidebar({ sessionList }: { sessionList: SessionListState 
         onChange={(event) => {
           setQuery(event.target.value);
           setLimit(() => PAGE);
+          setProjectLimits({});
+          setProjectPages({});
+          projectRequests.current.clear();
         }}
       />
       <div className="sidebar-scroll">
-        <h3 className="sidebar-heading">Folders</h3>
-        <button
-          className={`sidebar-row${!folder ? ' is-selected' : ''}`}
-          aria-pressed={!folder}
-          onClick={() => setFolder('')}
-        >
-          All chats
-        </button>
-        {list?.folderWorkspaces?.map((w) => (
-          <button
-            key={w.id}
-            className={`sidebar-row folder-workspace${folder && folderKey(folder) === w.id ? ' is-selected' : ''}`}
-            title={w.cwd}
-            aria-pressed={!!folder && folderKey(folder) === w.id}
-            onClick={() => setFolder(w.cwd)}
-          >
-            <span aria-hidden="true">▣</span>
-            <span className="sidebar-text">
-              <span className="sidebar-title">{w.name}</span>
-              <span className="sidebar-meta">{w.cwd}</span>
-            </span>
-            <span>{w.sessionIds.length}</span>
-          </button>
-        ))}
-        {!!list?.workspaces.length && <h3 className="sidebar-heading">{t('list.workspaces')}</h3>}
-        {list?.workspaces.map((workspace) =>
-          renamingWorkspace === workspace.id ? (
-            <div className="sidebar-row is-selected" key={workspace.id}>
-              <span className="workspace-mark" aria-hidden="true">
-                <LayersIcon />
-              </span>
-              <NameInput
-                className="sidebar-name-input"
-                initial={workspace.name}
-                onCommit={(name) => {
-                  if (name) window.reframe.renameWorkspace(workspace.id, name);
-                  setTimeout(reload, 100);
-                }}
-                onDone={() => setRenamingWorkspace(null)}
-              />
-            </div>
+        <section className="sidebar-pinned" aria-label="Pinned">
+          <h3 className="sidebar-heading">Pinned</h3>
+          {pinned.length ? (
+            pinned.map((chat) => renderChat(chat, 'pinned'))
           ) : (
-            <button
-              key={workspace.id}
-              className={`sidebar-row workspace-row${workspace.open ? ' is-open' : ''}`}
-              data-workspace={workspace.id}
-              title={t('list.workspaceHint')}
-              onClick={() => {
-                window.reframe.openWorkspace(workspace.id);
-                setTimeout(reload, 300);
-              }}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                window.reframe.showWorkspaceItemMenu(workspace.id);
-                setTimeout(reload, 600);
-              }}
-            >
-              <span className="workspace-mark" aria-hidden="true">
-                <LayersIcon />
-              </span>
-              <span className="sidebar-text">
-                <span className="sidebar-title">{workspace.name}</span>
-                <span className="sidebar-meta">
-                  {t('workspace.meta', { count: workspace.sessions, when: ago(workspace.savedAt) })}
+            <p className="sidebar-empty">Pin chats from their context menu.</p>
+          )}
+        </section>
+        <section className="sidebar-projects" aria-label="Projects">
+          <h3 className="sidebar-heading">Projects</h3>
+          {!branches.length && <p className="sidebar-empty">No projects yet.</p>}
+          {branches.map((project) => (
+            <div className="sidebar-project" key={project.id} data-project={project.id}>
+              <button
+                className="sidebar-row folder-workspace"
+                title={project.cwd}
+                aria-expanded={project.expanded}
+                onClick={() => window.reframe.setProjectExpanded(project.cwd, !project.expanded)}
+              >
+                <span className={`project-chevron${project.expanded ? ' is-expanded' : ''}`}>
+                  <CollapseIcon />
                 </span>
-              </span>
-            </button>
-          ),
-        )}
-
-        <h3 className="sidebar-heading">{t('list.inApp')}</h3>
-        {list?.app.length === 0 && <p className="sidebar-empty">{t('list.emptyApp')}</p>}
-        {list?.app.map((item) => {
-          const row: Row = { key: `app:${item.id}`, ref: { kind: 'app', sessionId: item.id } };
-          if (renamingSession?.place === 'list' && renamingSession.sessionId === item.id) {
-            return (
-              <div className="sidebar-row-wrap" key={item.id}>
-                <div className="sidebar-row is-selected">
-                  <StatusDot status={item.status} />
-                  <NameInput
-                    className="sidebar-name-input"
-                    initial={item.label}
-                    placeholder={t('session.automaticName')}
-                    onCommit={(name) => {
-                      window.reframe.renameSession(item.id, name);
-                      setTimeout(reload, 100);
-                    }}
-                    onDone={() => setRenamingSession(null)}
-                  />
+                <FolderIcon />
+                <span className="sidebar-text">
+                  <span className="sidebar-title">{project.name}</span>
+                  {branches.filter((other) => other.name === project.name).length > 1 && (
+                    <span className="sidebar-meta">{project.cwd}</span>
+                  )}
+                </span>
+                <span className="sidebar-project-count">{project.sessionIds.length}</span>
+              </button>
+              {project.expanded && (
+                <div className="sidebar-project-chats" role="group" aria-label={`${project.name} chats`}>
+                  {project.chats.slice(0, project.limit).map((chat) => renderChat(chat, `project:${project.id}`))}
+                  {projectErrors[project.id] ? (
+                    <p className="sidebar-error" role="alert">
+                      {projectErrors[project.id]}{' '}
+                      <button
+                        className="button"
+                        onClick={() => {
+                          projectRequests.current.delete(project.id);
+                          setProjectLimits((current) => ({ ...current }));
+                        }}
+                      >
+                        Reload chats
+                      </button>
+                    </p>
+                  ) : !project.page ? (
+                    <p className="sidebar-empty" role="status">
+                      Loading chats…
+                    </p>
+                  ) : !project.chats.length ? (
+                    <p className="sidebar-empty">No matching chats.</p>
+                  ) : null}
+                  {(project.page?.hasMore || project.chats.length > project.limit) && (
+                    <button
+                      className="button sidebar-more"
+                      onClick={() =>
+                        setProjectLimits((current) => ({ ...current, [project.id]: project.limit + PAGE }))
+                      }
+                    >
+                      {t('list.more')}
+                    </button>
+                  )}
                 </div>
-              </div>
-            );
-          }
-          return (
-            <div className="sidebar-row-wrap" key={item.id}>
-              <ListRow
-                {...rowProps(row)}
-                title={item.windowId ? t('list.showHint') : t('list.openHint')}
-                session={item.id}
-                onDragStart={(event) =>
-                  onRowDrag(row, event, () => {
-                    // A session shown in a window is moved like its tile; one in no window is opened where it lands.
-                    if (item.windowId) setNodeDrag(event, 'tile', { key: tileKey(item.id), windowId: item.windowId });
-                    else setListDrag(event, [row.ref]);
-                  })
-                }
-                mark={
-                  <>
-                    <StatusDot status={item.status} />
-                    <ProviderIcon provider={item.provider} />
-                  </>
-                }
-                label={item.label}
-                used={used(item.lastActiveAt)}
-                meta={[
-                  folderName(item.cwd),
-                  parseWslPath(item.cwd)?.distro,
-                  item.windowNumber && t('list.window', { n: item.windowNumber }),
-                  item.elsewhere ? t('list.running') : !item.windowNumber && t('list.ended'),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              />
-              {!item.windowId && (
-                <button
-                  className="icon-button sidebar-remove"
-                  title={t('list.remove')}
-                  aria-label={t('list.remove')}
-                  onClick={() => {
-                    window.reframe.removeSession(item.id);
-                    setTimeout(reload, 100);
-                  }}
-                >
-                  <CloseIcon />
-                </button>
               )}
             </div>
-          );
-        })}
-
-        <h3 className="sidebar-heading">{t('list.found')}</h3>
+          ))}
+        </section>
+        <section className="sidebar-recents" aria-label="Recents">
+          <h3 className="sidebar-heading">Recents</h3>
+          {recent.length ? (
+            recent.map((chat) => renderChat(chat, 'recents'))
+          ) : (
+            <p className="sidebar-empty">No matching chats.</p>
+          )}
+          {(list?.hasMore || catalogue.length > limit) && (
+            <button className="button sidebar-more" onClick={() => setLimit((n) => n + PAGE)}>
+              {t('list.more')}
+            </button>
+          )}
+        </section>
+        {!!list?.archives?.length && (
+          <details className="sidebar-archives">
+            <summary>Archived chats ({list.archives.length})</summary>
+            {list.archives.map((archive) => (
+              <button
+                className="sidebar-row"
+                key={archive.id}
+                title={`${archive.label}\n${archive.cwd}\n${archive.archive}`}
+                disabled={restoring !== null}
+                onClick={() => {
+                  setArchiveError('');
+                  setRestoring(archive.id);
+                  void window.reframe
+                    .restoreArchive(archive.id)
+                    .then((result) => {
+                      if (!result.ok) setArchiveError(result.error || 'Restore failed.');
+                      reload();
+                    })
+                    .finally(() => setRestoring(null));
+                }}
+              >
+                <ProviderIcon provider={archive.provider} />
+                <span className="sidebar-text">
+                  <span className="sidebar-title sidebar-chat-title" title={archive.label}>
+                    {archive.label}
+                  </span>
+                  <span className="sidebar-meta">{restoring === archive.id ? 'Restoring…' : 'Restore chat'}</span>
+                </span>
+              </button>
+            ))}
+          </details>
+        )}
+        {archiveError && (
+          <p className="sidebar-error" role="alert">
+            {archiveError}
+          </p>
+        )}
         {list?.wslStopped.map((distro) => (
           <div className="sidebar-note" key={distro}>
             <span>{t('list.wslStopped', { distro })}</span>
-            <button
-              className="button"
-              onClick={() => {
-                window.reframe.startWsl(distro);
-                setTimeout(reload, 2000);
-              }}
-            >
+            <button className="button" onClick={() => window.reframe.startWsl(distro)}>
               {t('list.wslStart')}
             </button>
           </div>
         ))}
-        {list && list.running.length + list.found.length === 0 && (
-          <p className="sidebar-empty">{t('list.emptyFound')}</p>
-        )}
-        {list?.running.map((item) => {
-          const row: Row = { key: `claude:${item.claudeSessionId}`, ref: runningRef(item) };
-          return (
-            <ListRow
-              key={item.claudeSessionId}
-              {...rowProps(row)}
-              isNew={fresh.has(item.claudeSessionId)}
-              title={t('list.openHint')}
-              onDragStart={(event) => onRowDrag(row, event, () => setListDrag(event, [row.ref]))}
-              mark={
-                <>
-                  <span className="running-mark" aria-hidden="true">
-                    ▶
-                  </span>
-                  <ProviderIcon />
-                </>
-              }
-              label={item.name ?? folderName(item.cwd)}
-              used={used(item.lastActiveAt)}
-              meta={[folderName(item.cwd), item.distro, t('list.running')].filter(Boolean).join(' · ')}
-            />
-          );
-        })}
-        {list?.found.map((item) => {
-          const row: Row = { key: `claude:${item.claudeSessionId}`, ref: foundRef(item) };
-          return (
-            <ListRow
-              key={item.claudeSessionId}
-              {...rowProps(row)}
-              isNew={fresh.has(item.claudeSessionId)}
-              title={`${item.cwd}\n${t('list.openHint')}`}
-              onDragStart={(event) => onRowDrag(row, event, () => setListDrag(event, [row.ref]))}
-              mark={
-                <>
-                  <StatusDot status="ended" />
-                  <ProviderIcon />
-                </>
-              }
-              label={item.title ?? folderName(item.cwd)}
-              used={used(item.modifiedAt)}
-              meta={[folderName(item.cwd), item.distro].filter(Boolean).join(' · ')}
-            />
-          );
-        })}
-        {list?.hasMore && (
-          <button className="button sidebar-more" onClick={() => setLimit((n) => n + PAGE)}>
-            {t('list.more')}
-          </button>
-        )}
-        {!!list?.archives?.length && <h3 className="sidebar-heading">Archived chats</h3>}
-        {list?.archives?.map((a) => (
-          <div className="sidebar-row-wrap" key={a.id}>
-            <button
-              className="sidebar-row"
-              title={`${a.cwd}\n${a.archive}`}
-              disabled={restoring !== null}
-              onClick={() => {
-                setArchiveError('');
-                setRestoring(a.id);
-                void window.reframe
-                  .restoreArchive(a.id)
-                  .then((r) => {
-                    if (!r.ok) setArchiveError(r.error || 'Restore failed.');
-                    reload();
-                  })
-                  .finally(() => setRestoring(null));
-              }}
-            >
-              <ProviderIcon provider={a.provider} />
-              <span className="sidebar-text">
-                <span className="sidebar-title">{a.label}</span>
-                <span className="sidebar-meta">{restoring === a.id ? 'Restoring…' : 'Restore chat'}</span>
-              </span>
-            </button>
-          </div>
-        ))}
-        {archiveError && (
-          <p className="form-error" role="alert">
-            {archiveError}
-          </p>
-        )}
       </div>
     </aside>
-  );
-}
-
-interface UsedTime {
-  short: string;
-  exact: string;
-}
-
-interface ListRowProps {
-  selected: boolean;
-  isNew?: boolean;
-  session?: string;
-  title: string;
-  mark: ReactNode;
-  label: string;
-  /** When it was last used, at the end of the name line. */
-  used?: UsedTime;
-  meta: string;
-  onClick: (event: MouseEvent) => void;
-  onContextMenu: (event: MouseEvent) => void;
-  onDragStart: (event: DragEvent) => void;
-}
-
-function ListRow(p: ListRowProps) {
-  return (
-    <button
-      className={`sidebar-row${p.selected ? ' is-selected' : ''}${p.isNew ? ' is-new' : ''}`}
-      data-session={p.session}
-      aria-pressed={p.selected}
-      // The exact time of the last use, below the hint.
-      title={p.used ? `${p.title}\n${p.used.exact}` : p.title}
-      draggable
-      // Shift+click selects entries, not text.
-      onMouseDown={(event) => event.shiftKey && event.preventDefault()}
-      onClick={p.onClick}
-      onContextMenu={p.onContextMenu}
-      onDragStart={p.onDragStart}
-    >
-      {p.mark}
-      <span className="sidebar-text">
-        <span className="sidebar-title-line">
-          <span className="sidebar-title">{p.label}</span>
-          {p.used && <span className="sidebar-used">{p.used.short}</span>}
-        </span>
-        <span className="sidebar-meta">{p.meta}</span>
-      </span>
-    </button>
   );
 }

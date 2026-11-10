@@ -63,6 +63,7 @@ export interface WorkspaceMenuOptions {
   save: () => void;
   update: () => void;
   open: (workspaceId: string) => void;
+  manage?: (workspaceId: string) => MenuItemConstructorOptions[];
 }
 
 export function workspaceMenu(t: Translate, o: WorkspaceMenuOptions): Menu {
@@ -71,6 +72,15 @@ export function workspaceMenu(t: Translate, o: WorkspaceMenuOptions): Menu {
     ...(o.current ? [{ label: t('workspace.update', { name: o.current.name }), click: o.update }] : []),
     { type: 'separator' },
     ...workspaceItems(t, o.workspaces, o.open),
+    ...(o.manage && o.workspaces.length
+      ? [
+          { type: 'separator' as const },
+          {
+            label: 'Manage saved layouts',
+            submenu: o.workspaces.map((workspace) => ({ label: workspace.name, submenu: o.manage!(workspace.id) })),
+          },
+        ]
+      : []),
   ]);
 }
 

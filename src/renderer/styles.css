@@ -1093,6 +1093,46 @@ select {
   min-width: 0;
 }
 
+/* Full conversation names remain readable without hovering, including unbroken names. */
+.sidebar-chat-title {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+.sidebar-project-chats {
+  margin-left: 16px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+
+.project-chevron {
+  display: inline-flex;
+  transform: rotate(180deg);
+  flex: none;
+}
+
+.project-chevron.is-expanded {
+  transform: rotate(-90deg);
+}
+
+.folder-workspace > svg,
+.sidebar-project-count {
+  flex: none;
+  color: var(--muted);
+}
+
+.sidebar-archives {
+  margin: 14px 6px;
+}
+
+.sidebar-archives > summary {
+  cursor: pointer;
+  color: var(--muted);
+  padding: 6px 0;
+}
+
 .sidebar-used {
   flex: none;
   color: var(--muted);

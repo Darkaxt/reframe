@@ -1,6 +1,6 @@
 // End to end: a window saved as a workspace (from the toolbar's Workspaces menu, with a name) opens again later as
 // a window of its own, with its group and sessions resumed; opened while its window is there, that one just comes
-// up. Workspaces survive a restart, and are renamed and deleted from the session list.
+// up. Workspaces survive a restart and are managed from the Workspaces toolbar.
 import { expect, test, type Page } from '@playwright/test';
 import { callMain, captureWindows, cleanup, launch, newSession, pageOf, quit, setup } from './helpers';
 
@@ -35,19 +35,17 @@ test('workspaces: save a window, open it again, rename and delete it', async () 
     await callMain(app, 'endGroup', groupId);
     await expect.poll(() => app.windows().length).toBe(1);
 
-    // Opened from the session list: a window of its own again, with the group and both sessions resumed.
-    await page.getByRole('button', { name: 'Sessions', exact: true }).click();
-    const row = page.locator('.workspace-row', { hasText: 'Frontend' });
+    // Saved layouts remain in the toolbar while the sidebar is reserved for chats/projects.
     opened = app.waitForEvent('window');
-    await row.click();
+    await page.getByRole('button', { name: 'Workspaces' }).click();
+    expect(await callMain<boolean>(app, 'clickMenuItem', 'Frontend')).toBe(true);
     const restored = await opened;
     await expect(restored.locator('.group .tile')).toHaveCount(2);
     await expect.poll(() => [starts('alpha'), starts('beta')]).toEqual([2, 2]);
-    await expect(row).toHaveClass(/is-open/);
 
     // Again while its window is open: that one comes up, no second copy.
-    await row.click();
-    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: 'Workspaces' }).click();
+    expect(await callMain<boolean>(app, 'clickMenuItem', 'Frontend (open)')).toBe(true);
     expect(app.windows()).toHaveLength(2);
 
     // After a restart: still saved, and its window is back like any other. The first window, never used, is not
@@ -59,23 +57,18 @@ test('workspaces: save a window, open it again, rename and delete it', async () 
     const other: Page = await pageOf(app, workspaceWindow.id);
     await expect(other.locator('.toolbar')).toContainText('Frontend');
 
-    // Rename and delete from the list, opened in that window.
-    await other.getByRole('button', { name: 'Sessions', exact: true }).click();
-    await expect(other.locator('.sidebar')).toBeVisible();
-    const listed = other.locator('.workspace-row', { hasText: 'Frontend' });
-    await listed.click({ button: 'right' });
+    // Existing layout management is available under the toolbar's Manage saved layouts menu.
+    await other.getByRole('button', { name: /Workspaces/ }).click();
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Rename')).toBe(true);
-    await other.locator('.sidebar-name-input').fill('Backend');
-    await other.keyboard.press('Enter');
-    await expect(other.locator('.workspace-row', { hasText: 'Backend' })).toBeVisible();
+    await other.getByRole('dialog').getByRole('textbox').fill('Backend');
+    await other.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
     await expect(other.locator('.toolbar')).toContainText('Backend');
 
     await app.evaluate(({ dialog }) => {
       Object.assign(dialog, { showMessageBox: async () => ({ response: 0, checkboxChecked: false }) });
     });
-    await other.locator('.workspace-row', { hasText: 'Backend' }).click({ button: 'right' });
+    await other.getByRole('button', { name: /Workspaces/ }).click();
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Delete')).toBe(true);
-    await expect(other.locator('.workspace-row')).toHaveCount(0);
     await expect.poll(() => state().workspaces).toEqual([]);
     await expect(other.locator('.toolbar')).not.toContainText('Backend');
     await expect(other.locator('.group .tile')).toHaveCount(2); // the window itself stays
@@ -106,11 +99,9 @@ test('a workspace saved from the main window opens as a window of its own once t
     await expect(page.locator('.toolbar')).not.toContainText('Main work');
 
     // So opening the workspace gives it a window of its own again, with the session resumed.
-    await page.getByRole('button', { name: 'Sessions', exact: true }).click();
-    const row = page.locator('.workspace-row', { hasText: 'Main work' });
-    await expect(row).not.toHaveClass(/is-open/);
     const opened = app.waitForEvent('window');
-    await row.click();
+    await page.getByRole('button', { name: 'Workspaces' }).click();
+    expect(await callMain<boolean>(app, 'clickMenuItem', 'Main work')).toBe(true);
     const restored = await opened;
     await expect(restored.locator('.tile')).toHaveCount(1);
     await expect(restored.locator('.toolbar')).toContainText('Main work');

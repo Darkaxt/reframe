@@ -1,6 +1,12 @@
 // Small inline icons (currentColor), so no icon font or asset pipeline is needed.
 const base = { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6 };
 
+export const FolderIcon = () => (
+  <svg {...base} aria-hidden="true">
+    <path d="M1.5 4V3h5l1.5 2h6.5v8H1.5V4Z" strokeLinejoin="round" />
+  </svg>
+);
+
 export const CollapseIcon = () => (
   <svg {...base} aria-hidden="true">
     <path d="M10 3.5 5.5 8l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />

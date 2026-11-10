@@ -55,7 +55,7 @@ test('a session resumed in another terminal is taken over, not run twice', async
     await expect.poll(running, { timeout: 10_000 }).toBe(1);
     await page.getByRole('button', { name: 'Sessions' }).click();
     // In reframe's list as running elsewhere, and not a second time among the other terminals' sessions.
-    await expect(row(page, 'alpha')).toContainText('running elsewhere', { timeout: 10_000 });
+    await expect(row(page, 'alpha')).toContainText('Running', { timeout: 10_000 });
     await expect(page.locator('.sidebar-row[draggable="true"]')).toHaveCount(1);
 
     await answerDialogs(app, 0);

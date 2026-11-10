@@ -1,14 +1,12 @@
 import { providerName, type Provider } from '@shared/providers';
 
 // Brand paths: LobeHub lobe-icons (MIT), sources and license in docs/provider-icons.md.
-export function ProviderIcon({ provider }: { provider?: Provider }) {
+export function ProviderIcon({ provider, defaulted = false }: { provider?: Provider; defaulted?: boolean }) {
+  const label = defaulted
+    ? `${providerName(provider)} (default; historical provider not recorded)`
+    : providerName(provider);
   return (
-    <span
-      className={`provider-icon provider-${provider || 'unknown'}`}
-      role="img"
-      aria-label={providerName(provider)}
-      title={providerName(provider)}
-    >
+    <span className={`provider-icon provider-${provider || 'unknown'}`} role="img" aria-label={label} title={label}>
       {provider ? (
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
           <path

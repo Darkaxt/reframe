@@ -167,6 +167,8 @@ export const appStateSchema = z.object({
   // Added after the first release of the format; older files get the defaults.
   preferences: preferencesSchema.default(DEFAULT_PREFERENCES),
   workspaces: z.array(workspaceSchema).default([]),
+  pinnedChats: z.array(z.string()).optional(),
+  expandedProjects: z.array(z.string()).optional(),
   folderWorkspaces: z
     .array(z.object({ id: z.string(), cwd: z.string(), name: z.string(), sessionIds: z.array(z.string()) }))
     .optional(),

@@ -7,6 +7,9 @@ directories:
   output: dist
   buildResources: build
 files:
+  - resources/icon.png
+  - resources/tray.png
+  - resources/tray@2x.png
   - docs/provider-icons.md
   - out/**
   - package.json
@@ -35,6 +38,9 @@ win:
   files:
     # A platform matcher with exclusions alone implicitly includes the entire project.
     # Keep positive runtime patterns here too, including when output lives outside dist/.
+    - resources/icon.png
+    - resources/tray.png
+    - resources/tray@2x.png
     - out/**
     - package.json
     - docs/provider-icons.md

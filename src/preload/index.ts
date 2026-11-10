@@ -64,6 +64,7 @@ const api: ReframeApi = {
   renameSession: (sessionId, name) => ipcRenderer.send(IPC.renameSession, sessionId, name),
   onRenameSession: (listener) => subscribe<SessionRename>(IPC.startRenameSession, listener),
   getSessionList: (query, limit, folder) => ipcRenderer.invoke(IPC.sessionList, query, limit, folder),
+  setProjectExpanded: (folder, expanded) => ipcRenderer.send(IPC.setProjectExpanded, folder, expanded),
   restoreArchive: (id) => ipcRenderer.invoke(IPC.restoreArchive, id),
   onSessionList: (listener) => subscribe<SessionList>(IPC.sessionListChanged, listener),
   openSession: (request) => ipcRenderer.send(IPC.openSession, request),

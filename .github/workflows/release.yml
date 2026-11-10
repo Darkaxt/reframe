@@ -12,6 +12,9 @@ permissions:
 
 jobs:
   draft:
+    # Managed ClaudeGPT portable releases use the reviewed Windows delivery contract.
+    # Do not also launch the inherited installer/multi-platform publication path.
+    if: github.repository != 'Darkaxt/reframe'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

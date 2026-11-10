@@ -42,7 +42,7 @@ test('session list: reopen, remove, resume a found session, take over a running 
     await page.getByRole('button', { name: 'Sessions' }).click();
     await expect(row(page, 'alpha')).toContainText('window 1');
     await expect(row(page, 'Parser refactor')).toBeVisible();
-    await expect(row(page, 'outside')).toContainText('running elsewhere');
+    await expect(row(page, 'outside')).toContainText('Running');
 
     // Search filters every section.
     await page.getByPlaceholder('Search sessions').fill('parser');

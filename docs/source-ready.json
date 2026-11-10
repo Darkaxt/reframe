@@ -1,14 +1,244 @@
 {
+  "sourceBase": "0a13cbb048c48630d76e0374890bc431dea3f0c0",
+  "checksNotYetRun": [
+    "Published feed and independently retrieved delivery",
+    "Fresh idle installed cutover",
+    "Owner-operated native Anthropic authentication and one benign request"
+  ],
+  "implementationGaps": [],
+  "testsPrepared": [
+    "src/shared/sidebar-chats.test.ts",
+    "e2e/project-tree.spec.ts",
+    "e2e/sidebar-titles.spec.ts",
+    "e2e/claudegpt.spec.ts",
+    "e2e/workspaces.spec.ts",
+    "e2e/list.spec.ts",
+    "e2e/sessions.spec.ts",
+    "src/main/updates.test.ts",
+    "src/shared/providers.test.ts",
+    "src/main/state/store.test.ts",
+    "src/main/log.test.ts",
+    "e2e/tray-assets.spec.ts",
+    "e2e/logging.spec.ts"
+  ],
   "schema": "reframe.source-ready.v1",
+  "wiring": "Existing state/preload/IPC/main own pins and expansion; stable source-qualified native chat IDs survive adoption. Shared catalogue orders all sources. Expanded branches retain original reads and page independently; no global folder filter or fixed 500-item reachability ceiling. Layout rename/delete remains in Workspaces toolbar. Context actions and native safeguards preserved. No automatic compaction. Semantic release/channel metadata; portable auto-download/install remains off.",
+  "scope": "Owner-requested Pinned/Projects/Recents sidebar: one stable chat identity, independent paged folder tree, persisted pin/expansion and pin adoption, full titles/default icon, preserved layouts/selection/history/route controls and corrected portable release metadata; closed-launcher stderr repair preserves durable logs and app responsiveness",
+  "launch": "Reviewed private validate-refinements.ps1 and existing maintenance/build-windows.ps1; exact native D scratch registered in aa9754dd404eef94ac2c988477245a2b",
   "status": "source_ready_for_validation",
-  "baseCommit": "060ff208b7c2c82cad11785b8e3652bca11f49a6",
-  "originalContentSha256": "9faad84935fefdf508f4d386fe5edd8b91b9b1f5d3da3230a86f4579ad0d4727",
-  "contentSha256": "d1fd1c5c60f89e52c291083130865f97d993c144ff8c22796bbfc94bccecfce5",
-  "correction": "CI 42752825563 found the fork repository expectation and creator-link provenance mismatch, plus three broad sidebar selectors counting new folder controls as session rows. Creator/repository destinations and exact draggable-session selectors are corrected. Rebuilt package passed About/provider/layout checks; affected session/takeover checks now apply without a second build. Existing routing/history checks apply unchanged. Prior model-preservation correction passed.",
-  "scope": "claudegpt-spec R2-R6: provider controls/routing/persistence/icons; automatic folder catalogue/filter/persistence; exact archive/delete, verified ZIP restore and interruption recovery; native lifecycle ownership",
-  "sourceEvidence": ["src/shared/providers.ts", "src/shared/folder-workspaces.ts", "src/main/app.ts", "src/main/history.ts", "maintenance/history_backend.py", "src/main/sessions.ts", "src/renderer/components", "src/shared/state.ts", "src/shared/ipc.ts", "src/preload/index.ts", "electron-builder.yml"],
-  "testsPrepared": ["src/shared/providers.test.ts", "src/shared/folder-workspaces.test.ts", "maintenance/test_history_backend.py", "e2e/claudegpt.spec.ts", "affected upstream tests"],
-  "integration": "Fork exists; proxy component registration/docs identify independent GUI source, build and release. Final verified commit/submodule/release pin belongs to delivery stage.",
-  "checksNotYetRun": ["typecheck", "lint", "unit tests", "Windows helper fixtures", "Electron UI", "production build/package", "real providers", "installed cutover/rollback"],
-  "launch": "maintenance/build-windows.ps1; private task-owned D: scratch and pinned helper bindings; source readiness is not verification"
+  "inputHashes": [
+    {
+      "file": ".github/workflows/release.yml",
+      "sha256": "95aba4798c7abb92ea35d070078866a966eb9ff6406d547689544d3b2013827d"
+    },
+    {
+      "file": "docs/RELEASING.md",
+      "sha256": "fe3ae146204c71713a008b1ea0da917a5be61105eca003f0ed928510cf2fdc94"
+    },
+    {
+      "file": "docs/claudegpt-spec.md",
+      "sha256": "fdfe705939fe187cf6dd756b16b004f9a646b0b4127dcb9e1fc199d48f22ac09"
+    },
+    {
+      "file": "e2e/claudegpt.spec.ts",
+      "sha256": "6f2a11fbbc28f8c4bcc1c203cd50c2ead073d4c713b8fa42daac0f0eae4a8b50"
+    },
+    {
+      "file": "e2e/elsewhere.spec.ts",
+      "sha256": "1918bea6a6755f8aa0d7325a12d4d26941c88e8e58c5f366535902733ab85a04"
+    },
+    {
+      "file": "e2e/sessions.spec.ts",
+      "sha256": "efe721d504bec9fae157ccd729b90e61316006f979a226a639fc7401ae267b0e"
+    },
+    {
+      "file": "e2e/workspaces.spec.ts",
+      "sha256": "ce4840fa0ca99a56d6793132b106666bef9a5d8df36ebac0c1e99ea0a9e3d2ba"
+    },
+    {
+      "file": "electron-builder.yml",
+      "sha256": "8bd1415bdbbe9ea64c1563d2e664f9ce8610b49bc5fac4d3a3e074af67af0888"
+    },
+    {
+      "file": "maintenance/inspect-payload.mjs",
+      "sha256": "30a2fb556919f7f6d81bbca35ea8f73a885b10f7d895c23442ccd57c544ca4cb"
+    },
+    {
+      "file": "package-lock.json",
+      "sha256": "741aa83cf6a146689fe7f552b62fdfaa5fe6779e409c2722b8019e7ee2a4f1a9"
+    },
+    {
+      "file": "package.json",
+      "sha256": "2ee19a9b83264eebc0ae7de35270d2d9bf6179de59683c0dd6924968cc74b1c1"
+    },
+    {
+      "file": "src/main/app.ts",
+      "sha256": "aa2ca0d32ae1fd797e53834bbebef1c9807d100403526f42d9b5d390ee264e2e"
+    },
+    {
+      "file": "src/main/log.test.ts",
+      "sha256": "e0a65eb6387ce6fcfefb0eb66696a40a34e2040b595bdabd5e6e5c0476a429ac"
+    },
+    {
+      "file": "src/main/log.ts",
+      "sha256": "bb0bc55e702707b01c00bca1af2826d6f908ecbaf9af90d35b76e8d70346c1e7"
+    },
+    {
+      "file": "src/main/menus.ts",
+      "sha256": "4f18b1e7694216bd97af9977fcafa1c3dc3c73aa7b8da781d061aef0a9c4627c"
+    },
+    {
+      "file": "src/preload/index.ts",
+      "sha256": "52134bea7ad5a086329ccb247481ec5853ed925f875f948371fb5218c9afc404"
+    },
+    {
+      "file": "src/renderer/App.tsx",
+      "sha256": "fa0cfdb729d11533bc937f15a70e4133ee8843327a132a846a9fce727fdf88f6"
+    },
+    {
+      "file": "src/renderer/components/NewSessionDialog.tsx",
+      "sha256": "c44e60be332ab5abe32b6534b352a192ef219c1b2c9b15890d760d32458c7839"
+    },
+    {
+      "file": "src/renderer/components/ProviderIcon.tsx",
+      "sha256": "230d9e910ec0b36dc08b965299047823eee3f79fd971b0f2bbea77980eb6a4fb"
+    },
+    {
+      "file": "src/renderer/components/SaveWorkspaceDialog.tsx",
+      "sha256": "592c6c816e803b36f13b0a14a7cd26ed44c63e60ccd1894e5cb4e206db4cbe7e"
+    },
+    {
+      "file": "src/renderer/components/SessionSidebar.tsx",
+      "sha256": "33051d38db43110bf99cc27c35133a6e985ed47f57af3bba7d5092c39b4439d8"
+    },
+    {
+      "file": "src/renderer/components/icons.tsx",
+      "sha256": "ad48b23481cd174ff21cd6a07a669af0fb2434897a9916e70241052cccc546ff"
+    },
+    {
+      "file": "src/renderer/session-list.ts",
+      "sha256": "a5ac90b4b1e323d5bc80bd9dbf2090e76c4b9b63fe43211b1095f5e0306362da"
+    },
+    {
+      "file": "src/renderer/styles.css",
+      "sha256": "ae812d34b0de5d6d68b8e7c07dde78a50406e47298d9c4eecbec52119c03a33f"
+    },
+    {
+      "file": "src/shared/ipc.ts",
+      "sha256": "9413aeba71f9265a95600c53252f8f1d0c431f8ee1483f0b83b2e1186f02fe48"
+    },
+    {
+      "file": "src/shared/state.ts",
+      "sha256": "b355be76a9c76007dfff4327446980ef7244010fad43369791c55920368821d4"
+    },
+    {
+      "file": "docs/releases/v0.10.0-claudegpt.2.md",
+      "sha256": "ad597837b89d84dac607466e83ea6afff950b46e94109180ca18cf40661653d7"
+    },
+    {
+      "file": "e2e/logging.spec.ts",
+      "sha256": "48e395e67dc426fbba4fc59dae2952613e1cf9981a94469bd38fb6103b32aaba"
+    },
+    {
+      "file": "e2e/project-tree.spec.ts",
+      "sha256": "a86c139e7d46398a15c732a8a3924beeaf8425ba73729feccc81fcccca76f6ff"
+    },
+    {
+      "file": "e2e/sidebar-titles.spec.ts",
+      "sha256": "09e7308e5dc7442090724bdf185bfb344b1c3457c905813a8ecaa0f175fbe8b5"
+    },
+    {
+      "file": "e2e/tray-assets.spec.ts",
+      "sha256": "0d53437d802382e7ed6269e4a804453608d9bc606dc45e3145f75cca95e0b33a"
+    },
+    {
+      "file": "maintenance/write-update-metadata.mjs",
+      "sha256": "e4523d6e953c9927ae2ce95161ad16b577348652081d8b42cb95fd53f3f92a9f"
+    },
+    {
+      "file": "src/shared/sidebar-chats.test.ts",
+      "sha256": "38583630f258a20f7f0182b963dded3db91499664301d3b3480bfb74f987de40"
+    },
+    {
+      "file": "src/shared/sidebar-chats.ts",
+      "sha256": "f98710e739cac0d2972371219cd2726048f72e14fd48b4e93e260ead89dd7c8c"
+    }
+  ],
+  "contentSha256": "b15971a7865af3d6730aa37c59e3681553d0c000a0356251abf6469a235d8833",
+  "sourceEvidence": [
+    ".github/workflows/release.yml",
+    "docs/RELEASING.md",
+    "docs/claudegpt-spec.md",
+    "e2e/claudegpt.spec.ts",
+    "e2e/elsewhere.spec.ts",
+    "e2e/sessions.spec.ts",
+    "e2e/workspaces.spec.ts",
+    "electron-builder.yml",
+    "maintenance/inspect-payload.mjs",
+    "package-lock.json",
+    "package.json",
+    "src/main/app.ts",
+    "src/main/log.test.ts",
+    "src/main/log.ts",
+    "src/main/menus.ts",
+    "src/preload/index.ts",
+    "src/renderer/App.tsx",
+    "src/renderer/components/NewSessionDialog.tsx",
+    "src/renderer/components/ProviderIcon.tsx",
+    "src/renderer/components/SaveWorkspaceDialog.tsx",
+    "src/renderer/components/SessionSidebar.tsx",
+    "src/renderer/components/icons.tsx",
+    "src/renderer/session-list.ts",
+    "src/renderer/styles.css",
+    "src/shared/ipc.ts",
+    "src/shared/state.ts",
+    "docs/releases/v0.10.0-claudegpt.2.md",
+    "e2e/logging.spec.ts",
+    "e2e/project-tree.spec.ts",
+    "e2e/sidebar-titles.spec.ts",
+    "e2e/tray-assets.spec.ts",
+    "maintenance/write-update-metadata.mjs",
+    "src/shared/sidebar-chats.test.ts",
+    "src/shared/sidebar-chats.ts"
+  ],
+  "packagingCorrection": {
+    "runtimeJavaScriptUnchanged": false,
+    "inputs": [
+      {
+        "sha256": "8bd1415bdbbe9ea64c1563d2e664f9ce8610b49bc5fac4d3a3e074af67af0888",
+        "file": "electron-builder.yml"
+      },
+      {
+        "sha256": "30a2fb556919f7f6d81bbca35ea8f73a885b10f7d895c23442ccd57c544ca4cb",
+        "file": "maintenance/inspect-payload.mjs"
+      },
+      {
+        "sha256": "98905b1a3bddf99ed782eb28c82aed31e10795ad98d5d3cdb586e4b979a8527c",
+        "file": "resources/icon.png"
+      },
+      {
+        "sha256": "1307ba6ca7df9451c21928c07894d82f20e7df24df890a9f36960079adb4950a",
+        "file": "resources/tray.png"
+      },
+      {
+        "sha256": "09bc5de63d97ef07ec4bdfeaf431cb0b5918ac3b595a24eed518a4fa6a377ec0",
+        "file": "resources/tray@2x.png"
+      },
+      {
+        "sha256": "bb0bc55e702707b01c00bca1af2826d6f908ecbaf9af90d35b76e8d70346c1e7",
+        "file": "src/main/log.ts"
+      }
+    ],
+    "reason": "Owner-reported blank tray reproduced as three empty native images; add exact omitted runtime PNGs. Current generation additionally includes the verified closed-stderr logger correction."
+  },
+  "verificationReuse": {
+    "nativeTreeAndHistory": "feature-20261110/final-package-checks.json; unchanged renderer/history implementation, all five native checks passed",
+    "logger": "Actual closed-pipe unit regression, main/renderer typechecks, focused units and full lint/format passed. Current native startup/pipe closure/responsiveness/durable log/normal shutdown and runtime images passed (logger-fixed-package-checks.json).",
+    "remaining": [
+      "Fresh corrected package startup/logger/native assets",
+      "Published feed and delivered package",
+      "Fresh idle activation and installed checks"
+    ],
+    "sourceWorkspaces": "session94791 exit0"
+  }
 }

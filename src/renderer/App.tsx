@@ -46,6 +46,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [namingWorkspace, setNamingWorkspace] = useState(false);
+  const [renamingWorkspace, setRenamingWorkspace] = useState<string | null>(null);
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [emptyDropActive, setEmptyDropActive] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -266,6 +267,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
   useEffect(() => window.reframe.onOpenNewSession(() => setDialogOpen(true)), []);
   useEffect(() => window.reframe.onOpenAbout(() => setAboutOpen(true)), []);
   useEffect(() => window.reframe.onPromptWorkspaceName(() => setNamingWorkspace(true)), []);
+  useEffect(() => window.reframe.onRenameWorkspace(setRenamingWorkspace), []);
   useEffect(() => window.reframe.onRenameGroup(setRenaming), []);
   useEffect(() => window.reframe.onRenameSession(setRenamingSession), []);
   useEffect(
@@ -399,6 +401,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
           <button
             className={`button toolbar-button${view.workspace ? ' is-active' : ''}`}
             title={view.workspace ? `${t('toolbar.workspaces')}: ${view.workspace.name}` : t('toolbar.workspaces')}
+            aria-label={t('toolbar.workspaces')}
             onClick={() => window.reframe.showWorkspaceMenu()}
           >
             <LayersIcon />
@@ -479,10 +482,18 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
           </div>
         )}
         {dialogOpen && <NewSessionDialog onClose={() => setDialogOpen(false)} />}
-        {namingWorkspace && (
+        {(namingWorkspace || renamingWorkspace) && (
           <SaveWorkspaceDialog
-            suggestion={t('workspace.defaultName', { n: (sessionList.list?.workspaces.length ?? 0) + 1 })}
-            onClose={() => setNamingWorkspace(false)}
+            key={renamingWorkspace || 'new'}
+            workspaceId={renamingWorkspace || undefined}
+            suggestion={
+              sessionList.list?.workspaces.find((workspace) => workspace.id === renamingWorkspace)?.name ||
+              t('workspace.defaultName', { n: (sessionList.list?.workspaces.length ?? 0) + 1 })
+            }
+            onClose={() => {
+              setNamingWorkspace(false);
+              setRenamingWorkspace(null);
+            }}
           />
         )}
         {aboutOpen && <AboutDialog version={view.version} onClose={() => setAboutOpen(false)} />}

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { setup, launch, quit, cleanup, newSession, callMain, answerDialogs } from './helpers';
+import { setup, launch, quit, cleanup, newSession, callMain, answerDialogs, dialogsAsked } from './helpers';
 
 test('providers, automatic folders and native inactive-chat actions survive restart', async () => {
   const { dir, project, env, state, byName, launches } = setup();
@@ -33,7 +33,9 @@ test('providers, automatic folders and native inactive-chat actions survive rest
       await page.getByRole('button', { name: 'Sessions', exact: true }).click();
     await expect(page.locator('.folder-workspace', { hasText: path.basename(project) })).toBeVisible();
     await page.locator('.folder-workspace', { hasText: path.basename(project) }).click();
-    await expect(page.locator('.folder-workspace[aria-pressed="true"]')).toHaveCount(1);
+    await expect(page.locator('.folder-workspace[aria-expanded="true"]')).toHaveCount(1);
+    await expect(page.locator('.sidebar-recents .sidebar-row[draggable="true"]')).toHaveCount(2);
+    await page.locator('.folder-workspace', { hasText: path.basename(project) }).click();
     await page.locator('.tile').first().locator('.tile-header').click({ button: 'right' });
     const archiveEnabled = await app.evaluate(() => {
       const main = (
@@ -80,6 +82,8 @@ test('providers, automatic folders and native inactive-chat actions survive rest
 });
 
 test('archive and restore a fictional discovered chat through the context menu', async () => {
+  // Native process/identity checks finish by event; elapsed time is not a failed retirement.
+  test.setTimeout(0);
   test.skip(
     process.platform !== 'win32' || !process.env.REFRAME_HISTORY_HELPER_SHA256,
     'Requires the installed Windows exact-retirement helper; qualified on the managed host.',
@@ -100,7 +104,22 @@ test('archive and restore a fictional discovered chat through the context menu',
     await answerDialogs(app, 0);
     await row.click({ button: 'right' });
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Archive chat…')).toBe(true);
+    const retirement = await app.evaluate(async () =>
+      (
+        await Promise.allSettled([
+          ...(globalThis as unknown as { reframe: { historyOperations: Set<Promise<unknown>> } }).reframe
+            .historyOperations,
+        ])
+      ).map((result) =>
+        result.status === 'fulfilled'
+          ? { status: result.status }
+          : { status: result.status, error: String(result.reason) },
+      ),
+    );
+    expect(retirement).toEqual([{ status: 'fulfilled' }]);
+    expect(await dialogsAsked(app)).toEqual([expect.stringMatching(/^Archive /)]);
     await expect.poll(() => fs.existsSync(history), { timeout: 30000 }).toBe(false);
+    await page.locator('.sidebar-archives > summary').click();
     await expect(page.getByRole('button', { name: /Archive fixture.*Restore chat/ })).toBeVisible();
     await page.getByRole('button', { name: /Archive fixture.*Restore chat/ }).click();
     await expect.poll(() => fs.existsSync(history), { timeout: 30000 }).toBe(true);
@@ -108,6 +127,19 @@ test('archive and restore a fictional discovered chat through the context menu',
     const restored = page.getByRole('button', { name: /Archive fixture.*ended/ });
     await restored.click({ button: 'right' });
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Delete chat…')).toBe(true);
+    const deletion = await app.evaluate(async () =>
+      (
+        await Promise.allSettled([
+          ...(globalThis as unknown as { reframe: { historyOperations: Set<Promise<unknown>> } }).reframe
+            .historyOperations,
+        ])
+      ).map((result) =>
+        result.status === 'fulfilled'
+          ? { status: result.status }
+          : { status: result.status, error: String(result.reason) },
+      ),
+    );
+    expect(deletion).toEqual([{ status: 'fulfilled' }]);
     await expect.poll(() => fs.existsSync(history), { timeout: 30000 }).toBe(false);
     await expect(page.getByRole('button', { name: /Archive fixture/ })).toHaveCount(0);
     await quit(app);

@@ -32,7 +32,16 @@ export function createLogger(dir: string): Logger {
     } catch {
       // logging must never break the app
     }
-    if (level !== 'info' || process.env.REFRAME_LOG_STDOUT) process.stderr.write(line);
+    if (level !== 'info' || process.env.REFRAME_LOG_STDOUT) {
+      try {
+        // The launcher may disconnect its pipe while the tray app keeps running.
+        // Stream.write emits EPIPE asynchronously, outside a surrounding try/catch;
+        // logging that uncaught error would write to the same broken pipe forever.
+        fs.writeSync(process.stderr.fd, line);
+      } catch {
+        // The profile log remains the durable output when stderr is unavailable.
+      }
+    }
   };
   return Object.assign(log, { file });
 }
