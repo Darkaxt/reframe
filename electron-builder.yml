@@ -39,6 +39,8 @@ electronLanguages: [en-US, de]
 
 win:
   target: nsis
+  # Same artwork as the tray (maintenance/make-icons.py); 16/32 px are the tray's own images.
+  icon: build/icon.ico
   files:
     # A platform matcher with exclusions alone implicitly includes the entire project.
     # Keep positive runtime patterns here too, including when output lives outside dist/.
