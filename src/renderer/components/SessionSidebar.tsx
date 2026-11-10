@@ -144,7 +144,9 @@ export function SessionSidebar({ sessionList }: { sessionList: SessionListState 
         : item.kind === 'running'
           ? 'Running'
           : t('list.ended');
-    const meta = [section.startsWith('project:') ? '' : folderName(chat.cwd), status].filter(Boolean).join(' · ');
+    const meta = [section.startsWith('project:') ? '' : folderName(chat.cwd), item.distro, status]
+      .filter(Boolean)
+      .join(' · ');
     const hint = managed?.windowId ? t('list.showHint') : t('list.openHint');
     const tooltip = [
       chat.label,

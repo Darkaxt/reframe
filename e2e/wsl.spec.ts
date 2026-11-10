@@ -183,7 +183,7 @@ test('the session list: WSL sessions, taking over one, starting a distribution',
 
     const { app, page } = await launch(env);
     await page.getByRole('button', { name: 'Sessions' }).click();
-    await expect(row(page, 'outside')).toContainText('other · Fake · running elsewhere', { timeout: 15_000 });
+    await expect(row(page, 'outside')).toContainText('other · Fake · Running', { timeout: 15_000 });
     await expect(row(page, 'Log cleanup')).toContainText('old · Fake');
     const note = page.locator('.sidebar-note');
     await expect(note).toContainText('Stopped (WSL) is not running');

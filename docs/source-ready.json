@@ -1,9 +1,9 @@
 {
   "sourceBase": "0a13cbb048c48630d76e0374890bc431dea3f0c0",
   "checksNotYetRun": [
+    "Current source CI",
     "Published feed and independently retrieved delivery",
-    "Fresh idle installed cutover",
-    "Owner-operated native Anthropic authentication and one benign request"
+    "Fresh idle installed cutover"
   ],
   "implementationGaps": [],
   "testsPrepared": [
@@ -19,11 +19,14 @@
     "src/main/state/store.test.ts",
     "src/main/log.test.ts",
     "e2e/tray-assets.spec.ts",
-    "e2e/logging.spec.ts"
+    "e2e/logging.spec.ts",
+    "e2e/claudegpt.spec.ts",
+    "maintenance/windows/test-release-files.ps1",
+    "e2e/wsl.spec.ts"
   ],
   "schema": "reframe.source-ready.v1",
   "wiring": "Existing state/preload/IPC/main own pins and expansion; stable source-qualified native chat IDs survive adoption. Shared catalogue orders all sources. Expanded branches retain original reads and page independently; no global folder filter or fixed 500-item reachability ceiling. Layout rename/delete remains in Workspaces toolbar. Context actions and native safeguards preserved. No automatic compaction. Semantic release/channel metadata; portable auto-download/install remains off.",
-  "scope": "Owner-requested Pinned/Projects/Recents sidebar: one stable chat identity, independent paged folder tree, persisted pin/expansion and pin adoption, full titles/default icon, preserved layouts/selection/history/route controls and corrected portable release metadata; closed-launcher stderr repair preserves durable logs and app responsiveness",
+  "scope": "Unified Pinned/Projects/Recents folder tree; source-independent persistent chat pins/expansion and paging; wrapped full titles/default-provider labels; preserved saved layouts and history actions; portable runtime assets, semantic update metadata and closed-pipe logging; WSL labels and readiness-bound refresh; separate hash-bound Windows provider executables and correct removal of an unset configuration override.",
   "launch": "Reviewed private validate-refinements.ps1 and existing maintenance/build-windows.ps1; exact native D scratch registered in aa9754dd404eef94ac2c988477245a2b",
   "status": "source_ready_for_validation",
   "inputHashes": [
@@ -33,15 +36,15 @@
     },
     {
       "file": "docs/RELEASING.md",
-      "sha256": "fe3ae146204c71713a008b1ea0da917a5be61105eca003f0ed928510cf2fdc94"
+      "sha256": "8264caab7b55a847e42170b014b32208ae58c0ff151f9b72f34e00d2e9e82cae"
     },
     {
       "file": "docs/claudegpt-spec.md",
-      "sha256": "fdfe705939fe187cf6dd756b16b004f9a646b0b4127dcb9e1fc199d48f22ac09"
+      "sha256": "0c935f3551c508d897a22d517eaf358bcbfc1132f5105d75b6241098874013f0"
     },
     {
       "file": "e2e/claudegpt.spec.ts",
-      "sha256": "6f2a11fbbc28f8c4bcc1c203cd50c2ead073d4c713b8fa42daac0f0eae4a8b50"
+      "sha256": "7a31a69dfb5f95986c83f7a21775f0dbbfa5e1b12e215cc2dab3590515dfd711"
     },
     {
       "file": "e2e/elsewhere.spec.ts",
@@ -61,7 +64,7 @@
     },
     {
       "file": "maintenance/inspect-payload.mjs",
-      "sha256": "30a2fb556919f7f6d81bbca35ea8f73a885b10f7d895c23442ccd57c544ca4cb"
+      "sha256": "9f5b6b6e6b2c30d445384e5628b8b46edfc775a4ce4152c82af512e18c62da24"
     },
     {
       "file": "package-lock.json",
@@ -73,7 +76,7 @@
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "aa2ca0d32ae1fd797e53834bbebef1c9807d100403526f42d9b5d390ee264e2e"
+      "sha256": "f356319ae49c7a37a3592d92100abfb078195f056253f6a7a8e3bf46962055a1"
     },
     {
       "file": "src/main/log.test.ts",
@@ -109,7 +112,7 @@
     },
     {
       "file": "src/renderer/components/SessionSidebar.tsx",
-      "sha256": "33051d38db43110bf99cc27c35133a6e985ed47f57af3bba7d5092c39b4439d8"
+      "sha256": "52869af8130aa749ddb36735a362fe32ede3805b467a4ab232d7b7412d2a025b"
     },
     {
       "file": "src/renderer/components/icons.tsx",
@@ -133,7 +136,7 @@
     },
     {
       "file": "docs/releases/v0.10.0-claudegpt.2.md",
-      "sha256": "ad597837b89d84dac607466e83ea6afff950b46e94109180ca18cf40661653d7"
+      "sha256": "3f9562f79bb570f8a7e2206bb87da8f227cbefd85673fd90b022a41b884ae046"
     },
     {
       "file": "e2e/logging.spec.ts",
@@ -162,6 +165,26 @@
     {
       "file": "src/shared/sidebar-chats.ts",
       "sha256": "f98710e739cac0d2972371219cd2726048f72e14fd48b4e93e260ead89dd7c8c"
+    },
+    {
+      "file": "e2e/wsl.spec.ts",
+      "sha256": "b40c2ebd5207d54611ec3cd6d9e5e4a5b583a09e7720ad398432bc9299f40578"
+    },
+    {
+      "file": "maintenance/windows/deploy-managed.ps1",
+      "sha256": "82d6ff05374f6766c8aba6e1655629e98e9f77f90f02817717e4e63e9d0cae4c"
+    },
+    {
+      "file": "maintenance/windows/start-managed.ps1",
+      "sha256": "e059cc1c8812935116aabf5499904c8ca8964377e9797e753b6362d9c6fb2b7b"
+    },
+    {
+      "file": "src/main/sessions.ts",
+      "sha256": "0b41f66ef5376b092991382916e1205ff04b75586e1e60e41da532839f7d5fee"
+    },
+    {
+      "file": "src/main/wsl/distros.ts",
+      "sha256": "96107d2b6b10294faf7130e1b69d34ad8fb2ef0d5439ba9c4937ea800943776f"
     }
   ],
   "contentSha256": "b15971a7865af3d6730aa37c59e3681553d0c000a0356251abf6469a235d8833",
@@ -199,9 +222,15 @@
     "e2e/tray-assets.spec.ts",
     "maintenance/write-update-metadata.mjs",
     "src/shared/sidebar-chats.test.ts",
-    "src/shared/sidebar-chats.ts"
+    "src/shared/sidebar-chats.ts",
+    "e2e/wsl.spec.ts",
+    "maintenance/windows/deploy-managed.ps1",
+    "maintenance/windows/start-managed.ps1",
+    "src/main/sessions.ts",
+    "src/main/wsl/distros.ts"
   ],
   "packagingCorrection": {
+    "reason": "Exact native tray assets, closed-stderr logger correction, WSL metadata/start refresh and separate provider binary binding with correct absent configuration override.",
     "runtimeJavaScriptUnchanged": false,
     "inputs": [
       {
@@ -209,7 +238,7 @@
         "file": "electron-builder.yml"
       },
       {
-        "sha256": "30a2fb556919f7f6d81bbca35ea8f73a885b10f7d895c23442ccd57c544ca4cb",
+        "sha256": "9f5b6b6e6b2c30d445384e5628b8b46edfc775a4ce4152c82af512e18c62da24",
         "file": "maintenance/inspect-payload.mjs"
       },
       {
@@ -227,9 +256,28 @@
       {
         "sha256": "bb0bc55e702707b01c00bca1af2826d6f908ecbaf9af90d35b76e8d70346c1e7",
         "file": "src/main/log.ts"
+      },
+      {
+        "sha256": "52869af8130aa749ddb36735a362fe32ede3805b467a4ab232d7b7412d2a025b",
+        "file": "src/renderer/components/SessionSidebar.tsx"
+      },
+      {
+        "sha256": "0b41f66ef5376b092991382916e1205ff04b75586e1e60e41da532839f7d5fee",
+        "file": "src/main/sessions.ts"
+      },
+      {
+        "sha256": "f356319ae49c7a37a3592d92100abfb078195f056253f6a7a8e3bf46962055a1",
+        "file": "src/main/app.ts"
+      },
+      {
+        "sha256": "e059cc1c8812935116aabf5499904c8ca8964377e9797e753b6362d9c6fb2b7b",
+        "file": "maintenance/windows/start-managed.ps1"
+      },
+      {
+        "sha256": "82d6ff05374f6766c8aba6e1655629e98e9f77f90f02817717e4e63e9d0cae4c",
+        "file": "maintenance/windows/deploy-managed.ps1"
       }
-    ],
-    "reason": "Owner-reported blank tray reproduced as three empty native images; add exact omitted runtime PNGs. Current generation additionally includes the verified closed-stderr logger correction."
+    ]
   },
   "verificationReuse": {
     "nativeTreeAndHistory": "feature-20261110/final-package-checks.json; unchanged renderer/history implementation, all five native checks passed",
@@ -239,6 +287,7 @@
       "Published feed and delivered package",
       "Fresh idle activation and installed checks"
     ],
-    "sourceWorkspaces": "session94791 exit0"
+    "sourceWorkspaces": "session94791 exit0",
+    "auth": "Dedicated patched CLI 2.1.319 native subscription authentication and one benign no-tool Sonnet5.5 reply passed with native retries disabled. Proxy config/account and user settings hashes unchanged; native OAuth save authorized."
   }
 }

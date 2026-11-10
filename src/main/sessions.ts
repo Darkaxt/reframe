@@ -12,7 +12,7 @@ import type { SessionRecord } from '@shared/state';
 import { parseWslPath, wslWindowsPath, type WslPath } from '@shared/wsl';
 import { claudeArgs, type LaunchMode } from './claude/args';
 import { claudeEnv } from './claude/env';
-import { providerEnv, providerSettings } from '@shared/providers';
+import { providerEnv, providerSettings, type Provider } from '@shared/providers';
 import {
   findRegistryEntry,
   forgetRegistryEntry,
@@ -84,7 +84,7 @@ export interface SessionManagerDeps {
   hooks: HookServer;
   claudeHome: string;
   settingsDir: string;
-  resolveClaude: () => ClaudeBinary | null;
+  resolveClaude: (provider?: Provider) => ClaudeBinary | null;
   env: NodeJS.ProcessEnv;
   log?: LogFn;
   /** Windows only: runs sessions in WSL folders. */
@@ -190,7 +190,7 @@ export class SessionManager extends EventEmitter<Events> {
     );
     if (mode === 'lost') return this.fail(session.id, 'transcriptMissing');
     runtime.mode = mode;
-    const claude = this.deps.resolveClaude();
+    const claude = this.deps.resolveClaude(session.launch.provider);
     if (!claude) return this.fail(session.id, 'claudeNotFound');
 
     const settings = writeHookSettings(

@@ -40,6 +40,7 @@ for (const marker of [
   'reframe:set-project-expanded',
   'Pin chat',
   'fs.writeSync(process.stderr.fd, line)',
+  'REFRAME_ANTHROPIC_CLAUDE_BIN',
 ])
   if (!main.includes(marker)) throw Error('Missing packaged feature: ' + marker);
 const renderer = names

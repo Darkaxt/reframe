@@ -38,6 +38,13 @@ try {
     $managed = Get-Content -LiteralPath $m.managedActive -Raw | ConvertFrom-Json
     Assert-Hash $previous.managedBinary $managed.sha256
     foreach ($file in $m.protected) { Assert-Hash $file.path $file.sha256 }
+    if ($candidate.PSObject.Properties.Name -contains 'providerBinaries') {
+        if ($m.PSObject.Properties.Name -notcontains 'providerBinaries') { throw 'Provider binary binding missing' }
+        $binding = $m.providerBinaries.anthropic
+        if ($binding.binary -cne $candidate.providerBinaries.anthropic.binary -or $binding.sha256 -cne $candidate.providerBinaries.anthropic.sha256) { throw 'Provider binary binding differs from candidate' }
+        Assert-PlainPath $binding.binary
+        Assert-Hash $binding.binary $binding.sha256
+    }
     Assert-Hash $candidate.helper.helper $candidate.helper.helperSha256
     Assert-Hash $m.idleReservation $m.idleReservationSha256
     $idle = Get-Content -LiteralPath $m.idleReservation -Raw | ConvertFrom-Json
@@ -94,6 +101,9 @@ try {
         delivery = $m.delivery; rollback = $rollbackPath; rollbackSha256 = Get-Sha256 $rollbackPath
         anthropicLiveVerified = $q.anthropic; verificationLimits = $q.limits
         at = [DateTime]::UtcNow.ToString('o')
+    }
+    if ($candidate.PSObject.Properties.Name -contains 'providerBinaries') {
+        $active['providerBinaries'] = $m.providerBinaries
     }
     $installedLauncher = Join-Path $m.launcherDirectory 'start-managed.ps1'
     $launcherBody = "#Requires -Version 7.4`n& '$($installedLauncher.Replace("'", "''"))' -ActivePath '$($m.activePath.Replace("'", "''"))'`n"

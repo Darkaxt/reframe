@@ -5,6 +5,9 @@ import { setup, launch, quit, cleanup, newSession, callMain, answerDialogs, dial
 
 test('providers, automatic folders and native inactive-chat actions survive restart', async () => {
   const { dir, project, env, state, byName, launches } = setup();
+  const anthropicBinary = path.join(dir, 'claude-anthropic.mjs');
+  fs.copyFileSync(env.REFRAME_CLAUDE_BIN!, anthropicBinary);
+  env.REFRAME_ANTHROPIC_CLAUDE_BIN = anthropicBinary;
   try {
     let { app, page } = await launch(env);
     await page.evaluate(() => window.reframe.setPreferences({ defaultModel: 'gpt-fixture' }));
@@ -26,6 +29,13 @@ test('providers, automatic folders and native inactive-chat actions survive rest
             ?.args,
       )
       .toEqual(expect.arrayContaining(['--model', 'sonnet']));
+    expect(
+      launches().find((l) => l.event === 'start' && l.args.includes(byName('Anthropic fixture').claudeSessionId))
+        ?.script,
+    ).toBe(anthropicBinary);
+    expect(
+      launches().find((l) => l.event === 'start' && l.args.includes(byName('ChatGPT fixture').claudeSessionId))?.script,
+    ).toBe(env.REFRAME_CLAUDE_BIN);
     expect((state().sessions[byName('Anthropic fixture').id]!.launch as { provider?: string }).provider).toBe(
       'anthropic',
     );

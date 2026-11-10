@@ -25,22 +25,39 @@ if ($state.preferences.claudeBin -cne $active.managedBinary) { throw 'Managed CL
 $values = @{
     TEMP = $active.runtime; TMP = $active.runtime; REFRAME_RUNTIME = $active.runtime
     REFRAME_USER_DATA = $active.profile; REFRAME_CLAUDE_BIN = $active.managedBinary
+    REFRAME_ANTHROPIC_CLAUDE_BIN = $null
     REFRAME_CLAUDE_HOME = $active.claudeHome; CLAUDE_CONFIG_DIR = $null
     REFRAME_HISTORY_PYTHON = $active.helper.python; REFRAME_HISTORY_HELPER = $active.helper.helper
     REFRAME_HISTORY_HELPER_SHA256 = $active.helper.helperSha256
+}
+if ($active.PSObject.Properties.Name -contains 'providerBinaries') {
+    $anthropic = $active.providerBinaries.anthropic
+    Assert-PlainPath $anthropic.binary
+    Assert-Hash $anthropic.binary $anthropic.sha256
+    $values.REFRAME_ANTHROPIC_CLAUDE_BIN = $anthropic.binary
 }
 $saved = @{}
 try {
     foreach ($key in $values.Keys) {
         $saved[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
-        [Environment]::SetEnvironmentVariable($key, $values[$key], 'Process')
+        if ($null -eq $values[$key]) {
+            # PowerShell converts ordinary $null to an empty string for this API.
+            # Modern .NET preserves that empty variable; Claude then mkdir('') fails.
+            [Environment]::SetEnvironmentVariable($key, [NullString]::Value, 'Process')
+        } else { [Environment]::SetEnvironmentVariable($key, $values[$key], 'Process') }
     }
+    if (Test-Path Env:CLAUDE_CONFIG_DIR) { throw 'Managed launch must remove the native configuration override' }
     $child = Start-Process -FilePath $active.executable -WorkingDirectory $active.workingDirectory -WindowStyle Normal -PassThru
     Write-AtomicJson (Join-Path $active.runtime 'last-launch.json') @{
         status = 'started_verification_pending'; pid = $child.Id; startTime = $child.StartTime.ToUniversalTime().ToString('o')
         executable = $active.executable; executableSha256 = $active.executableSha256
         activeSha256 = Get-Sha256 $ActivePath; at = [DateTime]::UtcNow.ToString('o')
+        configOverridePresent = Test-Path Env:CLAUDE_CONFIG_DIR
+        anthropicBinary = [Environment]::GetEnvironmentVariable('REFRAME_ANTHROPIC_CLAUDE_BIN', 'Process')
     }
 } finally {
-    foreach ($key in $saved.Keys) { [Environment]::SetEnvironmentVariable($key, $saved[$key], 'Process') }
+    foreach ($key in $saved.Keys) {
+        if ($null -eq $saved[$key]) { [Environment]::SetEnvironmentVariable($key, [NullString]::Value, 'Process') }
+        else { [Environment]::SetEnvironmentVariable($key, $saved[$key], 'Process') }
+    }
 }

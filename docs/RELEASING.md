@@ -51,6 +51,8 @@ Builds are unsigned for now. That works, but costs users a confirmation on the f
 
 ## Notes
 
+- Managed Windows provider binaries: `REFRAME_CLAUDE_BIN`/the existing preference selects ChatGPT; `REFRAME_ANTHROPIC_CLAUDE_BIN` selects the reviewed Anthropic copy. The private candidate/deployment manifest pins its path and SHA256, and the active pointer preserves it for the controlled launcher. Keep the shared native Claude history/MCP home. Before advancing a managed CLI tuple, review/requalify the separate Anthropic binding and retain any copy referenced by the active release, rollback or waiting candidate. WSL uses its own native executable. Unset PowerShell process variables with `[NullString]::Value`, since ordinary `$null` can create an empty variable on modern .NET.
+
 - The macOS build is for Apple silicon only (the runner's architecture). An Intel build needs the x64 packages of node-pty and koffi in the build, e.g. a second macOS job on an Intel runner.
 - node-pty and koffi are Node-API modules, so their prebuilt binaries work in Electron as they are (`npmRebuild: false`). On Linux node-pty has no prebuilt binary and is compiled during `npm ci`.
 - node-pty's `conpty` folder (the ConPTY reframe uses on Windows) and its worker script must stay outside the app archive (`asarUnpack` in `electron-builder.yml`). The end-to-end tests against the packaged app catch it when they do not.

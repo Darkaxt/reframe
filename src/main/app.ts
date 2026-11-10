@@ -275,7 +275,7 @@ export class ReframeApp {
       claudeHome: this.claudeHome,
       settingsDir: path.join(app.getPath('userData'), 'hooks'),
       env: process.env,
-      resolveClaude: () => this.findClaude(),
+      resolveClaude: (provider) => this.findClaude(provider),
       log: this.log,
       wsl: this.wsl ?? undefined,
     });
@@ -2605,7 +2605,14 @@ export class ReframeApp {
     });
     handle(IPC.folderExists, (_id, _event, folder: unknown) => typeof folder === 'string' && isFolder(folder));
     on(IPC.startWsl, (_id, _event, distro: unknown) => {
-      if (typeof distro === 'string' && (this.state.wslDistros ?? []).includes(distro)) this.wsl?.keep(distro);
+      if (typeof distro !== 'string' || !(this.state.wslDistros ?? []).includes(distro) || !this.wsl) return;
+      void this.wsl
+        .keep(distro)
+        .then(() => this.scanOutside(0))
+        .then(() => this.listChanged())
+        .catch((error: unknown) =>
+          this.log('warn', 'could not start WSL distribution', { distro, error: String(error) }),
+        );
     });
     handle(IPC.saveClipboardImage, async () => {
       const png = this.clipboardOverride ? (this.clipboardOverride.image ? TEST_PNG : null) : await clipboardImage();
@@ -2657,12 +2664,15 @@ export class ReframeApp {
    * The claude sessions run (in WSL folders their distribution's instead): the one chosen in Settings, else
    * REFRAME_CLAUDE_BIN (tests: a .js fake run by REFRAME_NODE), else the one on the PATH.
    */
-  private findClaude(): ClaudeBinary | null {
+  private findClaude(provider?: Provider): ClaudeBinary | null {
     const node = process.env.REFRAME_NODE;
     return resolveClaude({
       env: process.env,
       platform: process.platform,
-      override: this.state.preferences.claudeBin || process.env.REFRAME_CLAUDE_BIN,
+      override:
+        (provider === 'anthropic' ? process.env.REFRAME_ANTHROPIC_CLAUDE_BIN : undefined) ||
+        this.state.preferences.claudeBin ||
+        process.env.REFRAME_CLAUDE_BIN,
       nodeRunner: node ? { file: node, env: {} } : undefined,
     });
   }

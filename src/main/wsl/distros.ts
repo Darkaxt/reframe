@@ -336,8 +336,8 @@ export class WslDistros extends EventEmitter<Events> {
   }
 
   /** Starts `distro` and keeps it running until release() (WSL stops a distribution soon when nothing runs in it). */
-  keep(distro: string): void {
-    if (this.keepers.has(distro)) return;
+  keep(distro: string): Promise<WslInfo | null> {
+    if (this.keepers.has(distro)) return this.info(distro);
     const { file, prefixArgs, env } = this.command;
     const keeper = spawn(file, [...prefixArgs, '-d', distro, '-e', 'sleep', 'infinity'], {
       env: { ...process.env, ...env },
@@ -346,8 +346,12 @@ export class WslDistros extends EventEmitter<Events> {
     });
     keeper.on('exit', () => this.keepers.delete(distro));
     this.keepers.set(distro, keeper);
-    this.runningNow = null;
+    // A cached probe predating this explicit start is not readiness evidence.
+    this.infos.delete(distro.toLowerCase());
     this.log('info', 'wsl distribution started from the session list', { distro });
+    return this.info(distro).finally(() => {
+      this.runningNow = null;
+    });
   }
 
   /** Lets go of the distributions kept running (reframe quits). */
