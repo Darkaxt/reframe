@@ -106,6 +106,12 @@ export const LANGUAGES = ['system', 'en', 'de'] as const;
 
 /** The terminals' font size in pixels: what it starts at, and how far it goes. */
 export const FONT_SIZE = { normal: 13, min: 8, max: 32 } as const;
+/** The session list's width in px: dragged between min and max, double-click returns to normal. */
+export const SIDEBAR_WIDTH = { normal: 270, min: 200, max: 640 } as const;
+export const clampSidebarWidth = (width: number): number =>
+  Number.isFinite(width)
+    ? Math.round(Math.min(SIDEBAR_WIDTH.max, Math.max(SIDEBAR_WIDTH.min, width)))
+    : SIDEBAR_WIDTH.normal;
 export type Language = (typeof LANGUAGES)[number];
 
 /**
@@ -123,6 +129,8 @@ export const preferencesSchema = z.object({
   language: z.enum(LANGUAGES).default('system'),
   /** The terminals' font size, the same in every window. */
   fontSize: z.number().int().min(FONT_SIZE.min).max(FONT_SIZE.max).default(FONT_SIZE.normal),
+  /** Clamped when read (clampSidebarWidth): an odd value must not set the whole state file aside. */
+  sidebarWidth: z.number().optional(),
   /** Separators snap to a grid over the layout while they are dragged (Alt drags freely). */
   snapToGrid: z.boolean().default(true),
   /** Asks GitHub for a newer version now and then (where this copy updates at all). */

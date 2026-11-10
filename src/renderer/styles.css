@@ -972,7 +972,7 @@ select {
 .sidebar {
   display: flex;
   flex-direction: column;
-  width: 270px;
+  width: var(--sidebar-width, 270px);
   flex: none;
   border-right: 1px solid var(--border);
   background: var(--surface);
@@ -1284,4 +1284,23 @@ select {
 }
 .chat-batch-report .button {
   margin-top: 6px;
+}
+
+/* The session list's right edge; wider than its line so it is easy to grab. */
+.sidebar-resizer {
+  flex: none;
+  width: 6px;
+  margin-left: -3px;
+  margin-right: -3px;
+  cursor: col-resize;
+  touch-action: none;
+  position: relative;
+  z-index: 2;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer:focus-visible,
+.sidebar-resizer.is-dragging {
+  background: var(--accent);
+  outline: none;
 }

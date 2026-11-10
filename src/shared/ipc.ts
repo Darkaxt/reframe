@@ -44,6 +44,8 @@ export interface WindowView {
   language: Language;
   /** The terminals' font size (a preference, the same in every window). */
   fontSize: number;
+  /** The session list's width in px (a preference, the same in every window). */
+  sidebarWidth: number;
   /** Separators snap to a grid while dragged (a preference). */
   snapToGrid: boolean;
   /** Update checks are on (a preference); null where this copy does not check (macOS, a deb, development). */

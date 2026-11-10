@@ -85,6 +85,8 @@ import {
   CLOSE_WINDOW,
   emptyWindow,
   FONT_SIZE,
+  SIDEBAR_WIDTH,
+  clampSidebarWidth,
   LANGUAGES,
   type CloseWindow,
   type Language,
@@ -533,6 +535,7 @@ export class ReframeApp {
       fullscreen: !!win.fullscreen,
       language: this.state.preferences.language,
       fontSize: this.state.preferences.fontSize,
+      sidebarWidth: clampSidebarWidth(this.state.preferences.sidebarWidth ?? SIDEBAR_WIDTH.normal),
       snapToGrid: this.state.preferences.snapToGrid,
       checkForUpdates: this.updates.checks ? this.state.preferences.checkForUpdates : null,
       closeWindow: this.state.preferences.closeWindow,
@@ -2857,6 +2860,7 @@ export class ReframeApp {
       if (LANGUAGES.includes(patch.language as Language)) next.language = patch.language as Language;
       const size = patch.fontSize;
       if (Number.isInteger(size) && size! >= FONT_SIZE.min && size! <= FONT_SIZE.max) next.fontSize = size!;
+      if (typeof patch.sidebarWidth === 'number') next.sidebarWidth = clampSidebarWidth(patch.sidebarWidth);
       if (typeof patch.snapToGrid === 'boolean') next.snapToGrid = patch.snapToGrid;
       if (typeof patch.checkForUpdates === 'boolean') next.checkForUpdates = patch.checkForUpdates;
       if (CLOSE_WINDOW.includes(patch.closeWindow as CloseWindow)) next.closeWindow = patch.closeWindow as CloseWindow;
@@ -2878,6 +2882,7 @@ export class ReframeApp {
       const shown =
         next.archiveRoot !== was.archiveRoot ||
         next.fontSize !== was.fontSize ||
+        next.sidebarWidth !== was.sidebarWidth ||
         next.snapToGrid !== was.snapToGrid ||
         next.checkForUpdates !== was.checkForUpdates ||
         next.closeWindow !== was.closeWindow ||

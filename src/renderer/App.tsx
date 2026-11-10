@@ -24,6 +24,7 @@ import {
   type TextSizeChange,
 } from './shortcuts';
 import { SessionSidebar } from './components/SessionSidebar';
+import { SidebarResizer } from './components/SidebarResizer';
 import { TakeoverDialog } from './components/TakeoverDialog';
 import { ChatModelDialog } from './components/ChatModelDialog';
 
@@ -477,6 +478,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
               }}
             />
           )}
+          {view.sidebarOpen && <SidebarResizer width={view.sidebarWidth} />}
           <DockStrip entries={view.dock} />
           <main className="layout">
             {view.layout && zoomed ? (
