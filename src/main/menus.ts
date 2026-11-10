@@ -64,6 +64,8 @@ export interface WorkspaceMenuOptions {
   update: () => void;
   open: (workspaceId: string) => void;
   manage?: (workspaceId: string) => MenuItemConstructorOptions[];
+  /** Tiles of this window whose transcript Claude Code no longer has; closing them keeps everything else. */
+  staleTiles?: { count: number; close: () => void };
 }
 
 export function workspaceMenu(t: Translate, o: WorkspaceMenuOptions): Menu {
@@ -79,6 +81,12 @@ export function workspaceMenu(t: Translate, o: WorkspaceMenuOptions): Menu {
             label: 'Manage saved layouts',
             submenu: o.workspaces.map((workspace) => ({ label: workspace.name, submenu: o.manage!(workspace.id) })),
           },
+        ]
+      : []),
+    ...(o.staleTiles?.count
+      ? [
+          { type: 'separator' as const },
+          { label: t('workspace.closeStale', { count: o.staleTiles.count }), click: o.staleTiles.close },
         ]
       : []),
   ]);

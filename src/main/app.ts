@@ -100,6 +100,7 @@ import {
   isRunningEntry,
   readRegistryEntry,
   readRegistryEntryAsync,
+  transcriptExists,
   transcriptModifiedAsync,
   type RegistryEntry,
 } from './claude/registry';
@@ -130,6 +131,7 @@ import { settle, withTimeout } from './wait';
 import { cleanUp, dropsDir } from './cleanup';
 import { History } from './history';
 import { isArchiveRoot } from './archive-root';
+import { staleTiles } from './stale-tiles';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
 import { expandedWorkspaceKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
@@ -2224,6 +2226,25 @@ export class ReframeApp {
     return this.state.windows.find((w) => w.workspaceId === workspaceId && this.workspaceOf(w));
   }
 
+  private staleTilesOf(win: WindowState): string[] {
+    return staleTiles(
+      win,
+      this.state.sessions,
+      // A WSL session's transcript is behind its distribution's share: not checked here, so never called stale.
+      (record) => !!this.wslPath(record.cwd) || transcriptExists(this.claudeHome, record.claudeSessionId),
+      (id) => this.sessions.isRunning(id) || this.startsPending.has(id),
+    );
+  }
+
+  /** Closes (ends) the tiles that cannot resume any more; checked again on click, the menu may be old. */
+  private closeStaleTiles(windowId: string): void {
+    const win = this.findWindow(windowId);
+    if (!win) return;
+    const stale = this.staleTilesOf(win);
+    this.log('info', 'closing tiles whose transcript is gone', { window: windowId, sessions: stale });
+    for (const id of stale) this.endSession(windowId, id);
+  }
+
   /** The toolbar's Workspaces menu: save this window, update its workspace, open saved ones. */
   private showWorkspaceMenu(windowId: string): void {
     const browserWindow = this.windows.get(windowId);
@@ -2240,6 +2261,7 @@ export class ReframeApp {
         { label: this.t('workspace.rename'), click: () => this.windows.send(windowId, IPC.startRenameWorkspace, id) },
         { label: this.t('workspace.delete'), click: () => void this.deleteWorkspace(windowId, id) },
       ],
+      staleTiles: { count: this.staleTilesOf(win).length, close: () => this.closeStaleTiles(windowId) },
     });
     this.popup(menu, browserWindow);
   }
@@ -2808,7 +2830,8 @@ export class ReframeApp {
     on(IPC.setPreferences, (_id, _event, patch: PreferencesPatch | null) => {
       if (!patch || typeof patch !== 'object') return;
       const next = { ...this.state.preferences };
-      if (typeof patch.archiveRoot === 'string' && isArchiveRoot(patch.archiveRoot)) next.archiveRoot = patch.archiveRoot;
+      if (typeof patch.archiveRoot === 'string' && isArchiveRoot(patch.archiveRoot))
+        next.archiveRoot = patch.archiveRoot;
       if (typeof patch.nameFromFolder === 'boolean') next.nameFromFolder = patch.nameFromFolder;
       if (LANGUAGES.includes(patch.language as Language)) next.language = patch.language as Language;
       const size = patch.fontSize;
