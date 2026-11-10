@@ -16,7 +16,10 @@ $statePath=Join-Path $active.profile 'state.json'
 $state=Get-Content -LiteralPath $statePath -Raw|ConvertFrom-Json
 if(@($state.sessions.PSObject.Properties|Where-Object {$_.Value.lifecycle -ne 'ended'}).Count){throw 'End active sessions before a maintenance stop.'}
 $processes=@(Get-CimInstance Win32_Process)
-if(@($processes|Where-Object {$_.Name -match '^claude(\.exe)?$' -or ($_.Name -match '^(node|bun)(\.exe)?$' -and $_.CommandLine -match '(claude-code|claude[\\/]cli)')}).Count){throw 'Claude work remains; preserve it.'}
+# Only Claude work coupled to this installation blocks the stop (see Get-ReframeClients); the app's own
+# processes are handled below, and a Claude CLI installed and launched elsewhere may keep running.
+$coupled=@(Get-ReframeClients (Split-Path -Parent ([IO.Path]::GetFullPath($ActivePath)))|Where-Object {$_.ExecutablePath -cne $active.executable})
+if($coupled.Count){throw "Claude work remains; preserve it: $($coupled|ConvertTo-Json -Compress)"}
 $owned=@($primary);$ids=@($primary.Id)
 do {
  $children=@($processes|Where-Object {$_.ParentProcessId -in $ids -and $_.ProcessId -notin $ids})

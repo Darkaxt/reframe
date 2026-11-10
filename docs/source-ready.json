@@ -2,7 +2,7 @@
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
   "sourceBase": "61669f9465c77b5ba4535ee7df7433cfe8557b28",
-  "scope": "0.10.0-claudegpt.6: reframe#1 QA (archive guard, stale tiles, derived state, quit confirmations, Windows-only CI, tray icon, batched archive/delete, resizable session list, richer New session) and installation-scoped idle check",
+  "scope": "0.10.0-claudegpt.6: reframe#1 QA (archive guard, stale tiles, derived state, quit confirmations, Windows-only CI, tray icon, batched archive/delete, resizable session list, richer New session) and installation-scoped idle and maintenance-stop checks",
   "inputHashes": [
     {
       "file": ".github/workflows/ci.yml",
@@ -22,7 +22,7 @@
     },
     {
       "file": "docs/releases/v0.10.0-claudegpt.6.md",
-      "sha256": "c25d62384a55cbe20c5f0ceb4cd07f564815b9b87e80a7a0c0572cbc6dd72a20"
+      "sha256": "1bbf9005cbf01b153d1be50131abe5e9a5fe8314b770f440eeccc4d81291b852"
     },
     {
       "file": "e2e/bulk-chats.spec.ts",
@@ -55,6 +55,10 @@
     {
       "file": "maintenance/windows/restore-managed.ps1",
       "sha256": "67699aa9ce6e9390ec2ae48f8650f7edfdf8970666e0bb8da83319ead6832e21"
+    },
+    {
+      "file": "maintenance/windows/stop-managed.ps1",
+      "sha256": "7b09285d4b6c59b99b922ae772644a6f63096a92c2b6b9377ad334756dc795d8"
     },
     {
       "file": "package-lock.json",
