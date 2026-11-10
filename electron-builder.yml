@@ -28,6 +28,10 @@ asarUnpack:
 extraResources:
   - from: maintenance/history_backend.py
     to: history_backend.py
+  - from: maintenance/windows/stop-managed.ps1
+    to: maintenance/windows/stop-managed.ps1
+  - from: maintenance/windows/release-files.ps1
+    to: maintenance/windows/release-files.ps1
 # node-pty and koffi are Node-API modules: their binaries work in Electron as they are.
 npmRebuild: false
 # Chromium's own UI strings (context menus, dialogs) only for reframe's languages.

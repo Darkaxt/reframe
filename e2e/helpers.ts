@@ -171,6 +171,8 @@ export async function captureWindows(name: string): Promise<void> {
 export async function cleanup(dir: string): Promise<void> {
   await running?.close().catch(() => {});
   running = null;
+  // The managed host inventories and retires these exact task outputs transactionally after consumers exit.
+  if (process.env.REFRAME_DEFER_CLEANUP === '1') return;
   // Chromium helper processes can hold the profile for a few seconds after the app exits.
   for (let attempt = 0; attempt < 40; attempt++) {
     try {

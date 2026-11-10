@@ -1,293 +1,108 @@
 {
-  "sourceBase": "0a13cbb048c48630d76e0374890bc431dea3f0c0",
-  "checksNotYetRun": [
-    "Current source CI",
-    "Published feed and independently retrieved delivery",
-    "Fresh idle installed cutover"
-  ],
-  "implementationGaps": [],
-  "testsPrepared": [
-    "src/shared/sidebar-chats.test.ts",
-    "e2e/project-tree.spec.ts",
-    "e2e/sidebar-titles.spec.ts",
-    "e2e/claudegpt.spec.ts",
-    "e2e/workspaces.spec.ts",
-    "e2e/list.spec.ts",
-    "e2e/sessions.spec.ts",
-    "src/main/updates.test.ts",
-    "src/shared/providers.test.ts",
-    "src/main/state/store.test.ts",
-    "src/main/log.test.ts",
-    "e2e/tray-assets.spec.ts",
-    "e2e/logging.spec.ts",
-    "e2e/claudegpt.spec.ts",
-    "maintenance/windows/test-release-files.ps1",
-    "e2e/wsl.spec.ts"
-  ],
   "schema": "reframe.source-ready.v1",
-  "wiring": "Existing state/preload/IPC/main own pins and expansion; stable source-qualified native chat IDs survive adoption. Shared catalogue orders all sources. Expanded branches retain original reads and page independently; no global folder filter or fixed 500-item reachability ceiling. Layout rename/delete remains in Workspaces toolbar. Context actions and native safeguards preserved. No automatic compaction. Semantic release/channel metadata; portable auto-download/install remains off.",
-  "scope": "Unified Pinned/Projects/Recents folder tree; source-independent persistent chat pins/expansion and paging; wrapped full titles/default-provider labels; preserved saved layouts and history actions; portable runtime assets, semantic update metadata and closed-pipe logging; WSL labels and readiness-bound refresh; separate hash-bound Windows provider executables and correct removal of an unset configuration override.",
-  "launch": "Reviewed private validate-refinements.ps1 and existing maintenance/build-windows.ps1; exact native D scratch registered in aa9754dd404eef94ac2c988477245a2b",
+  "checksNotYetRun": [
+    "Types/lint/units/build",
+    "Native selected-menu/model and exact-history/shared-index/cancellation/failure fixtures",
+    "Native quit/profile/no-instance and managed stop helper",
+    "Native package scope, release and installed verification"
+  ],
+  "wiring": "Native second-instance --quit selects the existing profile, handles startup and normal shutdown; installed managed helper binds exact primary/children and waits actual exits. Main owns normalized selected identities, one aggregate destructive confirmation, sequential per-item fresh native plans/activity checks and results. Model editor typed preload/IPC writes selected per-chat metadata only. Shutdown refuses new top-level history work and waits existing operations. No forced compaction/model turn/provider fallback.",
+  "implementationGaps": [],
   "status": "source_ready_for_validation",
+  "sourceBase": "1f773d8c01eabda141406b402518da5872407c59",
+  "testsPrepared": [
+    "e2e/bulk-chats.spec.ts",
+    "e2e/quit-command.spec.ts",
+    "maintenance/windows/test-release-files.ps1"
+  ],
+  "scope": "R9/R10 full closure command and multi-selection archive/delete/provider/model workflows, preserving R1-R8",
+  "sourceStage": "4",
+  "contentSha256": "c309610d2f60fdf4cc59813caf5641222080bd13585a5295e018a7c667c0db8c",
   "inputHashes": [
     {
-      "file": ".github/workflows/release.yml",
-      "sha256": "95aba4798c7abb92ea35d070078866a966eb9ff6406d547689544d3b2013827d"
-    },
-    {
-      "file": "docs/RELEASING.md",
-      "sha256": "8264caab7b55a847e42170b014b32208ae58c0ff151f9b72f34e00d2e9e82cae"
-    },
-    {
       "file": "docs/claudegpt-spec.md",
-      "sha256": "0c935f3551c508d897a22d517eaf358bcbfc1132f5105d75b6241098874013f0"
+      "sha256": "e305aa92d097151873629ff88f9883153fb604cebbb14ccafe9d0abef9c1e05b"
     },
     {
-      "file": "e2e/claudegpt.spec.ts",
-      "sha256": "7a31a69dfb5f95986c83f7a21775f0dbbfa5e1b12e215cc2dab3590515dfd711"
+      "file": "docs/CLAUDEGPT.md",
+      "sha256": "24d3ede7b891e44c1c30729ccfec93dde3eab4d4b6cb058642d98ace439d8dd4"
     },
     {
-      "file": "e2e/elsewhere.spec.ts",
-      "sha256": "1918bea6a6755f8aa0d7325a12d4d26941c88e8e58c5f366535902733ab85a04"
+      "file": "docs/releases/v0.10.0-claudegpt.3.md",
+      "sha256": "19fef82cdc9da96c591a1f6707d87916ac19e579eabe3a65a154da4229fae468"
     },
     {
-      "file": "e2e/sessions.spec.ts",
-      "sha256": "efe721d504bec9fae157ccd729b90e61316006f979a226a639fc7401ae267b0e"
+      "file": "e2e/bulk-chats.spec.ts",
+      "sha256": "042962041ad31bd66d4a8c4afc97e576ba5d1c31f85f587a3779652461bae104"
     },
     {
-      "file": "e2e/workspaces.spec.ts",
-      "sha256": "ce4840fa0ca99a56d6793132b106666bef9a5d8df36ebac0c1e99ea0a9e3d2ba"
+      "file": "e2e/helpers.ts",
+      "sha256": "79357eae3f358fd371d86a22d5ae7c5449d04e194a1cf473ce55a5771c3bc82c"
+    },
+    {
+      "file": "e2e/quit-command.spec.ts",
+      "sha256": "bbaa01f7c90db77cf9b2c4d2dd853c99cc8e85148f2cd62a0116644addaf20f7"
     },
     {
       "file": "electron-builder.yml",
-      "sha256": "8bd1415bdbbe9ea64c1563d2e664f9ce8610b49bc5fac4d3a3e074af67af0888"
+      "sha256": "705bb48e807479fe13100c56169b8c3276686a145ed23ca1bc08282a79467dee"
     },
     {
       "file": "maintenance/inspect-payload.mjs",
-      "sha256": "9f5b6b6e6b2c30d445384e5628b8b46edfc775a4ce4152c82af512e18c62da24"
-    },
-    {
-      "file": "package-lock.json",
-      "sha256": "741aa83cf6a146689fe7f552b62fdfaa5fe6779e409c2722b8019e7ee2a4f1a9"
-    },
-    {
-      "file": "package.json",
-      "sha256": "2ee19a9b83264eebc0ae7de35270d2d9bf6179de59683c0dd6924968cc74b1c1"
-    },
-    {
-      "file": "src/main/app.ts",
-      "sha256": "f356319ae49c7a37a3592d92100abfb078195f056253f6a7a8e3bf46962055a1"
-    },
-    {
-      "file": "src/main/log.test.ts",
-      "sha256": "e0a65eb6387ce6fcfefb0eb66696a40a34e2040b595bdabd5e6e5c0476a429ac"
-    },
-    {
-      "file": "src/main/log.ts",
-      "sha256": "bb0bc55e702707b01c00bca1af2826d6f908ecbaf9af90d35b76e8d70346c1e7"
-    },
-    {
-      "file": "src/main/menus.ts",
-      "sha256": "4f18b1e7694216bd97af9977fcafa1c3dc3c73aa7b8da781d061aef0a9c4627c"
-    },
-    {
-      "file": "src/preload/index.ts",
-      "sha256": "52134bea7ad5a086329ccb247481ec5853ed925f875f948371fb5218c9afc404"
-    },
-    {
-      "file": "src/renderer/App.tsx",
-      "sha256": "fa0cfdb729d11533bc937f15a70e4133ee8843327a132a846a9fce727fdf88f6"
-    },
-    {
-      "file": "src/renderer/components/NewSessionDialog.tsx",
-      "sha256": "c44e60be332ab5abe32b6534b352a192ef219c1b2c9b15890d760d32458c7839"
-    },
-    {
-      "file": "src/renderer/components/ProviderIcon.tsx",
-      "sha256": "230d9e910ec0b36dc08b965299047823eee3f79fd971b0f2bbea77980eb6a4fb"
-    },
-    {
-      "file": "src/renderer/components/SaveWorkspaceDialog.tsx",
-      "sha256": "592c6c816e803b36f13b0a14a7cd26ed44c63e60ccd1894e5cb4e206db4cbe7e"
-    },
-    {
-      "file": "src/renderer/components/SessionSidebar.tsx",
-      "sha256": "52869af8130aa749ddb36735a362fe32ede3805b467a4ab232d7b7412d2a025b"
-    },
-    {
-      "file": "src/renderer/components/icons.tsx",
-      "sha256": "ad48b23481cd174ff21cd6a07a669af0fb2434897a9916e70241052cccc546ff"
-    },
-    {
-      "file": "src/renderer/session-list.ts",
-      "sha256": "a5ac90b4b1e323d5bc80bd9dbf2090e76c4b9b63fe43211b1095f5e0306362da"
-    },
-    {
-      "file": "src/renderer/styles.css",
-      "sha256": "ae812d34b0de5d6d68b8e7c07dde78a50406e47298d9c4eecbec52119c03a33f"
-    },
-    {
-      "file": "src/shared/ipc.ts",
-      "sha256": "9413aeba71f9265a95600c53252f8f1d0c431f8ee1483f0b83b2e1186f02fe48"
-    },
-    {
-      "file": "src/shared/state.ts",
-      "sha256": "b355be76a9c76007dfff4327446980ef7244010fad43369791c55920368821d4"
-    },
-    {
-      "file": "docs/releases/v0.10.0-claudegpt.2.md",
-      "sha256": "3f9562f79bb570f8a7e2206bb87da8f227cbefd85673fd90b022a41b884ae046"
-    },
-    {
-      "file": "e2e/logging.spec.ts",
-      "sha256": "48e395e67dc426fbba4fc59dae2952613e1cf9981a94469bd38fb6103b32aaba"
-    },
-    {
-      "file": "e2e/project-tree.spec.ts",
-      "sha256": "a86c139e7d46398a15c732a8a3924beeaf8425ba73729feccc81fcccca76f6ff"
-    },
-    {
-      "file": "e2e/sidebar-titles.spec.ts",
-      "sha256": "09e7308e5dc7442090724bdf185bfb344b1c3457c905813a8ecaa0f175fbe8b5"
-    },
-    {
-      "file": "e2e/tray-assets.spec.ts",
-      "sha256": "0d53437d802382e7ed6269e4a804453608d9bc606dc45e3145f75cca95e0b33a"
-    },
-    {
-      "file": "maintenance/write-update-metadata.mjs",
-      "sha256": "e4523d6e953c9927ae2ce95161ad16b577348652081d8b42cb95fd53f3f92a9f"
-    },
-    {
-      "file": "src/shared/sidebar-chats.test.ts",
-      "sha256": "38583630f258a20f7f0182b963dded3db91499664301d3b3480bfb74f987de40"
-    },
-    {
-      "file": "src/shared/sidebar-chats.ts",
-      "sha256": "f98710e739cac0d2972371219cd2726048f72e14fd48b4e93e260ead89dd7c8c"
-    },
-    {
-      "file": "e2e/wsl.spec.ts",
-      "sha256": "b40c2ebd5207d54611ec3cd6d9e5e4a5b583a09e7720ad398432bc9299f40578"
+      "sha256": "2277451b053321fc4917f8227dec882ea7d13045f14b8859151789ab12d01eed"
     },
     {
       "file": "maintenance/windows/deploy-managed.ps1",
-      "sha256": "82d6ff05374f6766c8aba6e1655629e98e9f77f90f02817717e4e63e9d0cae4c"
+      "sha256": "34365718ae08191b4c806d926abdd87a9e556d9ab3cd802f487964134b6b8472"
     },
     {
-      "file": "maintenance/windows/start-managed.ps1",
-      "sha256": "e059cc1c8812935116aabf5499904c8ca8964377e9797e753b6362d9c6fb2b7b"
+      "file": "maintenance/windows/stop-managed.ps1",
+      "sha256": "90c7738dccb5d26d5db700e4d0843bb006b7fc8d067cc4af746f1143c4bed145"
     },
     {
-      "file": "src/main/sessions.ts",
-      "sha256": "0b41f66ef5376b092991382916e1205ff04b75586e1e60e41da532839f7d5fee"
+      "file": "maintenance/windows/write-stop-fixture.ps1",
+      "sha256": "633813edecc684157db28ab1dc6cff86e76e182cb2d37c26f846b7951019ac2a"
     },
     {
-      "file": "src/main/wsl/distros.ts",
-      "sha256": "96107d2b6b10294faf7130e1b69d34ad8fb2ef0d5439ba9c4937ea800943776f"
+      "file": "package-lock.json",
+      "sha256": "1d54d72b60cc87e30bff4f052659e95cfe8c7785e6e4e17e94b6f2b8a22028f7"
+    },
+    {
+      "file": "package.json",
+      "sha256": "35e8cff2330ae1168a8a4ce8674c378707c036180abafe82c0e9f4b8e3bcc218"
+    },
+    {
+      "file": "src/main/app.ts",
+      "sha256": "63c35a197a497a58b5f41847d83ceb36ddd3d287abdb9bdaaded093d7a9cb518"
+    },
+    {
+      "file": "src/main/index.ts",
+      "sha256": "d663c5a4a6bce482bf6e5913a9c3470da471a10a00568583dd57dbe20b78021b"
+    },
+    {
+      "file": "src/preload/index.ts",
+      "sha256": "aeedb3193097f229e4037b0f2b3200a25ae7a82e9f9f477c19edce01b1e7ba2e"
+    },
+    {
+      "file": "src/renderer/App.tsx",
+      "sha256": "48e21589854100033283e1ff4eb86ad5c9de0767ec8b0fe861af8f931000265b"
+    },
+    {
+      "file": "src/renderer/components/ChatModelDialog.tsx",
+      "sha256": "b8c23997210bb718b0d43398bf278c6d75bf47935ea0ebe1ca73fd5b5a6277b4"
+    },
+    {
+      "file": "src/renderer/components/SessionSidebar.tsx",
+      "sha256": "a8a09ae2cc499e73998c6ebcc105cea977bf3a9d107a5128f024a45a24dab703"
+    },
+    {
+      "file": "src/renderer/styles.css",
+      "sha256": "d8670aacb7f5d463736721204a2c0b36986afbf12da1f63a6377eac6a3782ac2"
+    },
+    {
+      "file": "src/shared/ipc.ts",
+      "sha256": "d6a3189301b451bd22a67acf51089975a7e3947fcbd70c36d415a8e31151c1d9"
     }
   ],
-  "contentSha256": "b15971a7865af3d6730aa37c59e3681553d0c000a0356251abf6469a235d8833",
-  "sourceEvidence": [
-    ".github/workflows/release.yml",
-    "docs/RELEASING.md",
-    "docs/claudegpt-spec.md",
-    "e2e/claudegpt.spec.ts",
-    "e2e/elsewhere.spec.ts",
-    "e2e/sessions.spec.ts",
-    "e2e/workspaces.spec.ts",
-    "electron-builder.yml",
-    "maintenance/inspect-payload.mjs",
-    "package-lock.json",
-    "package.json",
-    "src/main/app.ts",
-    "src/main/log.test.ts",
-    "src/main/log.ts",
-    "src/main/menus.ts",
-    "src/preload/index.ts",
-    "src/renderer/App.tsx",
-    "src/renderer/components/NewSessionDialog.tsx",
-    "src/renderer/components/ProviderIcon.tsx",
-    "src/renderer/components/SaveWorkspaceDialog.tsx",
-    "src/renderer/components/SessionSidebar.tsx",
-    "src/renderer/components/icons.tsx",
-    "src/renderer/session-list.ts",
-    "src/renderer/styles.css",
-    "src/shared/ipc.ts",
-    "src/shared/state.ts",
-    "docs/releases/v0.10.0-claudegpt.2.md",
-    "e2e/logging.spec.ts",
-    "e2e/project-tree.spec.ts",
-    "e2e/sidebar-titles.spec.ts",
-    "e2e/tray-assets.spec.ts",
-    "maintenance/write-update-metadata.mjs",
-    "src/shared/sidebar-chats.test.ts",
-    "src/shared/sidebar-chats.ts",
-    "e2e/wsl.spec.ts",
-    "maintenance/windows/deploy-managed.ps1",
-    "maintenance/windows/start-managed.ps1",
-    "src/main/sessions.ts",
-    "src/main/wsl/distros.ts"
-  ],
-  "packagingCorrection": {
-    "reason": "Exact native tray assets, closed-stderr logger correction, WSL metadata/start refresh and separate provider binary binding with correct absent configuration override.",
-    "runtimeJavaScriptUnchanged": false,
-    "inputs": [
-      {
-        "sha256": "8bd1415bdbbe9ea64c1563d2e664f9ce8610b49bc5fac4d3a3e074af67af0888",
-        "file": "electron-builder.yml"
-      },
-      {
-        "sha256": "9f5b6b6e6b2c30d445384e5628b8b46edfc775a4ce4152c82af512e18c62da24",
-        "file": "maintenance/inspect-payload.mjs"
-      },
-      {
-        "sha256": "98905b1a3bddf99ed782eb28c82aed31e10795ad98d5d3cdb586e4b979a8527c",
-        "file": "resources/icon.png"
-      },
-      {
-        "sha256": "1307ba6ca7df9451c21928c07894d82f20e7df24df890a9f36960079adb4950a",
-        "file": "resources/tray.png"
-      },
-      {
-        "sha256": "09bc5de63d97ef07ec4bdfeaf431cb0b5918ac3b595a24eed518a4fa6a377ec0",
-        "file": "resources/tray@2x.png"
-      },
-      {
-        "sha256": "bb0bc55e702707b01c00bca1af2826d6f908ecbaf9af90d35b76e8d70346c1e7",
-        "file": "src/main/log.ts"
-      },
-      {
-        "sha256": "52869af8130aa749ddb36735a362fe32ede3805b467a4ab232d7b7412d2a025b",
-        "file": "src/renderer/components/SessionSidebar.tsx"
-      },
-      {
-        "sha256": "0b41f66ef5376b092991382916e1205ff04b75586e1e60e41da532839f7d5fee",
-        "file": "src/main/sessions.ts"
-      },
-      {
-        "sha256": "f356319ae49c7a37a3592d92100abfb078195f056253f6a7a8e3bf46962055a1",
-        "file": "src/main/app.ts"
-      },
-      {
-        "sha256": "e059cc1c8812935116aabf5499904c8ca8964377e9797e753b6362d9c6fb2b7b",
-        "file": "maintenance/windows/start-managed.ps1"
-      },
-      {
-        "sha256": "82d6ff05374f6766c8aba6e1655629e98e9f77f90f02817717e4e63e9d0cae4c",
-        "file": "maintenance/windows/deploy-managed.ps1"
-      }
-    ]
-  },
-  "verificationReuse": {
-    "nativeTreeAndHistory": "feature-20261110/final-package-checks.json; unchanged renderer/history implementation, all five native checks passed",
-    "logger": "Actual closed-pipe unit regression, main/renderer typechecks, focused units and full lint/format passed. Current native startup/pipe closure/responsiveness/durable log/normal shutdown and runtime images passed (logger-fixed-package-checks.json).",
-    "remaining": [
-      "Fresh corrected package startup/logger/native assets",
-      "Published feed and delivered package",
-      "Fresh idle activation and installed checks"
-    ],
-    "sourceWorkspaces": "session94791 exit0",
-    "auth": "Dedicated patched CLI 2.1.319 native subscription authentication and one benign no-tool Sonnet5.5 reply passed with native retries disabled. Proxy config/account and user settings hashes unchanged; native OAuth save authorized."
-  }
+  "launch": "Existing maintenance/build-windows.ps1 Validate/Package plus private validate-bulk.ps1, native D scratch D:/Temp/claudegpt-reframe-bulk-20261110; cleanupdc3b29e0060ff31776bc71f83f2ae330"
 }

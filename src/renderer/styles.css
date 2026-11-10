@@ -1247,3 +1247,26 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Selection controls and complete per-chat batch outcomes share the existing compact app surface. */
+.sidebar-selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+}
+.chat-batch-report {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  max-height: 180px;
+  overflow: auto;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.chat-batch-report ul {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+.chat-batch-report .button {
+  margin-top: 6px;
+}

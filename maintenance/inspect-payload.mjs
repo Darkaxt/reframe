@@ -29,9 +29,31 @@ for (const asset of runtimeAssets) {
     throw Error('Packaged runtime image differs from source: ' + asset);
 }
 const backend = fs.readFileSync(path.join(directory, 'resources', 'history_backend.py'));
+for (const name of ['stop-managed.ps1', 'release-files.ps1'])
+  if (
+    !fs
+      .readFileSync(path.join(directory, 'resources', 'maintenance', 'windows', name))
+      .equals(fs.readFileSync(new URL('./windows/' + name, import.meta.url)))
+  )
+    throw Error('Packaged quit helper differs from reviewed source: ' + name);
 if (!backend.equals(fs.readFileSync(new URL('./history_backend.py', import.meta.url))))
   throw Error('Packaged history backend differs from qualified source');
 const main = asar.extractFile(archive, path.join('out', 'main', 'index.js')).toString();
+if (main !== fs.readFileSync(new URL('../out/main/index.js', import.meta.url), 'utf8'))
+  throw Error('Packaged main differs from the verified build');
+if (
+  !asar
+    .extractFile(archive, path.join('out', 'preload', 'index.js'))
+    .equals(fs.readFileSync(new URL('../out/preload/index.js', import.meta.url)))
+)
+  throw Error('Packaged preload differs from the verified build');
+for (const name of names.filter((entry) => /^out\/renderer\/.+\.(js|css|html)$/.test(entry)))
+  if (
+    !asar
+      .extractFile(archive, path.join(...name.split('/')))
+      .equals(fs.readFileSync(new URL('../' + name, import.meta.url)))
+  )
+    throw Error('Packaged renderer differs from the verified build: ' + name);
 for (const marker of [
   'https://api.anthropic.com',
   'reframe:restore-archive',
@@ -41,13 +63,25 @@ for (const marker of [
   'Pin chat',
   'fs.writeSync(process.stderr.fd, line)',
   'REFRAME_ANTHROPIC_CLAUDE_BIN',
+  '--quit',
+  'Archive selected',
+  'Delete selected',
+  'reframe:change-chat-models',
 ])
   if (!main.includes(marker)) throw Error('Missing packaged feature: ' + marker);
 const renderer = names
   .filter((name) => /^out\/renderer\/assets\/.*\.js$/.test(name))
   .map((name) => asar.extractFile(archive, path.join(...name.split('/'))).toString())
   .join('\n');
-for (const marker of ['sidebar-pinned', 'sidebar-project-chats', 'sidebar-recents', 'historical provider not recorded'])
+for (const marker of [
+  'sidebar-pinned',
+  'sidebar-project-chats',
+  'sidebar-recents',
+  'historical provider not recorded',
+  'Selected chat actions',
+  'Apply to selected chats',
+  'Selected chat results',
+])
   if (!renderer.includes(marker)) throw Error('Missing packaged sidebar feature: ' + marker);
 const hash = (data) => createHash('sha256').update(data).digest('hex');
 process.stdout.write(

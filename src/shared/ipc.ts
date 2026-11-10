@@ -180,6 +180,18 @@ export type ListItemRef =
   | { kind: 'running'; pid: number; claudeSessionId: string; distro?: string }
   | { kind: 'found'; claudeSessionId: string; distro?: string };
 
+export interface ChatModelEdit {
+  items: ListItemRef[];
+  provider: Provider;
+  model?: string;
+}
+
+export interface ChatBatchResult {
+  operation: 'archive' | 'delete' | 'provider' | 'model';
+  running: boolean;
+  results: { id: string; label: string; status: 'completed' | 'skipped' | 'failed'; detail?: string }[];
+}
+
 export interface OpenSessionRequest {
   item: ListItemRef;
   target: DropTarget | null;
@@ -326,6 +338,9 @@ export interface ReframeApi {
   openSessions(request: OpenSessionsRequest): void;
   /** Native menu for the selected list entries (open, open in a new group, … in a new window). */
   showListMenu(items: ListItemRef[]): void;
+  onEditChatModels(listener: (request: ChatModelEdit) => void): () => void;
+  changeChatModels(items: ListItemRef[], provider: Provider, model: string): Promise<void>;
+  onChatBatchResult(listener: (result: ChatBatchResult) => void): () => void;
   /** Forgets an ended session (its Claude Code transcript stays). */
   removeSession(sessionId: string): void;
   /** A terminal window with claude is dragged over this window (content coordinates); null when it left. */
@@ -340,6 +355,9 @@ export interface ReframeApi {
 }
 
 export const IPC = {
+  editChatModels: 'reframe:edit-chat-models',
+  changeChatModels: 'reframe:change-chat-models',
+  chatBatchResult: 'reframe:chat-batch-result',
   restoreArchive: 'reframe:restore-archive',
   getView: 'reframe:get-view',
   view: 'reframe:view',

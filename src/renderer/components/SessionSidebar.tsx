@@ -237,6 +237,17 @@ export function SessionSidebar({ sessionList }: { sessionList: SessionListState 
           projectRequests.current.clear();
         }}
       />
+      {chosen.length > 1 && (
+        <div className="sidebar-selection" role="group" aria-label="Selected chats">
+          <span>{chosen.length} selected</span>
+          <button className="button" onClick={() => window.reframe.showListMenu(refsOf(chosen))}>
+            Selected chat actions
+          </button>
+          <button className="button" onClick={() => setSelected([])}>
+            Clear selection
+          </button>
+        </div>
+      )}
       <div className="sidebar-scroll">
         <section className="sidebar-pinned" aria-label="Pinned">
           <h3 className="sidebar-heading">Pinned</h3>

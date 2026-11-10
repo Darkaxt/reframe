@@ -15,12 +15,20 @@ const profile = process.env.REFRAME_USER_DATA || portable;
 if (profile) app.setPath('userData', profile);
 
 const build = app.isPackaged ? 'installed' : 'development';
+const quitCommand = process.argv.includes('--quit');
 
-if (!app.requestSingleInstanceLock({ build })) {
+if (!app.requestSingleInstanceLock({ build, quit: quitCommand })) {
   // One reframe per profile: the running one shows its windows (second-instance) and this one leaves.
-  createLogger(path.join(app.getPath('userData'), 'logs'))('info', 'reframe already runs, showing its windows', {
-    build,
-  });
+  createLogger(path.join(app.getPath('userData'), 'logs'))(
+    'info',
+    quitCommand ? 'quit requested for running profile' : 'reframe already runs, showing its windows',
+    {
+      build,
+    },
+  );
+  app.quit();
+} else if (quitCommand) {
+  // Nothing owns this exact profile. A stop command never starts a GUI or changes saved state.
   app.quit();
 } else {
   // Windows shows toasts only for an app id with a Start menu shortcut. The installer creates one for
@@ -41,8 +49,16 @@ if (!app.requestSingleInstanceLock({ build })) {
 
   let reframe: ReframeApp | null = null;
   let quitting = false;
+  let startupComplete = false;
+  let quitRequested = false;
 
   app.on('second-instance', (_event, _argv, _cwd, data) => {
+    if ((data as { quit?: unknown } | null)?.quit === true) {
+      quitRequested = true;
+      // Startup initializes the services shutdown uses; do not shut down half-initialized state.
+      if (startupComplete) app.quit();
+      return;
+    }
     reframe?.revealWindows();
     // The installed app started while a development build runs, or the other way round: say so, or one ends up
     // trying out the build that is not running.
@@ -68,6 +84,8 @@ if (!app.requestSingleInstanceLock({ build })) {
     try {
       reframe = new ReframeApp(locale, { icon, trayIcon, trayIcon2x }, !!portable);
       await reframe.start({ hidden: startedBySystem() });
+      startupComplete = true;
+      if (quitRequested) app.quit();
     } catch (error) {
       // Without this, a failed start left a process with no window and no tray that still held the single-instance
       // lock: every later launch only "showed the windows" of it. Sessions started meanwhile are ended first.

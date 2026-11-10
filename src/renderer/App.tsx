@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { ForeignDropRequest, SessionRename, WindowView } from '@shared/ipc';
+import type { ChatBatchResult, ChatModelEdit, ForeignDropRequest, SessionRename, WindowView } from '@shared/ipc';
 import { leaves, type DropTarget } from '@shared/layout';
 import { AppContext, makeTranslate, type AppContextValue, type DragState } from './context';
 import { dragKind, dropTargetAt, handleDrop, type PreviewRect } from './dnd';
@@ -25,6 +25,7 @@ import {
 } from './shortcuts';
 import { SessionSidebar } from './components/SessionSidebar';
 import { TakeoverDialog } from './components/TakeoverDialog';
+import { ChatModelDialog } from './components/ChatModelDialog';
 
 const MAC = navigator.userAgent.includes('Mac');
 
@@ -45,6 +46,10 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editingModels, setEditingModels] = useState<ChatModelEdit | null>(null);
+  const [chatBatch, setChatBatch] = useState<ChatBatchResult | null>(null);
+  useEffect(() => window.reframe.onEditChatModels(setEditingModels), []);
+  useEffect(() => window.reframe.onChatBatchResult(setChatBatch), []);
   const [namingWorkspace, setNamingWorkspace] = useState(false);
   const [renamingWorkspace, setRenamingWorkspace] = useState<string | null>(null);
   const [dragging, setDragging] = useState<DragState | null>(null);
@@ -371,6 +376,32 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
   return (
     <AppContext.Provider value={context}>
       <div className="app">
+        {chatBatch && (
+          <section className="chat-batch-report" aria-label="Selected chat results">
+            <div role="status">
+              {chatBatch.running ? 'Working on selected chats… ' : 'Selected chat action finished. '}
+              {chatBatch.results.filter((entry) => entry.status === 'completed').length} completed ·{' '}
+              {chatBatch.results.filter((entry) => entry.status === 'skipped').length} skipped ·{' '}
+              {chatBatch.results.filter((entry) => entry.status === 'failed').length} failed
+            </div>
+            <details>
+              <summary>Chat results</summary>
+              <ul>
+                {chatBatch.results.map((entry) => (
+                  <li key={entry.id}>
+                    <strong>{entry.label}</strong>: {entry.status}
+                    {entry.detail ? ` — ${entry.detail}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </details>
+            {!chatBatch.running && (
+              <button className="button" onClick={() => setChatBatch(null)}>
+                Dismiss results
+              </button>
+            )}
+          </section>
+        )}
         <div className="toolbar">
           <button
             className="button toolbar-button"
@@ -482,6 +513,13 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
           </div>
         )}
         {dialogOpen && <NewSessionDialog onClose={() => setDialogOpen(false)} />}
+        {editingModels && (
+          <ChatModelDialog
+            key={JSON.stringify(editingModels)}
+            request={editingModels}
+            onClose={() => setEditingModels(null)}
+          />
+        )}
         {(namingWorkspace || renamingWorkspace) && (
           <SaveWorkspaceDialog
             key={renamingWorkspace || 'new'}

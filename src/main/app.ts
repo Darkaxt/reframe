@@ -77,6 +77,7 @@ import {
   type TileSize,
   type TransferRequest,
   type WindowView,
+  type ChatBatchResult,
 } from '@shared/ipc';
 import { PERMISSION_MODES, type PermissionMode } from '@shared/launch';
 import { RELEASES_URL } from '@shared/links';
@@ -177,7 +178,10 @@ export class ReframeApp {
   private history = new History(() => this.state.preferences.archiveRoot);
   private historyBusy = new Set<string>();
   private historyOperations = new Set<Promise<unknown>>();
+  private chatBatchRunning = false;
   private trackHistory<T>(run: () => Promise<T>): Promise<T> {
+    if (this.shuttingDown)
+      return Promise.reject(Error('Reframe is shutting down; no new history operation was started.'));
     const operation = run();
     this.historyOperations.add(operation);
     void operation.finally(() => this.historyOperations.delete(operation)).catch(() => {});
@@ -1008,7 +1012,7 @@ export class ReframeApp {
       );
     const single = items.length === 1 && items[0]!.kind === 'app' ? items[0]!.sessionId : null;
     const menu = listMenu(this.t, {
-      chatActions: items.length === 1 ? this.chatActions(windowId, items[0]!) : [],
+      chatActions: items.length === 1 ? this.chatActions(windowId, items[0]!) : this.batchChatActions(windowId, items),
       rename: single
         ? () => this.windows.send(windowId, IPC.startRenameSession, { sessionId: single, place: 'list' })
         : undefined,
@@ -1027,7 +1031,153 @@ export class ReframeApp {
   }
   private lastMenu: Menu | null = null;
 
-  /** Only single, exact inactive histories can change route or leave the live history store. */
+  private editChatModels(windowId: string, items: ListItemRef[]): void {
+    const records = items.flatMap((item) => {
+      const record =
+        item.kind === 'app'
+          ? this.state.sessions[item.sessionId]
+          : Object.values(this.state.sessions).find((entry) => entry.claudeSessionId === item.claudeSessionId);
+      return record ? [record] : [];
+    });
+    const provider = records[0]?.launch.provider ?? 'chatgpt';
+    const same = records.every((record) => (record.launch.provider ?? 'chatgpt') === provider);
+    this.windows.send(windowId, IPC.editChatModels, {
+      items,
+      provider: same ? provider : 'chatgpt',
+      model:
+        same && records.every((record) => record.launch.model === records[0]?.launch.model)
+          ? records[0]?.launch.model
+          : undefined,
+    });
+  }
+
+  private batchChatActions(windowId: string, items: ListItemRef[]): MenuItemConstructorOptions[] {
+    const run = (operation: ChatBatchResult['operation'], provider?: Provider) => {
+      void this.trackHistory(() => this.runChatBatch(windowId, items, operation, provider)).catch((error) =>
+        this.showError(windowId, String(error)),
+      );
+    };
+    return [
+      { type: 'separator' },
+      {
+        label: 'Model provider',
+        enabled: !this.chatBatchRunning,
+        submenu: (['chatgpt', 'anthropic'] as Provider[]).map((provider) => ({
+          label: providerName(provider),
+          click: () => run('provider', provider),
+        })),
+      },
+      { label: 'Change model…', enabled: !this.chatBatchRunning, click: () => this.editChatModels(windowId, items) },
+      { label: 'Archive selected…', enabled: !this.chatBatchRunning, click: () => run('archive') },
+      { label: 'Delete selected…', enabled: !this.chatBatchRunning, click: () => run('delete') },
+    ];
+  }
+
+  /** One confirmation and one fresh exact transaction per distinct chat, never stale shared-index plans. */
+  private async runChatBatch(
+    windowId: string,
+    items: ListItemRef[],
+    operation: ChatBatchResult['operation'],
+    provider?: Provider,
+    model?: string,
+  ): Promise<void> {
+    if (this.chatBatchRunning || this.shuttingDown) throw Error('Another batch or shutdown is already running.');
+    this.chatBatchRunning = true;
+    const result: ChatBatchResult = { operation, running: true, results: [] };
+    const publish = () => this.windows.send(windowId, IPC.chatBatchResult, { ...result, results: [...result.results] });
+    const seen = new Set<string>();
+    const targets: { item: ListItemRef; record: SessionRecord; key: string }[] = [];
+    try {
+      publish();
+      for (const item of items) {
+        const existing = item.kind === 'app' ? this.state.sessions[item.sessionId] : undefined;
+        const id = item.kind === 'app' ? (existing?.claudeSessionId ?? item.sessionId) : item.claudeSessionId;
+        const distro = item.kind === 'app' ? existing && this.wslPath(existing.cwd)?.distro : item.distro;
+        const key = chatKey(id, distro);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        try {
+          const record = await this.inactiveChat(item);
+          if (this.historyBusy.has(record.claudeSessionId)) throw Error('A history operation is already running.');
+          targets.push({ item, record, key });
+        } catch (error) {
+          result.results.push({ id: key, label: existing?.name || id, status: 'skipped', detail: String(error) });
+        }
+      }
+      if (targets.length && (operation === 'archive' || operation === 'delete')) {
+        const win = this.windows.get(windowId);
+        if (!win) throw Error('The requesting window closed; chats preserved.');
+        const answer = await dialog.showMessageBox(win, {
+          type: 'warning',
+          defaultId: 1,
+          cancelId: 1,
+          buttons: [operation === 'archive' ? 'Archive selected' : 'Delete permanently', 'Cancel'],
+          message: `${operation === 'archive' ? 'Archive' : 'Permanently delete'} ${targets.length} selected chats?`,
+          detail:
+            targets
+              .map(
+                ({ record }) =>
+                  `${record.name || path.basename(record.cwd)} · ${record.claudeSessionId}\n${record.cwd}`,
+              )
+              .join('\n\n') +
+            '\n\n' +
+            (operation === 'archive'
+              ? 'Each chat gets a verified restorable ZIP before live files are removed.'
+              : 'Transcripts, owned session/subagent files and matching history entries are permanently removed. This cannot be undone.') +
+            '\nProject files and unselected chats are preserved. Activity is checked again for each chat; unavailable chats are skipped.',
+        });
+        if (answer.response !== 0) {
+          for (const { record, key } of targets)
+            result.results.push({
+              id: key,
+              label: record.name || path.basename(record.cwd),
+              status: 'skipped',
+              detail: 'Cancelled; unchanged.',
+            });
+          return;
+        }
+      }
+      for (const { item, record, key } of targets) {
+        const entry: ChatBatchResult['results'][number] = {
+          id: key,
+          label: record.name || path.basename(record.cwd),
+          status: 'completed',
+        };
+        try {
+          await this.inactiveChat(item);
+          if (this.historyBusy.has(record.claudeSessionId)) throw Error('A history operation is already running.');
+          await this.history.check(this.claudeHome, record.claudeSessionId);
+        } catch (error) {
+          result.results.push({ ...entry, status: 'skipped', detail: String(error) });
+          publish();
+          continue;
+        }
+        try {
+          if (operation === 'archive' || operation === 'delete') await this.retireChat(windowId, item, operation, true);
+          else {
+            if (!provider) throw Error('Choose an explicit provider.');
+            await this.selectProvider(
+              windowId,
+              item,
+              provider,
+              operation === 'model' ? model?.trim() || null : undefined,
+            );
+          }
+          result.results.push(entry);
+        } catch (error) {
+          result.results.push({ ...entry, status: 'failed', detail: String(error) });
+        }
+        publish();
+      }
+    } finally {
+      result.running = false;
+      this.chatBatchRunning = false;
+      publish();
+      this.listChanged();
+    }
+  }
+
+  /** Exact inactive histories can change route or leave the live history store. */
   private chatActions(windowId: string, item: ListItemRef): MenuItemConstructorOptions[] {
     const record = item.kind === 'app' ? this.state.sessions[item.sessionId] : undefined;
     if (item.kind === 'app' && !record) return [];
@@ -1077,6 +1227,11 @@ export class ReframeApp {
         })),
       },
       {
+        label: 'Change model…',
+        enabled: inactive && !this.chatBatchRunning,
+        click: () => this.editChatModels(windowId, [item]),
+      },
+      {
         label: inactive ? 'Archive chat…' : 'Archive chat (end chat first)',
         enabled: inactive,
         click: () => run('archive'),
@@ -1109,14 +1264,37 @@ export class ReframeApp {
     if (item.kind !== 'found') throw Error('Chat no longer exists.');
     const info = await this.transcripts.find(item.claudeSessionId);
     if (!info?.cwd) throw Error('Chat transcript/folder could not be resolved.');
-    return { ...(await this.adopted(item.claudeSessionId, info.cwd, info.title)), lifecycle: 'ended' };
+    const record = { ...(await this.adopted(item.claudeSessionId, info.cwd, info.title)), lifecycle: 'ended' as const };
+    this.assertChatStillInactive(record);
+    return record;
   }
 
-  private async selectProvider(_windowId: string, item: ListItemRef, provider: Provider): Promise<void> {
+  /** Recheck under the history lock after asynchronous discovery, before any native operation. */
+  private assertChatStillInactive(record: SessionRecord): void {
+    for (const current of Object.values(this.state.sessions).filter(
+      (entry) => entry.claudeSessionId === record.claudeSessionId,
+    )) {
+      if (
+        current.lifecycle !== 'ended' ||
+        this.sessions.isRunning(current.id) ||
+        this.startsPending.has(current.id) ||
+        this.wslPath(current.cwd)
+      )
+        throw Error('This chat started or changed ownership; unchanged.');
+    }
+  }
+
+  private async selectProvider(
+    _windowId: string,
+    item: ListItemRef,
+    provider: Provider,
+    model?: string | null,
+  ): Promise<void> {
     const record = await this.inactiveChat(item);
     if (this.historyBusy.has(record.claudeSessionId)) throw Error('A history operation is already running.');
     this.historyBusy.add(record.claudeSessionId);
     try {
+      this.assertChatStillInactive(record);
       // Preparation performs a fresh native process/reference check; selecting a route starts no model turn.
       await this.history.check(this.claudeHome, record.claudeSessionId);
       const next = {
@@ -1124,7 +1302,10 @@ export class ReframeApp {
         launch: {
           ...record.launch,
           provider,
-          model: modelForProviderChange(record.launch.provider, provider, record.launch.model),
+          model:
+            model === undefined
+              ? modelForProviderChange(record.launch.provider, provider, record.launch.model)
+              : model || undefined,
         },
       };
       this.state = { ...this.state, sessions: { ...this.state.sessions, [next.id]: next } };
@@ -1136,27 +1317,35 @@ export class ReframeApp {
     }
   }
 
-  private async retireChat(windowId: string, item: ListItemRef, operation: 'archive' | 'delete'): Promise<void> {
+  private async retireChat(
+    windowId: string,
+    item: ListItemRef,
+    operation: 'archive' | 'delete',
+    confirmed = false,
+  ): Promise<void> {
     const record = await this.inactiveChat(item);
     const tid = record.claudeSessionId;
     if (this.historyBusy.has(tid)) throw Error('A history operation is already running.');
     this.historyBusy.add(tid);
     try {
+      this.assertChatStillInactive(record);
       const prepared = await this.history.prepare(this.claudeHome, tid);
       const win = this.windows.get(windowId);
       if (!win) throw Error('The requesting window closed; chat preserved.');
-      const answer = await dialog.showMessageBox(win, {
-        type: 'warning',
-        buttons: [operation === 'archive' ? 'Archive chat' : 'Delete permanently', 'Cancel'],
-        defaultId: 1,
-        cancelId: 1,
-        message: `${operation === 'archive' ? 'Archive' : 'Permanently delete'} “${record.name || path.basename(record.cwd)}”?`,
-        detail:
-          `${prepared.files} exact chat files (${prepared.bytes.toLocaleString()} bytes).\n${tid}\n${record.cwd}\n` +
-          (operation === 'archive'
-            ? 'A verified ZIP will be kept before the live files are removed. Restore remains available in Archived chats.'
-            : 'This removes its transcript, owned subagent/session files and matching history entries. Project files and other chats are preserved. This cannot be undone.'),
-      });
+      const answer = confirmed
+        ? { response: 0 }
+        : await dialog.showMessageBox(win, {
+            type: 'warning',
+            buttons: [operation === 'archive' ? 'Archive chat' : 'Delete permanently', 'Cancel'],
+            defaultId: 1,
+            cancelId: 1,
+            message: `${operation === 'archive' ? 'Archive' : 'Permanently delete'} “${record.name || path.basename(record.cwd)}”?`,
+            detail:
+              `${prepared.files} exact chat files (${prepared.bytes.toLocaleString()} bytes).\n${tid}\n${record.cwd}\n` +
+              (operation === 'archive'
+                ? 'A verified ZIP will be kept before the live files are removed. Restore remains available in Archived chats.'
+                : 'This removes its transcript, owned subagent/session files and matching history entries. Project files and other chats are preserved. This cannot be undone.'),
+          });
       if (answer.response !== 0) return;
       let archive: { archive: string; sha256: string } | undefined;
       const metadata = {
@@ -2621,6 +2810,17 @@ export class ReframeApp {
     handle(IPC.restoreArchive, async (_id, _event, chat: unknown) => {
       if (typeof chat !== 'string') return { ok: false, error: 'Invalid archive' };
       return this.trackHistory(() => this.restoreChat(chat));
+    });
+    handle(IPC.changeChatModels, async (id, _event, items: unknown, provider: unknown, model: unknown) => {
+      if (
+        !isListItems(items) ||
+        !isProvider(provider) ||
+        typeof model !== 'string' ||
+        model.length > 300 ||
+        Array.from(model).some((character) => character.charCodeAt(0) < 32)
+      )
+        throw Error('Invalid selected chats/provider/model.');
+      return this.trackHistory(() => this.runChatBatch(id, items, 'model', provider, model));
     });
     handle(IPC.sessionList, async (_id, _event, query: unknown, limit: unknown, folder: unknown) => {
       // Asked for by the user (opening the list, searching, after an action there): as fresh as before.

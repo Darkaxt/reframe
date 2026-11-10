@@ -16,7 +16,7 @@ $rollback = $null
 try {
     try { $owned = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { throw 'Prior deployment interrupted; inspect its journal first' }
     if (-not $owned) { throw 'Another Reframe activation owns the mutex' }
-    foreach ($name in @('deploy-managed.ps1', 'release-files.ps1', 'restore-managed.ps1', 'start-managed.ps1')) {
+    foreach ($name in @('deploy-managed.ps1', 'release-files.ps1', 'restore-managed.ps1', 'start-managed.ps1', 'stop-managed.ps1')) {
         $script = @($m.scripts | Where-Object { $_.file -ceq $name })
         if ($script.Count -ne 1) { throw "Missing or duplicate pinned release script: $name" }
         Assert-Hash (Join-Path $PSScriptRoot $name) $script[0].sha256
@@ -31,6 +31,9 @@ try {
     $delivery = Get-Content -LiteralPath $m.delivery -Raw | ConvertFrom-Json
     if ($delivery.sourceCommit -cne $candidate.sourceCommit -or $delivery.archiveSha256 -cne $candidate.archiveSha256 -or -not $delivery.retrievedVerified) { throw 'Published delivery not independently verified' }
     Test-ReleaseFiles (Split-Path -Parent $candidate.executable) $candidate.files
+    foreach ($name in @('stop-managed.ps1','release-files.ps1')) {
+        Assert-Hash (Join-Path (Split-Path -Parent $candidate.executable) "resources\maintenance\windows\$name") (Get-Sha256 (Join-Path $PSScriptRoot $name))
+    }
     Assert-Hash $candidate.archive $candidate.archiveSha256
     Assert-Hash $m.activePath $m.previousActiveSha256
     $previous = Get-Content -LiteralPath $m.activePath -Raw | ConvertFrom-Json
@@ -85,7 +88,7 @@ try {
     Assert-PlainPath $m.launcherDirectory
     if (Test-Path -LiteralPath $m.launcherDirectory) { throw 'Launcher destination already exists; inspect prior activation' }
     [IO.Directory]::CreateDirectory($m.launcherDirectory) | Out-Null
-    foreach ($name in @('start-managed.ps1', 'release-files.ps1')) {
+    foreach ($name in @('start-managed.ps1', 'stop-managed.ps1', 'release-files.ps1')) {
         [IO.File]::Copy((Join-Path $PSScriptRoot $name), (Join-Path $m.launcherDirectory $name), $false)
         Assert-Hash (Join-Path $m.launcherDirectory $name) (Get-Sha256 (Join-Path $PSScriptRoot $name))
     }
@@ -101,6 +104,8 @@ try {
         delivery = $m.delivery; rollback = $rollbackPath; rollbackSha256 = Get-Sha256 $rollbackPath
         anthropicLiveVerified = $q.anthropic; verificationLimits = $q.limits
         at = [DateTime]::UtcNow.ToString('o')
+        quitCommand = '--quit'; stopScript = Join-Path $m.launcherDirectory 'stop-managed.ps1'
+        stopScriptSha256 = Get-Sha256 (Join-Path $m.launcherDirectory 'stop-managed.ps1')
     }
     if ($candidate.PSObject.Properties.Name -contains 'providerBinaries') {
         $active['providerBinaries'] = $m.providerBinaries

@@ -9,6 +9,8 @@ import {
   type SessionList,
   type SessionRename,
   type WindowView,
+  type ChatModelEdit,
+  type ChatBatchResult,
 } from '@shared/ipc';
 
 ipcRenderer.on(IPC.terminalPort, (event, payload: { sessionId: string }) => {
@@ -71,6 +73,9 @@ const api: ReframeApi = {
   removeSession: (sessionId) => ipcRenderer.send(IPC.removeSession, sessionId),
   openSessions: (request) => ipcRenderer.send(IPC.openSessions, request),
   showListMenu: (items) => ipcRenderer.send(IPC.listMenu, items),
+  onEditChatModels: (listener) => subscribe<ChatModelEdit>(IPC.editChatModels, listener),
+  changeChatModels: (items, provider, model) => ipcRenderer.invoke(IPC.changeChatModels, items, provider, model),
+  onChatBatchResult: (listener) => subscribe<ChatBatchResult>(IPC.chatBatchResult, listener),
   onForeignDrag: (listener) => subscribe<{ x: number; y: number } | null>(IPC.foreignDrag, listener),
   onForeignDrop: (listener) => subscribe<ForeignDropRequest>(IPC.foreignDrop, listener),
   answerForeignDrop: (requestId, answer) => ipcRenderer.send(IPC.foreignDropAnswer, requestId, answer),
