@@ -800,7 +800,9 @@ export class ReframeApp {
 
   private async createSession(windowId: string, request: NewSessionRequest): Promise<NewSessionResult> {
     const cwd = request.cwd.trim();
-    if (!(await isFolder(cwd))) return { ok: false, error: 'folderMissing' };
+    if (!(await isFolder(cwd)) && !(await this.offerToCreateFolder(windowId, cwd))) {
+      return { ok: false, error: 'folderMissing' };
+    }
     const where = this.wslPath(cwd);
     if (where ? !(await this.wsl!.info(where.distro))?.claude : !this.findClaude()) {
       return { ok: false, error: 'claudeNotFound', ...(where ? { distro: where.distro } : {}) };
@@ -2649,6 +2651,28 @@ export class ReframeApp {
       }
     }
     this.windows.send(win.id, IPC.focusTile, sessionId);
+  }
+
+  /** Asks whether to create a missing session folder; creates it (with parents) when confirmed. */
+  private async offerToCreateFolder(windowId: string, folder: string): Promise<boolean> {
+    if (!folder || !path.isAbsolute(folder) || process.env.REFRAME_E2E) return false;
+    const win = this.windows.get(windowId);
+    const options = {
+      type: 'question' as const,
+      defaultId: 0,
+      cancelId: 1,
+      buttons: [this.t('dialog.createFolder.create'), this.t('dialog.createFolder.cancel')],
+      message: this.t('dialog.createFolder.message', { folder }),
+    };
+    const answer = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options);
+    if (answer.response !== 0) return false;
+    try {
+      await fs.promises.mkdir(folder, { recursive: true });
+    } catch (error) {
+      this.log('warn', 'could not create session folder', { folder, error: String(error) });
+      return false;
+    }
+    return isFolder(folder);
   }
 
   private t = (key: MessageKey, params?: Record<string, string | number>): string =>
