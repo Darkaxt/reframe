@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 import type { Provider } from '@shared/providers';
+import { isArchiveRoot } from './archive-root';
 
 export interface HistoryMetadata {
   id: string;
@@ -32,7 +33,7 @@ export class History {
   root(): string {
     const root =
       this.selectedRoot() || process.env.REFRAME_ARCHIVE_ROOT || path.join(app.getPath('userData'), 'archives');
-    if (!path.isAbsolute(root) || (process.platform === 'win32' && path.parse(root).root.toLowerCase() === 'c:\\')) {
+    if (!isArchiveRoot(root)) {
       throw Error('Set REFRAME_ARCHIVE_ROOT to an absolute folder on a non-C drive.');
     }
     return root;

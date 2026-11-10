@@ -129,6 +129,7 @@ import { SHARE_TIMEOUT_MS, WslDistros } from './wsl/distros';
 import { settle, withTimeout } from './wait';
 import { cleanUp, dropsDir } from './cleanup';
 import { History } from './history';
+import { isArchiveRoot } from './archive-root';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
 import { expandedWorkspaceKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
@@ -2807,12 +2808,7 @@ export class ReframeApp {
     on(IPC.setPreferences, (_id, _event, patch: PreferencesPatch | null) => {
       if (!patch || typeof patch !== 'object') return;
       const next = { ...this.state.preferences };
-      if (
-        typeof patch.archiveRoot === 'string' &&
-        path.isAbsolute(patch.archiveRoot) &&
-        path.parse(patch.archiveRoot).root.toLowerCase() !== 'c:\\'
-      )
-        next.archiveRoot = patch.archiveRoot;
+      if (typeof patch.archiveRoot === 'string' && isArchiveRoot(patch.archiveRoot)) next.archiveRoot = patch.archiveRoot;
       if (typeof patch.nameFromFolder === 'boolean') next.nameFromFolder = patch.nameFromFolder;
       if (LANGUAGES.includes(patch.language as Language)) next.language = patch.language as Language;
       const size = patch.fontSize;
