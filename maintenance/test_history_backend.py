@@ -84,28 +84,70 @@ class HistoryContract(unittest.TestCase):
         self.assertTrue(self.module.delete_claude(packet)["complete"])
         self.module.live_claude_ids.assert_called_once_with(self.home)
 
-    def test_route_check_exposes_active_class_without_mutation(self):
+    def test_restore_activity_check_refuses_live_chat_without_mutation(self):
         self.module.live_claude_ids = lambda _home: [self.tid]
-        with self.assertRaises(self.module.ActiveClaudeError):
+        with self.assertRaisesRegex(self.module.CleanupError, "live registration"):
             backend.inactive(self.module, self.home, self.tid)
         self.assertTrue(self.main.exists())
 
-    def test_ten_small_offline_chats_have_no_per_chat_shell_delay(self):
-        import time
-        started = time.perf_counter()
-        for index in range(10):
+    def chats(self, count):
+        ids = []
+        for _ in range(count):
             tid = str(uuid.uuid4())
-            main = self.main.with_name(tid + ".jsonl")
-            main.write_text(json.dumps({"sessionId": tid, "type": "user", "cwd": "D:/fictional"}) + "\n")
-            operation = self.root / ("timed-" + str(index))
-            operation.mkdir()
-            prepared = backend.prepare(self.module, self.home, tid, operation)
-            packet = backend.load_plan(self.module, self.home, tid, prepared["plan"], prepared["sha256"])
-            self.assertTrue(self.module.delete_claude(packet)["complete"])
-            self.assertFalse(main.exists())
-        elapsed = time.perf_counter() - started
-        print(json.dumps({"fictional_chats": 10, "elapsed_seconds": elapsed}), flush=True)
-        self.assertLess(elapsed, 10, "Native Windows offline deletion regressed to slow per-chat process scans")
+            self.main.with_name(tid + ".jsonl").write_text(json.dumps({"sessionId": tid, "type": "user", "cwd": "D:/fictional"}) + "\n")
+            ids.append(tid)
+        return ids
+
+    def batch(self, ids, mode):
+        prepared = backend.prepare_batch(self.module, self.home, [{"id": tid, "operation": str(self.root / "ops" / tid)} for tid in ids])["results"]
+        self.assertTrue(all(p["ok"] for p in prepared))
+        jobs = [{"id": p["id"], "operation": p["operation"], "mode": mode, "plan": p["plan"], "sha256": p["sha256"],
+                 "metadata": {"label": "Fictional", "provider": "chatgpt", "cwd": "D:/fictional"}} for p in prepared]
+        return backend.retire_batch(self.module, self.home, jobs)["results"]
+
+    def test_batch_delete_takes_one_live_census_for_all_chats(self):
+        import time
+        from unittest.mock import Mock
+        ids = self.chats(10)
+        self.module.live_claude_ids = Mock(wraps=self.module.live_claude_ids)
+        census = self.module.live_claude_ids
+        started = time.perf_counter()
+        results = self.batch(ids, "delete")
+        print(json.dumps({"fictional_chats": 10, "elapsed_seconds": time.perf_counter() - started}), flush=True)
+        self.assertEqual([r["ok"] for r in results], [True] * 10)
+        census.assert_called_once_with(self.home)
+        self.assertFalse(any(self.main.with_name(tid + ".jsonl").exists() for tid in ids))
+        self.assertFalse(list((self.root / "ops").rglob("*.zip")))
+        self.assertTrue(self.other.exists())
+
+    def test_batch_skips_live_chat_and_keeps_its_files(self):
+        live, idle = self.chats(2)
+        self.module.live_claude_ids = lambda _home: [live]
+        results = {r["id"]: r for r in self.batch([live, idle], "archive")}
+        self.assertEqual(results[live]["code"], "chat_active")
+        self.assertTrue(self.main.with_name(live + ".jsonl").exists())
+        self.assertTrue(results[idle]["ok"])
+        self.assertFalse(self.main.with_name(idle + ".jsonl").exists())
+        self.assertTrue(Path(results[idle]["archive"]).is_file())
+
+    def test_startup_recovery_does_not_rehash_archives(self):
+        root = self.root / "catalog"
+        self.operation = root / "operations" / str(uuid.uuid4())
+        self.operation.mkdir(parents=True)
+        self.module.live_claude_ids = lambda _home: []
+        self.archive(self.prepared())
+        original = (backend.digest, backend.verify_archive)
+        def refuse(*_args):
+            raise AssertionError("startup must not re-read archives")
+        backend.digest = backend.verify_archive = refuse
+        try:
+            recovered = backend.recover(self.home, root, self.module)
+        finally:
+            backend.digest, backend.verify_archive = original
+        self.assertEqual([e["id"] for e in recovered["entries"]], [self.tid])
+        with Path(next(self.operation.glob("*.zip"))).open("ab") as stream:
+            stream.write(b"truncated or replaced")
+        self.assertEqual(backend.recover(self.home, root, self.module)["entries"], [])
 
     def test_delete_exact_chat_without_backup(self):
         prepared = self.prepared()

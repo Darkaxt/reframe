@@ -129,7 +129,7 @@ import { WindowManager } from './windows';
 import { SHARE_TIMEOUT_MS, WslDistros } from './wsl/distros';
 import { settle, withTimeout } from './wait';
 import { cleanUp, dropsDir } from './cleanup';
-import { History } from './history';
+import { History, type PreparedHistory, type RetireJob } from './history';
 import { isArchiveRoot } from './archive-root';
 import { staleTiles } from './stale-tiles';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
@@ -1087,7 +1087,7 @@ export class ReframeApp {
     ];
   }
 
-  /** One confirmation and one fresh exact transaction per distinct chat, never stale shared-index plans. */
+  /** One confirmation for the selection; archive/delete run as one prepare and one retire process. */
   private async runChatBatch(
     windowId: string,
     items: ListItemRef[],
@@ -1118,39 +1118,13 @@ export class ReframeApp {
           result.results.push({ id: key, label: existing?.name || id, status: 'skipped', detail: String(error) });
         }
       }
-      if (targets.length && (operation === 'archive' || operation === 'delete')) {
-        const win = this.windows.get(windowId);
-        if (!win) throw Error('The requesting window closed; chats preserved.');
-        const answer = await dialog.showMessageBox(win, {
-          signal: this.confirmations.signal,
-          type: 'warning',
-          defaultId: 1,
-          cancelId: 1,
-          buttons: [operation === 'archive' ? 'Archive selected' : 'Delete permanently', 'Cancel'],
-          message: `${operation === 'archive' ? 'Archive' : 'Permanently delete'} ${targets.length} selected chats?`,
-          detail:
-            targets
-              .map(
-                ({ record }) =>
-                  `${record.name || path.basename(record.cwd)} · ${record.claudeSessionId}\n${record.cwd}`,
-              )
-              .join('\n\n') +
-            '\n\n' +
-            (operation === 'archive'
-              ? 'Each chat gets a verified restorable ZIP before live files are removed.'
-              : 'Transcripts, owned session/subagent files and matching history entries are permanently removed. This cannot be undone.') +
-            '\nProject files and unselected chats are preserved. Activity is checked again for each chat; unavailable chats are skipped.',
-        });
-        if (answer.response !== 0) {
-          for (const { record, key } of targets)
-            result.results.push({
-              id: key,
-              label: record.name || path.basename(record.cwd),
-              status: 'skipped',
-              detail: 'Cancelled; unchanged.',
-            });
-          return;
-        }
+      if (operation === 'archive' || operation === 'delete') {
+        if (targets.length)
+          for (const outcome of await this.retireChats(windowId, targets, operation)) {
+            result.results.push(outcome);
+            publish();
+          }
+        return;
       }
       for (const { item, record, key } of targets) {
         const entry: ChatBatchResult['results'][number] = {
@@ -1159,32 +1133,16 @@ export class ReframeApp {
           status: 'completed',
         };
         try {
-          if (this.shuttingDown) throw Error('Reframe is quitting; chat unchanged.');
-          await this.inactiveChat(item);
-          if (this.historyBusy.has(record.claudeSessionId)) throw Error('A history operation is already running.');
-        } catch (error) {
-          result.results.push({ ...entry, status: 'skipped', detail: String(error) });
-          publish();
-          continue;
-        }
-        try {
-          if (operation === 'archive' || operation === 'delete') await this.retireChat(windowId, item, operation, true);
-          else {
-            if (!provider) throw Error('Choose an explicit provider.');
-            await this.selectProvider(
-              windowId,
-              item,
-              provider,
-              operation === 'model' ? model?.trim() || null : undefined,
-            );
-          }
+          if (!provider) throw Error('Choose an explicit provider.');
+          await this.selectProvider(
+            windowId,
+            item,
+            provider,
+            operation === 'model' ? model?.trim() || null : undefined,
+          );
           result.results.push(entry);
         } catch (error) {
-          result.results.push({
-            ...entry,
-            status: (error as { code?: string }).code === 'chat_active' ? 'skipped' : 'failed',
-            detail: String(error),
-          });
+          result.results.push({ ...entry, status: 'skipped', detail: String(error) });
         }
         publish();
       }
@@ -1313,9 +1271,8 @@ export class ReframeApp {
     if (this.historyBusy.has(record.claudeSessionId)) throw Error('A history operation is already running.');
     this.historyBusy.add(record.claudeSessionId);
     try {
+      // Only Reframe's record changes (the route of the next start): no native process census is needed.
       this.assertChatStillInactive(record);
-      // Preparation performs a fresh native process/reference check; selecting a route starts no model turn.
-      await this.history.check(this.claudeHome, record.claudeSessionId);
       const next = {
         ...record,
         launch: {
@@ -1336,59 +1293,119 @@ export class ReframeApp {
     }
   }
 
-  private async retireChat(
-    windowId: string,
-    item: ListItemRef,
-    operation: 'archive' | 'delete',
-    confirmed = false,
-  ): Promise<void> {
+  private async retireChat(windowId: string, item: ListItemRef, operation: 'archive' | 'delete'): Promise<void> {
     const record = await this.inactiveChat(item);
-    const tid = record.claudeSessionId;
-    if (this.historyBusy.has(tid)) throw Error('A history operation is already running.');
-    this.historyBusy.add(tid);
+    const [outcome] = await this.retireChats(windowId, [{ record, key: record.claudeSessionId }], operation);
+    if (outcome?.status === 'failed') throw Error(outcome.detail);
+  }
+
+  /**
+   * Archives or deletes inactive chats. Reframe's own state is checked before the confirmation and again right
+   * before the change; the backend then takes one live-process census for the whole selection and refuses any chat
+   * that runs or whose files changed since planning. An archive is verified once, after it is written and before
+   * the chat's files are removed. Two Python processes in all, however many chats.
+   */
+  private async retireChats(
+    windowId: string,
+    targets: { record: SessionRecord; key: string }[],
+    operation: 'archive' | 'delete',
+  ): Promise<ChatBatchResult['results']> {
+    const results: ChatBatchResult['results'] = [];
+    const label = (record: SessionRecord) => record.name || path.basename(record.cwd);
+    const skip = (record: SessionRecord, key: string, detail: string, status: 'skipped' | 'failed' = 'skipped') =>
+      results.push({ id: key, label: label(record), status, detail });
+    const locked = targets.filter(({ record, key }) => {
+      if (!this.historyBusy.has(record.claudeSessionId)) {
+        this.historyBusy.add(record.claudeSessionId);
+        return true;
+      }
+      skip(record, key, 'A history operation is already running.');
+      return false;
+    });
     try {
-      this.assertChatStillInactive(record);
-      const prepared = await this.history.prepare(this.claudeHome, tid);
+      if (!locked.length) return results;
+      const prepared = new Map<string, PreparedHistory>();
+      const ids = locked.map(({ record }) => record.claudeSessionId);
+      for (const outcome of await this.history.prepare(this.claudeHome, ids)) {
+        if (outcome.ok) prepared.set(outcome.id, outcome);
+        else {
+          const target = locked.find(({ record }) => record.claudeSessionId === outcome.id);
+          if (target) skip(target.record, target.key, outcome.error, 'failed');
+        }
+      }
+      const ready = locked.filter(({ record }) => prepared.has(record.claudeSessionId));
+      if (!ready.length) return results;
       const win = this.windows.get(windowId);
-      if (!win) throw Error('The requesting window closed; chat preserved.');
-      const answer = confirmed
-        ? { response: 0 }
-        : await dialog.showMessageBox(win, {
-            signal: this.confirmations.signal,
-            type: 'warning',
-            buttons: [operation === 'archive' ? 'Archive chat' : 'Delete permanently', 'Cancel'],
-            defaultId: 1,
-            cancelId: 1,
-            message: `${operation === 'archive' ? 'Archive' : 'Permanently delete'} “${record.name || path.basename(record.cwd)}”?`,
-            detail:
-              `${prepared.files} exact chat files (${prepared.bytes.toLocaleString()} bytes).\n${tid}\n${record.cwd}\n` +
-              (operation === 'archive'
-                ? 'A verified ZIP will be kept before the live files are removed. Restore remains available in Archived chats.'
-                : 'This removes its transcript, owned subagent/session files and matching history entries. Project files and other chats are preserved. This cannot be undone.'),
+      if (!win) throw Error('The requesting window closed; chats preserved.');
+      const plan = (record: SessionRecord) => prepared.get(record.claudeSessionId)!;
+      const files = ready.reduce((sum, { record }) => sum + plan(record).files, 0);
+      const bytes = ready.reduce((sum, { record }) => sum + plan(record).bytes, 0);
+      const verb = operation === 'archive' ? 'Archive' : 'Permanently delete';
+      const answer = await dialog.showMessageBox(win, {
+        signal: this.confirmations.signal,
+        type: 'warning',
+        defaultId: 1,
+        cancelId: 1,
+        buttons: [operation === 'archive' ? 'Archive' : 'Delete permanently', 'Cancel'],
+        message:
+          ready.length === 1 ? `${verb} “${label(ready[0]!.record)}”?` : `${verb} ${ready.length} selected chats?`,
+        detail:
+          ready.map(({ record }) => `${label(record)} · ${record.claudeSessionId}\n${record.cwd}`).join('\n\n') +
+          `\n\n${files} exact chat files (${bytes.toLocaleString()} bytes).\n` +
+          (operation === 'archive'
+            ? 'Each chat gets a verified restorable ZIP before its live files are removed. Restore remains available in Archived chats.'
+            : 'Transcripts, owned session/subagent files and matching history entries are permanently removed. This cannot be undone.') +
+          '\nProject files and other chats are preserved. A chat that is running by then is skipped.',
+      });
+      if (answer.response !== 0 || this.shuttingDown) {
+        for (const { record, key } of ready) skip(record, key, 'Cancelled; unchanged.');
+        return results;
+      }
+      const jobs: RetireJob[] = [];
+      for (const { record, key } of ready) {
+        try {
+          this.assertChatStillInactive(record);
+          jobs.push({
+            prepared: plan(record),
+            mode: operation,
+            metadata: {
+              id: record.claudeSessionId,
+              label: label(record),
+              cwd: record.cwd,
+              provider: record.launch.provider ?? 'chatgpt',
+            },
           });
-      if (answer.response !== 0 || this.shuttingDown) return;
-      let archive: { archive: string; sha256: string } | undefined;
-      const metadata = {
-        id: tid,
-        label: record.name || path.basename(record.cwd),
-        cwd: record.cwd,
-        provider: record.launch.provider ?? ('chatgpt' as Provider),
-      };
-      if (operation === 'archive') archive = await this.history.archive(this.claudeHome, prepared, metadata);
-      else await this.history.delete(this.claudeHome, prepared);
-      this.state = {
-        ...this.withoutHistory(tid),
-        ...(archive
-          ? { archives: [...(this.state.archives || []), { ...metadata, ...archive, operation: prepared.operation }] }
-          : {}),
-      };
+        } catch (error) {
+          skip(record, key, String(error));
+        }
+      }
+      if (!jobs.length) return results;
+      for (const outcome of await this.history.retire(this.claudeHome, jobs)) {
+        const target = ready.find(({ record }) => record.claudeSessionId === outcome.id);
+        const job = jobs.find((entry) => entry.prepared.id === outcome.id);
+        if (!target || !job) continue;
+        if (!outcome.ok) {
+          skip(target.record, target.key, outcome.error, outcome.code === 'chat_active' ? 'skipped' : 'failed');
+          continue;
+        }
+        this.state = this.withoutHistory(outcome.id);
+        if (outcome.archive && outcome.sha256) {
+          const archive = { ...job.metadata, archive: outcome.archive, sha256: outcome.sha256 };
+          this.state = {
+            ...this.state,
+            archives: [...(this.state.archives || []), { ...archive, operation: job.prepared.operation }],
+          };
+        }
+        results.push({ id: target.key, label: label(target.record), status: 'completed' });
+      }
       this.save();
       this.transcripts.invalidate('all');
       this.outside = null;
       for (const w of this.state.windows) this.push(w.id);
       this.listChanged();
+      return results;
     } finally {
-      this.historyBusy.delete(tid);
+      for (const { record } of locked) this.historyBusy.delete(record.claudeSessionId);
     }
   }
 
