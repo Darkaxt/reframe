@@ -124,6 +124,9 @@ const en = {
   'dialog.start': 'Start',
   'dialog.cancel': 'Cancel',
   'dialog.error.folderMissing': 'This folder does not exist.',
+  'dialog.createFolder.message': 'The folder {folder} does not exist. Create it?',
+  'dialog.createFolder.create': 'Create folder',
+  'dialog.createFolder.cancel': 'Cancel',
   'dialog.error.claudeNotFound':
     'Claude Code was not found: `claude` is not on your PATH. Install it on this computer: claude.com/claude-code',
   'error.claudeOnlyInWsl':
@@ -372,6 +375,9 @@ const de: Record<MessageKey, string> = {
   'dialog.start': 'Starten',
   'dialog.cancel': 'Abbrechen',
   'dialog.error.folderMissing': 'Diesen Ordner gibt es nicht.',
+  'dialog.createFolder.message': 'Den Ordner {folder} gibt es nicht. Anlegen?',
+  'dialog.createFolder.create': 'Ordner anlegen',
+  'dialog.createFolder.cancel': 'Abbrechen',
   'dialog.error.claudeNotFound':
     'Claude Code wurde nicht gefunden: `claude` ist nicht im PATH. Installiere es auf diesem Computer: claude.com/claude-code',
   'error.claudeOnlyInWsl':
