@@ -178,7 +178,10 @@ export const appStateSchema = z.object({
         cwd: z.string(),
         name: z.string(),
         sessionIds: z.array(z.string()),
-        provider: z.enum(PROVIDERS).default('chatgpt'),
+        provider: z.enum(PROVIDERS).optional(), // Read legacy .4 provider-scoped workspace metadata.
+        locations: z
+          .array(z.object({ cwd: z.string(), provider: z.enum(PROVIDERS), sessionIds: z.array(z.string()) }))
+          .optional(),
       }),
     )
     .optional(),

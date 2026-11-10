@@ -35,14 +35,31 @@ effort uses the native --effort flag and persists for resume. Support low, mediu
 high, xhigh and max as native session choices; never modify global CLI settings,
 credentials, provider/model routing or permission controls.
 
-Provider workspace correction: one Reframe ecosystem with separate ChatGPT and
-Claude project-folder trees. Identity is provider plus canonical full folder path.
-The same folder can appear under both providers with disjoint chat lists; same
-basenames at different full paths remain distinct. Keep Pinned/Recents unified,
-preserve icons/selection/pins/history and per-provider paging/expansion through
-restart. Provider changes move chat metadata into the selected provider tree,
-preserving the same conversation and working directory. Migrate prior unscoped
-expanded-folder metadata without moving physical folders or histories.
+Provider workspace correction (owner clarified after .4 installation): one Projects
+tree, grouping by the final folder name regardless of parent path or provider.
+The .4 separate provider headings and full-path project identity were an incorrect
+interpretation and must be replaced. Windows folder-name case/separator aliases
+merge; distinct final names stay separate. Keep actual per-chat working paths and
+provider selections intact, with provider icons on chats. Preserve every matching
+chat across paths in project paging/search, selection, pins and restart expansion.
+Migrate prior full-path/provider-scoped expansion metadata to the merged project.
+The ChatGPT/Anthropic roots are physical new-session defaults, not sidebar nodes.
+Do not move or duplicate histories or repositories. Each merged workspace retains
+its real folder/provider locations for contextual creation; full paths remain
+visible in chat/tooltips and New session. The + button chooses an actual existing
+location and changing provider selects its known location when available, otherwise
+the established provider default root. Keep Pinned/Recents unified.
+
+Terminal route repair (owner screenshot after correction work began): the earlier
+ad hoc command cleared only the Sonnet alias; --model opus resolved to the shared
+gateway model. Supply a reviewed standalone Windows launcher using the complete
+subscription-route isolation, including all built-in aliases and additional named
+aliases present in settings/environment. Bind the dedicated executable/hash via
+the managed active record, preserve parent environment and saved settings, forward
+explicit model/effort/permission arguments unchanged, and use tool-owned D: runtime.
+Verify built-in model-alias overrides and a fictional fourth alias locally,
+plus one benign native subscription request. Publish the launcher with this release
+and install a stable usable command. Never alter global routing or prompt login.
 
 Owner addition: each project-workspace row has a visible accessible + control
 opening New session with that exact workspace folder/provider preselected.
@@ -51,6 +68,14 @@ Documents/Anthropic for Claude (the owner's exact Windows Documents paths).
 Switching provider selects that provider's default root. Existing project/history
 bindings stay intact; do not move or duplicate existing repositories. Prepare the
 owner-requested persistent base folders if missing at managed activation.
+
+Current correction stages: implementation ACTIVE; Windows qualification NOT STARTED;
+final delivery NOT STARTED. .4 installed payload remains usable while correcting
+the grouping. Its in-progress exact cleanup must complete without racing new build
+outputs; preserve original session59497 and cleanup transaction. Publish/verify a
+complete .5 Windows release and normal managed activation, parent pin and cleanup.
+Existing latency/helper/effort/quit logic is unchanged; reuse applicable evidence.
+The historical .4 stage record below describes the superseded interpretation.
 
 1. Implementation — COMPLETE by source reconciliation for expanded owner scope. Minimal native reader/helper error code, remove
    redundant prechecks, keep final mutation guard and active-item skip; focused

@@ -1005,19 +1005,6 @@ select {
   font-size: 12px;
 }
 
-.sidebar-provider-heading {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 10px 6px 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.sidebar-provider-workspaces .sidebar-project {
-  margin-left: 10px;
-}
-
 .sidebar-project-header {
   display: flex;
   align-items: center;
@@ -1031,10 +1018,6 @@ select {
 
 .workspace-new-session {
   flex: none;
-}
-
-.sidebar-provider-workspaces + .sidebar-provider-workspaces {
-  margin-top: 8px;
 }
 
 /* A WSL distribution that is not running, with a button to start it. */

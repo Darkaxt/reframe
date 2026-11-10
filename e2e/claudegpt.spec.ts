@@ -9,6 +9,8 @@ test('providers, automatic folders and native inactive-chat actions survive rest
   const anthropicBinary = path.join(dir, 'claude-anthropic.mjs');
   fs.copyFileSync(env.REFRAME_CLAUDE_BIN!, anthropicBinary);
   env.REFRAME_ANTHROPIC_CLAUDE_BIN = anthropicBinary;
+  const anthropicProject = path.join(dir, 'anthropic', path.basename(project));
+  fs.mkdirSync(anthropicProject, { recursive: true });
   try {
     let { app, page } = await launch(env);
     await page.evaluate(() => window.reframe.setPreferences({ defaultModel: 'gpt-fixture' }));
@@ -34,7 +36,7 @@ test('providers, automatic folders and native inactive-chat actions survive rest
     await dialog.getByRole('combobox', { name: 'Model provider' }).selectOption('anthropic');
     await dialog.getByText('Advanced', { exact: true }).click();
     await expect(dialog.getByLabel('Model', { exact: true })).toHaveValue('');
-    await dialog.getByPlaceholder('Path to a project folder').fill(project);
+    await dialog.getByPlaceholder('Path to a project folder').fill(anthropicProject);
     await dialog.getByPlaceholder('Shown on the tile and in notifications').fill('Anthropic fixture');
     await dialog.getByRole('button', { name: 'Start', exact: true }).click();
     await expect(page.locator('.tile .provider-icon[aria-label="Anthropic"]')).toBeVisible();
@@ -57,36 +59,28 @@ test('providers, automatic folders and native inactive-chat actions survive rest
     );
     if (!(await page.locator('.sidebar').isVisible()))
       await page.getByRole('button', { name: 'Sessions', exact: true }).click();
-    const gptProjects = page.getByRole('group', { name: 'ChatGPT workspaces', exact: true });
-    const claudeProjects = page.getByRole('group', { name: 'Claude workspaces', exact: true });
-    await expect(gptProjects.locator('.folder-workspace')).toHaveCount(1);
-    await expect(claudeProjects.locator('.folder-workspace')).toHaveCount(1);
-    await gptProjects.locator('.folder-workspace').click();
-    await claudeProjects.locator('.folder-workspace').click();
-    await expect(page.locator('.folder-workspace[aria-expanded="true"]')).toHaveCount(2);
-    await expect(gptProjects.locator('.sidebar-project-chats')).toContainText('ChatGPT fixture');
-    await expect(gptProjects.locator('.sidebar-project-chats')).not.toContainText('Anthropic fixture');
-    await expect(claudeProjects.locator('.sidebar-project-chats')).toContainText('Anthropic fixture');
-    await expect(claudeProjects.locator('.sidebar-project-chats')).not.toContainText('ChatGPT fixture');
-    await claudeProjects
-      .getByRole('button', { name: `New Claude session in ${path.basename(project)}`, exact: true })
-      .click();
-    await expect(page.getByRole('dialog').getByRole('combobox', { name: 'Model provider', exact: true })).toHaveValue(
-      'anthropic',
-    );
-    await expect(page.getByRole('dialog').getByPlaceholder('Path to a project folder')).toHaveValue(project);
-    await expect(page.getByRole('dialog').getByRole('combobox', { name: 'Effort', exact: true })).toHaveValue('high');
-    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-    await gptProjects
-      .getByRole('button', { name: `New ChatGPT session in ${path.basename(project)}`, exact: true })
-      .click();
+    const projects = page.locator('.sidebar-projects');
+    await expect(projects.locator('.folder-workspace')).toHaveCount(1);
+    await expect(projects.locator('.sidebar-provider-heading')).toHaveCount(0);
+    await projects.locator('.folder-workspace').click();
+    await expect(projects.locator('.sidebar-project-chats')).toContainText('ChatGPT fixture');
+    await expect(projects.locator('.sidebar-project-chats')).toContainText('Anthropic fixture');
+    await expect(projects.locator('.sidebar-project-chats .provider-icon[aria-label="ChatGPT"]')).toHaveCount(1);
+    await expect(projects.locator('.sidebar-project-chats .provider-icon[aria-label="Anthropic"]')).toHaveCount(1);
+    await projects.getByRole('button', { name: `New session in ${path.basename(project)}`, exact: true }).click();
     await expect(page.getByRole('dialog').getByRole('combobox', { name: 'Model provider', exact: true })).toHaveValue(
       'chatgpt',
     );
     await expect(page.getByRole('dialog').getByPlaceholder('Path to a project folder')).toHaveValue(project);
+    await expect(page.getByRole('dialog').getByRole('combobox', { name: 'Effort', exact: true })).toHaveValue('high');
+    await page
+      .getByRole('dialog')
+      .getByRole('combobox', { name: 'Model provider', exact: true })
+      .selectOption('anthropic');
+    await expect(page.getByRole('dialog').getByPlaceholder('Path to a project folder')).toHaveValue(anthropicProject);
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.locator('.sidebar-recents .sidebar-row[draggable="true"]')).toHaveCount(2);
-    await gptProjects.locator('.folder-workspace').click();
+    await projects.locator('.folder-workspace').click();
     await page.locator('.tile').first().locator('.tile-header').click({ button: 'right' });
     const archiveEnabled = await app.evaluate(() => {
       const main = (
@@ -126,12 +120,8 @@ test('providers, automatic folders and native inactive-chat actions survive rest
     ({ app, page } = await launch(env));
     await expect(page.locator('.tile .provider-icon[aria-label="ChatGPT"]')).toHaveCount(1);
     await expect(page.locator('.tile .provider-icon[aria-label="Anthropic"]')).toHaveCount(1);
-    await expect(
-      page.getByRole('group', { name: 'ChatGPT workspaces', exact: true }).locator('.folder-workspace'),
-    ).toHaveAttribute('aria-expanded', 'false');
-    await expect(
-      page.getByRole('group', { name: 'Claude workspaces', exact: true }).locator('.folder-workspace'),
-    ).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('.sidebar-projects .folder-workspace')).toHaveCount(1);
+    await expect(page.locator('.sidebar-projects .folder-workspace')).toHaveAttribute('aria-expanded', 'false');
     expect(state().preferences.defaultEffort).toBe('high');
     expect(byName('ChatGPT fixture').launch.effort).toBe('high');
     expect(byName('Anthropic fixture').launch.effort).toBe('xhigh');
@@ -154,7 +144,7 @@ test('providers, automatic folders and native inactive-chat actions survive rest
   }
 });
 
-test('legacy folder expansion migrates into separate provider workspace branches without moving histories', async () => {
+test('legacy expansion merges same folder names across paths/providers without moving histories', async () => {
   const fixture = setup();
   try {
     let { app, page } = await launch(fixture.env);
@@ -168,7 +158,7 @@ test('legacy folder expansion migrates into separate provider workspace branches
         {
           id,
           claudeSessionId: id,
-          cwd: fixture.project,
+          cwd: index ? path.join(fixture.dir, 'anthropic', path.basename(fixture.project)) : fixture.project,
           name: index ? 'Legacy Claude' : 'Legacy ChatGPT',
           launch: { provider: index ? 'anthropic' : 'chatgpt' },
           lifecycle: 'ended',
@@ -178,7 +168,7 @@ test('legacy folder expansion migrates into separate provider workspace branches
       ]),
     );
     const legacyKey = folderKey(fixture.project);
-    state.expandedProjects = [legacyKey];
+    state.expandedProjects = [legacyKey, `chatgpt:${legacyKey}`, `anthropic:${legacyKey}`];
     state.folderWorkspaces = [
       { id: legacyKey, cwd: fixture.project, name: path.basename(fixture.project), sessionIds: ids },
     ];
@@ -187,18 +177,16 @@ test('legacy folder expansion migrates into separate provider workspace branches
     ({ app, page } = await launch(fixture.env));
     if (!(await page.locator('.sidebar').isVisible()))
       await page.getByRole('button', { name: 'Sessions', exact: true }).click();
-    const gpt = page.getByRole('group', { name: 'ChatGPT workspaces', exact: true });
-    const claude = page.getByRole('group', { name: 'Claude workspaces', exact: true });
-    await expect(gpt.locator('.folder-workspace')).toHaveAttribute('aria-expanded', 'true');
-    await expect(claude.locator('.folder-workspace')).toHaveAttribute('aria-expanded', 'true');
-    await expect(gpt.locator('.sidebar-project-chats')).toContainText('Legacy ChatGPT');
-    await expect(gpt.locator('.sidebar-project-chats')).not.toContainText('Legacy Claude');
-    await expect(claude.locator('.sidebar-project-chats')).toContainText('Legacy Claude');
-    await expect(claude.locator('.sidebar-project-chats')).not.toContainText('Legacy ChatGPT');
+    const projects = page.locator('.sidebar-projects');
+    await expect(projects.locator('.folder-workspace')).toHaveCount(1);
+    await expect(projects.locator('.folder-workspace')).toHaveAttribute('aria-expanded', 'true');
+    await expect(projects.locator('.sidebar-project-chats')).toContainText('Legacy ChatGPT');
+    await expect(projects.locator('.sidebar-project-chats')).toContainText('Legacy Claude');
+    expect(fixture.state().expandedProjects).toEqual([`project:${path.basename(fixture.project).toLowerCase()}`]);
     expect(fixture.launches()).toHaveLength(0);
     expect(Object.values(fixture.state().sessions).map((record) => record.cwd)).toEqual([
       fixture.project,
-      fixture.project,
+      path.join(fixture.dir, 'anthropic', path.basename(fixture.project)),
     ]);
     expect(fixture.state().preferences.defaultEffort).toBeUndefined();
     await quit(app);

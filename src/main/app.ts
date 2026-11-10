@@ -130,7 +130,7 @@ import { settle, withTimeout } from './wait';
 import { cleanUp, dropsDir } from './cleanup';
 import { History } from './history';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
-import { folderKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
+import { expandedWorkspaceKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
 
 export interface AppAssets {
@@ -1530,7 +1530,7 @@ export class ReframeApp {
       .filter(
         (item) =>
           matches(item.label, item.cwd) &&
-          (!folder || folderKey(item.cwd) === folderKey(folder)) &&
+          (!folder || workspaceKey(item.cwd) === workspaceKey(folder)) &&
           (!provider || (item.provider ?? 'chatgpt') === provider),
       )
       // Sessions in a window first, then the rest; most recently used first within each.
@@ -1556,7 +1556,7 @@ export class ReframeApp {
       .filter(
         (item) =>
           matches(item.name, item.cwd) &&
-          (!folder || folderKey(item.cwd) === folderKey(folder)) &&
+          (!folder || workspaceKey(item.cwd) === workspaceKey(folder)) &&
           (!provider || providerOf(item.claudeSessionId, item.distro) === provider),
       );
 
@@ -1610,7 +1610,7 @@ export class ReframeApp {
       if (!source || !info?.cwd) continue;
       const cwd = source.windowsPath(info.cwd);
       if (provider && providerOf(pin.id, source.distro) !== provider) continue;
-      if (!matches(info.title, cwd) || (folder && folderKey(folder) !== folderKey(cwd))) continue;
+      if (!matches(info.title, cwd) || (folder && workspaceKey(folder) !== workspaceKey(cwd))) continue;
       pinnedItems.push({
         kind: 'found',
         claudeSessionId: pin.id,
@@ -1637,19 +1637,18 @@ export class ReframeApp {
       ),
       ...pages.flatMap(({ source, page }) =>
         page.folders.flatMap((f) =>
-          f.sessionIds.map((id) => ({ cwd: source.windowsPath(f.cwd), id, provider: providerOf(id, source.distro) })),
+          f.locations.flatMap((location) =>
+            location.sessionIds.map((id) => ({
+              cwd: source.windowsPath(location.cwd),
+              id,
+              provider: providerOf(id, source.distro),
+            })),
+          ),
         ),
       ),
     ]);
     const previousExpanded = this.state.expandedProjects || [];
-    const expandedProjects = [
-      ...new Set([
-        ...previousExpanded.filter((key) => !automatic.some((project) => folderKey(project.cwd) === key)),
-        ...automatic
-          .filter((project) => previousExpanded.includes(folderKey(project.cwd)))
-          .map((project) => project.id),
-      ]),
-    ];
+    const expandedProjects = [...new Set(previousExpanded.map(expandedWorkspaceKey))];
     if (
       JSON.stringify(automatic) !== JSON.stringify(this.state.folderWorkspaces) ||
       JSON.stringify(expandedProjects) !== JSON.stringify(previousExpanded)
@@ -2751,9 +2750,9 @@ export class ReframeApp {
     on(IPC.listMenu, (id, _event, items: unknown) => {
       if (isListItems(items)) this.showListMenu(id, items);
     });
-    on(IPC.setProjectExpanded, (_id, _event, folder: unknown, expanded: unknown, provider: unknown) => {
+    on(IPC.setProjectExpanded, (_id, _event, folder: unknown, expanded: unknown) => {
       if (typeof folder !== 'string' || typeof expanded !== 'boolean') return;
-      const key = workspaceKey(folder, isProvider(provider) ? provider : 'chatgpt');
+      const key = workspaceKey(folder);
       if (!this.state.folderWorkspaces?.some((project) => project.id === key)) return;
       this.state = {
         ...this.state,

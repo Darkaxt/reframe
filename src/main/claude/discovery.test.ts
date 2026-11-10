@@ -60,6 +60,22 @@ describe('readTranscriptInfo', () => {
 });
 
 describe('TranscriptIndex', () => {
+  it('pages and searches a merged project across actual parent paths', async () => {
+    const h = home();
+    transcript(h, 'gpt', 'older', user('older Android chat', 'C:/owner/ChatGPT/Android'), 30000);
+    transcript(h, 'claude', 'newer', user('newer Android chat', 'C:/owner/Anthropic/Android'));
+    transcript(h, 'other', 'different', user('other project', 'D:/Desktop'));
+    const index = new TranscriptIndex(h);
+    const first = await index.list({ limit: 1, exclude: new Set(), folder: 'D:/anywhere/Android' });
+    expect(first.items.map((item) => item.sessionId)).toEqual(['newer']);
+    expect(first.hasMore).toBe(true);
+    const full = await index.list({ limit: 10, exclude: new Set(), folder: 'D:/anywhere/Android' });
+    expect(full.items.map((item) => item.cwd)).toEqual(['C:/owner/Anthropic/Android', 'C:/owner/ChatGPT/Android']);
+    expect(full.folders.find((group) => group.name === 'Android')?.locations).toHaveLength(2);
+    const search = await index.list({ limit: 10, exclude: new Set(), folder: 'D:/Android', query: 'older' });
+    expect(search.items.map((item) => item.sessionId)).toEqual(['older']);
+  });
+
   it('lists newest first, excludes known sessions, searches title and folder, and pages', async () => {
     const h = home();
     transcript(h, 'p1', 'old', user('old work', 'C:\\work\\web'), 60_000);

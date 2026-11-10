@@ -55,6 +55,7 @@ export interface SavedState {
   };
   workspaces: { id: string; name: string }[];
   recentFolders: string[];
+  expandedProjects?: string[];
 }
 
 export interface FakeLaunch {

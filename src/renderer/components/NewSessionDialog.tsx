@@ -16,6 +16,7 @@ const folderName = (folder: string): string => folder.trim().split(/[\\/]/).filt
 export interface NewSessionPreset {
   cwd: string;
   provider: Provider;
+  locations?: { cwd: string; provider: Provider }[];
 }
 
 export function NewSessionDialog({ onClose, initial }: { onClose: () => void; initial?: NewSessionPreset }) {
@@ -117,7 +118,10 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
               providerRef.current = e.target.value as Provider;
               setProvider(e.target.value as Provider);
               setModel('');
-              setCwd(providerRoots[e.target.value as Provider]);
+              setCwd(
+                initial?.locations?.find((location) => location.provider === e.target.value)?.cwd ||
+                  providerRoots[e.target.value as Provider],
+              );
             }}
           >
             {PROVIDERS.map((p) => (

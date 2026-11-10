@@ -1,124 +1,93 @@
 {
-  "sourceBase": "7d9660f99a6e12ce370df3a509367381922c124f",
   "checksNotYetRun": [
-    "Expanded main/renderer types/lint/units/build",
-    "Native effort/provider trees/context creation/legacy migration/layout plus affected batch/history checks",
-    "Final Windows package and release/installed verification"
+    "Types/lint/units/build",
+    "Packaged native merged workspace/paging/creation/migration and affected existing behavior",
+    "Windows release and installed delivery"
   ],
-  "helperSourceCommit": "cebba98b1cf3a602e81bda1fe203242550fefe29",
-  "helperRequirement": "thread-cleanup0.1.1, psutil7.2.2",
-  "schema": "reframe.source-ready.v1",
-  "scope": "Complete .4 Windows deletion latency, default/session effort, provider workspace trees and contextual + creation",
-  "contentSha256": "b41fee6e78cd6822b114f7a2eb323d45b6ad35e0cc5601a6b28ae71eea1b6284",
-  "status": "source_ready_for_validation",
+  "scope": "Complete .5 owner correction: one Projects tree by final folder name across paths/providers; retain actual locations, plus/default roots, paging and expansion migration",
   "inputHashes": [
     {
       "file": "docs/claudegpt-spec.md",
-      "sha256": "f5ff387e0d3fec3882b8721b40f4e4ef76c1a762e4da335639ec5def03bca6f5"
+      "sha256": "5071044ca4a6d016229c47085d9e3595f58d7d079b4ad81ee31af9bb3efee256"
     },
     {
       "file": "docs/CLAUDEGPT.md",
-      "sha256": "103c6566bc3359b9bdd4d7710d1c3f8d3c1d259431da1bd471188680dd49e8ac"
+      "sha256": "03a685343a8c58c2222fff618b3e56b9e27041e6bc9fe083bf264251bfc2142f"
     },
     {
       "file": "docs/deletion-latency-spec.md",
-      "sha256": "95d1d014aefc2bf48f2612a6b275efa95485630f24e19bf38b1765f0d35c7be1"
+      "sha256": "bfec6859d916c646c5217d81067db6b97687e33c172dcf123243eb949ffd75c4"
     },
     {
-      "file": "docs/releases/v0.10.0-claudegpt.4.md",
-      "sha256": "7f645bbb002fcae3d3ab1b6750ee7c8678bd1a933b5a24c5bb6767963f33bad9"
-    },
-    {
-      "file": "e2e/bulk-chats.spec.ts",
-      "sha256": "dd8007ed188e0be769df2922887c75f354df4951dff35bd93cfa4453d5ff04bf"
+      "file": "docs/releases/v0.10.0-claudegpt.5.md",
+      "sha256": "9ca247eb036326e78891e3cad69858edc20600431751d9972e2b883b33e70fa1"
     },
     {
       "file": "e2e/claudegpt.spec.ts",
-      "sha256": "f8b03b19370aab5107145ff70bce99343e395548cdc72ae81c2384d8f3718288"
+      "sha256": "07d4b40edcb9d6a1006b09fe9e6d647d6ee1f33f4fab5d24a48290d9d0bf932c"
     },
     {
       "file": "e2e/helpers.ts",
-      "sha256": "ed82d2f3824ae2fb07f13ba19b4ad18dd17c2bdfded09ee9de5204034c522395"
+      "sha256": "b3e987cc5db973c638945a4ccb728e08f45f0d344307b4a2ddfa1586872b0fb4"
     },
     {
-      "file": "maintenance/history_backend.py",
-      "sha256": "02f7c50865867b4f922ad123bed4eb2dc3670fa95d5dc2cf12918a9c0ed01af4"
+      "file": "maintenance/fixtures/anthropic-cli.ps1",
+      "sha256": "a03a60345085390017f5b42cd1d58ba293cc8170abc35417b9ab69b4b72a1584"
     },
     {
-      "file": "maintenance/test_history_backend.py",
-      "sha256": "1c20d8c25e45b395a4f66dde6b4b466dae430b4087c0991d256030a9058c3e6f"
+      "file": "maintenance/test-anthropic-session.ps1",
+      "sha256": "135110a7769f369a35451af02d46e9a0256763b153e0d1587a9485a0b6f2c4e3"
+    },
+    {
+      "file": "maintenance/windows/start-anthropic-session.ps1",
+      "sha256": "123a882f6349aa7f8eca2ca2440aba2b6ec598e9f74e80a47e8bc9ca3a530933"
     },
     {
       "file": "package-lock.json",
-      "sha256": "eb33db74219d1af4b9a4eb7dc628bd213e51891963b5c83c14ee0c5313c51148"
+      "sha256": "016bc22e678bedeed12b98065c5c0fdb10c87b95e37f49667fa0e5a783d0d14b"
     },
     {
       "file": "package.json",
-      "sha256": "b613205cee093846723c69fb3db29b33caf1c512935b27af55ae4a100d913581"
+      "sha256": "f4d982e0a86c143bda77cb150ab3e8760256cb2ecc4a4d0c19f951a391b3d60b"
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "65b0f8f14cf4ba2335c64e518db417f56939ddd0f02f9a33053c34022f418e76"
+      "sha256": "720b0b4612498b1658c969ed690c2c3406d0276d190409a6949f56dd772dde1e"
     },
     {
-      "file": "src/main/claude/args.ts",
-      "sha256": "e80e6de3979b0f14202bc8affc5ffb6c74369a8baad984c0d2d1b8d81b26baa1"
+      "file": "src/main/claude/discovery.test.ts",
+      "sha256": "494c02d6c80c3c0dbd38dd11b580484d589ca0f52acf4e2f3c5b2c9ddcbc77b9"
     },
     {
-      "file": "src/main/claude/claude.test.ts",
-      "sha256": "465e355d3a8c68e89f8124c58aa23ad159485d5693d787d69add41da62b2b70b"
-    },
-    {
-      "file": "src/main/history.ts",
-      "sha256": "624c3fa61cde54b9042db2ed3392aad1ad1dcc110c871766933f6405cd6305e5"
-    },
-    {
-      "file": "src/preload/index.ts",
-      "sha256": "10e59715ca7d749c172e562713e3fd834958c08e9c970ad69abae5e9d0b5b248"
-    },
-    {
-      "file": "src/renderer/App.tsx",
-      "sha256": "fe1d397554078ada2074fe3c4e933790bc11d906cc1e802b2ee02effcacac9e7"
+      "file": "src/main/claude/discovery.ts",
+      "sha256": "aa90ad76540b8ea3ff0c6f21ab1d859cace1c6e73594603fabfca9bc6558821a"
     },
     {
       "file": "src/renderer/components/NewSessionDialog.tsx",
-      "sha256": "a3a0cb898e029115b982628aa1f37272021757e5b4ae02148d79e2ac2a0c555f"
+      "sha256": "fee4d2a77274f012a5237a95148ac0a1e85027fa200a44dfce0125c39961b3eb"
     },
     {
       "file": "src/renderer/components/SessionSidebar.tsx",
-      "sha256": "bf6f06018d8617c5cbb400ad3190e78bdae321245f53ca500610e52f8415dd0f"
-    },
-    {
-      "file": "src/renderer/components/SettingsDialog.tsx",
-      "sha256": "1a80a1ecf2c24228a0ecc5516856d12f70465268502ac660446f2191b084ad88"
+      "sha256": "e9bd183c0f4b4228744a43fa61242d1ec6185b21abb185962e937360c98f7ba0"
     },
     {
       "file": "src/renderer/styles.css",
-      "sha256": "a8563d2756ea75998bb6460c5ea22a76f8bc18664d7fa41f82e6f0b5244a0a78"
+      "sha256": "51af924abefa8db23381e04f553ccf795359cdad7fa4ddffbc0ba147af45d546"
     },
     {
       "file": "src/shared/folder-workspaces.test.ts",
-      "sha256": "f0d505ba59fd7f8aa5a53b18e08bcc24c36efed4c0e9686bf76b240145a63c38"
+      "sha256": "a392ba4002dcab42c1eab28fa7954c28c9035adccba4b259db924f55c6f2e54e"
     },
     {
       "file": "src/shared/folder-workspaces.ts",
-      "sha256": "ef3bebc40ea961a5b872e4f3cdaa2108e9ac64bbb5becd81ddd3ebb11810b0c8"
-    },
-    {
-      "file": "src/shared/ipc.ts",
-      "sha256": "722d72303fe122f8b5789e8ad891d908afc5b7b48dfc99a4e90b27845dd25c25"
-    },
-    {
-      "file": "src/shared/launch.ts",
-      "sha256": "9eb58b610187cb5ae5532f09ed8c4e9ad35b5fb784e0d6f6bcfd573cf08501aa"
-    },
-    {
-      "file": "src/shared/sidebar-chats.ts",
-      "sha256": "2cce2b57a4dbbc0c4e19bcef374d2584b3373991d098ba732c14de1294225f37"
+      "sha256": "d47fcbd76d75ca1fd78514019b3ee0a0cfd079a2f610a75352b24ea282766694"
     },
     {
       "file": "src/shared/state.ts",
-      "sha256": "c9277252716fbe2054df0f324a1881deea5c893d2fa570e66c0b0ed97b971a55"
+      "sha256": "8a3b279518be0a7bee007cfc07ad2a278ad9eb6bf2473aff0ce865325246443b"
     }
-  ]
+  ],
+  "status": "source_ready_for_validation",
+  "sourceBase": "580746e928f866098952068c31a8c868811c8b26",
+  "schema": "reframe.source-ready.v1"
 }

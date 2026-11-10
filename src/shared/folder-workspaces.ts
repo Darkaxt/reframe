@@ -19,16 +19,20 @@ export interface FolderWorkspace {
   cwd: string;
   name: string;
   sessionIds: string[];
-  provider: Provider;
+  locations: { cwd: string; provider: Provider; sessionIds: string[] }[];
 }
-export const workspaceKey = (folder: string, provider: Provider = 'chatgpt'): string =>
-  `${provider}:${folderKey(folder)}`;
+/** Project grouping is visual; it never changes the actual working-directory identity. */
+export const workspaceKey = (folder: string): string =>
+  `project:${folderKey(folder).split('/').filter(Boolean).pop()?.toLowerCase() || folderKey(folder)}`;
+
+export const expandedWorkspaceKey = (key: string): string =>
+  key.startsWith('project:') ? key : workspaceKey(key.replace(/^(chatgpt|anthropic):/, ''));
 
 export function folderWorkspaces(chats: { cwd: string; id: string; provider?: Provider }[]): FolderWorkspace[] {
   const result = new Map<string, FolderWorkspace>();
   for (const chat of chats) {
     const provider = chat.provider ?? 'chatgpt';
-    const id = workspaceKey(chat.cwd, provider);
+    const id = workspaceKey(chat.cwd);
     let group = result.get(id);
     if (!group) {
       group = {
@@ -36,11 +40,19 @@ export function folderWorkspaces(chats: { cwd: string; id: string; provider?: Pr
         cwd: chat.cwd,
         name: chat.cwd.split(/[\\/]/).filter(Boolean).pop() || chat.cwd,
         sessionIds: [],
-        provider,
+        locations: [],
       };
       result.set(id, group);
     }
     if (!group.sessionIds.includes(chat.id)) group.sessionIds.push(chat.id);
+    let location = group.locations.find(
+      (entry) => folderKey(entry.cwd) === folderKey(chat.cwd) && entry.provider === provider,
+    );
+    if (!location) {
+      location = { cwd: chat.cwd, provider, sessionIds: [] };
+      group.locations.push(location);
+    }
+    if (!location.sessionIds.includes(chat.id)) location.sessionIds.push(chat.id);
   }
-  return [...result.values()].sort((a, b) => a.cwd.localeCompare(b.cwd));
+  return [...result.values()].sort((a, b) => a.name.localeCompare(b.name));
 }

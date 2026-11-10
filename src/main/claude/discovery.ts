@@ -3,7 +3,7 @@
 // and end are read, and results are cached by modification time.
 import fs from 'node:fs';
 import path from 'node:path';
-import { folderKey, folderWorkspaces, type FolderWorkspace } from '@shared/folder-workspaces';
+import { workspaceKey, folderWorkspaces, type FolderWorkspace } from '@shared/folder-workspaces';
 import { isRunningEntry, parseRegistryEntry, type RegistryEntry } from './registry';
 
 export interface RunningExclusion {
@@ -179,7 +179,7 @@ export class TranscriptIndex {
       const info = await this.info(file);
       if (!info) continue;
       if (info.cwd) chats.push({ cwd: info.cwd, id: info.sessionId });
-      if (options.folder && (!info.cwd || folderKey(info.cwd) !== folderKey(options.folder))) continue;
+      if (options.folder && (!info.cwd || workspaceKey(info.cwd) !== workspaceKey(options.folder))) continue;
       if (query && ![info.title, info.cwd].some((v) => v?.toLowerCase().includes(query))) continue;
       if (items.length >= options.limit) hasMore = true;
       else items.push(info);

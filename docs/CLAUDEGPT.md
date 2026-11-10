@@ -4,6 +4,13 @@ Reframe is the session manager; the separately maintained Claude CLI is patched 
 
 New session lets you choose ChatGPT (the existing proxy/settings) or Anthropic (Claude subscription) and an optional model. End a chat before changing its Model provider in the context menu. The provider is retained across restarts; errors/refusals never switch it. Anthropic defaults to the native `sonnet` alias; choose a different Claude model in Advanced. Subscription login happens through Claude's native `/login` flow. Reframe does not read/store account tokens. Native trust, authentication and permission prompts remain native controls.
 
+For a direct subscription terminal, use the release's `start-anthropic-session.ps1`.
+The managed installation places it in `D:\Tools\Reframe\maintenance`. From your
+project folder, invoke it with `--model opus --effort medium` and any explicit
+native permission flags you normally use. It resolves the dedicated verified CLI
+from the active record, clears all gateway/auth/model-alias overrides for the child,
+and restores the calling environment afterward. It does not modify saved settings.
+
 The sidebar groups all managed and discovered histories into Pinned, expandable project-folder trees and Recents. Ctrl/Command-click or Shift-click selects several rows without starting them; right-click the selection or use Selected chat actions. Titles wrap, and unrecorded historical providers show the explicit ChatGPT default rather than attributing past requests. Saved layout workspaces remain in the toolbar.
 
 Archive selected and Delete selected ask once for the complete batch. Each eligible native chat then gets a fresh exact history transaction; active, external, WSL or unavailable chats are preserved. Results list completed, skipped and failed chats independently, without replaying a failed item. Model provider changes the selected inactive chats' routes; Change model lets you explicitly choose the target provider and exact model ID, or leave the model empty for that provider's default. Both preserve conversation history without forced compaction or starting a model turn. Global model, effort, account and permission settings stay unchanged.
@@ -39,11 +46,12 @@ The Default choice inherits native CLI settings; an explicit level persists for
 that chat and is passed with --effort when started/resumed. This changes neither
 global Claude settings nor provider/permission controls.
 
-Projects have separate ChatGPT and Claude folder trees. Workspace identity is
-provider plus the canonical full folder path; Windows case/separator/dot variants
-within a provider group together, and the same folder under another provider is independent.
-Pinned and Recents still cover the shared ecosystem. A workspace's + opens
-New session for its exact folder/provider. Global New session defaults to the
+Projects is one tree grouped by final folder name, independent of parent path or
+provider. For example, ChatGPT/Android and Anthropic/Android share one Android
+branch, while each chat retains its actual folder/provider and provider icon.
+Pinned and Recents cover the same shared ecosystem. A workspace's + opens
+New session at an existing location; switching provider selects its known location
+when available, otherwise its default root. Global New session defaults to the
 system Documents/ChatGPT or Documents/Anthropic folder. Existing project/history
 locations are preserved; this does not migrate or duplicate repositories.
 
