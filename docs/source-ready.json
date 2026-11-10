@@ -2,7 +2,7 @@
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
   "sourceBase": "61669f9465c77b5ba4535ee7df7433cfe8557b28",
-  "scope": "0.10.0-claudegpt.6: reframe#1 QA (archive guard, stale tiles, derived state, quit confirmations, Windows-only CI, tray icon, batched archive/delete, resizable session list, richer New session) and installation-scoped idle and maintenance-stop checks",
+  "scope": "0.10.0-claudegpt.7: delete of a chat without Claude history removes only the Reframe entry (on top of 0.10.0-claudegpt.6)",
   "inputHashes": [
     {
       "file": ".github/workflows/ci.yml",
@@ -21,12 +21,12 @@
       "sha256": "2f85ccdbe7fbbc0f19ceeaee1723494aa5f24384708408d385a75605749b09ee"
     },
     {
-      "file": "docs/releases/v0.10.0-claudegpt.6.md",
-      "sha256": "1bbf9005cbf01b153d1be50131abe5e9a5fe8314b770f440eeccc4d81291b852"
+      "file": "docs/releases/v0.10.0-claudegpt.7.md",
+      "sha256": "f06b3d74f199b5aef16065e81489b06e51a3ebb67f6f663a6d4bda092876cbd7"
     },
     {
       "file": "e2e/bulk-chats.spec.ts",
-      "sha256": "be20282ec7b06dac505fd0a625e313ece3bcba2784eb8fc8ed753cf99d3ecb1a"
+      "sha256": "16a8c557891731537c18913bcb0daf086dde14f90f1cdc6688177263883d0525"
     },
     {
       "file": "electron-builder.yml",
@@ -62,11 +62,11 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "1a74c9789ffc4553cd423c0781f8ac5d85a5c922988cd87b7a07914f1da18548"
+      "sha256": "3622ad6acbfeea5df4701d86e9008e21b494375b11b97c25d68a935fca9894e7"
     },
     {
       "file": "package.json",
-      "sha256": "7a1a22026eeeef9ddfbe9bfcebc01321214835334e6de9239f951a3a20dd5f77"
+      "sha256": "6b3f4de346f2fa57aede3736afb51b1ade64fa2bba78df60eb3cd5fdb05f5b69"
     },
     {
       "file": "resources/icon.png",
@@ -74,7 +74,7 @@
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "01bcf19dd16d0f3c68fca5e1ab719f95339eb0d1a10c72fd1d6db5a0adaff18c"
+      "sha256": "8c2f95408583ac672b4f90e749b64bfab61f5ac87e897f276e8ae2511bac5453"
     },
     {
       "file": "src/main/archive-root.test.ts",

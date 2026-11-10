@@ -227,3 +227,50 @@ test('a mutation failure is not retried and does not prevent a later independent
     await cleanup(fixture.dir);
   }
 });
+
+test('a chat that never wrote Claude history is deleted as a Reframe entry only and is not archived', async () => {
+  test.setTimeout(0);
+  const fixture = setup();
+  const original = histories(fixture.env.REFRAME_CLAUDE_HOME!, fixture.project);
+  const empty = ['7fd82700-0c63-4034-a0af-0000000000e1', '7fd82700-0c63-4034-a0af-0000000000e2'];
+  try {
+    let { app, page } = await launch(fixture.env);
+    await quit(app);
+    const file = path.join(fixture.env.REFRAME_USER_DATA!, 'state.json');
+    const state = JSON.parse(fs.readFileSync(file, 'utf8'));
+    empty.forEach((id, index) => {
+      state.sessions[id] = {
+        id,
+        claudeSessionId: id,
+        cwd: fixture.project,
+        name: `Never started ${index + 1}`,
+        launch: { provider: 'chatgpt' },
+        lifecycle: 'ended',
+        createdAt: Date.now(),
+        lastActiveAt: Date.now(),
+      };
+    });
+    fs.writeFileSync(file, JSON.stringify(state));
+    ({ app, page } = await launch(fixture.env));
+    await answerDialogs(app, 0);
+    await select(page, ['Never started 1', 'Never started 2']);
+    expect(await callMain<boolean>(app, 'clickMenuItem', 'Archive selected…')).toBe(true);
+    await settled(app);
+    expect(await dialogsAsked(app)).toEqual([]);
+    await expect(page.getByRole('region', { name: 'Selected chat results' })).toContainText(
+      '0 completed · 0 skipped · 2 failed',
+    );
+    await page.getByRole('button', { name: 'Selected chat actions', exact: true }).click();
+    expect(await callMain<boolean>(app, 'clickMenuItem', 'Delete selected…')).toBe(true);
+    await settled(app);
+    expect(await dialogsAsked(app)).toEqual(['Permanently delete 2 selected chats?']);
+    await expect(page.getByRole('region', { name: 'Selected chat results' })).toContainText(
+      '2 completed · 0 skipped · 0 failed',
+    );
+    empty.forEach((id) => expect(fixture.state().sessions[id]).toBeUndefined());
+    original.files.forEach((history) => expect(fs.existsSync(history)).toBe(true));
+    await quit(app);
+  } finally {
+    await cleanup(fixture.dir);
+  }
+});
