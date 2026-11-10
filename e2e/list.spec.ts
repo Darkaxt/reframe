@@ -36,15 +36,15 @@ test('session list: select several, open them together, see new ones pop up', as
     const { app, page } = await launch(env);
     const sessionsButton = page.getByRole('button', { name: 'Sessions', exact: true });
     await sessionsButton.click();
-    const row = (title: string) => page.locator('.sidebar-row', { hasText: title });
+    const row = (title: string) => page.locator('.sidebar-row[draggable="true"]', { hasText: title });
     await expect(row('Gamma task')).toBeVisible();
 
     // Ctrl+click and Shift+click select without opening anything.
     await row('Alpha task').click({ modifiers: ['ControlOrMeta'] });
     await row('Gamma task').click({ modifiers: ['Shift'] });
-    await expect(page.locator('.sidebar-row.is-selected')).toHaveCount(3);
+    await expect(page.locator('.sidebar-row[draggable="true"].is-selected')).toHaveCount(3);
     await row('Beta task').click({ modifiers: ['ControlOrMeta'] });
-    await expect(page.locator('.sidebar-row.is-selected')).toHaveCount(2);
+    await expect(page.locator('.sidebar-row[draggable="true"].is-selected')).toHaveCount(2);
     await expect(page.locator('.tile')).toHaveCount(0);
 
     // Right-click → "Open in a new group": both resume, framed together.
@@ -56,7 +56,7 @@ test('session list: select several, open them together, see new ones pop up', as
     // Beta, plus Alpha that is open already, "in a new group in a new window": Alpha moves, without a restart.
     await row('Beta task').click({ modifiers: ['ControlOrMeta'] });
     await page.locator(`.sidebar-row[data-session="${recordOf(alpha)}"]`).click({ modifiers: ['ControlOrMeta'] });
-    await expect(page.locator('.sidebar-row.is-selected')).toHaveCount(2);
+    await expect(page.locator('.sidebar-row[draggable="true"].is-selected')).toHaveCount(2);
     const opened = app.waitForEvent('window');
     await row('Beta task').click({ button: 'right' });
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Open in a new group in a new window')).toBe(true);

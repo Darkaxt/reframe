@@ -17,7 +17,7 @@ import {
   tileByLabel,
 } from './helpers';
 
-const row = (page: Page, text: string) => page.locator('.sidebar-row', { hasText: text });
+const row = (page: Page, text: string) => page.locator('.sidebar-row[draggable="true"]', { hasText: text });
 
 /** Resumes a session in a terminal of its own, outside reframe; the promise settles when that claude has ended. */
 function resumeOutside(env: Record<string, string>, dir: string, project: string, claudeSessionId: string) {
@@ -56,7 +56,7 @@ test('a session resumed in another terminal is taken over, not run twice', async
     await page.getByRole('button', { name: 'Sessions' }).click();
     // In reframe's list as running elsewhere, and not a second time among the other terminals' sessions.
     await expect(row(page, 'alpha')).toContainText('running elsewhere', { timeout: 10_000 });
-    await expect(page.locator('.sidebar-row')).toHaveCount(1);
+    await expect(page.locator('.sidebar-row[draggable="true"]')).toHaveCount(1);
 
     await answerDialogs(app, 0);
     await row(page, 'alpha').click();

@@ -8,7 +8,7 @@ import * as pty from 'node-pty';
 import { expect, test, type Page } from '@playwright/test';
 import { captureWindows, cleanup, launch, newSession, quit, setup, tileByLabel } from './helpers';
 
-const row = (page: Page, text: string) => page.locator('.sidebar-row', { hasText: text });
+const row = (page: Page, text: string) => page.locator('.sidebar-row[draggable="true"]', { hasText: text });
 
 test('session list: reopen, remove, resume a found session, take over a running one', async () => {
   const { dir, project, env, launches, state, byName } = setup();
@@ -46,7 +46,7 @@ test('session list: reopen, remove, resume a found session, take over a running 
 
     // Search filters every section.
     await page.getByPlaceholder('Search sessions').fill('parser');
-    await expect(page.locator('.sidebar-row')).toHaveCount(1);
+    await expect(page.locator('.sidebar-row[draggable="true"]')).toHaveCount(1);
     await page.getByPlaceholder('Search sessions').fill('');
 
     // An ended session reopens from the list, and can be removed once it is ended again.

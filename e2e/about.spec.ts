@@ -27,7 +27,7 @@ test('About: version, license and links', async () => {
     await about.getByText('reframe on GitHub').click();
     await about.getByText('TheyCallMeJuzou').click();
     expect(await app.evaluate(() => (globalThis as unknown as { opened: string[] }).opened)).toEqual([
-      'https://github.com/TheyCallMeJuzou/reframe',
+      'https://github.com/Darkaxt/reframe',
       'https://github.com/TheyCallMeJuzou',
     ]);
 
