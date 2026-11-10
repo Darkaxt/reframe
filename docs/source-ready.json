@@ -1,97 +1,156 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "scope": "Complete .5 owner correction: one Projects tree by final folder name across paths/providers; retain actual locations, plus/default roots, paging and expansion migration",
+  "sourceBase": "61669f9465c77b5ba4535ee7df7433cfe8557b28",
+  "scope": "0.10.0-claudegpt.6: reframe#1 QA (archive guard, stale tiles, derived state, quit confirmations, Windows-only CI, tray icon, batched archive/delete, resizable session list, richer New session) and installation-scoped idle check",
   "inputHashes": [
     {
-      "sha256": "5071044ca4a6d016229c47085d9e3595f58d7d079b4ad81ee31af9bb3efee256",
-      "file": "docs/claudegpt-spec.md"
+      "file": ".github/workflows/ci.yml",
+      "sha256": "370c5d3fba53cb225f163a3cf495ccaad307fa07eb499871aa8f1c8e3abb5f76"
     },
     {
-      "sha256": "03a685343a8c58c2222fff618b3e56b9e27041e6bc9fe083bf264251bfc2142f",
-      "file": "docs/CLAUDEGPT.md"
+      "file": ".github/workflows/release.yml",
+      "sha256": "c57dc49b33e2494477ff150b5f67752499c9418baebc72c95931af2f6df72c8f"
     },
     {
-      "sha256": "bfec6859d916c646c5217d81067db6b97687e33c172dcf123243eb949ffd75c4",
-      "file": "docs/deletion-latency-spec.md"
+      "file": "build/icon.ico",
+      "sha256": "52d42fe76b66550c02d6f5aff66f20fd608f445bb4936fbe89eaabec67e0cfcf"
     },
     {
-      "sha256": "9ca247eb036326e78891e3cad69858edc20600431751d9972e2b883b33e70fa1",
-      "file": "docs/releases/v0.10.0-claudegpt.5.md"
+      "file": "build/icon.png",
+      "sha256": "2f85ccdbe7fbbc0f19ceeaee1723494aa5f24384708408d385a75605749b09ee"
     },
     {
-      "sha256": "d73c386fe4f6de1f4b7e0024b4a337a8482db08051938cd6d75443d77175b501",
-      "file": "e2e/claudegpt.spec.ts"
+      "file": "docs/releases/v0.10.0-claudegpt.6.md",
+      "sha256": "c25d62384a55cbe20c5f0ceb4cd07f564815b9b87e80a7a0c0572cbc6dd72a20"
     },
     {
-      "sha256": "b3e987cc5db973c638945a4ccb728e08f45f0d344307b4a2ddfa1586872b0fb4",
-      "file": "e2e/helpers.ts"
+      "file": "e2e/bulk-chats.spec.ts",
+      "sha256": "be20282ec7b06dac505fd0a625e313ece3bcba2784eb8fc8ed753cf99d3ecb1a"
     },
     {
-      "sha256": "840ad1413a4bfea3b8a81a156f951a00d663e1be309893708cd36bc319456011",
-      "file": "e2e/project-tree.spec.ts"
+      "file": "electron-builder.yml",
+      "sha256": "a75b3bab943bcbcfca74cab622824c31e8dfbce2cfbc3dbddba9e13df10034de"
     },
     {
-      "sha256": "a03a60345085390017f5b42cd1d58ba293cc8170abc35417b9ab69b4b72a1584",
-      "file": "maintenance/fixtures/anthropic-cli.ps1"
+      "file": "maintenance/history_backend.py",
+      "sha256": "746f6f67ea655065d7f8d4ca8134fcea099550b4369f72518ad8ac463303cc9c"
     },
     {
-      "sha256": "135110a7769f369a35451af02d46e9a0256763b153e0d1587a9485a0b6f2c4e3",
-      "file": "maintenance/test-anthropic-session.ps1"
+      "file": "maintenance/make-icons.py",
+      "sha256": "05f2fb4161bb05f435fa999bbfe1a5d09c524b7b258d4d0d00a6f8f0bdc2752a"
     },
     {
-      "sha256": "123a882f6349aa7f8eca2ca2440aba2b6ec598e9f74e80a47e8bc9ca3a530933",
-      "file": "maintenance/windows/start-anthropic-session.ps1"
+      "file": "maintenance/test_history_backend.py",
+      "sha256": "593c0c9394603526dfa4d33dd914d386ec0d87eacc3ad472ef756cc08c731ac9"
     },
     {
-      "sha256": "016bc22e678bedeed12b98065c5c0fdb10c87b95e37f49667fa0e5a783d0d14b",
-      "file": "package-lock.json"
+      "file": "maintenance/windows/deploy-managed.ps1",
+      "sha256": "d0a0715dfb56d85e4a9f186f83faad0bf8781b651cdd1a258d745fd8477ede86"
     },
     {
-      "sha256": "f4d982e0a86c143bda77cb150ab3e8760256cb2ecc4a4d0c19f951a391b3d60b",
-      "file": "package.json"
+      "file": "maintenance/windows/release-files.ps1",
+      "sha256": "877361d8f78cdcc2d576629ea81504bc475babd834c0de1e492494bc5e480973"
     },
     {
-      "sha256": "720b0b4612498b1658c969ed690c2c3406d0276d190409a6949f56dd772dde1e",
-      "file": "src/main/app.ts"
+      "file": "maintenance/windows/restore-managed.ps1",
+      "sha256": "67699aa9ce6e9390ec2ae48f8650f7edfdf8970666e0bb8da83319ead6832e21"
     },
     {
-      "sha256": "494c02d6c80c3c0dbd38dd11b580484d589ca0f52acf4e2f3c5b2c9ddcbc77b9",
-      "file": "src/main/claude/discovery.test.ts"
+      "file": "package-lock.json",
+      "sha256": "1a74c9789ffc4553cd423c0781f8ac5d85a5c922988cd87b7a07914f1da18548"
     },
     {
-      "sha256": "aa90ad76540b8ea3ff0c6f21ab1d859cace1c6e73594603fabfca9bc6558821a",
-      "file": "src/main/claude/discovery.ts"
+      "file": "package.json",
+      "sha256": "7a1a22026eeeef9ddfbe9bfcebc01321214835334e6de9239f951a3a20dd5f77"
     },
     {
-      "sha256": "fee4d2a77274f012a5237a95148ac0a1e85027fa200a44dfce0125c39961b3eb",
-      "file": "src/renderer/components/NewSessionDialog.tsx"
+      "file": "resources/icon.png",
+      "sha256": "37322d0c6012fe294d7623ccee524e74901f6ae48d3f16894d47a773a7f85b02"
     },
     {
-      "sha256": "e9bd183c0f4b4228744a43fa61242d1ec6185b21abb185962e937360c98f7ba0",
-      "file": "src/renderer/components/SessionSidebar.tsx"
+      "file": "src/main/app.ts",
+      "sha256": "01bcf19dd16d0f3c68fca5e1ab719f95339eb0d1a10c72fd1d6db5a0adaff18c"
     },
     {
-      "sha256": "51af924abefa8db23381e04f553ccf795359cdad7fa4ddffbc0ba147af45d546",
-      "file": "src/renderer/styles.css"
+      "file": "src/main/archive-root.test.ts",
+      "sha256": "e2b9444ecc0677b7a58b82cb24341e23edce5fd3268a58e6ec80db2687a11a78"
     },
     {
-      "sha256": "a392ba4002dcab42c1eab28fa7954c28c9035adccba4b259db924f55c6f2e54e",
-      "file": "src/shared/folder-workspaces.test.ts"
+      "file": "src/main/archive-root.ts",
+      "sha256": "a12c074654763f21f952ab69d9a1d4708be9fc54619c295e52de64558b20dcaa"
     },
     {
-      "sha256": "d47fcbd76d75ca1fd78514019b3ee0a0cfd079a2f610a75352b24ea282766694",
-      "file": "src/shared/folder-workspaces.ts"
+      "file": "src/main/claude/args.ts",
+      "sha256": "b5bdf5d03b3d498b95a0a097b7868dbe2e23c94834a27dbe7db954fc511bc283"
     },
     {
-      "sha256": "8a3b279518be0a7bee007cfc07ad2a278ad9eb6bf2473aff0ce865325246443b",
-      "file": "src/shared/state.ts"
+      "file": "src/main/claude/claude.test.ts",
+      "sha256": "ac642631d3f7cbd91dd2ce01e0c5ae9f63efbfcc7f2e7563adecb23775c30690"
+    },
+    {
+      "file": "src/main/history.ts",
+      "sha256": "ab4e58072127f32d522b4c08b22ef4a61420c5f93a09580e9872b9cd34350140"
+    },
+    {
+      "file": "src/main/menus.ts",
+      "sha256": "88983244914b1fb9c32369aefdeda2a639d4afc8b0388ac5e0ac61f558cbef9c"
+    },
+    {
+      "file": "src/main/sessions.ts",
+      "sha256": "d15ead91b9173c39275931e46b1b04a244e5ebb283e927e677101eaae4f9f5e2"
+    },
+    {
+      "file": "src/main/stale-tiles.test.ts",
+      "sha256": "76661dbf4d7d225cb711c78c51ced9baac2a3b051906b5374a0b250642ce6c2e"
+    },
+    {
+      "file": "src/main/stale-tiles.ts",
+      "sha256": "63e3d1f66e9640ad447d521dce37b7c48f76975d3f39c4e6b331790cda66bd27"
+    },
+    {
+      "file": "src/renderer/App.tsx",
+      "sha256": "4f430379084aad1eb9d36b3d50a28d4d0b409f26fe29222fb6ea15434ea3ba19"
+    },
+    {
+      "file": "src/renderer/components/NewSessionDialog.tsx",
+      "sha256": "781457cee17f9f366218b1195db82366d732fb9693db88e6a5c853b308de3c86"
+    },
+    {
+      "file": "src/renderer/components/SidebarResizer.tsx",
+      "sha256": "07de827abcadf76a3afcdbafc7da0e858797edc0767e781bc8c97856b192fdf0"
+    },
+    {
+      "file": "src/renderer/styles.css",
+      "sha256": "bba2c800da7b00ee206a2930589c47c05c399c1fd7eca34397f5a9c766c68b37"
+    },
+    {
+      "file": "src/shared/i18n.ts",
+      "sha256": "26f71d43f8e9479c3d2abdb68cd78595b830d7578ee217178092d153fb37421b"
+    },
+    {
+      "file": "src/shared/ipc.ts",
+      "sha256": "3b68a74e0fc202e94b68905655f21b5889e0b5f8c01c0a7fef0221a535a9547c"
+    },
+    {
+      "file": "src/shared/new-session.test.ts",
+      "sha256": "c57c3ffb9db78f02a1f4d5220953eb6a56f343dbce8e421669e802305e0f74f4"
+    },
+    {
+      "file": "src/shared/new-session.ts",
+      "sha256": "1e3b051dfb9e6160644653b11f5134d17525ac751d53c50052b0e29e6eaed04c"
+    },
+    {
+      "file": "src/shared/sidebar-width.test.ts",
+      "sha256": "09e9a892036517fcdb46956450a6d505fdaeca3170774cd0ee45a0a7cad397c4"
+    },
+    {
+      "file": "src/shared/state.ts",
+      "sha256": "7a00fe04e42c5bb19ace478164e1c1670e7e1ec3a38bf7679f20fe28ffad41d0"
     }
   ],
   "checksNotYetRun": [
-    "Types/lint/units/build",
-    "Packaged native merged workspace/paging/creation/migration and affected existing behavior",
-    "Windows release and installed delivery"
-  ],
-  "sourceBase": "580746e928f866098952068c31a8c868811c8b26"
+    "Packaged native e2e for this candidate",
+    "Windows release delivery and installed activation"
+  ]
 }

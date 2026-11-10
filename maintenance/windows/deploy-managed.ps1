@@ -8,6 +8,8 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'release-files.ps1')
 Assert-Hash $Manifest $ManifestSha256
 $m = Get-Content -LiteralPath $Manifest -Raw | ConvertFrom-Json
+# The installation folder holds active.json; clients coupled to it must be idle (Get-ReframeClients).
+$installRoot = Split-Path -Parent $m.activePath
 if ($m.schema -cne 'claudegpt.reframe-deploy.v1') { throw 'Unsupported private deployment manifest' }
 $mutex = [Threading.Mutex]::new($false, 'Local\ClaudeGPTReframeDeployment')
 $owned = $false
@@ -57,7 +59,7 @@ try {
     if ($idle.candidateSha256 -cne $m.candidateSha256) { throw 'Idle reservation belongs to another candidate' }
     $tasks = @(Get-ReframeRequestTasks)
     if ($tasks.Count) { throw "Enabled scheduled request producers need review/reservation before activation: $($tasks | ConvertTo-Json -Compress -Depth 8)" }
-    Assert-ReframeIdle
+    Assert-ReframeIdle $installRoot
     Assert-PlainPath $m.releaseDirectory
     if (Test-Path -LiteralPath $m.releaseDirectory) { throw 'Destination exists; resolve prior activation before another copy' }
     Assert-PlainPath $m.receiptDirectory
@@ -92,7 +94,7 @@ try {
         [IO.File]::Copy((Join-Path $PSScriptRoot $name), (Join-Path $m.launcherDirectory $name), $false)
         Assert-Hash (Join-Path $m.launcherDirectory $name) (Get-Sha256 (Join-Path $PSScriptRoot $name))
     }
-    Assert-ReframeIdle
+    Assert-ReframeIdle $installRoot
     foreach ($file in $m.protected) { Assert-Hash $file.path $file.sha256 }
     $active = [ordered]@{
         schema = 'claudegpt.reframe.v2'; version = $candidate.version; status = 'activation_verification_pending'
@@ -129,7 +131,7 @@ try {
         try {
             # Never kill a child/consumer to make rollback possible. A live GUI
             # must exit through its native lifecycle before the frozen restore.
-            Assert-ReframeIdle
+            Assert-ReframeIdle $installRoot
             Restore-FrozenFiles $rollback.files
             Start-Process -FilePath "$env:SystemRoot\System32\wscript.exe" -ArgumentList @('//B', '//Nologo', ('"' + $rollback.launcher + '"')) -WindowStyle Hidden
             Write-AtomicJson (Join-Path $m.receiptDirectory 'restore-result.json') @{
