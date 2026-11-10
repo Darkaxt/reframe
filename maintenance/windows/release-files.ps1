@@ -121,12 +121,18 @@ function Get-ReframeClients([Parameter(Mandatory)][string]$Root) {
     # Clients coupled to this installation: the app, anything it started (its panes, node wrappers), and any
     # Claude client running from or configured into the installation folder (its clients, runtime, settings).
     # A Claude CLI installed and launched elsewhere without Reframe's settings reads and writes nothing an
-    # activation replaces, so it may keep running.
+    # activation replaces, so it may keep running. Likewise a Reframe running from another folder (a second
+    # installation, a development build or a test fixture) is not this installation's app; a Reframe whose path
+    # cannot be read still counts.
     $all = @(Get-CimInstance Win32_Process)
     $byId = @{}
     foreach ($process in $all) { $byId[[int]$process.ProcessId] = $process }
     $folder = [IO.Path]::GetFullPath($Root).TrimEnd('\')
-    $isApp = { param($p) $p.Name -match '^reframe(\.exe)?$' }
+    $isApp = {
+        param($p)
+        $p.Name -match '^reframe(\.exe)?$' -and
+            (-not $p.ExecutablePath -or [IO.Path]::GetFullPath($p.ExecutablePath).StartsWith("$folder\", [StringComparison]::OrdinalIgnoreCase))
+    }
     @($all | Where-Object {
         $p = $_
         $client = (& $isApp $p) -or $p.Name -match '^claude(\.exe)?$' -or
