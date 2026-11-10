@@ -1,97 +1,97 @@
 {
+  "schema": "reframe.source-ready.v1",
+  "status": "source_ready_for_validation",
+  "scope": "Complete .5 owner correction: one Projects tree by final folder name across paths/providers; retain actual locations, plus/default roots, paging and expansion migration",
+  "inputHashes": [
+    {
+      "sha256": "5071044ca4a6d016229c47085d9e3595f58d7d079b4ad81ee31af9bb3efee256",
+      "file": "docs/claudegpt-spec.md"
+    },
+    {
+      "sha256": "03a685343a8c58c2222fff618b3e56b9e27041e6bc9fe083bf264251bfc2142f",
+      "file": "docs/CLAUDEGPT.md"
+    },
+    {
+      "sha256": "bfec6859d916c646c5217d81067db6b97687e33c172dcf123243eb949ffd75c4",
+      "file": "docs/deletion-latency-spec.md"
+    },
+    {
+      "sha256": "9ca247eb036326e78891e3cad69858edc20600431751d9972e2b883b33e70fa1",
+      "file": "docs/releases/v0.10.0-claudegpt.5.md"
+    },
+    {
+      "sha256": "d73c386fe4f6de1f4b7e0024b4a337a8482db08051938cd6d75443d77175b501",
+      "file": "e2e/claudegpt.spec.ts"
+    },
+    {
+      "sha256": "b3e987cc5db973c638945a4ccb728e08f45f0d344307b4a2ddfa1586872b0fb4",
+      "file": "e2e/helpers.ts"
+    },
+    {
+      "sha256": "840ad1413a4bfea3b8a81a156f951a00d663e1be309893708cd36bc319456011",
+      "file": "e2e/project-tree.spec.ts"
+    },
+    {
+      "sha256": "a03a60345085390017f5b42cd1d58ba293cc8170abc35417b9ab69b4b72a1584",
+      "file": "maintenance/fixtures/anthropic-cli.ps1"
+    },
+    {
+      "sha256": "135110a7769f369a35451af02d46e9a0256763b153e0d1587a9485a0b6f2c4e3",
+      "file": "maintenance/test-anthropic-session.ps1"
+    },
+    {
+      "sha256": "123a882f6349aa7f8eca2ca2440aba2b6ec598e9f74e80a47e8bc9ca3a530933",
+      "file": "maintenance/windows/start-anthropic-session.ps1"
+    },
+    {
+      "sha256": "016bc22e678bedeed12b98065c5c0fdb10c87b95e37f49667fa0e5a783d0d14b",
+      "file": "package-lock.json"
+    },
+    {
+      "sha256": "f4d982e0a86c143bda77cb150ab3e8760256cb2ecc4a4d0c19f951a391b3d60b",
+      "file": "package.json"
+    },
+    {
+      "sha256": "720b0b4612498b1658c969ed690c2c3406d0276d190409a6949f56dd772dde1e",
+      "file": "src/main/app.ts"
+    },
+    {
+      "sha256": "494c02d6c80c3c0dbd38dd11b580484d589ca0f52acf4e2f3c5b2c9ddcbc77b9",
+      "file": "src/main/claude/discovery.test.ts"
+    },
+    {
+      "sha256": "aa90ad76540b8ea3ff0c6f21ab1d859cace1c6e73594603fabfca9bc6558821a",
+      "file": "src/main/claude/discovery.ts"
+    },
+    {
+      "sha256": "fee4d2a77274f012a5237a95148ac0a1e85027fa200a44dfce0125c39961b3eb",
+      "file": "src/renderer/components/NewSessionDialog.tsx"
+    },
+    {
+      "sha256": "e9bd183c0f4b4228744a43fa61242d1ec6185b21abb185962e937360c98f7ba0",
+      "file": "src/renderer/components/SessionSidebar.tsx"
+    },
+    {
+      "sha256": "51af924abefa8db23381e04f553ccf795359cdad7fa4ddffbc0ba147af45d546",
+      "file": "src/renderer/styles.css"
+    },
+    {
+      "sha256": "a392ba4002dcab42c1eab28fa7954c28c9035adccba4b259db924f55c6f2e54e",
+      "file": "src/shared/folder-workspaces.test.ts"
+    },
+    {
+      "sha256": "d47fcbd76d75ca1fd78514019b3ee0a0cfd079a2f610a75352b24ea282766694",
+      "file": "src/shared/folder-workspaces.ts"
+    },
+    {
+      "sha256": "8a3b279518be0a7bee007cfc07ad2a278ad9eb6bf2473aff0ce865325246443b",
+      "file": "src/shared/state.ts"
+    }
+  ],
   "checksNotYetRun": [
     "Types/lint/units/build",
     "Packaged native merged workspace/paging/creation/migration and affected existing behavior",
     "Windows release and installed delivery"
   ],
-  "status": "source_ready_for_validation",
-  "sourceBase": "580746e928f866098952068c31a8c868811c8b26",
-  "schema": "reframe.source-ready.v1",
-  "inputHashes": [
-    {
-      "file": "docs/claudegpt-spec.md",
-      "sha256": "5071044ca4a6d016229c47085d9e3595f58d7d079b4ad81ee31af9bb3efee256"
-    },
-    {
-      "file": "docs/CLAUDEGPT.md",
-      "sha256": "03a685343a8c58c2222fff618b3e56b9e27041e6bc9fe083bf264251bfc2142f"
-    },
-    {
-      "file": "docs/deletion-latency-spec.md",
-      "sha256": "bfec6859d916c646c5217d81067db6b97687e33c172dcf123243eb949ffd75c4"
-    },
-    {
-      "file": "docs/releases/v0.10.0-claudegpt.5.md",
-      "sha256": "9ca247eb036326e78891e3cad69858edc20600431751d9972e2b883b33e70fa1"
-    },
-    {
-      "file": "e2e/claudegpt.spec.ts",
-      "sha256": "07d4b40edcb9d6a1006b09fe9e6d647d6ee1f33f4fab5d24a48290d9d0bf932c"
-    },
-    {
-      "file": "e2e/helpers.ts",
-      "sha256": "b3e987cc5db973c638945a4ccb728e08f45f0d344307b4a2ddfa1586872b0fb4"
-    },
-    {
-      "file": "e2e/project-tree.spec.ts",
-      "sha256": "840ad1413a4bfea3b8a81a156f951a00d663e1be309893708cd36bc319456011"
-    },
-    {
-      "file": "maintenance/fixtures/anthropic-cli.ps1",
-      "sha256": "a03a60345085390017f5b42cd1d58ba293cc8170abc35417b9ab69b4b72a1584"
-    },
-    {
-      "file": "maintenance/test-anthropic-session.ps1",
-      "sha256": "135110a7769f369a35451af02d46e9a0256763b153e0d1587a9485a0b6f2c4e3"
-    },
-    {
-      "file": "maintenance/windows/start-anthropic-session.ps1",
-      "sha256": "123a882f6349aa7f8eca2ca2440aba2b6ec598e9f74e80a47e8bc9ca3a530933"
-    },
-    {
-      "file": "package-lock.json",
-      "sha256": "016bc22e678bedeed12b98065c5c0fdb10c87b95e37f49667fa0e5a783d0d14b"
-    },
-    {
-      "file": "package.json",
-      "sha256": "f4d982e0a86c143bda77cb150ab3e8760256cb2ecc4a4d0c19f951a391b3d60b"
-    },
-    {
-      "file": "src/main/app.ts",
-      "sha256": "720b0b4612498b1658c969ed690c2c3406d0276d190409a6949f56dd772dde1e"
-    },
-    {
-      "file": "src/main/claude/discovery.test.ts",
-      "sha256": "494c02d6c80c3c0dbd38dd11b580484d589ca0f52acf4e2f3c5b2c9ddcbc77b9"
-    },
-    {
-      "file": "src/main/claude/discovery.ts",
-      "sha256": "aa90ad76540b8ea3ff0c6f21ab1d859cace1c6e73594603fabfca9bc6558821a"
-    },
-    {
-      "file": "src/renderer/components/NewSessionDialog.tsx",
-      "sha256": "fee4d2a77274f012a5237a95148ac0a1e85027fa200a44dfce0125c39961b3eb"
-    },
-    {
-      "file": "src/renderer/components/SessionSidebar.tsx",
-      "sha256": "e9bd183c0f4b4228744a43fa61242d1ec6185b21abb185962e937360c98f7ba0"
-    },
-    {
-      "file": "src/renderer/styles.css",
-      "sha256": "51af924abefa8db23381e04f553ccf795359cdad7fa4ddffbc0ba147af45d546"
-    },
-    {
-      "file": "src/shared/folder-workspaces.test.ts",
-      "sha256": "a392ba4002dcab42c1eab28fa7954c28c9035adccba4b259db924f55c6f2e54e"
-    },
-    {
-      "file": "src/shared/folder-workspaces.ts",
-      "sha256": "d47fcbd76d75ca1fd78514019b3ee0a0cfd079a2f610a75352b24ea282766694"
-    },
-    {
-      "file": "src/shared/state.ts",
-      "sha256": "8a3b279518be0a7bee007cfc07ad2a278ad9eb6bf2473aff0ce865325246443b"
-    }
-  ],
-  "scope": "Complete .5 owner correction: one Projects tree by final folder name across paths/providers; retain actual locations, plus/default roots, paging and expansion migration"
+  "sourceBase": "580746e928f866098952068c31a8c868811c8b26"
 }

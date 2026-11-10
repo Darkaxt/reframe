@@ -182,13 +182,22 @@ test('legacy expansion merges same folder names across paths/providers without m
     await expect(projects.locator('.folder-workspace')).toHaveAttribute('aria-expanded', 'true');
     await expect(projects.locator('.sidebar-project-chats')).toContainText('Legacy ChatGPT');
     await expect(projects.locator('.sidebar-project-chats')).toContainText('Legacy Claude');
-    expect(fixture.state().expandedProjects).toEqual([`project:${path.basename(fixture.project).toLowerCase()}`]);
     expect(fixture.launches()).toHaveLength(0);
     expect(Object.values(fixture.state().sessions).map((record) => record.cwd)).toEqual([
       fixture.project,
       path.join(fixture.dir, 'anthropic', path.basename(fixture.project)),
     ]);
     expect(fixture.state().preferences.defaultEffort).toBeUndefined();
+    await quit(app);
+    expect(fixture.state().expandedProjects).toEqual([`project:${path.basename(fixture.project).toLowerCase()}`]);
+    ({ app, page } = await launch(fixture.env));
+    if (!(await page.locator('.sidebar').isVisible()))
+      await page.getByRole('button', { name: 'Sessions', exact: true }).click();
+    await expect(page.locator('.sidebar-projects .folder-workspace')).toHaveCount(1);
+    await expect(page.locator('.sidebar-projects .folder-workspace')).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('.sidebar-project-chats')).toContainText('Legacy ChatGPT');
+    await expect(page.locator('.sidebar-project-chats')).toContainText('Legacy Claude');
+    expect(fixture.launches()).toHaveLength(0);
     await quit(app);
   } finally {
     await cleanup(fixture.dir);
