@@ -171,6 +171,7 @@ export const appStateSchema = z.object({
   workspaces: z.array(workspaceSchema).default([]),
   pinnedChats: z.array(z.string()).optional(),
   expandedProjects: z.array(z.string()).optional(),
+  /** Read and dropped: older builds stored the derived project groups. */
   folderWorkspaces: z
     .array(
       z.object({

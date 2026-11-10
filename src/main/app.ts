@@ -182,6 +182,8 @@ export class ReframeApp {
   private historyBusy = new Set<string>();
   private historyOperations = new Set<Promise<unknown>>();
   private chatBatchRunning = false;
+  /** Project groups of the last session list, the ones the sidebar can expand. */
+  private listedProjects = new Set<string>();
   private trackHistory<T>(run: () => Promise<T>): Promise<T> {
     if (this.shuttingDown)
       return Promise.reject(Error('Reframe is shutting down; no new history operation was started.'));
@@ -232,7 +234,8 @@ export class ReframeApp {
     const loaded = this.store.load();
     if (loaded.source === 'newer') return this.refuseNewerState();
     if (loaded.rejected) this.log('error', 'state file could not be used, set aside', loaded.rejected);
-    this.state = loaded.state;
+    // Project groups are derived from the chats on every list; 0.10.0-claudegpt.4 persisted them as well.
+    this.state = { ...loaded.state, folderWorkspaces: undefined };
     if (process.env.REFRAME_HISTORY_PYTHON) {
       try {
         const recovery = await this.history.recover(this.claudeHome);
@@ -1436,9 +1439,6 @@ export class ReframeApp {
           .filter((r) => r.claudeSessionId === tid)
           .reduce((next, r) => dropSession(next, r.id), w.window as WindowState),
       })),
-      folderWorkspaces: this.state.folderWorkspaces
-        ?.map((w) => ({ ...w, sessionIds: w.sessionIds.filter((id) => id !== tid) }))
-        .filter((w) => w.sessionIds.length),
     };
   }
 
@@ -1650,13 +1650,11 @@ export class ReframeApp {
         ),
       ),
     ]);
+    this.listedProjects = new Set(automatic.map((project) => project.id));
     const previousExpanded = this.state.expandedProjects || [];
     const expandedProjects = [...new Set(previousExpanded.map(expandedWorkspaceKey))];
-    if (
-      JSON.stringify(automatic) !== JSON.stringify(this.state.folderWorkspaces) ||
-      JSON.stringify(expandedProjects) !== JSON.stringify(previousExpanded)
-    ) {
-      this.state = { ...this.state, folderWorkspaces: automatic, expandedProjects };
+    if (JSON.stringify(expandedProjects) !== JSON.stringify(previousExpanded)) {
+      this.state = { ...this.state, expandedProjects };
       this.store.saveSoon(this.state);
     }
     return {
@@ -2776,7 +2774,7 @@ export class ReframeApp {
     on(IPC.setProjectExpanded, (_id, _event, folder: unknown, expanded: unknown) => {
       if (typeof folder !== 'string' || typeof expanded !== 'boolean') return;
       const key = workspaceKey(folder);
-      if (!this.state.folderWorkspaces?.some((project) => project.id === key)) return;
+      if (!this.listedProjects.has(key)) return;
       this.state = {
         ...this.state,
         expandedProjects: expanded
