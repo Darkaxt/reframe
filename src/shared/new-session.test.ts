@@ -3,7 +3,11 @@ import { cleanAddDirs, cleanPrompt, defaultsFor, parseAddDirs, rememberedDefault
 
 describe('new session defaults per provider', () => {
   it('falls back to Settings, the default model only for the ChatGPT route', () => {
-    const preferences = { defaultModel: 'opus', defaultEffort: 'high' as const, defaultPermissionMode: 'plan' as const };
+    const preferences = {
+      defaultModel: 'opus',
+      defaultEffort: 'high' as const,
+      defaultPermissionMode: 'plan' as const,
+    };
     expect(defaultsFor(preferences, 'chatgpt')).toEqual({
       model: 'opus',
       effort: 'high',
