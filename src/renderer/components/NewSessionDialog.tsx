@@ -108,7 +108,7 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
     if (!currentPreferences.current) return setModel('');
     const remembered = defaultsFor(currentPreferences.current, next);
     setModel(remembered.model || '');
-    setEffort(remembered.effort || '');
+    if (!effortPicked.current) setEffort(remembered.effort || ''); // an effort picked here stays across providers
     setPermissionMode(remembered.permissionMode || '');
     setAddDirs(remembered.addDirs.join('\n'));
   };
