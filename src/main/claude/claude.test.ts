@@ -93,6 +93,26 @@ describe('claudeArgs', () => {
     ]);
   });
 
+  it('passes extra folders always and the first message only on the first, direct start', () => {
+    const s = session({ launch: { addDirs: ['D:\\lib', 'E:\\docs'], initialPrompt: '-v explain' } });
+    const args = claudeArgs(s, 'new', 'S.json');
+    expect(args.slice(-8)).toEqual([
+      '--add-dir',
+      'D:\\lib',
+      '--add-dir',
+      'E:\\docs',
+      '--settings',
+      'S.json',
+      '--',
+      '-v explain',
+    ]);
+    // Without --settings (WSL) "--" still keeps the variadic --add-dir from taking the message as a folder.
+    expect(claudeArgs(s, 'new').slice(-3)).toEqual(['E:\\docs', '--', '-v explain']);
+    expect(claudeArgs(s, 'resume', 'S.json')).not.toContain('-v explain');
+    expect(claudeArgs({ ...s, used: true }, 'new', 'S.json')).not.toContain('-v explain');
+    expect(claudeArgs(s, 'new', 'S.json', { prompt: false })).not.toContain('-v explain');
+  });
+
   it('keeps the name Claude Code was started with when the session is renamed in reframe', () => {
     expect(claudeArgs(session({ name: 'Shown', claudeName: 'api' }), 'resume', 'S.json')).toContain('api');
     expect(claudeArgs(session({ name: 'Shown', claudeName: null }), 'resume', 'S.json')).not.toContain('--name');

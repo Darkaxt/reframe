@@ -69,6 +69,10 @@ export const launchOptionsSchema = z.object({
   permissionMode: z.enum(PERMISSION_MODES).optional(),
   worktree: z.boolean().optional(),
   worktreeName: z.string().optional(),
+  /** More folders Claude Code may use (--add-dir). */
+  addDirs: z.array(z.string()).optional(),
+  /** Sent as the first message when the session first starts (before it was used). */
+  initialPrompt: z.string().optional(),
   /** Claude Code made the worktree, and the session runs in it: starting it fresh again must not make another. */
   worktreeCreated: z.boolean().optional(),
 });
@@ -106,6 +110,12 @@ export const LANGUAGES = ['system', 'en', 'de'] as const;
 
 /** The terminals' font size in pixels: what it starts at, and how far it goes. */
 export const FONT_SIZE = { normal: 13, min: 8, max: 32 } as const;
+/** The session list's width in px: dragged between min and max, double-click returns to normal. */
+export const SIDEBAR_WIDTH = { normal: 270, min: 200, max: 640 } as const;
+export const clampSidebarWidth = (width: number): number =>
+  Number.isFinite(width)
+    ? Math.round(Math.min(SIDEBAR_WIDTH.max, Math.max(SIDEBAR_WIDTH.min, width)))
+    : SIDEBAR_WIDTH.normal;
 export type Language = (typeof LANGUAGES)[number];
 
 /**
@@ -115,6 +125,13 @@ export type Language = (typeof LANGUAGES)[number];
 export const CLOSE_WINDOW = ['ask', 'end', 'keep'] as const;
 export type CloseWindow = (typeof CLOSE_WINDOW)[number];
 
+const providerDefaultsSchema = z.object({
+  model: z.string().optional(),
+  effort: z.enum(EFFORT_LEVELS).optional(),
+  permissionMode: z.enum(PERMISSION_MODES).optional(),
+  addDirs: z.array(z.string()).optional(),
+});
+
 export const preferencesSchema = z.object({
   archiveRoot: z.string().optional(),
   /** "New session" fills the name with the folder's name. */
@@ -123,6 +140,8 @@ export const preferencesSchema = z.object({
   language: z.enum(LANGUAGES).default('system'),
   /** The terminals' font size, the same in every window. */
   fontSize: z.number().int().min(FONT_SIZE.min).max(FONT_SIZE.max).default(FONT_SIZE.normal),
+  /** Clamped when read (clampSidebarWidth): an odd value must not set the whole state file aside. */
+  sidebarWidth: z.number().optional(),
   /** Separators snap to a grid over the layout while they are dragged (Alt drags freely). */
   snapToGrid: z.boolean().default(true),
   /** Asks GitHub for a newer version now and then (where this copy updates at all). */
@@ -134,6 +153,10 @@ export const preferencesSchema = z.object({
   defaultModel: z.string().optional(),
   defaultEffort: z.enum(EFFORT_LEVELS).optional(),
   defaultPermissionMode: z.enum(PERMISSION_MODES).optional(),
+  /** "New session" remembers the last model, effort, permission mode and folders for each provider. */
+  providerDefaults: z
+    .object({ chatgpt: providerDefaultsSchema.optional(), anthropic: providerDefaultsSchema.optional() })
+    .optional(),
 });
 
 export const DEFAULT_PREFERENCES: z.infer<typeof preferencesSchema> = {
@@ -171,6 +194,7 @@ export const appStateSchema = z.object({
   workspaces: z.array(workspaceSchema).default([]),
   pinnedChats: z.array(z.string()).optional(),
   expandedProjects: z.array(z.string()).optional(),
+  /** Read and dropped: older builds stored the derived project groups. */
   folderWorkspaces: z
     .array(
       z.object({

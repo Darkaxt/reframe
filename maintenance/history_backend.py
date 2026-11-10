@@ -47,7 +47,9 @@ def helper():
 def inactive(module, home, tid):
     module.exact_id(tid)
     if tid in module.live_claude_ids(home):
-        raise module.ActiveClaudeError("Chat is running or referenced by a live Claude process; end it yourself before retrying")
+        # The installed helper only defines CleanupError; ActiveClaudeError is optional.
+        raise getattr(module, "ActiveClaudeError", module.CleanupError)(
+            "Chat is running or has a live registration; end it before retrying")
 
 
 def select_rows(file, tid):
@@ -157,15 +159,18 @@ def archive_chat(module, home, tid, operation, file, expected, metadata):
         archive.writestr("manifest.json", json.dumps(manifest, indent=2))
     with archive_path.open("r+b") as stream:
         os.fsync(stream.fileno())
+    # Verified once, after it is written and before any live file is removed.
     verify_archive(archive_path, home, tid)
-    save(operation / "verified.json", {"archive": str(archive_path), "sha256": digest(archive_path), "manifest": manifest})
+    sha256 = digest(archive_path)
+    save(operation / "verified.json", {"archive": str(archive_path), "sha256": sha256,
+                                       "bytes": archive_path.stat().st_size, "manifest": manifest})
     # The installed helper rechecks fresh process references, complete snapshot and exact file identities,
     # prunes only this chat's shared rows under an exclusive handle, and refuses changed/new members.
     result = module.delete_claude(packet)
     save(operation / "retirement.json", result)
     if not result["complete"]:
         raise ValueError("ZIP is verified but retirement is partial; recovery and exact residual receipt are retained")
-    return {"complete": True, "archive": str(archive_path), "sha256": digest(archive_path), "id": tid}
+    return {"complete": True, "archive": str(archive_path), "sha256": sha256, "id": tid}
 
 
 def exclusive_index(module, file, update):
@@ -263,9 +268,12 @@ def recover(home, root, module):
                 restored.append(tid)
                 continue
             file = Path(record["archive"])
-            if file.resolve().parent != operation.resolve() or file.name != tid + ".zip" or digest(file) != record["sha256"]:
+            # Startup only checks the binding and size recorded when the ZIP was verified; restore re-verifies
+            # its digest and contents before writing anything.
+            if (file.resolve().parent != operation.resolve() or file.name != tid + ".zip" or not file.is_file()
+                    or ("bytes" in record and file.stat().st_size != record["bytes"])):
                 raise ValueError("Recovery archive binding changed")
-            manifest = verify_archive(file, home, tid)
+            manifest = record["manifest"]
             partial = any((home / member["relative"]).exists() for member in manifest["files"])
             meta = manifest["metadata"]
             entries.append({"id": tid, "label": ("Recovery: " if partial else "") + str(meta["label"]),
@@ -276,48 +284,96 @@ def recover(home, root, module):
     return {"complete": True, "entries": entries, "warnings": warnings, "restored": restored}
 
 
+def census_once(module, home):
+    """One live-process census for a whole batch, taken immediately before the first mutation.
+
+    The helper's delete_claude takes its own census per chat (a PowerShell CIM query each); within one batch
+    the same answer is reused so N chats cost one query, not N."""
+    ids = list(module.live_claude_ids(home))
+    module.live_claude_ids = lambda _home: ids
+    return ids
+
+
+def failure(module, tid, error):
+    active = isinstance(error, getattr(module, "ActiveClaudeError", ())) or "live registration" in str(error)
+    return {"id": tid, "ok": False, "error": str(error), "code": "chat_active" if active else None}
+
+
+def checked_operation(module, operation):
+    operation = Path(operation).resolve()
+    if operation.drive.casefold() == "c:":
+        raise ValueError("Choose a non-C archive/evidence folder")
+    module.filesystem().check_chain(operation.parent)
+    operation.mkdir(parents=True, exist_ok=True)
+    module.filesystem().check_chain(operation)
+    return operation
+
+
+def prepare_batch(module, home, jobs):
+    results = []
+    for job in jobs:
+        try:
+            operation = checked_operation(module, job["operation"])
+            results.append({"ok": True, "operation": str(operation), **prepare(module, home, job["id"], operation)})
+        except Exception as error:
+            results.append(failure(module, job.get("id"), error))
+    return {"complete": True, "results": results}
+
+
+def retire_batch(module, home, jobs):
+    """Archive or delete prepared chats. Nothing is removed unless its chat is not live (one census per batch),
+    its artifacts are unchanged since planning, and - when archiving - its ZIP verified."""
+    census_once(module, home)
+    results = []
+    for job in jobs:
+        tid = job["id"]
+        try:
+            operation = checked_operation(module, job["operation"])
+            if job["mode"] == "archive":
+                result = archive_chat(module, home, tid, operation, job["plan"], job["sha256"], job["metadata"])
+            elif job["mode"] == "delete":
+                result = module.delete_claude(load_plan(module, home, tid, job["plan"], job["sha256"]))
+                save(operation / "retirement.json", result)
+                if not result["complete"]:
+                    raise ValueError("Deletion is partial; exact residual receipt retained at " + str(operation))
+                result = {"complete": True, "id": tid}
+            else:
+                raise ValueError("Unknown retirement mode")
+            results.append({"ok": True, **result})
+        except Exception as error:
+            results.append(failure(module, tid, error))
+    return {"complete": True, "results": results}
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("recover", "check", "prepare", "archive", "delete", "restore"))
+    # prepare/retire read {"jobs": [...]} from stdin: one process for any number of chats.
+    parser.add_argument("command", choices=("recover", "prepare", "retire", "restore"))
     parser.add_argument("--home", required=True)
-    parser.add_argument("--id", required=True)
-    parser.add_argument("--operation", required=True)
-    parser.add_argument("--plan")
+    parser.add_argument("--id")
+    parser.add_argument("--operation")
     parser.add_argument("--sha256")
     parser.add_argument("--archive")
-    parser.add_argument("--metadata")
     args = parser.parse_args()
     module = None
     try:
         module = helper()
-        home, operation = Path(args.home).resolve(), Path(args.operation).resolve()
+        home = Path(args.home).resolve()
         if os.name != "nt":
             raise ValueError("Managed archive/delete currently require Windows exact-handle support")
-        if operation.drive.casefold() == "c:":
-            raise ValueError("Choose a non-C archive/evidence folder")
-        if args.command == "recover":
-            module.filesystem().check_chain(operation)
-            result = recover(home, operation, module)
-        elif args.command == "check":
-            inactive(module, home, args.id)
-            result = {"complete": True, "id": args.id}
+        if args.command in ("prepare", "retire"):
+            jobs = json.load(sys.stdin)["jobs"]
+            result = (prepare_batch if args.command == "prepare" else retire_batch)(module, home, jobs)
         else:
+            operation = Path(args.operation).resolve()
+            if operation.drive.casefold() == "c:":
+                raise ValueError("Choose a non-C archive/evidence folder")
             module.filesystem().check_chain(operation)
-            operation.mkdir(parents=True, exist_ok=True)
-            module.filesystem().check_chain(operation)
-        if args.command in ("recover", "check"):
-            pass
-        elif args.command == "prepare":
-            result = prepare(module, home, args.id, operation)
-        elif args.command == "archive":
-            metadata = json.loads(Path(args.metadata).read_text(encoding="utf-8"))
-            result = archive_chat(module, home, args.id, operation, args.plan, args.sha256, metadata)
-        elif args.command == "delete":
-            result = module.delete_claude(load_plan(module, home, args.id, args.plan, args.sha256))
-            save(operation / "retirement.json", result)
-        else:
-            result = restore(module, home, args.id, args.archive, args.sha256)
-            save(operation / ("restored-" + str(os.getpid()) + ".json"), result)
+            if args.command == "recover":
+                result = recover(home, operation, module)
+            else:
+                result = restore(module, home, args.id, args.archive, args.sha256)
+                save(operation / ("restored-" + str(os.getpid()) + ".json"), result)
         print(json.dumps({"ok": result.get("complete", True), "result": result}))
         return 0 if result.get("complete", True) else 1
     except Exception as error:

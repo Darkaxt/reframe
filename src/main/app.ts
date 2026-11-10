@@ -85,6 +85,8 @@ import {
   CLOSE_WINDOW,
   emptyWindow,
   FONT_SIZE,
+  SIDEBAR_WIDTH,
+  clampSidebarWidth,
   LANGUAGES,
   type CloseWindow,
   type Language,
@@ -100,6 +102,7 @@ import {
   isRunningEntry,
   readRegistryEntry,
   readRegistryEntryAsync,
+  transcriptExists,
   transcriptModifiedAsync,
   type RegistryEntry,
 } from './claude/registry';
@@ -128,7 +131,10 @@ import { WindowManager } from './windows';
 import { SHARE_TIMEOUT_MS, WslDistros } from './wsl/distros';
 import { settle, withTimeout } from './wait';
 import { cleanUp, dropsDir } from './cleanup';
-import { History } from './history';
+import { History, type PreparedHistory, type RetireJob } from './history';
+import { isArchiveRoot } from './archive-root';
+import { staleTiles } from './stale-tiles';
+import { cleanAddDirs, cleanPrompt, rememberedDefaults } from '@shared/new-session';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
 import { expandedWorkspaceKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
@@ -179,6 +185,10 @@ export class ReframeApp {
   private historyBusy = new Set<string>();
   private historyOperations = new Set<Promise<unknown>>();
   private chatBatchRunning = false;
+  /** Cancels archive/delete confirmations still open when Reframe quits, so quit never waits on a dialog. */
+  private confirmations = new AbortController();
+  /** Project groups of the last session list, the ones the sidebar can expand. */
+  private listedProjects = new Set<string>();
   private trackHistory<T>(run: () => Promise<T>): Promise<T> {
     if (this.shuttingDown)
       return Promise.reject(Error('Reframe is shutting down; no new history operation was started.'));
@@ -229,7 +239,8 @@ export class ReframeApp {
     const loaded = this.store.load();
     if (loaded.source === 'newer') return this.refuseNewerState();
     if (loaded.rejected) this.log('error', 'state file could not be used, set aside', loaded.rejected);
-    this.state = loaded.state;
+    // Project groups are derived from the chats on every list; 0.10.0-claudegpt.4 persisted them as well.
+    this.state = { ...loaded.state, folderWorkspaces: undefined };
     if (process.env.REFRAME_HISTORY_PYTHON) {
       try {
         const recovery = await this.history.recover(this.claudeHome);
@@ -366,7 +377,8 @@ export class ReframeApp {
     this.shuttingDown = true;
     this.windows.quitting = true;
     this.log('info', 'reframe quitting, ending sessions');
-    // History operations own durable copy/retirement outcomes; quit waits for their original processes.
+    // Open confirmations behave as Cancel; operations already confirmed own durable outcomes, so quit waits for them.
+    this.confirmations.abort();
     await Promise.allSettled([...this.historyOperations]);
     this.save();
     // Quitting must not hang on a session that does not go: what is left is ended as an orphan on the next start.
@@ -524,6 +536,7 @@ export class ReframeApp {
       fullscreen: !!win.fullscreen,
       language: this.state.preferences.language,
       fontSize: this.state.preferences.fontSize,
+      sidebarWidth: clampSidebarWidth(this.state.preferences.sidebarWidth ?? SIDEBAR_WIDTH.normal),
       snapToGrid: this.state.preferences.snapToGrid,
       checkForUpdates: this.updates.checks ? this.state.preferences.checkForUpdates : null,
       closeWindow: this.state.preferences.closeWindow,
@@ -808,6 +821,8 @@ export class ReframeApp {
         permissionMode: PERMISSION_MODES.find((m) => m === request.permissionMode),
         worktree: request.worktree || undefined,
         worktreeName: (request.worktree && request.worktreeName?.trim()) || undefined,
+        addDirs: cleanAddDirs(request.addDirs),
+        initialPrompt: cleanPrompt(request.initialPrompt),
       },
       lifecycle: 'open',
       createdAt: now,
@@ -818,6 +833,13 @@ export class ReframeApp {
       ...this.state,
       sessions: { ...this.state.sessions, [record.id]: record },
       recentFolders: [cwd, ...this.state.recentFolders.filter((f) => key(f) !== key(cwd))].slice(0, MAX_RECENT_FOLDERS),
+      preferences: {
+        ...this.state.preferences,
+        providerDefaults: {
+          ...this.state.preferences.providerDefaults,
+          [record.launch.provider ?? 'chatgpt']: rememberedDefaults(record.launch),
+        },
+      },
     };
     this.mutateWindow(windowId, (w) => addTile(w, record.id, request.target));
     this.sessions.start(record, 'new');
@@ -1078,7 +1100,7 @@ export class ReframeApp {
     ];
   }
 
-  /** One confirmation and one fresh exact transaction per distinct chat, never stale shared-index plans. */
+  /** One confirmation for the selection; archive/delete run as one prepare and one retire process. */
   private async runChatBatch(
     windowId: string,
     items: ListItemRef[],
@@ -1109,38 +1131,13 @@ export class ReframeApp {
           result.results.push({ id: key, label: existing?.name || id, status: 'skipped', detail: String(error) });
         }
       }
-      if (targets.length && (operation === 'archive' || operation === 'delete')) {
-        const win = this.windows.get(windowId);
-        if (!win) throw Error('The requesting window closed; chats preserved.');
-        const answer = await dialog.showMessageBox(win, {
-          type: 'warning',
-          defaultId: 1,
-          cancelId: 1,
-          buttons: [operation === 'archive' ? 'Archive selected' : 'Delete permanently', 'Cancel'],
-          message: `${operation === 'archive' ? 'Archive' : 'Permanently delete'} ${targets.length} selected chats?`,
-          detail:
-            targets
-              .map(
-                ({ record }) =>
-                  `${record.name || path.basename(record.cwd)} · ${record.claudeSessionId}\n${record.cwd}`,
-              )
-              .join('\n\n') +
-            '\n\n' +
-            (operation === 'archive'
-              ? 'Each chat gets a verified restorable ZIP before live files are removed.'
-              : 'Transcripts, owned session/subagent files and matching history entries are permanently removed. This cannot be undone.') +
-            '\nProject files and unselected chats are preserved. Activity is checked again for each chat; unavailable chats are skipped.',
-        });
-        if (answer.response !== 0) {
-          for (const { record, key } of targets)
-            result.results.push({
-              id: key,
-              label: record.name || path.basename(record.cwd),
-              status: 'skipped',
-              detail: 'Cancelled; unchanged.',
-            });
-          return;
-        }
+      if (operation === 'archive' || operation === 'delete') {
+        if (targets.length)
+          for (const outcome of await this.retireChats(windowId, targets, operation)) {
+            result.results.push(outcome);
+            publish();
+          }
+        return;
       }
       for (const { item, record, key } of targets) {
         const entry: ChatBatchResult['results'][number] = {
@@ -1149,31 +1146,16 @@ export class ReframeApp {
           status: 'completed',
         };
         try {
-          await this.inactiveChat(item);
-          if (this.historyBusy.has(record.claudeSessionId)) throw Error('A history operation is already running.');
-        } catch (error) {
-          result.results.push({ ...entry, status: 'skipped', detail: String(error) });
-          publish();
-          continue;
-        }
-        try {
-          if (operation === 'archive' || operation === 'delete') await this.retireChat(windowId, item, operation, true);
-          else {
-            if (!provider) throw Error('Choose an explicit provider.');
-            await this.selectProvider(
-              windowId,
-              item,
-              provider,
-              operation === 'model' ? model?.trim() || null : undefined,
-            );
-          }
+          if (!provider) throw Error('Choose an explicit provider.');
+          await this.selectProvider(
+            windowId,
+            item,
+            provider,
+            operation === 'model' ? model?.trim() || null : undefined,
+          );
           result.results.push(entry);
         } catch (error) {
-          result.results.push({
-            ...entry,
-            status: (error as { code?: string }).code === 'chat_active' ? 'skipped' : 'failed',
-            detail: String(error),
-          });
+          result.results.push({ ...entry, status: 'skipped', detail: String(error) });
         }
         publish();
       }
@@ -1302,9 +1284,8 @@ export class ReframeApp {
     if (this.historyBusy.has(record.claudeSessionId)) throw Error('A history operation is already running.');
     this.historyBusy.add(record.claudeSessionId);
     try {
+      // Only Reframe's record changes (the route of the next start): no native process census is needed.
       this.assertChatStillInactive(record);
-      // Preparation performs a fresh native process/reference check; selecting a route starts no model turn.
-      await this.history.check(this.claudeHome, record.claudeSessionId);
       const next = {
         ...record,
         launch: {
@@ -1325,58 +1306,119 @@ export class ReframeApp {
     }
   }
 
-  private async retireChat(
-    windowId: string,
-    item: ListItemRef,
-    operation: 'archive' | 'delete',
-    confirmed = false,
-  ): Promise<void> {
+  private async retireChat(windowId: string, item: ListItemRef, operation: 'archive' | 'delete'): Promise<void> {
     const record = await this.inactiveChat(item);
-    const tid = record.claudeSessionId;
-    if (this.historyBusy.has(tid)) throw Error('A history operation is already running.');
-    this.historyBusy.add(tid);
+    const [outcome] = await this.retireChats(windowId, [{ record, key: record.claudeSessionId }], operation);
+    if (outcome?.status === 'failed') throw Error(outcome.detail);
+  }
+
+  /**
+   * Archives or deletes inactive chats. Reframe's own state is checked before the confirmation and again right
+   * before the change; the backend then takes one live-process census for the whole selection and refuses any chat
+   * that runs or whose files changed since planning. An archive is verified once, after it is written and before
+   * the chat's files are removed. Two Python processes in all, however many chats.
+   */
+  private async retireChats(
+    windowId: string,
+    targets: { record: SessionRecord; key: string }[],
+    operation: 'archive' | 'delete',
+  ): Promise<ChatBatchResult['results']> {
+    const results: ChatBatchResult['results'] = [];
+    const label = (record: SessionRecord) => record.name || path.basename(record.cwd);
+    const skip = (record: SessionRecord, key: string, detail: string, status: 'skipped' | 'failed' = 'skipped') =>
+      results.push({ id: key, label: label(record), status, detail });
+    const locked = targets.filter(({ record, key }) => {
+      if (!this.historyBusy.has(record.claudeSessionId)) {
+        this.historyBusy.add(record.claudeSessionId);
+        return true;
+      }
+      skip(record, key, 'A history operation is already running.');
+      return false;
+    });
     try {
-      this.assertChatStillInactive(record);
-      const prepared = await this.history.prepare(this.claudeHome, tid);
+      if (!locked.length) return results;
+      const prepared = new Map<string, PreparedHistory>();
+      const ids = locked.map(({ record }) => record.claudeSessionId);
+      for (const outcome of await this.history.prepare(this.claudeHome, ids)) {
+        if (outcome.ok) prepared.set(outcome.id, outcome);
+        else {
+          const target = locked.find(({ record }) => record.claudeSessionId === outcome.id);
+          if (target) skip(target.record, target.key, outcome.error, 'failed');
+        }
+      }
+      const ready = locked.filter(({ record }) => prepared.has(record.claudeSessionId));
+      if (!ready.length) return results;
       const win = this.windows.get(windowId);
-      if (!win) throw Error('The requesting window closed; chat preserved.');
-      const answer = confirmed
-        ? { response: 0 }
-        : await dialog.showMessageBox(win, {
-            type: 'warning',
-            buttons: [operation === 'archive' ? 'Archive chat' : 'Delete permanently', 'Cancel'],
-            defaultId: 1,
-            cancelId: 1,
-            message: `${operation === 'archive' ? 'Archive' : 'Permanently delete'} “${record.name || path.basename(record.cwd)}”?`,
-            detail:
-              `${prepared.files} exact chat files (${prepared.bytes.toLocaleString()} bytes).\n${tid}\n${record.cwd}\n` +
-              (operation === 'archive'
-                ? 'A verified ZIP will be kept before the live files are removed. Restore remains available in Archived chats.'
-                : 'This removes its transcript, owned subagent/session files and matching history entries. Project files and other chats are preserved. This cannot be undone.'),
+      if (!win) throw Error('The requesting window closed; chats preserved.');
+      const plan = (record: SessionRecord) => prepared.get(record.claudeSessionId)!;
+      const files = ready.reduce((sum, { record }) => sum + plan(record).files, 0);
+      const bytes = ready.reduce((sum, { record }) => sum + plan(record).bytes, 0);
+      const verb = operation === 'archive' ? 'Archive' : 'Permanently delete';
+      const answer = await dialog.showMessageBox(win, {
+        signal: this.confirmations.signal,
+        type: 'warning',
+        defaultId: 1,
+        cancelId: 1,
+        buttons: [operation === 'archive' ? 'Archive' : 'Delete permanently', 'Cancel'],
+        message:
+          ready.length === 1 ? `${verb} “${label(ready[0]!.record)}”?` : `${verb} ${ready.length} selected chats?`,
+        detail:
+          ready.map(({ record }) => `${label(record)} · ${record.claudeSessionId}\n${record.cwd}`).join('\n\n') +
+          `\n\n${files} exact chat files (${bytes.toLocaleString()} bytes).\n` +
+          (operation === 'archive'
+            ? 'Each chat gets a verified restorable ZIP before its live files are removed. Restore remains available in Archived chats.'
+            : 'Transcripts, owned session/subagent files and matching history entries are permanently removed. This cannot be undone.') +
+          '\nProject files and other chats are preserved. A chat that is running by then is skipped.',
+      });
+      if (answer.response !== 0 || this.shuttingDown) {
+        for (const { record, key } of ready) skip(record, key, 'Cancelled; unchanged.');
+        return results;
+      }
+      const jobs: RetireJob[] = [];
+      for (const { record, key } of ready) {
+        try {
+          this.assertChatStillInactive(record);
+          jobs.push({
+            prepared: plan(record),
+            mode: operation,
+            metadata: {
+              id: record.claudeSessionId,
+              label: label(record),
+              cwd: record.cwd,
+              provider: record.launch.provider ?? 'chatgpt',
+            },
           });
-      if (answer.response !== 0) return;
-      let archive: { archive: string; sha256: string } | undefined;
-      const metadata = {
-        id: tid,
-        label: record.name || path.basename(record.cwd),
-        cwd: record.cwd,
-        provider: record.launch.provider ?? ('chatgpt' as Provider),
-      };
-      if (operation === 'archive') archive = await this.history.archive(this.claudeHome, prepared, metadata);
-      else await this.history.delete(this.claudeHome, prepared);
-      this.state = {
-        ...this.withoutHistory(tid),
-        ...(archive
-          ? { archives: [...(this.state.archives || []), { ...metadata, ...archive, operation: prepared.operation }] }
-          : {}),
-      };
+        } catch (error) {
+          skip(record, key, String(error));
+        }
+      }
+      if (!jobs.length) return results;
+      for (const outcome of await this.history.retire(this.claudeHome, jobs)) {
+        const target = ready.find(({ record }) => record.claudeSessionId === outcome.id);
+        const job = jobs.find((entry) => entry.prepared.id === outcome.id);
+        if (!target || !job) continue;
+        if (!outcome.ok) {
+          skip(target.record, target.key, outcome.error, outcome.code === 'chat_active' ? 'skipped' : 'failed');
+          continue;
+        }
+        this.state = this.withoutHistory(outcome.id);
+        if (outcome.archive && outcome.sha256) {
+          const archive = { ...job.metadata, archive: outcome.archive, sha256: outcome.sha256 };
+          this.state = {
+            ...this.state,
+            archives: [...(this.state.archives || []), { ...archive, operation: job.prepared.operation }],
+          };
+        }
+        results.push({ id: target.key, label: label(target.record), status: 'completed' });
+      }
       this.save();
       this.transcripts.invalidate('all');
       this.outside = null;
       for (const w of this.state.windows) this.push(w.id);
       this.listChanged();
+      return results;
     } finally {
-      this.historyBusy.delete(tid);
+      for (const { record } of locked) this.historyBusy.delete(record.claudeSessionId);
     }
   }
 
@@ -1433,9 +1475,6 @@ export class ReframeApp {
           .filter((r) => r.claudeSessionId === tid)
           .reduce((next, r) => dropSession(next, r.id), w.window as WindowState),
       })),
-      folderWorkspaces: this.state.folderWorkspaces
-        ?.map((w) => ({ ...w, sessionIds: w.sessionIds.filter((id) => id !== tid) }))
-        .filter((w) => w.sessionIds.length),
     };
   }
 
@@ -1647,13 +1686,11 @@ export class ReframeApp {
         ),
       ),
     ]);
+    this.listedProjects = new Set(automatic.map((project) => project.id));
     const previousExpanded = this.state.expandedProjects || [];
     const expandedProjects = [...new Set(previousExpanded.map(expandedWorkspaceKey))];
-    if (
-      JSON.stringify(automatic) !== JSON.stringify(this.state.folderWorkspaces) ||
-      JSON.stringify(expandedProjects) !== JSON.stringify(previousExpanded)
-    ) {
-      this.state = { ...this.state, folderWorkspaces: automatic, expandedProjects };
+    if (JSON.stringify(expandedProjects) !== JSON.stringify(previousExpanded)) {
+      this.state = { ...this.state, expandedProjects };
       this.store.saveSoon(this.state);
     }
     return {
@@ -2223,6 +2260,25 @@ export class ReframeApp {
     return this.state.windows.find((w) => w.workspaceId === workspaceId && this.workspaceOf(w));
   }
 
+  private staleTilesOf(win: WindowState): string[] {
+    return staleTiles(
+      win,
+      this.state.sessions,
+      // A WSL session's transcript is behind its distribution's share: not checked here, so never called stale.
+      (record) => !!this.wslPath(record.cwd) || transcriptExists(this.claudeHome, record.claudeSessionId),
+      (id) => this.sessions.isRunning(id) || this.startsPending.has(id),
+    );
+  }
+
+  /** Closes (ends) the tiles that cannot resume any more; checked again on click, the menu may be old. */
+  private closeStaleTiles(windowId: string): void {
+    const win = this.findWindow(windowId);
+    if (!win) return;
+    const stale = this.staleTilesOf(win);
+    this.log('info', 'closing tiles whose transcript is gone', { window: windowId, sessions: stale });
+    for (const id of stale) this.endSession(windowId, id);
+  }
+
   /** The toolbar's Workspaces menu: save this window, update its workspace, open saved ones. */
   private showWorkspaceMenu(windowId: string): void {
     const browserWindow = this.windows.get(windowId);
@@ -2239,6 +2295,7 @@ export class ReframeApp {
         { label: this.t('workspace.rename'), click: () => this.windows.send(windowId, IPC.startRenameWorkspace, id) },
         { label: this.t('workspace.delete'), click: () => void this.deleteWorkspace(windowId, id) },
       ],
+      staleTiles: { count: this.staleTilesOf(win).length, close: () => this.closeStaleTiles(windowId) },
     });
     this.popup(menu, browserWindow);
   }
@@ -2753,7 +2810,7 @@ export class ReframeApp {
     on(IPC.setProjectExpanded, (_id, _event, folder: unknown, expanded: unknown) => {
       if (typeof folder !== 'string' || typeof expanded !== 'boolean') return;
       const key = workspaceKey(folder);
-      if (!this.state.folderWorkspaces?.some((project) => project.id === key)) return;
+      if (!this.listedProjects.has(key)) return;
       this.state = {
         ...this.state,
         expandedProjects: expanded
@@ -2807,16 +2864,13 @@ export class ReframeApp {
     on(IPC.setPreferences, (_id, _event, patch: PreferencesPatch | null) => {
       if (!patch || typeof patch !== 'object') return;
       const next = { ...this.state.preferences };
-      if (
-        typeof patch.archiveRoot === 'string' &&
-        path.isAbsolute(patch.archiveRoot) &&
-        path.parse(patch.archiveRoot).root.toLowerCase() !== 'c:\\'
-      )
+      if (typeof patch.archiveRoot === 'string' && isArchiveRoot(patch.archiveRoot))
         next.archiveRoot = patch.archiveRoot;
       if (typeof patch.nameFromFolder === 'boolean') next.nameFromFolder = patch.nameFromFolder;
       if (LANGUAGES.includes(patch.language as Language)) next.language = patch.language as Language;
       const size = patch.fontSize;
       if (Number.isInteger(size) && size! >= FONT_SIZE.min && size! <= FONT_SIZE.max) next.fontSize = size!;
+      if (typeof patch.sidebarWidth === 'number') next.sidebarWidth = clampSidebarWidth(patch.sidebarWidth);
       if (typeof patch.snapToGrid === 'boolean') next.snapToGrid = patch.snapToGrid;
       if (typeof patch.checkForUpdates === 'boolean') next.checkForUpdates = patch.checkForUpdates;
       if (CLOSE_WINDOW.includes(patch.closeWindow as CloseWindow)) next.closeWindow = patch.closeWindow as CloseWindow;
@@ -2838,6 +2892,7 @@ export class ReframeApp {
       const shown =
         next.archiveRoot !== was.archiveRoot ||
         next.fontSize !== was.fontSize ||
+        next.sidebarWidth !== was.sidebarWidth ||
         next.snapToGrid !== was.snapToGrid ||
         next.checkForUpdates !== was.checkForUpdates ||
         next.closeWindow !== was.closeWindow ||

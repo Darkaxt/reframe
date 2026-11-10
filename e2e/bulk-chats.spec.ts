@@ -53,11 +53,6 @@ test('selected native rows expose bulk model/provider controls and preserve acti
   histories(fixture.env.REFRAME_CLAUDE_HOME!, fixture.project);
   try {
     let { app, page } = await launch(fixture.env);
-    // Route metadata fixture: the real native retirement helper is covered by the integration test below.
-    await app.evaluate(() => {
-      (globalThis as unknown as { reframe: { history: { check: () => Promise<void> } } }).reframe.history.check =
-        async () => {};
-    });
     await newSession(page, fixture.project, 'Bulk active');
     const preferences = fixture.state().preferences;
     await select(page, ['Bulk 1', 'Bulk 2', 'Bulk active']);
@@ -186,36 +181,6 @@ test('one bulk confirmation archives shared-index histories, restores bytes and 
   }
 });
 
-test('a failed batch member is reported once and independent selected members continue', async () => {
-  test.setTimeout(0);
-  const fixture = setup();
-  histories(fixture.env.REFRAME_CLAUDE_HOME!, fixture.project);
-  try {
-    const { app, page } = await launch(fixture.env);
-    await app.evaluate((_electron, blocked) => {
-      const main = (
-        globalThis as unknown as { reframe: { history: { check: (home: string, id: string) => Promise<void> } } }
-      ).reframe;
-      main.history.check = async (_home, id) => {
-        if (id === blocked) throw Object.assign(Error('Fictional external owner; unchanged'), { code: 'chat_active' });
-      };
-    }, ids[0]!);
-    await select(page, ['Bulk 1', 'Bulk 2']);
-    expect(await callMain<boolean>(app, 'clickMenuItem', 'Anthropic')).toBe(true);
-    await settled(app);
-    await expect(page.getByRole('region', { name: 'Selected chat results' })).toContainText(
-      '1 completed · 1 skipped · 0 failed',
-    );
-    expect(Object.values(fixture.state().sessions).find((record) => record.claudeSessionId === ids[0])).toBeUndefined();
-    expect(
-      Object.values(fixture.state().sessions).find((record) => record.claudeSessionId === ids[1])?.launch,
-    ).toMatchObject({ provider: 'anthropic' });
-    await quit(app);
-  } finally {
-    await cleanup(fixture.dir);
-  }
-});
-
 test('a mutation failure is not retried and does not prevent a later independent archive', async () => {
   test.setTimeout(0);
   test.skip(
@@ -230,15 +195,21 @@ test('a mutation failure is not retried and does not prevent a later independent
       const main = (
         globalThis as unknown as {
           reframe: {
-            history: { archive: (home: string, plan: { id: string }, metadata: unknown) => Promise<unknown> };
+            history: {
+              retire: (home: string, jobs: { prepared: { id: string } }[]) => Promise<{ id: string; ok: boolean }[]>;
+            };
           };
         }
       ).reframe;
-      const archive = main.history.archive.bind(main.history);
-      main.history.archive = async (home, plan, metadata) => {
-        if (plan.id === blocked) throw Error('Fictional packaging failure before retirement');
-        return archive(home, plan, metadata);
-      };
+      const retire = main.history.retire.bind(main.history);
+      // One retire process for the selection: the blocked chat fails inside it, the other one goes on.
+      main.history.retire = async (home, jobs) => [
+        { id: blocked, ok: false, error: 'Fictional packaging failure before retirement' },
+        ...(await retire(
+          home,
+          jobs.filter((job) => job.prepared.id !== blocked),
+        )),
+      ];
     }, ids[0]!);
     await answerDialogs(app, 0);
     await select(page, ['Bulk 1', 'Bulk 2']);
