@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "61669f9465c77b5ba4535ee7df7433cfe8557b28",
-  "scope": "0.10.0-claudegpt.7: delete of a chat without Claude history removes only the Reframe entry and installation-scoped app detection in the idle checks (on top of 0.10.0-claudegpt.6)",
+  "sourceBase": "d951758e0dadf65ebeea793c1d45550423373814",
+  "scope": "0.10.0-claudegpt.8: offer to create a missing folder when starting a new session (on top of 0.10.0-claudegpt.7)",
   "inputHashes": [
     {
       "file": ".github/workflows/ci.yml",
@@ -21,8 +21,8 @@
       "sha256": "2f85ccdbe7fbbc0f19ceeaee1723494aa5f24384708408d385a75605749b09ee"
     },
     {
-      "file": "docs/releases/v0.10.0-claudegpt.7.md",
-      "sha256": "c87c9e73b8b36a72c1aab5a11db717450a7da2b5f1ececfef69af133f0c60b2f"
+      "file": "docs/releases/v0.10.0-claudegpt.8.md",
+      "sha256": "47a90895a61ba9d4c930c10e2dc05166c245d1aec783215bcaacf57558257b1d"
     },
     {
       "file": "e2e/bulk-chats.spec.ts",
@@ -62,11 +62,11 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "3622ad6acbfeea5df4701d86e9008e21b494375b11b97c25d68a935fca9894e7"
+      "sha256": "2f24cd5c44c6b699fa06d945d85c60f21e279fec0a91e18a68c5a2ebb92258c0"
     },
     {
       "file": "package.json",
-      "sha256": "6b3f4de346f2fa57aede3736afb51b1ade64fa2bba78df60eb3cd5fdb05f5b69"
+      "sha256": "9fdc13b6fd62d94ce5a3c68be5bb2a01f48defe0d278fab181d950eb0f314ed0"
     },
     {
       "file": "resources/icon.png",
@@ -74,7 +74,7 @@
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "8c2f95408583ac672b4f90e749b64bfab61f5ac87e897f276e8ae2511bac5453"
+      "sha256": "e13903604bf455c982187d1e0a7d0ddb1debdd9ccdf1876e7c982b215ea6405d"
     },
     {
       "file": "src/main/archive-root.test.ts",
@@ -130,7 +130,7 @@
     },
     {
       "file": "src/shared/i18n.ts",
-      "sha256": "26f71d43f8e9479c3d2abdb68cd78595b830d7578ee217178092d153fb37421b"
+      "sha256": "c875d62345ee7224223bf22b952dbfe672fde268c86159576255117e997ae146"
     },
     {
       "file": "src/shared/ipc.ts",
