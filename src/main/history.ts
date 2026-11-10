@@ -80,9 +80,18 @@ export class History {
       child.on('error', reject);
       child.on('close', (code) => {
         try {
-          const packet = JSON.parse(stdout) as { ok: boolean; error?: string; result: Record<string, unknown> };
+          const packet = JSON.parse(stdout) as {
+            ok: boolean;
+            error?: string;
+            code?: string;
+            result: Record<string, unknown>;
+          };
           if (code !== 0 || !packet.ok)
-            reject(Error(packet.error || `Chat operation incomplete. Exact receipt: ${operation}`));
+            reject(
+              Object.assign(Error(packet.error || `Chat operation incomplete. Exact receipt: ${operation}`), {
+                code: packet.code,
+              }),
+            );
           else resolve(packet.result);
         } catch (error) {
           reject(

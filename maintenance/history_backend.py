@@ -47,7 +47,7 @@ def helper():
 def inactive(module, home, tid):
     module.exact_id(tid)
     if tid in module.live_claude_ids(home):
-        raise ValueError("Chat is running or referenced by a live Claude process; end it yourself before retrying")
+        raise module.ActiveClaudeError("Chat is running or referenced by a live Claude process; end it yourself before retrying")
 
 
 def select_rows(file, tid):
@@ -119,7 +119,8 @@ def verify_archive(file, home, tid):
 
 
 def prepare(module, home, tid, operation):
-    inactive(module, home, tid)
+    # Planning only reads exact artifacts. The retirement helper owns the fresh
+    # activity check immediately before any source/index mutation.
     packet = module.plan("claude", home, tid)
     save(operation / "plan.json", packet)
     return {"plan": str(operation / "plan.json"), "sha256": digest(operation / "plan.json"),
@@ -133,7 +134,6 @@ def load_plan(module, home, tid, file, expected):
     packet = json.loads(Path(file).read_text(encoding="utf-8"))
     if packet.get("schema") != "thread_cleanup.plan.v1" or packet.get("system") != "claude" or packet["snapshot"]["id"] != tid or Path(packet["home"]).resolve() != home.resolve():
         raise ValueError("Retirement plan does not match exact chat/home")
-    inactive(module, home, tid)
     return packet
 
 
@@ -287,6 +287,7 @@ def main():
     parser.add_argument("--archive")
     parser.add_argument("--metadata")
     args = parser.parse_args()
+    module = None
     try:
         module = helper()
         home, operation = Path(args.home).resolve(), Path(args.operation).resolve()
@@ -320,7 +321,8 @@ def main():
         print(json.dumps({"ok": result.get("complete", True), "result": result}))
         return 0 if result.get("complete", True) else 1
     except Exception as error:
-        print(json.dumps({"ok": False, "error": str(error)}))
+        print(json.dumps({"ok": False, "error": str(error),
+                          "code": "chat_active" if isinstance(error, getattr(module, "ActiveClaudeError", ())) else None}))
         return 1
 
 

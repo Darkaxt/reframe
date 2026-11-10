@@ -67,11 +67,45 @@ class HistoryContract(unittest.TestCase):
         self.assertTrue(self.main.exists())
         self.assertTrue(self.child.exists())
 
-    def test_active_reference_blocks_before_planning(self):
+    def test_active_reference_blocks_at_retirement_without_repeated_planning_checks(self):
         self.module.live_claude_ids = lambda _home: [self.tid]
-        with self.assertRaisesRegex(ValueError, "running"):
-            self.prepared()
-        self.assertFalse((self.operation / "plan.json").exists())
+        prepared = self.prepared()
+        packet = backend.load_plan(self.module, self.home, self.tid, prepared["plan"], prepared["sha256"])
+        with self.assertRaisesRegex(self.module.CleanupError, "live registration"):
+            self.module.delete_claude(packet)
+        self.assertTrue(self.main.exists())
+        self.assertTrue(self.child.exists())
+
+    def test_one_fresh_activity_census_per_delete(self):
+        from unittest.mock import Mock
+        self.module.live_claude_ids = Mock(return_value=[])
+        prepared = self.prepared()
+        packet = backend.load_plan(self.module, self.home, self.tid, prepared["plan"], prepared["sha256"])
+        self.assertTrue(self.module.delete_claude(packet)["complete"])
+        self.module.live_claude_ids.assert_called_once_with(self.home)
+
+    def test_route_check_exposes_active_class_without_mutation(self):
+        self.module.live_claude_ids = lambda _home: [self.tid]
+        with self.assertRaises(self.module.ActiveClaudeError):
+            backend.inactive(self.module, self.home, self.tid)
+        self.assertTrue(self.main.exists())
+
+    def test_ten_small_offline_chats_have_no_per_chat_shell_delay(self):
+        import time
+        started = time.perf_counter()
+        for index in range(10):
+            tid = str(uuid.uuid4())
+            main = self.main.with_name(tid + ".jsonl")
+            main.write_text(json.dumps({"sessionId": tid, "type": "user", "cwd": "D:/fictional"}) + "\n")
+            operation = self.root / ("timed-" + str(index))
+            operation.mkdir()
+            prepared = backend.prepare(self.module, self.home, tid, operation)
+            packet = backend.load_plan(self.module, self.home, tid, prepared["plan"], prepared["sha256"])
+            self.assertTrue(self.module.delete_claude(packet)["complete"])
+            self.assertFalse(main.exists())
+        elapsed = time.perf_counter() - started
+        print(json.dumps({"fictional_chats": 10, "elapsed_seconds": elapsed}), flush=True)
+        self.assertLess(elapsed, 10, "Native Windows offline deletion regressed to slow per-chat process scans")
 
     def test_delete_exact_chat_without_backup(self):
         prepared = self.prepared()

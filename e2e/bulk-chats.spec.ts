@@ -197,7 +197,7 @@ test('a failed batch member is reported once and independent selected members co
         globalThis as unknown as { reframe: { history: { check: (home: string, id: string) => Promise<void> } } }
       ).reframe;
       main.history.check = async (_home, id) => {
-        if (id === blocked) throw Error('Fictional external owner; unchanged');
+        if (id === blocked) throw Object.assign(Error('Fictional external owner; unchanged'), { code: 'chat_active' });
       };
     }, ids[0]!);
     await select(page, ['Bulk 1', 'Bulk 2']);

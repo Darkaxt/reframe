@@ -34,6 +34,14 @@ For cutover failure, use the exact activation's frozen `restore-managed.ps1 -Rec
 
 ## Quit from a console
 
+Windows releases from0.10.0-claudegpt.4 use thread-cleanup0.1.1 with its pinned
+psutil7.2.2 native process reader. The managed candidate binds a versioned helper
+bundle so the previous installation retains its original helper for rollback.
+Only the final exact-retirement operation performs a fresh activity census;
+read-only planning does not repeat system-wide PowerShell scans. Provider changes
+retain their own single fresh offline check. A missing dependency or unreadable
+Claude/Node process preserves histories. No real user chat is used for validation.
+
 The executable accepts `--quit`. It targets its normal profile (or explicit process-only `REFRAME_USER_DATA`), uses the existing single-instance channel and follows the same shutdown path as tray Quit. It waits for outstanding history operations before saving and shutting down. With no instance for that profile, it exits without opening the GUI. It does not affect another profile.
 
 For the managed installation, use the installed `stopScript` recorded in `D:\Tools\Reframe\active.json`:

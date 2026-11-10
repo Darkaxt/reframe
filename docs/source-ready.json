@@ -1,108 +1,57 @@
 {
-  "schema": "reframe.source-ready.v1",
-  "checksNotYetRun": [
-    "Types/lint/units/build",
-    "Native selected-menu/model and exact-history/shared-index/cancellation/failure fixtures",
-    "Native quit/profile/no-instance and managed stop helper",
-    "Native package scope, release and installed verification"
-  ],
-  "wiring": "Native second-instance --quit selects the existing profile, handles startup and normal shutdown; installed managed helper binds exact primary/children and waits actual exits. Main owns normalized selected identities, one aggregate destructive confirmation, sequential per-item fresh native plans/activity checks and results. Model editor typed preload/IPC writes selected per-chat metadata only. Shutdown refuses new top-level history work and waits existing operations. No forced compaction/model turn/provider fallback.",
-  "implementationGaps": [],
+  "helperRequirement": "thread-cleanup0.1.1 and psutil7.2.2, bound separately at managed activation",
+  "contentSha256": "c1734e273d8ab30f6e9744bab81f82c49035a194e7dba7dca825a169c93dffcc",
   "status": "source_ready_for_validation",
-  "sourceBase": "1f773d8c01eabda141406b402518da5872407c59",
-  "testsPrepared": [
-    "e2e/bulk-chats.spec.ts",
-    "e2e/quit-command.spec.ts",
-    "maintenance/windows/test-release-files.ps1"
-  ],
-  "scope": "R9/R10 full closure command and multi-selection archive/delete/provider/model workflows, preserving R1-R8",
-  "sourceStage": "4",
-  "contentSha256": "5b368ff1590410beed1881a365884ea4e62bf75c83c09070d75213ef909da58d",
   "inputHashes": [
     {
-      "file": "docs/claudegpt-spec.md",
-      "sha256": "e305aa92d097151873629ff88f9883153fb604cebbb14ccafe9d0abef9c1e05b"
-    },
-    {
       "file": "docs/CLAUDEGPT.md",
-      "sha256": "24d3ede7b891e44c1c30729ccfec93dde3eab4d4b6cb058642d98ace439d8dd4"
+      "sha256": "37937d98a97f879aaebfd35a37e32be241bd8fdd24188feed545b7e3937dac70"
     },
     {
-      "file": "docs/releases/v0.10.0-claudegpt.3.md",
-      "sha256": "19fef82cdc9da96c591a1f6707d87916ac19e579eabe3a65a154da4229fae468"
+      "file": "docs/deletion-latency-spec.md",
+      "sha256": "c329be94fc09e428e94f9063cebd4a9868913a4317662e774045c2d80507106b"
+    },
+    {
+      "file": "docs/releases/v0.10.0-claudegpt.4.md",
+      "sha256": "2dc17e9efaafef386698b02d75d67f93bed77c59dda91372d07cd1b8bfd21b84"
     },
     {
       "file": "e2e/bulk-chats.spec.ts",
-      "sha256": "042962041ad31bd66d4a8c4afc97e576ba5d1c31f85f587a3779652461bae104"
+      "sha256": "dd8007ed188e0be769df2922887c75f354df4951dff35bd93cfa4453d5ff04bf"
     },
     {
-      "file": "e2e/helpers.ts",
-      "sha256": "79357eae3f358fd371d86a22d5ae7c5449d04e194a1cf473ce55a5771c3bc82c"
+      "file": "maintenance/history_backend.py",
+      "sha256": "02f7c50865867b4f922ad123bed4eb2dc3670fa95d5dc2cf12918a9c0ed01af4"
     },
     {
-      "file": "e2e/quit-command.spec.ts",
-      "sha256": "bbaa01f7c90db77cf9b2c4d2dd853c99cc8e85148f2cd62a0116644addaf20f7"
-    },
-    {
-      "file": "electron-builder.yml",
-      "sha256": "705bb48e807479fe13100c56169b8c3276686a145ed23ca1bc08282a79467dee"
-    },
-    {
-      "file": "maintenance/inspect-payload.mjs",
-      "sha256": "2277451b053321fc4917f8227dec882ea7d13045f14b8859151789ab12d01eed"
-    },
-    {
-      "file": "maintenance/windows/deploy-managed.ps1",
-      "sha256": "34365718ae08191b4c806d926abdd87a9e556d9ab3cd802f487964134b6b8472"
-    },
-    {
-      "file": "maintenance/windows/stop-managed.ps1",
-      "sha256": "90c7738dccb5d26d5db700e4d0843bb006b7fc8d067cc4af746f1143c4bed145"
-    },
-    {
-      "file": "maintenance/windows/write-stop-fixture.ps1",
-      "sha256": "12fe39a2715079e2e09754aa8b71db8bb3eb3015ae8d247e26b88c84af921b3b"
+      "file": "maintenance/test_history_backend.py",
+      "sha256": "1c20d8c25e45b395a4f66dde6b4b466dae430b4087c0991d256030a9058c3e6f"
     },
     {
       "file": "package-lock.json",
-      "sha256": "1d54d72b60cc87e30bff4f052659e95cfe8c7785e6e4e17e94b6f2b8a22028f7"
+      "sha256": "eb33db74219d1af4b9a4eb7dc628bd213e51891963b5c83c14ee0c5313c51148"
     },
     {
       "file": "package.json",
-      "sha256": "35e8cff2330ae1168a8a4ce8674c378707c036180abafe82c0e9f4b8e3bcc218"
+      "sha256": "b613205cee093846723c69fb3db29b33caf1c512935b27af55ae4a100d913581"
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "63c35a197a497a58b5f41847d83ceb36ddd3d287abdb9bdaaded093d7a9cb518"
+      "sha256": "0be66d03aaf3cadac268684cb282debeec4a3828ce2ea71cefe208ed89b01c3d"
     },
     {
-      "file": "src/main/index.ts",
-      "sha256": "d663c5a4a6bce482bf6e5913a9c3470da471a10a00568583dd57dbe20b78021b"
-    },
-    {
-      "file": "src/preload/index.ts",
-      "sha256": "aeedb3193097f229e4037b0f2b3200a25ae7a82e9f9f477c19edce01b1e7ba2e"
-    },
-    {
-      "file": "src/renderer/App.tsx",
-      "sha256": "48e21589854100033283e1ff4eb86ad5c9de0767ec8b0fe861af8f931000265b"
-    },
-    {
-      "file": "src/renderer/components/ChatModelDialog.tsx",
-      "sha256": "b8c23997210bb718b0d43398bf278c6d75bf47935ea0ebe1ca73fd5b5a6277b4"
-    },
-    {
-      "file": "src/renderer/components/SessionSidebar.tsx",
-      "sha256": "a8a09ae2cc499e73998c6ebcc105cea977bf3a9d107a5128f024a45a24dab703"
-    },
-    {
-      "file": "src/renderer/styles.css",
-      "sha256": "d8670aacb7f5d463736721204a2c0b36986afbf12da1f63a6377eac6a3782ac2"
-    },
-    {
-      "file": "src/shared/ipc.ts",
-      "sha256": "d6a3189301b451bd22a67acf51089975a7e3947fcbd70c36d415a8e31151c1d9"
+      "file": "src/main/history.ts",
+      "sha256": "624c3fa61cde54b9042db2ed3392aad1ad1dcc110c871766933f6405cd6305e5"
     }
   ],
-  "launch": "Existing maintenance/build-windows.ps1 Validate/Package plus private validate-bulk.ps1, native D scratch D:/Temp/claudegpt-reframe-bulk-20261110; cleanupdc3b29e0060ff31776bc71f83f2ae330"
+  "scope": "Complete one-fresh-native-census-per-deletion Windows latency repair",
+  "sourceBase": "7d9660f99a6e12ce370df3a509367381922c124f",
+  "schema": "reframe.source-ready.v1",
+  "checksNotYetRun": [
+    "Focused native helper/backend safety and ten-chat timing",
+    "Types/lint/units/build",
+    "Packaged native batch active/skip/cancel/shared-index/failure and native helper binding",
+    "Published Windows release and installed verification"
+  ],
+  "helperSourceCommit": "cebba98b1cf3a602e81bda1fe203242550fefe29"
 }

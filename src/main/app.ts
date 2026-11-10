@@ -1146,7 +1146,6 @@ export class ReframeApp {
         try {
           await this.inactiveChat(item);
           if (this.historyBusy.has(record.claudeSessionId)) throw Error('A history operation is already running.');
-          await this.history.check(this.claudeHome, record.claudeSessionId);
         } catch (error) {
           result.results.push({ ...entry, status: 'skipped', detail: String(error) });
           publish();
@@ -1165,7 +1164,11 @@ export class ReframeApp {
           }
           result.results.push(entry);
         } catch (error) {
-          result.results.push({ ...entry, status: 'failed', detail: String(error) });
+          result.results.push({
+            ...entry,
+            status: (error as { code?: string }).code === 'chat_active' ? 'skipped' : 'failed',
+            detail: String(error),
+          });
         }
         publish();
       }
