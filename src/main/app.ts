@@ -182,6 +182,8 @@ export class ReframeApp {
   private historyBusy = new Set<string>();
   private historyOperations = new Set<Promise<unknown>>();
   private chatBatchRunning = false;
+  /** Cancels archive/delete confirmations still open when Reframe quits, so quit never waits on a dialog. */
+  private confirmations = new AbortController();
   /** Project groups of the last session list, the ones the sidebar can expand. */
   private listedProjects = new Set<string>();
   private trackHistory<T>(run: () => Promise<T>): Promise<T> {
@@ -372,7 +374,8 @@ export class ReframeApp {
     this.shuttingDown = true;
     this.windows.quitting = true;
     this.log('info', 'reframe quitting, ending sessions');
-    // History operations own durable copy/retirement outcomes; quit waits for their original processes.
+    // Open confirmations behave as Cancel; operations already confirmed own durable outcomes, so quit waits for them.
+    this.confirmations.abort();
     await Promise.allSettled([...this.historyOperations]);
     this.save();
     // Quitting must not hang on a session that does not go: what is left is ended as an orphan on the next start.
@@ -1119,6 +1122,7 @@ export class ReframeApp {
         const win = this.windows.get(windowId);
         if (!win) throw Error('The requesting window closed; chats preserved.');
         const answer = await dialog.showMessageBox(win, {
+          signal: this.confirmations.signal,
           type: 'warning',
           defaultId: 1,
           cancelId: 1,
@@ -1155,6 +1159,7 @@ export class ReframeApp {
           status: 'completed',
         };
         try {
+          if (this.shuttingDown) throw Error('Reframe is quitting; chat unchanged.');
           await this.inactiveChat(item);
           if (this.historyBusy.has(record.claudeSessionId)) throw Error('A history operation is already running.');
         } catch (error) {
@@ -1349,6 +1354,7 @@ export class ReframeApp {
       const answer = confirmed
         ? { response: 0 }
         : await dialog.showMessageBox(win, {
+            signal: this.confirmations.signal,
             type: 'warning',
             buttons: [operation === 'archive' ? 'Archive chat' : 'Delete permanently', 'Cancel'],
             defaultId: 1,
@@ -1360,7 +1366,7 @@ export class ReframeApp {
                 ? 'A verified ZIP will be kept before the live files are removed. Restore remains available in Archived chats.'
                 : 'This removes its transcript, owned subagent/session files and matching history entries. Project files and other chats are preserved. This cannot be undone.'),
           });
-      if (answer.response !== 0) return;
+      if (answer.response !== 0 || this.shuttingDown) return;
       let archive: { archive: string; sha256: string } | undefined;
       const metadata = {
         id: tid,
