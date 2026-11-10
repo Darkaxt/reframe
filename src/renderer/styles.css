@@ -1172,3 +1172,38 @@ select {
   border-radius: var(--radius);
   background: var(--bg);
 }
+/* ClaudeGPT integration follows the existing compact terminal/sidebar design. */
+.provider-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: #d6e3df;
+  font-size: 12px;
+}
+.provider-anthropic {
+  color: #dba68b;
+}
+.provider-unknown {
+  color: #9a9ba5;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 10px;
+}
+.provider-note {
+  font-size: 13px;
+  color: var(--muted, #aaa);
+  line-height: 1.45;
+  margin: 0 0 14px;
+}
+.folder-workspace {
+  gap: 8px;
+  min-height: 44px;
+}
+.folder-workspace .sidebar-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

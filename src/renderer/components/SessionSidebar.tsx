@@ -9,6 +9,8 @@ import { exactTime, shortTime } from '../time';
 import { CloseIcon, LayersIcon } from './icons';
 import { NameInput } from './NameInput';
 import { StatusDot } from './StatusDot';
+import { ProviderIcon } from './ProviderIcon';
+import { folderKey } from '@shared/folder-workspaces';
 
 const folderName = (cwd: string) => cwd.split(/[\\/]/).filter(Boolean).pop() ?? cwd;
 
@@ -37,7 +39,9 @@ interface Row {
  */
 export function SessionSidebar({ sessionList }: { sessionList: SessionListState }) {
   const { t, locale, renamingSession, setRenamingSession, setDragging } = useApp();
-  const { list, query, setQuery, setLimit, fresh, reload } = sessionList;
+  const { list, query, setQuery, setLimit, fresh, reload, folder, setFolder } = sessionList;
+  const [archiveError, setArchiveError] = useState('');
+  const [restoring, setRestoring] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const anchor = useRef<string | null>(null);
   const [renamingWorkspace, setRenamingWorkspace] = useState<string | null>(null);
@@ -145,6 +149,30 @@ export function SessionSidebar({ sessionList }: { sessionList: SessionListState 
         }}
       />
       <div className="sidebar-scroll">
+        <h3 className="sidebar-heading">Folders</h3>
+        <button
+          className={`sidebar-row${!folder ? ' is-selected' : ''}`}
+          aria-pressed={!folder}
+          onClick={() => setFolder('')}
+        >
+          All chats
+        </button>
+        {list?.folderWorkspaces?.map((w) => (
+          <button
+            key={w.id}
+            className={`sidebar-row folder-workspace${folder && folderKey(folder) === w.id ? ' is-selected' : ''}`}
+            title={w.cwd}
+            aria-pressed={!!folder && folderKey(folder) === w.id}
+            onClick={() => setFolder(w.cwd)}
+          >
+            <span aria-hidden="true">▣</span>
+            <span className="sidebar-text">
+              <span className="sidebar-title">{w.name}</span>
+              <span className="sidebar-meta">{w.cwd}</span>
+            </span>
+            <span>{w.sessionIds.length}</span>
+          </button>
+        ))}
         {!!list?.workspaces.length && <h3 className="sidebar-heading">{t('list.workspaces')}</h3>}
         {list?.workspaces.map((workspace) =>
           renamingWorkspace === workspace.id ? (
@@ -227,7 +255,12 @@ export function SessionSidebar({ sessionList }: { sessionList: SessionListState 
                     else setListDrag(event, [row.ref]);
                   })
                 }
-                mark={<StatusDot status={item.status} />}
+                mark={
+                  <>
+                    <StatusDot status={item.status} />
+                    <ProviderIcon provider={item.provider} />
+                  </>
+                }
                 label={item.label}
                 used={used(item.lastActiveAt)}
                 meta={[
@@ -284,9 +317,12 @@ export function SessionSidebar({ sessionList }: { sessionList: SessionListState 
               title={t('list.openHint')}
               onDragStart={(event) => onRowDrag(row, event, () => setListDrag(event, [row.ref]))}
               mark={
-                <span className="running-mark" aria-hidden="true">
-                  ▶
-                </span>
+                <>
+                  <span className="running-mark" aria-hidden="true">
+                    ▶
+                  </span>
+                  <ProviderIcon />
+                </>
               }
               label={item.name ?? folderName(item.cwd)}
               used={used(item.lastActiveAt)}
@@ -303,7 +339,12 @@ export function SessionSidebar({ sessionList }: { sessionList: SessionListState 
               isNew={fresh.has(item.claudeSessionId)}
               title={`${item.cwd}\n${t('list.openHint')}`}
               onDragStart={(event) => onRowDrag(row, event, () => setListDrag(event, [row.ref]))}
-              mark={<StatusDot status="ended" />}
+              mark={
+                <>
+                  <StatusDot status="ended" />
+                  <ProviderIcon />
+                </>
+              }
               label={item.title ?? folderName(item.cwd)}
               used={used(item.modifiedAt)}
               meta={[folderName(item.cwd), item.distro].filter(Boolean).join(' · ')}
@@ -314,6 +355,38 @@ export function SessionSidebar({ sessionList }: { sessionList: SessionListState 
           <button className="button sidebar-more" onClick={() => setLimit((n) => n + PAGE)}>
             {t('list.more')}
           </button>
+        )}
+        {!!list?.archives?.length && <h3 className="sidebar-heading">Archived chats</h3>}
+        {list?.archives?.map((a) => (
+          <div className="sidebar-row-wrap" key={a.id}>
+            <button
+              className="sidebar-row"
+              title={`${a.cwd}\n${a.archive}`}
+              disabled={restoring !== null}
+              onClick={() => {
+                setArchiveError('');
+                setRestoring(a.id);
+                void window.reframe
+                  .restoreArchive(a.id)
+                  .then((r) => {
+                    if (!r.ok) setArchiveError(r.error || 'Restore failed.');
+                    reload();
+                  })
+                  .finally(() => setRestoring(null));
+              }}
+            >
+              <ProviderIcon provider={a.provider} />
+              <span className="sidebar-text">
+                <span className="sidebar-title">{a.label}</span>
+                <span className="sidebar-meta">{restoring === a.id ? 'Restoring…' : 'Restore chat'}</span>
+              </span>
+            </button>
+          </div>
+        ))}
+        {archiveError && (
+          <p className="form-error" role="alert">
+            {archiveError}
+          </p>
         )}
       </div>
     </aside>

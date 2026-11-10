@@ -11,6 +11,8 @@ const HIGHLIGHT_MS = 4000;
 export interface SessionListState {
   list: SessionList | null;
   query: string;
+  folder: string;
+  setFolder: (folder: string) => void;
   setQuery: (query: string) => void;
   limit: number;
   setLimit: (update: (limit: number) => number) => void;
@@ -21,6 +23,12 @@ export interface SessionListState {
 
 export function useSessionList(shown: boolean): SessionListState {
   const [query, setQuery] = useState('');
+  const [folder, setFolder] = useState(() => localStorage.getItem('claudegpt.folder') || '');
+  const selectFolder = (value: string) => {
+    localStorage.setItem('claudegpt.folder', value);
+    setFolder(value);
+    setLimit(PAGE);
+  };
   const [limit, setLimit] = useState(PAGE);
   const [list, setList] = useState<SessionList | null>(null);
   const [reloads, setReloads] = useState(0);
@@ -32,7 +40,7 @@ export function useSessionList(shown: boolean): SessionListState {
   const sent = useRef(0);
 
   // A search and more pages only while the list is shown; hidden, the first page is enough (for the dot).
-  const asked = shown ? { query, limit } : { query: '', limit: PAGE };
+  const asked = shown ? { query, limit, folder } : { query: '', limit: PAGE, folder: '' };
   const askedRef = useRef(asked);
   useLayoutEffect(() => {
     askedRef.current = asked;
@@ -62,7 +70,7 @@ export function useSessionList(shown: boolean): SessionListState {
       window.reframe.onSessionList((next) => {
         sent.current++;
         const { query: q, limit: l } = askedRef.current;
-        if (!q && l === PAGE) apply(next);
+        if (!q && l === PAGE && !askedRef.current.folder) apply(next);
         else setReloads((n) => n + 1);
       }),
     [apply],
@@ -77,7 +85,7 @@ export function useSessionList(shown: boolean): SessionListState {
     // A moment's wait while typing in the search box.
     const timer = setTimeout(
       () =>
-        void window.reframe.getSessionList(asked.query, asked.limit).then((next) => {
+        void window.reframe.getSessionList(asked.query, asked.limit, asked.folder).then((next) => {
           if (alive && sent.current === before) apply(next);
         }),
       150,
@@ -86,7 +94,7 @@ export function useSessionList(shown: boolean): SessionListState {
       alive = false;
       clearTimeout(timer);
     };
-  }, [asked.query, asked.limit, reloads, apply, shown]);
+  }, [asked.query, asked.limit, asked.folder, reloads, apply, shown]);
 
   // Once the list is shown, new entries light up for a moment and then count as seen.
   useEffect(() => {
@@ -98,6 +106,8 @@ export function useSessionList(shown: boolean): SessionListState {
   return {
     list,
     query,
+    folder,
+    setFolder: selectFolder,
     setQuery,
     limit,
     setLimit,

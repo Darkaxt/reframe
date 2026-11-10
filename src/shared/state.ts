@@ -1,6 +1,7 @@
 // Persisted application state (userData/state.json) and its schema.
 import { z } from 'zod';
 import { PERMISSION_MODES } from './launch';
+import { PROVIDERS } from './providers';
 import type { GroupNode, LayoutNode } from './layout';
 
 export const STATE_VERSION = 1;
@@ -62,6 +63,7 @@ export const windowStateSchema = z.object({
 });
 
 export const launchOptionsSchema = z.object({
+  provider: z.enum(PROVIDERS).optional(),
   model: z.string().optional(),
   permissionMode: z.enum(PERMISSION_MODES).optional(),
   worktree: z.boolean().optional(),
@@ -113,6 +115,7 @@ export const CLOSE_WINDOW = ['ask', 'end', 'keep'] as const;
 export type CloseWindow = (typeof CLOSE_WINDOW)[number];
 
 export const preferencesSchema = z.object({
+  archiveRoot: z.string().optional(),
   /** "New session" fills the name with the folder's name. */
   nameFromFolder: z.boolean(),
   /** The UI language: the system's, or one chosen in About. */
@@ -164,6 +167,23 @@ export const appStateSchema = z.object({
   // Added after the first release of the format; older files get the defaults.
   preferences: preferencesSchema.default(DEFAULT_PREFERENCES),
   workspaces: z.array(workspaceSchema).default([]),
+  folderWorkspaces: z
+    .array(z.object({ id: z.string(), cwd: z.string(), name: z.string(), sessionIds: z.array(z.string()) }))
+    .optional(),
+  archives: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        cwd: z.string(),
+        provider: z.enum(PROVIDERS).optional(),
+        archive: z.string(),
+        sha256: z.string(),
+        operation: z.string(),
+        partial: z.boolean().optional(),
+      }),
+    )
+    .optional(),
   /** WSL distributions Claude Code was found in, so the session list can tell when one of them is not running. */
   wslDistros: z.array(z.string()).optional(),
 });

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { NewSessionResult } from '@shared/ipc';
+import { providerName, PROVIDERS, type Provider } from '@shared/providers';
 import { MODEL_SUGGESTIONS, PERMISSION_MODES, type PermissionMode } from '@shared/launch';
 import { useApp } from '../context';
 
@@ -14,6 +15,8 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
   const [worktree, setWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
   const [model, setModel] = useState('');
+  const [provider, setProvider] = useState<Provider>('chatgpt');
+  const providerRef = useRef<Provider>('chatgpt');
   const [permissionMode, setPermissionMode] = useState<PermissionMode | ''>('');
   const [recent, setRecent] = useState<string[]>([]);
   const [error, setError] = useState<Extract<NewSessionResult, { ok: false }> | null>(null);
@@ -23,10 +26,10 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     void window.reframe.getDialogDefaults().then(({ recentFolders, preferences }) => {
       setRecent(recentFolders);
-      setCwd((current) => current || recentFolders[0] || '');
+      setCwd((current) => current || localStorage.getItem('claudegpt.folder') || recentFolders[0] || '');
       setNameFromFolder(preferences.nameFromFolder);
       // What Settings says new sessions start with, unless something was picked here already.
-      setModel((current) => current || preferences.defaultModel || '');
+      setModel((current) => current || (providerRef.current === 'chatgpt' ? preferences.defaultModel : '') || '');
       setPermissionMode((current) => current || preferences.defaultPermissionMode || '');
     });
     folderInput.current?.focus();
@@ -52,6 +55,7 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
       worktree,
       worktreeName: worktree ? worktreeName.trim() || undefined : undefined,
       model: model.trim() || undefined,
+      provider,
       permissionMode: permissionMode || undefined,
     });
     setBusy(false);
@@ -78,6 +82,29 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
         onKeyDown={(e) => e.key === 'Escape' && onClose()}
       >
         <h2 id="new-session-title">{t('dialog.title')}</h2>
+        <label className="field">
+          <span>Model provider</span>
+          <select
+            aria-label="Model provider"
+            value={provider}
+            onChange={(e) => {
+              providerRef.current = e.target.value as Provider;
+              setProvider(e.target.value as Provider);
+              setModel('');
+            }}
+          >
+            {PROVIDERS.map((p) => (
+              <option key={p} value={p}>
+                {providerName(p)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="provider-note">
+          {provider === 'anthropic'
+            ? 'Uses your Claude subscription. Sign in with /login in this chat if asked.'
+            : 'Uses your existing ClaudeGPT proxy, model and effort.'}
+        </p>
 
         <label className="field">
           <span>{t('dialog.folder')}</span>

@@ -9,6 +9,7 @@ export function claudeArgs(session: SessionRecord, mode: LaunchMode, settingsFil
   const name = session.claudeName === undefined ? session.name : session.claudeName;
   if (name) args.push('--name', name);
   if (session.launch.model) args.push('--model', session.launch.model);
+  else if (session.launch.provider === 'anthropic') args.push('--model', 'sonnet');
   if (session.launch.permissionMode) args.push('--permission-mode', session.launch.permissionMode);
   // A worktree session that was started once runs in its worktree folder; -w again would make another one in it.
   if (mode === 'new' && session.launch.worktree && !session.launch.worktreeCreated) {

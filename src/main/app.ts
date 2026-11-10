@@ -18,6 +18,7 @@ import {
   type OpenDialogOptions,
   type Menu,
   type MenuItem,
+  type MenuItemConstructorOptions,
 } from 'electron';
 import {
   addTile,
@@ -125,6 +126,9 @@ import { WindowManager } from './windows';
 import { SHARE_TIMEOUT_MS, WslDistros } from './wsl/distros';
 import { settle, withTimeout } from './wait';
 import { cleanUp, dropsDir } from './cleanup';
+import { History } from './history';
+import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
+import { folderKey, folderWorkspaces } from '@shared/folder-workspaces';
 
 export interface AppAssets {
   icon: string;
@@ -168,6 +172,15 @@ const SHUTDOWN_MS = 15_000;
 const SYSTEM_ENDING_MS = 60_000;
 
 export class ReframeApp {
+  private history = new History(() => this.state.preferences.archiveRoot);
+  private historyBusy = new Set<string>();
+  private historyOperations = new Set<Promise<unknown>>();
+  private trackHistory<T>(run: () => Promise<T>): Promise<T> {
+    const operation = run();
+    this.historyOperations.add(operation);
+    void operation.finally(() => this.historyOperations.delete(operation)).catch(() => {});
+    return operation;
+  }
   private store = new StateStore(path.join(app.getPath('userData'), 'state.json'));
   private state!: AppState;
   private hooks = new HookServer();
@@ -211,6 +224,23 @@ export class ReframeApp {
     if (loaded.source === 'newer') return this.refuseNewerState();
     if (loaded.rejected) this.log('error', 'state file could not be used, set aside', loaded.rejected);
     this.state = loaded.state;
+    if (process.env.REFRAME_HISTORY_PYTHON) {
+      try {
+        const recovery = await this.history.recover(this.claudeHome);
+        const archives = [...(this.state.archives || [])].filter((a) => !recovery.restored.includes(a.id));
+        for (const entry of recovery.entries) {
+          if (!archives.some((a) => a.archive === entry.archive)) archives.push(entry);
+          if (!entry.partial) {
+            this.state = this.withoutHistory(entry.id);
+          }
+        }
+        this.state = { ...this.state, archives };
+        if (recovery.entries.length || recovery.restored.length) this.store.save(this.state);
+        for (const warning of recovery.warnings) this.log('warn', 'archive recovery needs attention', warning);
+      } catch (error) {
+        this.log('warn', 'archive recovery unavailable; existing state preserved', { error: String(error) });
+      }
+    }
     if (this.state.windows.length === 0) this.state.windows.push(emptyWindow(crypto.randomUUID()));
     // Empty windows are not brought back (one stays when all are empty), and the first window with something in it
     // is the first window from now on. Up to 0.6.1, closed empty windows were kept and shown again on a second launch.
@@ -330,6 +360,8 @@ export class ReframeApp {
     this.shuttingDown = true;
     this.windows.quitting = true;
     this.log('info', 'reframe quitting, ending sessions');
+    // History operations own durable copy/retirement outcomes; quit waits for their original processes.
+    await Promise.allSettled([...this.historyOperations]);
     this.save();
     // Quitting must not hang on a session that does not go: what is left is ended as an orphan on the next start.
     if (!(await settle(this.sessions.stopAll(), SHUTDOWN_MS))) {
@@ -477,6 +509,7 @@ export class ReframeApp {
     }
     return {
       windowId,
+      archiveRoot: this.state.preferences.archiveRoot || process.env.REFRAME_ARCHIVE_ROOT,
       locale: this.locale,
       workspace: (() => {
         const ws = this.workspaceOf(win);
@@ -508,6 +541,7 @@ export class ReframeApp {
     const info = where && this.wsl!.cached(where.distro);
     return {
       id: record.id,
+      provider: record.launch.provider ?? 'chatgpt',
       label: record.name || this.sessions.registryName(record.id) || path.basename(record.cwd) || record.cwd,
       cwd: record.cwd,
       // A WSL folder as "Ubuntu ~/shop" (its home is known once the distribution was asked).
@@ -758,6 +792,7 @@ export class ReframeApp {
       cwd,
       name: request.name?.trim() || undefined,
       launch: {
+        provider: isProvider(request.provider) ? request.provider : 'chatgpt',
         model: request.model?.trim() || undefined,
         permissionMode: PERMISSION_MODES.find((m) => m === request.permissionMode),
         worktree: request.worktree || undefined,
@@ -780,6 +815,7 @@ export class ReframeApp {
 
   private restartSession(windowId: string, sessionId: string, fresh: boolean): void {
     const record = this.state.sessions[sessionId];
+    if (record && this.historyBusy.has(record.claudeSessionId)) return;
     if (!record || this.sessions.isRunning(sessionId)) return;
     const next: SessionRecord = {
       ...record,
@@ -801,6 +837,7 @@ export class ReframeApp {
    * and its tile says why and offers to take it over.
    */
   private async startOrTakeOver(sessionId: string, mode: LaunchMode, windowId: string | null): Promise<void> {
+    if (this.historyBusy.has(this.state.sessions[sessionId]?.claudeSessionId ?? '')) return;
     if (this.startsPending.has(sessionId) || this.sessions.keepsRunning(sessionId)) return;
     const record = this.state.sessions[sessionId];
     if (!record) return;
@@ -948,6 +985,7 @@ export class ReframeApp {
     if (!win || !browserWindow || !windowHasSession(win, sessionId)) return;
     const group = groupOf(win.layout, tileKey(sessionId));
     const menu = tileMenu(this.t, {
+      chatActions: this.chatActions(windowId, { kind: 'app', sessionId }),
       rename: () => this.windows.send(windowId, IPC.startRenameSession, { sessionId, place: 'tile' }),
       group,
       otherGroups: groups(win.layout).filter((g) => g.id !== group?.id),
@@ -968,6 +1006,7 @@ export class ReframeApp {
       );
     const single = items.length === 1 && items[0]!.kind === 'app' ? items[0]!.sessionId : null;
     const menu = listMenu(this.t, {
+      chatActions: items.length === 1 ? this.chatActions(windowId, items[0]!) : [],
       rename: single
         ? () => this.windows.send(windowId, IPC.startRenameSession, { sessionId: single, place: 'list' })
         : undefined,
@@ -985,6 +1024,195 @@ export class ReframeApp {
     if (!process.env.REFRAME_E2E) menu.popup({ window: browserWindow });
   }
   private lastMenu: Menu | null = null;
+
+  /** Only single, exact inactive histories can change route or leave the live history store. */
+  private chatActions(windowId: string, item: ListItemRef): MenuItemConstructorOptions[] {
+    if (item.kind === 'running') return [];
+    const record = item.kind === 'app' ? this.state.sessions[item.sessionId] : undefined;
+    const tid = record?.claudeSessionId || (item.kind === 'found' ? item.claudeSessionId : '');
+    if (!tid || (item.kind === 'found' && item.distro) || (record && this.wslPath(record.cwd))) return [];
+    const inactive =
+      (!record || (!this.sessions.isRunning(record.id) && record.lifecycle === 'ended')) && !this.historyBusy.has(tid);
+    const run = (operation: 'archive' | 'delete') =>
+      void this.trackHistory(() => this.retireChat(windowId, item, operation)).catch((error) =>
+        this.showError(windowId, String(error)),
+      );
+    return [
+      { type: 'separator' },
+      {
+        label: inactive ? 'Model provider' : 'Model provider (end chat first)',
+        submenu: (['chatgpt', 'anthropic'] as Provider[]).map((provider) => ({
+          label: providerName(provider),
+          type: 'radio',
+          checked: (record?.launch.provider ?? (record ? 'chatgpt' : undefined)) === provider,
+          enabled: inactive,
+          click: () =>
+            void this.trackHistory(() => this.selectProvider(windowId, item, provider)).catch((error) =>
+              this.showError(windowId, String(error)),
+            ),
+        })),
+      },
+      {
+        label: inactive ? 'Archive chat…' : 'Archive chat (end chat first)',
+        enabled: inactive,
+        click: () => run('archive'),
+      },
+      {
+        label: inactive ? 'Delete chat…' : 'Delete chat (end chat first)',
+        enabled: inactive,
+        click: () => run('delete'),
+      },
+    ];
+  }
+
+  private async inactiveChat(item: ListItemRef): Promise<SessionRecord> {
+    if (item.kind === 'running' || (item.kind === 'found' && item.distro))
+      throw Error('End the native Windows chat before changing it.');
+    const existing =
+      item.kind === 'app'
+        ? this.state.sessions[item.sessionId]
+        : Object.values(this.state.sessions).find((r) => r.claudeSessionId === item.claudeSessionId);
+    if (existing) {
+      if (
+        existing.lifecycle !== 'ended' ||
+        this.sessions.isRunning(existing.id) ||
+        this.startsPending.has(existing.id) ||
+        this.wslPath(existing.cwd)
+      )
+        throw Error('End this chat before changing its provider or history.');
+      return existing;
+    }
+    if (item.kind !== 'found') throw Error('Chat no longer exists.');
+    const info = await this.transcripts.find(item.claudeSessionId);
+    if (!info?.cwd) throw Error('Chat transcript/folder could not be resolved.');
+    return { ...(await this.adopted(item.claudeSessionId, info.cwd, info.title)), lifecycle: 'ended' };
+  }
+
+  private async selectProvider(_windowId: string, item: ListItemRef, provider: Provider): Promise<void> {
+    const record = await this.inactiveChat(item);
+    if (this.historyBusy.has(record.claudeSessionId)) throw Error('A history operation is already running.');
+    this.historyBusy.add(record.claudeSessionId);
+    try {
+      // Preparation performs a fresh native process/reference check; selecting a route starts no model turn.
+      await this.history.check(this.claudeHome, record.claudeSessionId);
+      const next = {
+        ...record,
+        launch: {
+          ...record.launch,
+          provider,
+          model: modelForProviderChange(record.launch.provider, provider, record.launch.model),
+        },
+      };
+      this.state = { ...this.state, sessions: { ...this.state.sessions, [next.id]: next } };
+      this.save();
+      this.pushSession(next.id);
+      this.listChanged();
+    } finally {
+      this.historyBusy.delete(record.claudeSessionId);
+    }
+  }
+
+  private async retireChat(windowId: string, item: ListItemRef, operation: 'archive' | 'delete'): Promise<void> {
+    const record = await this.inactiveChat(item);
+    const tid = record.claudeSessionId;
+    if (this.historyBusy.has(tid)) throw Error('A history operation is already running.');
+    this.historyBusy.add(tid);
+    try {
+      const prepared = await this.history.prepare(this.claudeHome, tid);
+      const win = this.windows.get(windowId);
+      if (!win) throw Error('The requesting window closed; chat preserved.');
+      const answer = await dialog.showMessageBox(win, {
+        type: 'warning',
+        buttons: [operation === 'archive' ? 'Archive chat' : 'Delete permanently', 'Cancel'],
+        defaultId: 1,
+        cancelId: 1,
+        message: `${operation === 'archive' ? 'Archive' : 'Permanently delete'} “${record.name || path.basename(record.cwd)}”?`,
+        detail:
+          `${prepared.files} exact chat files (${prepared.bytes.toLocaleString()} bytes).\n${tid}\n${record.cwd}\n` +
+          (operation === 'archive'
+            ? 'A verified ZIP will be kept before the live files are removed. Restore remains available in Archived chats.'
+            : 'This removes its transcript, owned subagent/session files and matching history entries. Project files and other chats are preserved. This cannot be undone.'),
+      });
+      if (answer.response !== 0) return;
+      let archive: { archive: string; sha256: string } | undefined;
+      const metadata = {
+        id: tid,
+        label: record.name || path.basename(record.cwd),
+        cwd: record.cwd,
+        provider: record.launch.provider ?? ('chatgpt' as Provider),
+      };
+      if (operation === 'archive') archive = await this.history.archive(this.claudeHome, prepared, metadata);
+      else await this.history.delete(this.claudeHome, prepared);
+      this.state = {
+        ...this.withoutHistory(tid),
+        ...(archive
+          ? { archives: [...(this.state.archives || []), { ...metadata, ...archive, operation: prepared.operation }] }
+          : {}),
+      };
+      this.save();
+      this.transcripts.invalidate('all');
+      this.outside = null;
+      for (const w of this.state.windows) this.push(w.id);
+      this.listChanged();
+    } finally {
+      this.historyBusy.delete(tid);
+    }
+  }
+
+  private async restoreChat(id: string): Promise<{ ok: boolean; error?: string }> {
+    const entry = this.state.archives?.find((a) => a.id === id);
+    if (!entry) return { ok: false, error: 'Archive not found.' };
+    if (this.historyBusy.has(id)) return { ok: false, error: 'A history operation is already running.' };
+    this.historyBusy.add(id);
+    try {
+      await this.history.restore(this.claudeHome, entry);
+      const record: SessionRecord = {
+        id: crypto.randomUUID(),
+        claudeSessionId: id,
+        cwd: entry.cwd,
+        name: entry.label,
+        launch: { provider: entry.provider },
+        lifecycle: 'ended',
+        used: true,
+        createdAt: Date.now(),
+        lastActiveAt: Date.now(),
+      };
+      this.state = {
+        ...this.state,
+        sessions: { ...this.state.sessions, [record.id]: record },
+        archives: this.state.archives!.filter((a) => a.id !== id),
+      };
+      this.save();
+      this.transcripts.invalidate('all');
+      this.listChanged();
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: String(error) };
+    } finally {
+      this.historyBusy.delete(id);
+    }
+  }
+
+  private withoutHistory(tid: string): AppState {
+    const removed = Object.values(this.state.sessions)
+      .filter((r) => r.claudeSessionId === tid)
+      .map((r) => r.id);
+    return {
+      ...this.state,
+      sessions: Object.fromEntries(Object.entries(this.state.sessions).filter(([, r]) => r.claudeSessionId !== tid)),
+      windows: this.state.windows.map((w) => removed.reduce((next, id) => dropSession(next, id), w)),
+      workspaces: this.state.workspaces.map((w) => ({
+        ...w,
+        sessions: w.sessions.filter((r) => r.claudeSessionId !== tid),
+        window: w.sessions
+          .filter((r) => r.claudeSessionId === tid)
+          .reduce((next, r) => dropSession(next, r.id), w.window as WindowState),
+      })),
+      folderWorkspaces: this.state.folderWorkspaces
+        ?.map((w) => ({ ...w, sessionIds: w.sessionIds.filter((id) => id !== tid) }))
+        .filter((w) => w.sessionIds.length),
+    };
+  }
 
   /** Test hook (REFRAME_E2E): clicks the item labeled `label` in the menu shown last. */
   clickMenuItem(label: string): boolean {
@@ -1017,7 +1245,7 @@ export class ReframeApp {
 
   // ---------- session list ----------
 
-  private async sessionList(query: string, limit: number): Promise<SessionList> {
+  private async sessionList(query: string, limit: number, folder?: string): Promise<SessionList> {
     const q = query.trim().toLowerCase();
     const matches = (...fields: (string | undefined)[]) => !q || fields.some((f) => f?.toLowerCase().includes(q));
     const records = Object.values(this.state.sessions);
@@ -1051,6 +1279,7 @@ export class ReframeApp {
         const elsewhere = resumedElsewhere.has(record.claudeSessionId) && !this.sessions.keepsRunning(record.id);
         return {
           kind: 'app',
+          provider: view.provider,
           id: record.id,
           label: view.label,
           cwd: record.cwd,
@@ -1063,7 +1292,7 @@ export class ReframeApp {
           elsewhere,
         };
       })
-      .filter((item) => matches(item.label, item.cwd))
+      .filter((item) => matches(item.label, item.cwd) && (!folder || folderKey(item.cwd) === folderKey(folder)))
       // Sessions in a window first, then the rest; most recently used first within each.
       .sort((a, b) => Number(!a.windowId) - Number(!b.windowId) || b.lastActiveAt - a.lastActiveAt);
 
@@ -1081,11 +1310,14 @@ export class ReframeApp {
             ...(source.distro ? { distro: source.distro } : {}),
           })),
       )
-      .filter((item) => matches(item.name, item.cwd));
+      .filter((item) => matches(item.name, item.cwd) && (!folder || folderKey(item.cwd) === folderKey(folder)));
 
     const exclude = new Set([...ownIds, ...running.map((r) => r.claudeSessionId)]);
     const pages = await Promise.all(
-      sources.map(async (source) => ({ source, page: await source.transcripts.list({ query, limit, exclude }) })),
+      sources.map(async (source) => ({
+        source,
+        page: await source.transcripts.list({ query, limit, exclude, folder }),
+      })),
     );
     const found = pages
       .flatMap(({ source, page }) =>
@@ -1109,7 +1341,29 @@ export class ReframeApp {
       open: !!this.windowOfWorkspace(w.id),
     }));
     const hasMore = found.length > limit || pages.some(({ page }) => page.hasMore);
-    return { workspaces, app, running, found: found.slice(0, limit), hasMore, wslStopped: stopped };
+    const automatic = folderWorkspaces([
+      ...records.map((r) => ({ cwd: r.cwd, id: r.claudeSessionId })),
+      ...scanned.flatMap((s) =>
+        s.running.filter((r) => r.cwd).map((r) => ({ cwd: s.source.windowsPath(r.cwd!), id: r.sessionId })),
+      ),
+      ...pages.flatMap(({ source, page }) =>
+        page.folders.flatMap((f) => f.sessionIds.map((id) => ({ cwd: source.windowsPath(f.cwd), id }))),
+      ),
+    ]);
+    if (JSON.stringify(automatic) !== JSON.stringify(this.state.folderWorkspaces)) {
+      this.state = { ...this.state, folderWorkspaces: automatic };
+      this.store.saveSoon(this.state);
+    }
+    return {
+      workspaces,
+      folderWorkspaces: automatic,
+      archives: this.state.archives || [],
+      app,
+      running,
+      found: found.slice(0, limit),
+      hasMore,
+      wslStopped: stopped,
+    };
   }
 
   /**
@@ -1301,6 +1555,8 @@ export class ReframeApp {
    * Null when there is nothing (any more) to open.
    */
   private async recordFor(windowId: string, item: ListItemRef, confirmed: boolean): Promise<SessionRecord | null> {
+    const historyId = item.kind === 'app' ? this.state.sessions[item.sessionId]?.claudeSessionId : item.claudeSessionId;
+    if (historyId && this.historyBusy.has(historyId)) return null;
     if (item.kind === 'app') return this.state.sessions[item.sessionId] ?? null;
 
     // A conversation reframe already manages is opened as that session, not a second copy.
@@ -2225,6 +2481,12 @@ export class ReframeApp {
     on(IPC.setPreferences, (_id, _event, patch: PreferencesPatch | null) => {
       if (!patch || typeof patch !== 'object') return;
       const next = { ...this.state.preferences };
+      if (
+        typeof patch.archiveRoot === 'string' &&
+        path.isAbsolute(patch.archiveRoot) &&
+        path.parse(patch.archiveRoot).root.toLowerCase() !== 'c:\\'
+      )
+        next.archiveRoot = patch.archiveRoot;
       if (typeof patch.nameFromFolder === 'boolean') next.nameFromFolder = patch.nameFromFolder;
       if (LANGUAGES.includes(patch.language as Language)) next.language = patch.language as Language;
       const size = patch.fontSize;
@@ -2245,6 +2507,7 @@ export class ReframeApp {
       const relabel = next.language !== this.state.preferences.language;
       const was = this.state.preferences;
       const shown =
+        next.archiveRoot !== was.archiveRoot ||
         next.fontSize !== was.fontSize ||
         next.snapToGrid !== was.snapToGrid ||
         next.checkForUpdates !== was.checkForUpdates ||
@@ -2273,12 +2536,17 @@ export class ReframeApp {
       const png = this.clipboardOverride ? (this.clipboardOverride.image ? TEST_PNG : null) : await clipboardImage();
       return png && this.saveDroppedFile('clipboard.png', png);
     });
-    handle(IPC.sessionList, async (_id, _event, query: unknown, limit: unknown) => {
+    handle(IPC.restoreArchive, async (_id, _event, chat: unknown) => {
+      if (typeof chat !== 'string') return { ok: false, error: 'Invalid archive' };
+      return this.trackHistory(() => this.restoreChat(chat));
+    });
+    handle(IPC.sessionList, async (_id, _event, query: unknown, limit: unknown, folder: unknown) => {
       // Asked for by the user (opening the list, searching, after an action there): as fresh as before.
       await this.scanOutside(LIST_ASKED_MS);
       return this.sessionList(
         typeof query === 'string' ? query : '',
         typeof limit === 'number' ? Math.min(limit, 500) : LIST_PAGE,
+        typeof folder === 'string' ? folder : undefined,
       );
     });
     on(IPC.openSession, (id, _event, request: Partial<OpenSessionRequest> | null) => {

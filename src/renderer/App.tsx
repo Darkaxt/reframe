@@ -488,6 +488,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
         {aboutOpen && <AboutDialog version={view.version} onClose={() => setAboutOpen(false)} />}
         {settingsOpen && (
           <SettingsDialog
+            archiveRoot={view.archiveRoot}
             language={view.language}
             systemLocale={view.systemLocale}
             fontSize={view.fontSize}

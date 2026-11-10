@@ -7,8 +7,13 @@ directories:
   output: dist
   buildResources: build
 files:
+  - docs/provider-icons.md
   - out/**
   - package.json
+  - LICENSE
+  - README.md
+  - '!dist/**'
+  - '!test-results/**'
   - '!**/*.{map,pdb}'
   # node-pty's sources and the build tools it ships; the prebuilt (or, on Linux, freshly built) binaries stay.
   - '!node_modules/node-pty/{deps,scripts,src,third_party,typings}/**'
@@ -17,6 +22,9 @@ files:
 asarUnpack:
   - node_modules/node-pty/**
   - node_modules/@koromix/**
+extraResources:
+  - from: maintenance/history_backend.py
+    to: history_backend.py
 # node-pty and koffi are Node-API modules: their binaries work in Electron as they are.
 npmRebuild: false
 # Chromium's own UI strings (context menus, dialogs) only for reframe's languages.
@@ -25,6 +33,17 @@ electronLanguages: [en-US, de]
 win:
   target: nsis
   files:
+    # A platform matcher with exclusions alone implicitly includes the entire project.
+    # Keep positive runtime patterns here too, including when output lives outside dist/.
+    - out/**
+    - package.json
+    - docs/provider-icons.md
+    - LICENSE
+    - README.md
+    - '!dist/**'
+    - '!test-results/**'
+    - '!**/*.{map,pdb}'
+    - '!node_modules/node-pty/{deps,scripts,src,third_party,typings}/**'
     - '!node_modules/node-pty/prebuilds/darwin-*/**'
     - '!node_modules/node-pty/prebuilds/win32-arm64/**'
 nsis:
@@ -54,6 +73,6 @@ appImage:
 
 publish:
   provider: github
-  owner: TheyCallMeJuzou
+  owner: Darkaxt
   repo: reframe
-  releaseType: draft
+  releaseType: release

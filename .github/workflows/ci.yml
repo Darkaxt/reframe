@@ -46,8 +46,7 @@ jobs:
         if: runner.os == 'Linux'
         continue-on-error: true
         run: |
-          # Electron's sandbox needs unprivileged user namespaces, which Ubuntu's AppArmor restricts.
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          # Keep the runner's sandbox policy. Unsupported runner/Electron combinations remain informational.
           REFRAME_E2E_APP="$PWD/dist/linux-unpacked/reframe" xvfb-run -a npx playwright test
 
       - name: Keep screenshots of failed end-to-end tests

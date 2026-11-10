@@ -7,7 +7,7 @@ import path from 'node:path';
 
 const root = path.join(import.meta.dirname, '..');
 const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-const dist = path.join(root, 'dist');
+const dist = process.env.REFRAME_PACKAGE_DIR ? path.resolve(process.env.REFRAME_PACKAGE_DIR) : path.join(root, 'dist');
 const unpacked = path.join(dist, 'win-unpacked');
 const name = `reframe-${version}-win-portable`;
 const folder = path.join(dist, name);
@@ -26,7 +26,7 @@ const updateConfig = path.join(folder, 'resources', 'app-update.yml');
 if (!fs.existsSync(updateConfig)) {
   fs.writeFileSync(
     updateConfig,
-    'owner: TheyCallMeJuzou\nrepo: reframe\nprovider: github\nreleaseType: draft\nupdaterCacheDirName: reframe-updater\n',
+    'owner: Darkaxt\nrepo: reframe\nprovider: github\nreleaseType: release\nupdaterCacheDirName: reframe-updater\n',
   );
 }
 fs.mkdirSync(path.join(folder, 'data'));

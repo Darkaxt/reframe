@@ -3,6 +3,7 @@
 // and end are read, and results are cached by modification time.
 import fs from 'node:fs';
 import path from 'node:path';
+import { folderKey, folderWorkspaces, type FolderWorkspace } from '@shared/folder-workspaces';
 import { isRunningEntry, parseRegistryEntry, type RegistryEntry } from './registry';
 
 export interface RunningExclusion {
@@ -164,21 +165,26 @@ export class TranscriptIndex {
     else for (const project of projects) this.stale.add(project);
   }
 
-  async list(options: { query?: string; limit: number; exclude: Set<string> }): Promise<{
+  async list(options: { query?: string; limit: number; exclude: Set<string>; folder?: string }): Promise<{
     items: TranscriptInfo[];
     hasMore: boolean;
+    folders: FolderWorkspace[];
   }> {
     const files = (await this.files()).filter((f) => !options.exclude.has(f.sessionId));
     const query = options.query?.trim().toLowerCase();
     const items: TranscriptInfo[] = [];
+    const chats: { cwd: string; id: string }[] = [];
+    let hasMore = false;
     for (const file of files) {
       const info = await this.info(file);
       if (!info) continue;
+      if (info.cwd) chats.push({ cwd: info.cwd, id: info.sessionId });
+      if (options.folder && (!info.cwd || folderKey(info.cwd) !== folderKey(options.folder))) continue;
       if (query && ![info.title, info.cwd].some((v) => v?.toLowerCase().includes(query))) continue;
-      if (items.length === options.limit) return { items, hasMore: true };
-      items.push(info);
+      if (items.length >= options.limit) hasMore = true;
+      else items.push(info);
     }
-    return { items, hasMore: false };
+    return { items, hasMore, folders: folderWorkspaces(chats) };
   }
 
   /** One past session by id, e.g. when it is opened from the list. */

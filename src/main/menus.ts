@@ -8,6 +8,7 @@ import { swatch } from './images';
 type Translate = (key: MessageKey, params?: Record<string, string | number>) => string;
 
 export interface TileMenuOptions {
+  chatActions?: MenuItemConstructorOptions[];
   rename: () => void;
   /** The group the tile is in, if any. */
   group: GroupNode | null;
@@ -21,6 +22,7 @@ export interface TileMenuOptions {
 export function tileMenu(t: Translate, o: TileMenuOptions): Menu {
   return Menu.buildFromTemplate([
     { label: t('session.rename'), click: o.rename },
+    ...(o.chatActions || []),
     { type: 'separator' },
     { label: t('menu.newGroup'), enabled: !o.group, click: o.newGroup },
     {
@@ -33,6 +35,7 @@ export function tileMenu(t: Translate, o: TileMenuOptions): Menu {
 }
 
 export interface ListMenuOptions {
+  chatActions?: MenuItemConstructorOptions[];
   /** How many entries are selected. */
   count: number;
   open: () => void;
@@ -46,6 +49,7 @@ export function listMenu(t: Translate, o: ListMenuOptions): Menu {
   return Menu.buildFromTemplate([
     { label: o.count > 1 ? t('listMenu.openMany', { count: o.count }) : t('listMenu.open'), click: o.open },
     ...(o.rename ? [{ label: t('session.rename'), click: o.rename }] : []),
+    ...(o.chatActions || []),
     { type: 'separator' },
     { label: t('listMenu.group'), click: o.group },
     { label: t('listMenu.groupInNewWindow'), click: o.groupInNewWindow },

@@ -21,6 +21,7 @@ export function SettingsDialog({
   claudeBin,
   defaultModel,
   defaultPermissionMode,
+  archiveRoot,
   onClose,
 }: {
   language: Language;
@@ -33,6 +34,7 @@ export function SettingsDialog({
   claudeBin: string | null;
   defaultModel: string | null;
   defaultPermissionMode: PermissionMode | null;
+  archiveRoot?: string;
   onClose: () => void;
 }) {
   const { t, keys, locale } = useApp();
@@ -65,6 +67,23 @@ export function SettingsDialog({
         onKeyDown={(e) => e.key === 'Escape' && onClose()}
       >
         <h2>{t('settings.title')}</h2>
+        <div className="setting">
+          <span>Chat archives</span>
+          <button
+            className="button"
+            onClick={() =>
+              void window.reframe.pickFolder().then((folder) => {
+                if (folder) set({ archiveRoot: folder });
+              })
+            }
+          >
+            Choose folder…
+          </button>
+        </div>
+        <p className="setting-hint" title={archiveRoot}>
+          {archiveRoot || 'Archives folder in this Reframe profile'} · Choose a non-C drive. Verified ZIPs retain exact
+          chat recovery files.
+        </p>
 
         <label className="setting">
           <span>{t('settings.language')}</span>

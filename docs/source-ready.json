@@ -1,0 +1,14 @@
+{
+  "schema": "reframe.source-ready.v1",
+  "status": "source_ready_for_validation",
+  "baseCommit": "060ff208b7c2c82cad11785b8e3652bca11f49a6",
+  "originalContentSha256": "9faad84935fefdf508f4d386fe5edd8b91b9b1f5d3da3230a86f4579ad0d4727",
+  "contentSha256": "57caa44de875803db24734a543cef44efcad2df78bb4dc59f7b315e41e72d191",
+  "correction": "Same-provider explicit model preservation and current-provider default loading are integrated; focused test prepared. Runtime/package revalidation required. Original archive/backend inputs unchanged; reuse inspected history evidence.",
+  "scope": "claudegpt-spec R2-R6: provider controls/routing/persistence/icons; automatic folder catalogue/filter/persistence; exact archive/delete, verified ZIP restore and interruption recovery; native lifecycle ownership",
+  "sourceEvidence": ["src/shared/providers.ts", "src/shared/folder-workspaces.ts", "src/main/app.ts", "src/main/history.ts", "maintenance/history_backend.py", "src/main/sessions.ts", "src/renderer/components", "src/shared/state.ts", "src/shared/ipc.ts", "src/preload/index.ts", "electron-builder.yml"],
+  "testsPrepared": ["src/shared/providers.test.ts", "src/shared/folder-workspaces.test.ts", "maintenance/test_history_backend.py", "e2e/claudegpt.spec.ts", "affected upstream tests"],
+  "integration": "Fork exists; proxy component registration/docs identify independent GUI source, build and release. Final verified commit/submodule/release pin belongs to delivery stage.",
+  "checksNotYetRun": ["typecheck", "lint", "unit tests", "Windows helper fixtures", "Electron UI", "production build/package", "real providers", "installed cutover/rollback"],
+  "launch": "maintenance/build-windows.ps1; private task-owned D: scratch and pinned helper bindings; source readiness is not verification"
+}

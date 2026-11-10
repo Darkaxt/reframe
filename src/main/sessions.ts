@@ -12,6 +12,7 @@ import type { SessionRecord } from '@shared/state';
 import { parseWslPath, wslWindowsPath, type WslPath } from '@shared/wsl';
 import { claudeArgs, type LaunchMode } from './claude/args';
 import { claudeEnv } from './claude/env';
+import { providerEnv, providerSettings } from '@shared/providers';
 import {
   findRegistryEntry,
   forgetRegistryEntry,
@@ -192,7 +193,13 @@ export class SessionManager extends EventEmitter<Events> {
     const claude = this.deps.resolveClaude();
     if (!claude) return this.fail(session.id, 'claudeNotFound');
 
-    const settings = writeHookSettings(this.deps.settingsDir, this.deps.hooks.port, this.deps.hooks.token, session.id);
+    const settings = writeHookSettings(
+      this.deps.settingsDir,
+      this.deps.hooks.port,
+      this.deps.hooks.token,
+      session.id,
+      session.launch.provider,
+    );
     this.log('info', 'session start', {
       session: session.id,
       claudeSession: session.claudeSessionId,
@@ -219,7 +226,10 @@ export class SessionManager extends EventEmitter<Events> {
         ? cmdCommandLine(claude.viaCmd, claudeArgs(session, mode, settings))
         : [...claude.prefixArgs, ...claudeArgs(session, mode, settings)],
       cwd: session.cwd,
-      env: claudeEnv(this.deps.env, { ...claude.env, REFRAME_SESSION: session.id }),
+      env: providerEnv(
+        claudeEnv(this.deps.env, { ...claude.env, REFRAME_SESSION: session.id }),
+        session.launch.provider,
+      ),
       cols: 120,
       rows: 32,
     });
@@ -278,7 +288,11 @@ export class SessionManager extends EventEmitter<Events> {
       args: [
         ...prefixArgs,
         ...['-d', where.distro, '--cd', where.path, '--exec', 'env', `PATH=${info.path}`, info.claude],
-        ...claudeArgs(session, mode),
+        ...claudeArgs(
+          session,
+          mode,
+          session.launch.provider === 'anthropic' ? JSON.stringify(providerSettings('anthropic')) : undefined,
+        ),
       ],
       cwd: os.homedir(),
       env: claudeEnv(this.deps.env, env),

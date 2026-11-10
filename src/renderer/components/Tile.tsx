@@ -6,6 +6,7 @@ import { FindBar } from './FindBar';
 import { CloseIcon, CollapseIcon, GripIcon, UnzoomIcon, ZoomIcon } from './icons';
 import { NameInput } from './NameInput';
 import { StatusDot } from './StatusDot';
+import { ProviderIcon } from './ProviderIcon';
 
 /** A session's tile; `group` is the group it sits in, if any. */
 export function Tile({ sessionId, group }: { sessionId: string; group: GroupNode | null }) {
@@ -132,6 +133,7 @@ export function Tile({ sessionId, group }: { sessionId: string; group: GroupNode
           <GripIcon />
         </span>
         <StatusDot status={session.status} />
+        <ProviderIcon provider={session.provider} />
         {editingName ? (
           <NameInput
             className="tile-label-input"

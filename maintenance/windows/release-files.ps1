@@ -1,0 +1,119 @@
+# Shared file operations for the managed Windows release and its frozen rollback.
+# No process stopping, recursive deletion, credential parsing or global configuration.
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Get-Sha256([string]$Path) {
+    (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Assert-Hash([string]$Path, [string]$Expected) {
+    if ($Expected -cnotmatch '^[a-f0-9]{64}$' -or (Get-Sha256 $Path) -cne $Expected) {
+        throw "Hash mismatch: $Path"
+    }
+}
+
+function Assert-PlainPath([string]$Path) {
+    if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw "Absolute path required: $Path" }
+    $current = [IO.Path]::GetFullPath($Path)
+    while ($current) {
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force
+            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw "Reparse path refused: $current"
+            }
+        }
+        $parent = Split-Path -Parent $current
+        if ($parent -eq $current) { break }
+        $current = $parent
+    }
+}
+
+function Test-ReleaseFiles([string]$Root, $Files) {
+    Assert-PlainPath $Root
+    $prefix = [IO.Path]::GetFullPath($Root).TrimEnd('\') + '\'
+    $expected = @{}
+    foreach ($entry in $Files) {
+        if ([IO.Path]::IsPathRooted($entry.file)) { throw 'Rooted payload member' }
+        $path = [IO.Path]::GetFullPath((Join-Path $Root $entry.file))
+        if (-not $path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'Payload path escape' }
+        if ($expected.ContainsKey($path)) { throw 'Duplicate payload member' }
+        Assert-PlainPath $path
+        if ((Get-Item -LiteralPath $path).Length -ne $entry.bytes) { throw "Size mismatch: $path" }
+        Assert-Hash $path $entry.sha256
+        $expected[$path] = $true
+    }
+    $actual = @(Get-ChildItem -LiteralPath $Root -Recurse -Force -File)
+    if ($actual.Count -ne $expected.Count) { throw 'Unexpected or missing payload files' }
+    foreach ($file in $actual) {
+        if (-not $expected.ContainsKey($file.FullName)) { throw "Unexpected payload member: $($file.FullName)" }
+    }
+}
+
+function Copy-ReleaseFiles([string]$Source, [string]$Destination, $Files) {
+    Test-ReleaseFiles $Source $Files
+    Assert-PlainPath $Destination
+    if (Test-Path -LiteralPath $Destination) { throw 'Release destination already exists' }
+    [IO.Directory]::CreateDirectory($Destination) | Out-Null
+    foreach ($entry in $Files) {
+        $target = Join-Path $Destination $entry.file
+        [IO.Directory]::CreateDirectory((Split-Path -Parent $target)) | Out-Null
+        [IO.File]::Copy((Join-Path $Source $entry.file), $target, $false)
+    }
+    Test-ReleaseFiles $Destination $Files
+}
+
+function Write-AtomicBytes([string]$Path, [byte[]]$Bytes) {
+    Assert-PlainPath $Path
+    $temporary = "$Path.$([guid]::NewGuid().ToString('N')).pending"
+    $stream = [IO.File]::Open($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    try { $stream.Write($Bytes); $stream.Flush($true) } finally { $stream.Dispose() }
+    [IO.File]::Move($temporary, $Path, $true)
+}
+
+function Write-AtomicJson([string]$Path, $Value) {
+    Write-AtomicBytes $Path ([Text.Encoding]::UTF8.GetBytes(($Value | ConvertTo-Json -Depth 30) + "`n"))
+}
+
+function Save-RestoreFiles([string]$Directory, [string[]]$Paths) {
+    if (Test-Path -LiteralPath $Directory) { throw 'Restore directory already exists' }
+    Assert-PlainPath $Directory
+    [IO.Directory]::CreateDirectory($Directory) | Out-Null
+    $entries = @()
+    foreach ($path in $Paths) {
+        Assert-PlainPath $path
+        $copy = Join-Path $Directory ("{0:D3}.bin" -f $entries.Count)
+        [IO.File]::Copy($path, $copy, $false)
+        $hash = Get-Sha256 $path
+        Assert-Hash $copy $hash
+        $entries += [ordered]@{ path = $path; copy = $copy; sha256 = $hash }
+    }
+    return ,$entries
+}
+
+function Restore-FrozenFiles($Entries) {
+    # Validate the complete recovery set before changing its first member.
+    foreach ($entry in $Entries) { Assert-PlainPath $entry.path; Assert-Hash $entry.copy $entry.sha256 }
+    foreach ($entry in $Entries) {
+        Write-AtomicBytes $entry.path ([IO.File]::ReadAllBytes($entry.copy))
+        Assert-Hash $entry.path $entry.sha256
+    }
+}
+
+function Assert-ReframeIdle {
+    # Include external terminals and node wrappers, not only app-owned panes.
+    $clients = @(Get-CimInstance Win32_Process | Where-Object {
+        $_.Name -match '^(reframe|claude)(\.exe)?$' -or
+        ($_.Name -match '^(node|bun)(\.exe)?$' -and $_.CommandLine -match '(claude-code|claude[\\/]cli)')
+    } | Select-Object ProcessId, ParentProcessId, CreationDate, ExecutablePath)
+    if ($clients.Count) { throw "Clients still running; preserve them and retain the candidate: $($clients | ConvertTo-Json -Compress)" }
+}
+
+function Get-ReframeRequestTasks {
+    # Native application automations require the explicit reservation as well.
+    @(Get-ScheduledTask | Where-Object {
+        $_.State -ne 'Disabled' -and (($_.Actions | ConvertTo-Json -Compress -Depth 8) -match '(claude|reframe|8317)')
+    } | Sort-Object TaskPath, TaskName | ForEach-Object {
+        [ordered]@{ name = $_.TaskPath + $_.TaskName; actions = $_.Actions; triggers = $_.Triggers }
+    })
+}
