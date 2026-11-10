@@ -23,13 +23,10 @@ try {
     }
     Assert-Hash $m.candidate $m.candidateSha256
     $candidate = Get-Content -LiteralPath $m.candidate -Raw | ConvertFrom-Json
-    if ($candidate.status -cne 'qualified' -or $candidate.sourceCommit -cnotmatch '^[a-f0-9]{40}$') { throw 'Candidate is not finally qualified/source-pinned' }
+    if ($candidate.status -cnotin @('qualified', 'qualified_with_deferred_anthropic') -or $candidate.sourceCommit -cnotmatch '^[a-f0-9]{40}$') { throw 'Candidate is not release-qualified/source-pinned' }
     Assert-Hash $m.qualification $m.qualificationSha256
     $q = Get-Content -LiteralPath $m.qualification -Raw | ConvertFrom-Json
-    foreach ($check in @('chatgpt', 'anthropic', 'packaged', 'history', 'payload')) {
-        if ($q.$check -cne $true) { throw "Required qualification incomplete: $check" }
-    }
-    if ($q.archiveSha256 -cne $candidate.archiveSha256) { throw 'Qualification belongs to a different candidate' }
+    Assert-ReleaseQualification $q $candidate
     Assert-Hash $m.delivery $m.deliverySha256
     $delivery = Get-Content -LiteralPath $m.delivery -Raw | ConvertFrom-Json
     if ($delivery.sourceCommit -cne $candidate.sourceCommit -or $delivery.archiveSha256 -cne $candidate.archiveSha256 -or -not $delivery.retrievedVerified) { throw 'Published delivery not independently verified' }
@@ -95,6 +92,7 @@ try {
         managedActive = $m.managedActive; claudeHome = $m.claudeHome; workingDirectory = $m.workingDirectory
         helper = $candidate.helper; launcher = $previous.launcher; qualification = $m.qualification
         delivery = $m.delivery; rollback = $rollbackPath; rollbackSha256 = Get-Sha256 $rollbackPath
+        anthropicLiveVerified = $q.anthropic; verificationLimits = $q.limits
         at = [DateTime]::UtcNow.ToString('o')
     }
     $installedLauncher = Join-Path $m.launcherDirectory 'start-managed.ps1'

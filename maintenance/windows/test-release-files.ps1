@@ -44,11 +44,33 @@ $before = Get-Sha256 $state
 [IO.File]::WriteAllText($frozen[1].copy, 'corrupt')
 Must-Throw { Restore-FrozenFiles $frozen } 'corrupt recovery set'
 Assert-Hash $state $before
+$candidate = @{ sourceCommit = ('f' * 40); archiveSha256 = ('a' * 64) }
+$deferralPath = Join-Path $Scratch 'owner-deferral.json'
+Write-AtomicJson $deferralPath @{ answer = 'Keep Anthropic verification pending' }
+$qualification = @{
+    chatgpt = $true; packaged = $true; history = $true; payload = $true
+    sourceCommit = $candidate.sourceCommit; archiveSha256 = $candidate.archiveSha256
+    anthropic = $true
+}
+Assert-ReleaseQualification $qualification $candidate
+$qualification.anthropic = $false
+Must-Throw { Assert-ReleaseQualification $qualification $candidate } 'missing explicit owner deferral'
+$qualification.anthropicRouting = $true
+$qualification.anthropicState = 'deferred_by_owner'
+$qualification.anthropicDeferralReceipt = $deferralPath
+$qualification.anthropicDeferralSha256 = Get-Sha256 $deferralPath
+$qualification.limits = @('Real Anthropic subscription request remains unverified by owner choice.')
+Assert-ReleaseQualification $qualification $candidate
+$qualification.history = $false
+Must-Throw { Assert-ReleaseQualification $qualification $candidate } 'unrelated failed check cannot be deferred'
+$qualification.history = $true
+Write-AtomicJson $deferralPath @{ answer = 'different decision' }
+Must-Throw { Assert-ReleaseQualification $qualification $candidate } 'changed deferral receipt'
 [IO.File]::WriteAllText((Join-Path $destination 'unexpected'), 'extra')
 Must-Throw { Test-ReleaseFiles $destination $files } 'extra payload'
 [IO.File]::WriteAllText((Join-Path $source 'app.exe'), 'changed')
 Must-Throw { Test-ReleaseFiles $source $files } 'changed payload'
 Write-AtomicJson (Join-Path $Scratch 'result.json') @{
-    status = 'passed'; checked = @('exact copy', 'same-volume atomic pointer', 'frozen restore', 'restore prevalidation', 'path/duplicate/extra/changed rejection')
+    status = 'passed'; checked = @('exact copy', 'same-volume atomic pointer', 'frozen restore', 'restore prevalidation', 'explicit hash-bound provider deferral', 'unrelated failures remain blockers', 'path/duplicate/extra/changed rejection')
 }
 Get-Content -LiteralPath (Join-Path $Scratch 'result.json') -Raw

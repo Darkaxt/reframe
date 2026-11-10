@@ -13,6 +13,23 @@ function Assert-Hash([string]$Path, [string]$Expected) {
     }
 }
 
+function Assert-ReleaseQualification($Qualification, $Candidate) {
+    foreach ($check in @('chatgpt', 'packaged', 'history', 'payload')) {
+        if ($Qualification.$check -cne $true) { throw "Required qualification incomplete: $check" }
+    }
+    if ($Qualification.archiveSha256 -cne $Candidate.archiveSha256 -or
+        $Qualification.sourceCommit -cne $Candidate.sourceCommit) { throw 'Qualification belongs to a different candidate/source' }
+    if ($Qualification.anthropic -ceq $true) { return }
+    # A deferred account check stays visibly unverified. It does not block
+    # unrelated verified functionality, and is never inferred from missing auth.
+    if ($Qualification.anthropic -cne $false -or $Qualification.anthropicRouting -cne $true -or
+        $Qualification.anthropicState -cne 'deferred_by_owner') { throw 'Anthropic qualification is neither verified nor explicitly deferred' }
+    Assert-Hash $Qualification.anthropicDeferralReceipt $Qualification.anthropicDeferralSha256
+    $deferral = Get-Content -LiteralPath $Qualification.anthropicDeferralReceipt -Raw | ConvertFrom-Json
+    if ($deferral.answer -cne 'Keep Anthropic verification pending') { throw 'Owner deferral does not match this check' }
+    if (@($Qualification.limits).Count -eq 0) { throw 'Deferred verification must remain explicit in delivery provenance' }
+}
+
 function Assert-PlainPath([string]$Path) {
     if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw "Absolute path required: $Path" }
     $current = [IO.Path]::GetFullPath($Path)
