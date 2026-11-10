@@ -4,7 +4,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'release-files.ps1')
 $process=Get-Process -Id $PrimaryPid
-if($process.Path -cne $Executable){throw 'Fixture process path differs'}
+if(-not [string]::Equals($process.Path,[IO.Path]::GetFullPath($Executable),[StringComparison]::OrdinalIgnoreCase)){throw 'Fixture process path differs'}
+$Executable=$process.Path
 if(-not $ActivePath.StartsWith((Split-Path -Parent $Profile)+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Fixture pointer must stay inside its task root'}
 if(Test-Path -LiteralPath $ActivePath){throw 'Fixture pointer already exists'}
 [IO.Directory]::CreateDirectory($Runtime)|Out-Null

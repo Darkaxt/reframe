@@ -17,7 +17,7 @@
   ],
   "scope": "R9/R10 full closure command and multi-selection archive/delete/provider/model workflows, preserving R1-R8",
   "sourceStage": "4",
-  "contentSha256": "c309610d2f60fdf4cc59813caf5641222080bd13585a5295e018a7c667c0db8c",
+  "contentSha256": "5b368ff1590410beed1881a365884ea4e62bf75c83c09070d75213ef909da58d",
   "inputHashes": [
     {
       "file": "docs/claudegpt-spec.md",
@@ -61,7 +61,7 @@
     },
     {
       "file": "maintenance/windows/write-stop-fixture.ps1",
-      "sha256": "633813edecc684157db28ab1dc6cff86e76e182cb2d37c26f846b7951019ac2a"
+      "sha256": "12fe39a2715079e2e09754aa8b71db8bb3eb3015ae8d247e26b88c84af921b3b"
     },
     {
       "file": "package-lock.json",
