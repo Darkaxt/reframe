@@ -3,11 +3,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { callMain, cleanup, launch, newSession, quit, setup } from './helpers';
+import { workspaceKey } from '../src/shared/folder-workspaces';
 
 test('one catalogue has persistent pins, independent project branches and unified recents', async () => {
   test.setTimeout(0);
   const { dir, project, env, launches, state } = setup();
-  const other = path.join(dir, 'other', path.basename(project));
+  const other = path.join(dir, 'other-project');
+  const sameProject = path.join(dir, 'other-parent', path.basename(project));
   fs.mkdirSync(other, { recursive: true });
   const transcripts = path.join(env.REFRAME_CLAUDE_HOME!, 'projects', 'fixture');
   fs.mkdirSync(transcripts, { recursive: true });
@@ -28,6 +30,7 @@ test('one catalogue has persistent pins, independent project branches and unifie
     return id;
   };
   for (let index = 0; index < 25; index++) past(`Project A history ${index}`, project, 100 + index);
+  past('Same project from another path', sameProject, 105);
   past('Project B recent', other, 1);
   try {
     let { app, page } = await launch(env);
@@ -35,12 +38,8 @@ test('one catalogue has persistent pins, independent project branches and unifie
     if (!(await page.locator('.sidebar').isVisible()))
       await page.getByRole('button', { name: 'Sessions', exact: true }).click();
     await expect(page.locator('.sidebar-heading')).toHaveText(['Pinned', 'Projects', 'Recents']);
-    const branchA = page
-      .locator('.sidebar-project')
-      .filter({ has: page.locator(`button[title=${JSON.stringify(project)}]`) });
-    const branchB = page
-      .locator('.sidebar-project')
-      .filter({ has: page.locator(`button[title=${JSON.stringify(other)}]`) });
+    const branchA = page.locator(`.sidebar-project[data-project=${JSON.stringify(workspaceKey(project))}]`);
+    const branchB = page.locator(`.sidebar-project[data-project=${JSON.stringify(workspaceKey(other))}]`);
     await expect(branchA).toHaveCount(1);
     await expect(branchB).toHaveCount(1);
     await branchA.locator('.folder-workspace').focus();
@@ -50,6 +49,8 @@ test('one catalogue has persistent pins, independent project branches and unifie
     await branchA.getByRole('button', { name: 'Show more', exact: true }).click();
     const old = branchA.locator('.sidebar-row[draggable="true"]', { hasText: 'Project A history 24' });
     await expect(old).toBeVisible();
+    await expect(branchA.locator('.sidebar-project-chats')).toContainText('Same project from another path');
+    await expect(page.locator('.sidebar-project')).toHaveCount(2);
     await old.click({ button: 'right' });
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Pin chat')).toBe(true);
     await expect(page.locator('.sidebar-pinned .sidebar-row[draggable="true"]')).toHaveCount(1);
@@ -74,10 +75,9 @@ test('one catalogue has persistent pins, independent project branches and unifie
     await quit(app);
     ({ app, page } = await launch(env));
     await expect(page.locator('.sidebar-pinned')).toContainText('Project A history 24');
-    await expect(page.locator(`.folder-workspace[title=${JSON.stringify(other)}]`)).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
+    await expect(
+      page.locator(`.sidebar-project[data-project=${JSON.stringify(workspaceKey(other))}] .folder-workspace`),
+    ).toHaveAttribute('aria-expanded', 'true');
     const pinned = page.locator('.sidebar-pinned .sidebar-row[draggable="true"]');
     await pinned.click();
     await expect(pinned).toHaveAttribute('data-session', /.+/);

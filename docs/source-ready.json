@@ -4,7 +4,9 @@
     "Packaged native merged workspace/paging/creation/migration and affected existing behavior",
     "Windows release and installed delivery"
   ],
-  "scope": "Complete .5 owner correction: one Projects tree by final folder name across paths/providers; retain actual locations, plus/default roots, paging and expansion migration",
+  "status": "source_ready_for_validation",
+  "sourceBase": "580746e928f866098952068c31a8c868811c8b26",
+  "schema": "reframe.source-ready.v1",
   "inputHashes": [
     {
       "file": "docs/claudegpt-spec.md",
@@ -29,6 +31,10 @@
     {
       "file": "e2e/helpers.ts",
       "sha256": "b3e987cc5db973c638945a4ccb728e08f45f0d344307b4a2ddfa1586872b0fb4"
+    },
+    {
+      "file": "e2e/project-tree.spec.ts",
+      "sha256": "840ad1413a4bfea3b8a81a156f951a00d663e1be309893708cd36bc319456011"
     },
     {
       "file": "maintenance/fixtures/anthropic-cli.ps1",
@@ -87,7 +93,5 @@
       "sha256": "8a3b279518be0a7bee007cfc07ad2a278ad9eb6bf2473aff0ce865325246443b"
     }
   ],
-  "status": "source_ready_for_validation",
-  "sourceBase": "580746e928f866098952068c31a8c868811c8b26",
-  "schema": "reframe.source-ready.v1"
+  "scope": "Complete .5 owner correction: one Projects tree by final folder name across paths/providers; retain actual locations, plus/default roots, paging and expansion migration"
 }
