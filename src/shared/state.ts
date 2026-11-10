@@ -69,6 +69,10 @@ export const launchOptionsSchema = z.object({
   permissionMode: z.enum(PERMISSION_MODES).optional(),
   worktree: z.boolean().optional(),
   worktreeName: z.string().optional(),
+  /** More folders Claude Code may use (--add-dir). */
+  addDirs: z.array(z.string()).optional(),
+  /** Sent as the first message when the session first starts (before it was used). */
+  initialPrompt: z.string().optional(),
   /** Claude Code made the worktree, and the session runs in it: starting it fresh again must not make another. */
   worktreeCreated: z.boolean().optional(),
 });
@@ -121,6 +125,13 @@ export type Language = (typeof LANGUAGES)[number];
 export const CLOSE_WINDOW = ['ask', 'end', 'keep'] as const;
 export type CloseWindow = (typeof CLOSE_WINDOW)[number];
 
+const providerDefaultsSchema = z.object({
+  model: z.string().optional(),
+  effort: z.enum(EFFORT_LEVELS).optional(),
+  permissionMode: z.enum(PERMISSION_MODES).optional(),
+  addDirs: z.array(z.string()).optional(),
+});
+
 export const preferencesSchema = z.object({
   archiveRoot: z.string().optional(),
   /** "New session" fills the name with the folder's name. */
@@ -142,6 +153,10 @@ export const preferencesSchema = z.object({
   defaultModel: z.string().optional(),
   defaultEffort: z.enum(EFFORT_LEVELS).optional(),
   defaultPermissionMode: z.enum(PERMISSION_MODES).optional(),
+  /** "New session" remembers the last model, effort, permission mode and folders for each provider. */
+  providerDefaults: z
+    .object({ chatgpt: providerDefaultsSchema.optional(), anthropic: providerDefaultsSchema.optional() })
+    .optional(),
 });
 
 export const DEFAULT_PREFERENCES: z.infer<typeof preferencesSchema> = {

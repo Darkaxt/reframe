@@ -76,6 +76,10 @@ export interface NewSessionRequest {
   model?: string;
   effort?: EffortLevel | '';
   permissionMode?: PermissionMode;
+  /** More folders Claude Code may use (--add-dir), absolute paths. */
+  addDirs?: string[];
+  /** Sent as the session's first message. */
+  initialPrompt?: string;
   target?: DropTarget;
 }
 

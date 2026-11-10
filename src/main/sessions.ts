@@ -223,7 +223,7 @@ export class SessionManager extends EventEmitter<Events> {
       instance: runtime.instance,
       file: claude.file,
       args: claude.viaCmd
-        ? cmdCommandLine(claude.viaCmd, claudeArgs(session, mode, settings))
+        ? cmdCommandLine(claude.viaCmd, claudeArgs(session, mode, settings, { prompt: false }))
         : [...claude.prefixArgs, ...claudeArgs(session, mode, settings)],
       cwd: session.cwd,
       env: providerEnv(

@@ -708,7 +708,8 @@ button {
 }
 
 input,
-select {
+select,
+textarea {
   font: inherit;
   color: var(--text);
   padding: 6px 8px;
@@ -716,6 +717,10 @@ select {
   border-radius: var(--radius);
   background: var(--bg);
   min-width: 0;
+}
+
+textarea {
+  resize: vertical;
 }
 
 .checkbox {

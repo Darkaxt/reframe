@@ -134,6 +134,7 @@ import { cleanUp, dropsDir } from './cleanup';
 import { History, type PreparedHistory, type RetireJob } from './history';
 import { isArchiveRoot } from './archive-root';
 import { staleTiles } from './stale-tiles';
+import { cleanAddDirs, cleanPrompt, rememberedDefaults } from '@shared/new-session';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
 import { expandedWorkspaceKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
@@ -820,6 +821,8 @@ export class ReframeApp {
         permissionMode: PERMISSION_MODES.find((m) => m === request.permissionMode),
         worktree: request.worktree || undefined,
         worktreeName: (request.worktree && request.worktreeName?.trim()) || undefined,
+        addDirs: cleanAddDirs(request.addDirs),
+        initialPrompt: cleanPrompt(request.initialPrompt),
       },
       lifecycle: 'open',
       createdAt: now,
@@ -830,6 +833,13 @@ export class ReframeApp {
       ...this.state,
       sessions: { ...this.state.sessions, [record.id]: record },
       recentFolders: [cwd, ...this.state.recentFolders.filter((f) => key(f) !== key(cwd))].slice(0, MAX_RECENT_FOLDERS),
+      preferences: {
+        ...this.state.preferences,
+        providerDefaults: {
+          ...this.state.preferences.providerDefaults,
+          [record.launch.provider ?? 'chatgpt']: rememberedDefaults(record.launch),
+        },
+      },
     };
     this.mutateWindow(windowId, (w) => addTile(w, record.id, request.target));
     this.sessions.start(record, 'new');

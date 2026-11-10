@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { NewSessionResult } from '@shared/ipc';
+import { defaultsFor, parseAddDirs, MAX_PROMPT } from '@shared/new-session';
+import type { Preferences } from '@shared/state';
 import { providerName, PROVIDERS, type Provider } from '@shared/providers';
 import {
   EFFORT_LEVELS,
@@ -34,6 +36,9 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
   const providerRef = useRef<Provider>(initial?.provider ?? 'chatgpt');
   const [providerRoots, setProviderRoots] = useState<Record<Provider, string>>({ chatgpt: '', anthropic: '' });
   const [permissionMode, setPermissionMode] = useState<PermissionMode | ''>('');
+  const [addDirs, setAddDirs] = useState('');
+  const [initialPrompt, setInitialPrompt] = useState('');
+  const currentPreferences = useRef<Preferences | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
   const [error, setError] = useState<Extract<NewSessionResult, { ok: false }> | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,10 +50,13 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
       setProviderRoots(providerWorkspaceRoots);
       setCwd((current) => current || providerWorkspaceRoots[providerRef.current]);
       setNameFromFolder(preferences.nameFromFolder);
-      // What Settings says new sessions start with, unless something was picked here already.
-      setModel((current) => current || (providerRef.current === 'chatgpt' ? preferences.defaultModel : '') || '');
-      setPermissionMode((current) => current || preferences.defaultPermissionMode || '');
-      if (!effortPicked.current) setEffort(preferences.defaultEffort || '');
+      // What was used last for this provider (else Settings' defaults), unless something was picked here already.
+      const remembered = defaultsFor(preferences, providerRef.current);
+      currentPreferences.current = preferences;
+      setModel((current) => current || remembered.model || '');
+      setPermissionMode((current) => current || remembered.permissionMode || '');
+      setAddDirs((current) => current || remembered.addDirs.join('\n'));
+      if (!effortPicked.current) setEffort(remembered.effort || '');
     });
     folderInput.current?.focus();
   }, []);
@@ -84,10 +92,25 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
       effort: effort ?? undefined,
       provider,
       permissionMode: permissionMode || undefined,
+      addDirs: parseAddDirs(addDirs),
+      initialPrompt: initialPrompt.trim() || undefined,
     });
     setBusy(false);
     if (result.ok) onClose();
     else setError(result);
+  };
+
+  const pickProvider = (next: Provider) => {
+    providerRef.current = next;
+    setProvider(next);
+    setCwd(initial?.locations?.find((location) => location.provider === next)?.cwd || providerRoots[next]);
+    // Each provider starts with its own remembered choices.
+    if (!currentPreferences.current) return setModel('');
+    const remembered = defaultsFor(currentPreferences.current, next);
+    setModel(remembered.model || '');
+    setEffort(remembered.effort || '');
+    setPermissionMode(remembered.permissionMode || '');
+    setAddDirs(remembered.addDirs.join('\n'));
   };
 
   const browse = async () => {
@@ -110,19 +133,11 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
       >
         <h2 id="new-session-title">{t('dialog.title')}</h2>
         <label className="field">
-          <span>Model provider</span>
+          <span>{t('dialog.provider')}</span>
           <select
-            aria-label="Model provider"
+            aria-label={t('dialog.provider')}
             value={provider}
-            onChange={(e) => {
-              providerRef.current = e.target.value as Provider;
-              setProvider(e.target.value as Provider);
-              setModel('');
-              setCwd(
-                initial?.locations?.find((location) => location.provider === e.target.value)?.cwd ||
-                  providerRoots[e.target.value as Provider],
-              );
-            }}
+            onChange={(e) => pickProvider(e.target.value as Provider)}
           >
             {PROVIDERS.map((p) => (
               <option key={p} value={p}>
@@ -132,21 +147,19 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
           </select>
         </label>
         <p className="provider-note">
-          {provider === 'anthropic'
-            ? 'Uses your Claude subscription. Sign in with /login in this chat if asked.'
-            : 'Uses your existing ClaudeGPT proxy, model and effort.'}
+          {t(provider === 'anthropic' ? 'dialog.providerNote.anthropic' : 'dialog.providerNote.chatgpt')}
         </p>
         <label className="field">
-          <span>Effort</span>
+          <span>{t('dialog.effort')}</span>
           <select
-            aria-label="Effort"
+            aria-label={t('dialog.effort')}
             value={effort ?? ''}
             onChange={(event) => {
               effortPicked.current = true;
               setEffort(event.target.value as EffortLevel | '');
             }}
           >
-            <option value="">Default (CLI settings)</option>
+            <option value="">{t('dialog.effortDefault')}</option>
             {EFFORT_LEVELS.map((level) => (
               <option key={level} value={level}>
                 {level}
@@ -205,6 +218,21 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
           <span>{t('dialog.nameFromFolder')}</span>
         </label>
 
+        <label className="field">
+          <span>{t('dialog.prompt')}</span>
+          <textarea
+            value={initialPrompt}
+            rows={3}
+            maxLength={MAX_PROMPT}
+            placeholder={t('dialog.promptPlaceholder')}
+            onChange={(e) => setInitialPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              // Ctrl+Enter starts, as the Start button; Enter alone is a new line.
+              if (e.key === 'Enter' && e.ctrlKey) e.currentTarget.form?.requestSubmit();
+            }}
+          />
+        </label>
+
         <label className="checkbox">
           <input type="checkbox" checked={worktree} onChange={(e) => setWorktree(e.target.checked)} />
           <span>{t('dialog.worktree')}</span>
@@ -243,6 +271,16 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
                 </option>
               ))}
             </select>
+          </label>
+          <label className="field">
+            <span>{t('dialog.addDirs')}</span>
+            <textarea
+              value={addDirs}
+              rows={2}
+              spellCheck={false}
+              placeholder={t('dialog.addDirsPlaceholder')}
+              onChange={(e) => setAddDirs(e.target.value)}
+            />
           </label>
         </details>
 
