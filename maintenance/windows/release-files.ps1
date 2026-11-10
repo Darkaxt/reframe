@@ -117,12 +117,39 @@ function Restore-FrozenFiles($Entries) {
     }
 }
 
-function Assert-ReframeIdle {
-    # Include external terminals and node wrappers, not only app-owned panes.
-    $clients = @(Get-CimInstance Win32_Process | Where-Object {
-        $_.Name -match '^(reframe|claude)(\.exe)?$' -or
-        ($_.Name -match '^(node|bun)(\.exe)?$' -and $_.CommandLine -match '(claude-code|claude[\\/]cli)')
+function Get-ReframeClients([Parameter(Mandatory)][string]$Root) {
+    # Clients coupled to this installation: the app, anything it started (its panes, node wrappers), and any
+    # Claude client running from or configured into the installation folder (its clients, runtime, settings).
+    # A Claude CLI installed and launched elsewhere without Reframe's settings reads and writes nothing an
+    # activation replaces, so it may keep running.
+    $all = @(Get-CimInstance Win32_Process)
+    $byId = @{}
+    foreach ($process in $all) { $byId[[int]$process.ProcessId] = $process }
+    $folder = [IO.Path]::GetFullPath($Root).TrimEnd('\')
+    $isApp = { param($p) $p.Name -match '^reframe(\.exe)?$' }
+    @($all | Where-Object {
+        $p = $_
+        $client = (& $isApp $p) -or $p.Name -match '^claude(\.exe)?$' -or
+            ($p.Name -match '^(node|bun)(\.exe)?$' -and $p.CommandLine -match '(claude-code|claude[\\/]cli)')
+        if (-not $client) { return $false }
+        if (& $isApp $p) { return $true }
+        foreach ($text in @($p.ExecutablePath, $p.CommandLine)) {
+            if ($text -and $text.IndexOf($folder, [StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+        }
+        # Started by the app: walk the parents, stopping at a reused id (a "parent" younger than its child).
+        $child = $p
+        while ($byId.ContainsKey([int]$child.ParentProcessId)) {
+            $parent = $byId[[int]$child.ParentProcessId]
+            if ($parent.ProcessId -eq $child.ProcessId -or $parent.CreationDate -gt $child.CreationDate) { break }
+            if (& $isApp $parent) { return $true }
+            $child = $parent
+        }
+        $false
     } | Select-Object ProcessId, ParentProcessId, CreationDate, ExecutablePath)
+}
+
+function Assert-ReframeIdle([Parameter(Mandatory)][string]$Root) {
+    $clients = @(Get-ReframeClients $Root)
     if ($clients.Count) { throw "Clients still running; preserve them and retain the candidate: $($clients | ConvertTo-Json -Compress)" }
 }
 

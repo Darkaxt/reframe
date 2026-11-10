@@ -1,6 +1,5 @@
-# Checks every push and pull request on Windows, macOS and Linux: types, lint, format, unit tests, the
-# packaged app, and the end-to-end tests. Those run against the packaged app; on macOS and Linux they are
-# informational for now (reframe is developed on Windows first).
+# Checks every push and pull request on Windows: types, lint, format, unit tests, the
+# packaged app, and the end-to-end tests against the packaged app. This fork ships for Windows only.
 name: CI
 
 on:

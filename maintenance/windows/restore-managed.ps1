@@ -8,13 +8,15 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'release-files.ps1')
 Assert-Hash $Receipt $ReceiptSha256
 $r = Get-Content -LiteralPath $Receipt -Raw | ConvertFrom-Json
+# The installation folder: <root>\releases\<version>\reframe.exe.
+$installRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $r.previousExecutable))
 if ($r.schema -cne 'claudegpt.reframe-rollback.v1') { throw 'Unsupported rollback contract' }
 $mutex = [Threading.Mutex]::new($false, 'Local\ClaudeGPTReframeDeployment')
 $owned = $false
 try {
     try { $owned = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { throw 'Interrupted operation; inspect before restore' }
     if (-not $owned) { throw 'Another activation/restore owns the mutex' }
-    Assert-ReframeIdle
+    Assert-ReframeIdle $installRoot
     Assert-Hash $r.previousExecutable $r.previousExecutableSha256
     Test-ReleaseFiles (Split-Path -Parent $r.previousExecutable) $r.previousPayload
     foreach ($entry in $r.protected) { Assert-Hash $entry.path $entry.sha256 }
