@@ -24,10 +24,10 @@ export function claudeArgs(
   }
   for (const dir of session.launch.addDirs ?? []) args.push('--add-dir', dir);
   if (settingsFile) args.push('--settings', settingsFile);
-  // The first message, only on the very first start: once used, the transcript has it. A leading "-" would read as
-  // an option. Not through cmd.exe (options.prompt false): free text there would meet %-expansion and quoting.
+  // The first message, only on the very first start: once used, the transcript has it. "--" ends the options, so
+  // neither the variadic --add-dir nor a leading "-" can claim it (checked against claude 2.1.319). Not through
+  // cmd.exe (options.prompt false): free text there would meet %-expansion and quoting.
   const prompt = session.launch.initialPrompt;
-  if (prompt && mode === 'new' && !session.used && options.prompt !== false)
-    args.push(prompt.startsWith('-') ? ` ${prompt}` : prompt);
+  if (prompt && mode === 'new' && !session.used && options.prompt !== false) args.push('--', prompt);
   return args;
 }
