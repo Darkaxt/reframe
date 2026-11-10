@@ -4,7 +4,7 @@ import type { Provider } from './providers';
 import type { FolderWorkspace } from './folder-workspaces';
 import type { DropTarget, LayoutNode } from './layout';
 import type { Locale } from './i18n';
-import type { PermissionMode } from './launch';
+import type { EffortLevel, PermissionMode } from './launch';
 import type { CloseWindow, DockEntry, Preferences, SessionRecord, Language } from './state';
 
 /** starting → idle/busy/waiting while running; ended once the process is gone; error if it could not run. */
@@ -53,6 +53,7 @@ export interface WindowView {
   /** The claude chosen in Settings (null: the one on the PATH), and what new sessions start with (preferences). */
   claudeBin: string | null;
   defaultModel: string | null;
+  defaultEffort: EffortLevel | null;
   defaultPermissionMode: PermissionMode | null;
   /** The system starts reframe when the user logs in (the system's setting, not a preference). */
   startWithSystem: boolean;
@@ -71,6 +72,7 @@ export interface NewSessionRequest {
   worktree?: boolean;
   worktreeName?: string;
   model?: string;
+  effort?: EffortLevel | '';
   permissionMode?: PermissionMode;
   target?: DropTarget;
 }
@@ -81,6 +83,7 @@ export type NewSessionResult =
   | { ok: false; error: 'folderMissing' | 'claudeNotFound'; distro?: string };
 
 export interface DialogDefaults {
+  providerWorkspaceRoots: Record<Provider, string>;
   recentFolders: string[];
   preferences: Preferences;
   /** The claude sessions run: where it was found (or chosen), null when there is none. */
@@ -88,8 +91,9 @@ export interface DialogDefaults {
 }
 
 /** A change of preferences; "" takes a chosen claude, model or permission mode back. */
-export type PreferencesPatch = Partial<Omit<Preferences, 'defaultPermissionMode'>> & {
+export type PreferencesPatch = Partial<Omit<Preferences, 'defaultPermissionMode' | 'defaultEffort'>> & {
   defaultPermissionMode?: PermissionMode | '';
+  defaultEffort?: EffortLevel | '';
 };
 
 /**
@@ -124,6 +128,7 @@ export interface AppListItem {
 
 /** A claude running outside reframe (from Claude Code's session registry). */
 export interface RunningListItem {
+  provider?: Provider;
   kind: 'running';
   pid: number;
   claudeSessionId: string;
@@ -137,6 +142,7 @@ export interface RunningListItem {
 
 /** A past session found in Claude Code's transcripts. */
 export interface FoundListItem {
+  provider?: Provider;
   kind: 'found';
   claudeSessionId: string;
   cwd: string;
@@ -328,8 +334,8 @@ export interface ReframeApi {
   onRenameSession(listener: (rename: SessionRename) => void): () => void;
   /** The group menu's "Rename" asks the window to edit the group's name in place. */
   onRenameGroup(listener: (groupId: string) => void): () => void;
-  getSessionList(query: string, limit: number, folder?: string): Promise<SessionList>;
-  setProjectExpanded(folder: string, expanded: boolean): void;
+  getSessionList(query: string, limit: number, folder?: string, provider?: Provider): Promise<SessionList>;
+  setProjectExpanded(folder: string, expanded: boolean, provider?: Provider): void;
   restoreArchive(id: string): Promise<{ ok: boolean; error?: string }>;
   /** The session list's first page (no search), sent whenever it changed. */
   onSessionList(listener: (list: SessionList) => void): () => void;

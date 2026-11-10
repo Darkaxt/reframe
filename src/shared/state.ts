@@ -1,6 +1,6 @@
 // Persisted application state (userData/state.json) and its schema.
 import { z } from 'zod';
-import { PERMISSION_MODES } from './launch';
+import { EFFORT_LEVELS, PERMISSION_MODES } from './launch';
 import { PROVIDERS } from './providers';
 import type { GroupNode, LayoutNode } from './layout';
 
@@ -65,6 +65,7 @@ export const windowStateSchema = z.object({
 export const launchOptionsSchema = z.object({
   provider: z.enum(PROVIDERS).optional(),
   model: z.string().optional(),
+  effort: z.enum(EFFORT_LEVELS).optional(),
   permissionMode: z.enum(PERMISSION_MODES).optional(),
   worktree: z.boolean().optional(),
   worktreeName: z.string().optional(),
@@ -131,6 +132,7 @@ export const preferencesSchema = z.object({
   claudeBin: z.string().optional(),
   /** What "New session" fills in for the model and the permission mode. */
   defaultModel: z.string().optional(),
+  defaultEffort: z.enum(EFFORT_LEVELS).optional(),
   defaultPermissionMode: z.enum(PERMISSION_MODES).optional(),
 });
 
@@ -170,7 +172,15 @@ export const appStateSchema = z.object({
   pinnedChats: z.array(z.string()).optional(),
   expandedProjects: z.array(z.string()).optional(),
   folderWorkspaces: z
-    .array(z.object({ id: z.string(), cwd: z.string(), name: z.string(), sessionIds: z.array(z.string()) }))
+    .array(
+      z.object({
+        id: z.string(),
+        cwd: z.string(),
+        name: z.string(),
+        sessionIds: z.array(z.string()),
+        provider: z.enum(PROVIDERS).default('chatgpt'),
+      }),
+    )
     .optional(),
   archives: z
     .array(

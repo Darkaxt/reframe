@@ -34,6 +34,19 @@ For cutover failure, use the exact activation's frozen `restore-managed.ps1 -Rec
 
 ## Quit from a console
 
+New session exposes Effort and uses Settings → Default effort when configured.
+The Default choice inherits native CLI settings; an explicit level persists for
+that chat and is passed with --effort when started/resumed. This changes neither
+global Claude settings nor provider/permission controls.
+
+Projects have separate ChatGPT and Claude folder trees. Workspace identity is
+provider plus the canonical full folder path; Windows case/separator/dot variants
+within a provider group together, and the same folder under another provider is independent.
+Pinned and Recents still cover the shared ecosystem. A workspace's + opens
+New session for its exact folder/provider. Global New session defaults to the
+system Documents/ChatGPT or Documents/Anthropic folder. Existing project/history
+locations are preserved; this does not migrate or duplicate repositories.
+
 Windows releases from0.10.0-claudegpt.4 use thread-cleanup0.1.1 with its pinned
 psutil7.2.2 native process reader. The managed candidate binds a versioned helper
 bundle so the previous installation retains its original helper for rollback.

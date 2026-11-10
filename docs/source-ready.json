@@ -1,23 +1,44 @@
 {
-  "helperRequirement": "thread-cleanup0.1.1 and psutil7.2.2, bound separately at managed activation",
-  "contentSha256": "c1734e273d8ab30f6e9744bab81f82c49035a194e7dba7dca825a169c93dffcc",
+  "sourceBase": "7d9660f99a6e12ce370df3a509367381922c124f",
+  "checksNotYetRun": [
+    "Expanded main/renderer types/lint/units/build",
+    "Native effort/provider trees/context creation/legacy migration/layout plus affected batch/history checks",
+    "Final Windows package and release/installed verification"
+  ],
+  "helperSourceCommit": "cebba98b1cf3a602e81bda1fe203242550fefe29",
+  "helperRequirement": "thread-cleanup0.1.1, psutil7.2.2",
+  "schema": "reframe.source-ready.v1",
+  "scope": "Complete .4 Windows deletion latency, default/session effort, provider workspace trees and contextual + creation",
+  "contentSha256": "b41fee6e78cd6822b114f7a2eb323d45b6ad35e0cc5601a6b28ae71eea1b6284",
   "status": "source_ready_for_validation",
   "inputHashes": [
     {
+      "file": "docs/claudegpt-spec.md",
+      "sha256": "f5ff387e0d3fec3882b8721b40f4e4ef76c1a762e4da335639ec5def03bca6f5"
+    },
+    {
       "file": "docs/CLAUDEGPT.md",
-      "sha256": "37937d98a97f879aaebfd35a37e32be241bd8fdd24188feed545b7e3937dac70"
+      "sha256": "103c6566bc3359b9bdd4d7710d1c3f8d3c1d259431da1bd471188680dd49e8ac"
     },
     {
       "file": "docs/deletion-latency-spec.md",
-      "sha256": "c329be94fc09e428e94f9063cebd4a9868913a4317662e774045c2d80507106b"
+      "sha256": "95d1d014aefc2bf48f2612a6b275efa95485630f24e19bf38b1765f0d35c7be1"
     },
     {
       "file": "docs/releases/v0.10.0-claudegpt.4.md",
-      "sha256": "2dc17e9efaafef386698b02d75d67f93bed77c59dda91372d07cd1b8bfd21b84"
+      "sha256": "7f645bbb002fcae3d3ab1b6750ee7c8678bd1a933b5a24c5bb6767963f33bad9"
     },
     {
       "file": "e2e/bulk-chats.spec.ts",
       "sha256": "dd8007ed188e0be769df2922887c75f354df4951dff35bd93cfa4453d5ff04bf"
+    },
+    {
+      "file": "e2e/claudegpt.spec.ts",
+      "sha256": "f8b03b19370aab5107145ff70bce99343e395548cdc72ae81c2384d8f3718288"
+    },
+    {
+      "file": "e2e/helpers.ts",
+      "sha256": "ed82d2f3824ae2fb07f13ba19b4ad18dd17c2bdfded09ee9de5204034c522395"
     },
     {
       "file": "maintenance/history_backend.py",
@@ -37,21 +58,67 @@
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "0be66d03aaf3cadac268684cb282debeec4a3828ce2ea71cefe208ed89b01c3d"
+      "sha256": "65b0f8f14cf4ba2335c64e518db417f56939ddd0f02f9a33053c34022f418e76"
+    },
+    {
+      "file": "src/main/claude/args.ts",
+      "sha256": "e80e6de3979b0f14202bc8affc5ffb6c74369a8baad984c0d2d1b8d81b26baa1"
+    },
+    {
+      "file": "src/main/claude/claude.test.ts",
+      "sha256": "465e355d3a8c68e89f8124c58aa23ad159485d5693d787d69add41da62b2b70b"
     },
     {
       "file": "src/main/history.ts",
       "sha256": "624c3fa61cde54b9042db2ed3392aad1ad1dcc110c871766933f6405cd6305e5"
+    },
+    {
+      "file": "src/preload/index.ts",
+      "sha256": "10e59715ca7d749c172e562713e3fd834958c08e9c970ad69abae5e9d0b5b248"
+    },
+    {
+      "file": "src/renderer/App.tsx",
+      "sha256": "fe1d397554078ada2074fe3c4e933790bc11d906cc1e802b2ee02effcacac9e7"
+    },
+    {
+      "file": "src/renderer/components/NewSessionDialog.tsx",
+      "sha256": "a3a0cb898e029115b982628aa1f37272021757e5b4ae02148d79e2ac2a0c555f"
+    },
+    {
+      "file": "src/renderer/components/SessionSidebar.tsx",
+      "sha256": "bf6f06018d8617c5cbb400ad3190e78bdae321245f53ca500610e52f8415dd0f"
+    },
+    {
+      "file": "src/renderer/components/SettingsDialog.tsx",
+      "sha256": "1a80a1ecf2c24228a0ecc5516856d12f70465268502ac660446f2191b084ad88"
+    },
+    {
+      "file": "src/renderer/styles.css",
+      "sha256": "a8563d2756ea75998bb6460c5ea22a76f8bc18664d7fa41f82e6f0b5244a0a78"
+    },
+    {
+      "file": "src/shared/folder-workspaces.test.ts",
+      "sha256": "f0d505ba59fd7f8aa5a53b18e08bcc24c36efed4c0e9686bf76b240145a63c38"
+    },
+    {
+      "file": "src/shared/folder-workspaces.ts",
+      "sha256": "ef3bebc40ea961a5b872e4f3cdaa2108e9ac64bbb5becd81ddd3ebb11810b0c8"
+    },
+    {
+      "file": "src/shared/ipc.ts",
+      "sha256": "722d72303fe122f8b5789e8ad891d908afc5b7b48dfc99a4e90b27845dd25c25"
+    },
+    {
+      "file": "src/shared/launch.ts",
+      "sha256": "9eb58b610187cb5ae5532f09ed8c4e9ad35b5fb784e0d6f6bcfd573cf08501aa"
+    },
+    {
+      "file": "src/shared/sidebar-chats.ts",
+      "sha256": "2cce2b57a4dbbc0c4e19bcef374d2584b3373991d098ba732c14de1294225f37"
+    },
+    {
+      "file": "src/shared/state.ts",
+      "sha256": "c9277252716fbe2054df0f324a1881deea5c893d2fa570e66c0b0ed97b971a55"
     }
-  ],
-  "scope": "Complete one-fresh-native-census-per-deletion Windows latency repair",
-  "sourceBase": "7d9660f99a6e12ce370df3a509367381922c124f",
-  "schema": "reframe.source-ready.v1",
-  "checksNotYetRun": [
-    "Focused native helper/backend safety and ten-chat timing",
-    "Types/lint/units/build",
-    "Packaged native batch active/skip/cancel/shared-index/failure and native helper binding",
-    "Published Windows release and installed verification"
-  ],
-  "helperSourceCommit": "cebba98b1cf3a602e81bda1fe203242550fefe29"
+  ]
 }

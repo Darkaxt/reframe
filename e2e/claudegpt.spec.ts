@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { folderKey } from '../src/shared/folder-workspaces';
 import { setup, launch, quit, cleanup, newSession, callMain, answerDialogs, dialogsAsked } from './helpers';
 
 test('providers, automatic folders and native inactive-chat actions survive restart', async () => {
@@ -11,10 +12,25 @@ test('providers, automatic folders and native inactive-chat actions survive rest
   try {
     let { app, page } = await launch(env);
     await page.evaluate(() => window.reframe.setPreferences({ defaultModel: 'gpt-fixture' }));
+    await page.keyboard.press('Control+Comma');
+    const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
+    await settings.getByRole('combobox', { name: 'Default effort', exact: true }).selectOption('high');
+    await settings.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect.poll(() => state().preferences.defaultEffort).toBe('high');
     await newSession(page, project, 'ChatGPT fixture');
+    await expect
+      .poll(
+        () =>
+          launches().find(
+            (entry) => entry.event === 'start' && entry.args.includes(byName('ChatGPT fixture').claudeSessionId),
+          )?.args,
+      )
+      .toEqual(expect.arrayContaining(['--effort', 'high']));
     await expect(page.locator('.tile .provider-icon[aria-label="ChatGPT"]')).toBeVisible();
     await page.getByRole('button', { name: 'New session', exact: true }).first().click();
     const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('combobox', { name: 'Effort', exact: true })).toHaveValue('high');
+    await dialog.getByRole('combobox', { name: 'Effort', exact: true }).selectOption('xhigh');
     await dialog.getByRole('combobox', { name: 'Model provider' }).selectOption('anthropic');
     await dialog.getByText('Advanced', { exact: true }).click();
     await expect(dialog.getByLabel('Model', { exact: true })).toHaveValue('');
@@ -28,7 +44,7 @@ test('providers, automatic folders and native inactive-chat actions survive rest
           launches().find((l) => l.event === 'start' && l.args.includes(byName('Anthropic fixture').claudeSessionId))
             ?.args,
       )
-      .toEqual(expect.arrayContaining(['--model', 'sonnet']));
+      .toEqual(expect.arrayContaining(['--model', 'sonnet', '--effort', 'xhigh']));
     expect(
       launches().find((l) => l.event === 'start' && l.args.includes(byName('Anthropic fixture').claudeSessionId))
         ?.script,
@@ -41,11 +57,36 @@ test('providers, automatic folders and native inactive-chat actions survive rest
     );
     if (!(await page.locator('.sidebar').isVisible()))
       await page.getByRole('button', { name: 'Sessions', exact: true }).click();
-    await expect(page.locator('.folder-workspace', { hasText: path.basename(project) })).toBeVisible();
-    await page.locator('.folder-workspace', { hasText: path.basename(project) }).click();
-    await expect(page.locator('.folder-workspace[aria-expanded="true"]')).toHaveCount(1);
+    const gptProjects = page.getByRole('group', { name: 'ChatGPT workspaces', exact: true });
+    const claudeProjects = page.getByRole('group', { name: 'Claude workspaces', exact: true });
+    await expect(gptProjects.locator('.folder-workspace')).toHaveCount(1);
+    await expect(claudeProjects.locator('.folder-workspace')).toHaveCount(1);
+    await gptProjects.locator('.folder-workspace').click();
+    await claudeProjects.locator('.folder-workspace').click();
+    await expect(page.locator('.folder-workspace[aria-expanded="true"]')).toHaveCount(2);
+    await expect(gptProjects.locator('.sidebar-project-chats')).toContainText('ChatGPT fixture');
+    await expect(gptProjects.locator('.sidebar-project-chats')).not.toContainText('Anthropic fixture');
+    await expect(claudeProjects.locator('.sidebar-project-chats')).toContainText('Anthropic fixture');
+    await expect(claudeProjects.locator('.sidebar-project-chats')).not.toContainText('ChatGPT fixture');
+    await claudeProjects
+      .getByRole('button', { name: `New Claude session in ${path.basename(project)}`, exact: true })
+      .click();
+    await expect(page.getByRole('dialog').getByRole('combobox', { name: 'Model provider', exact: true })).toHaveValue(
+      'anthropic',
+    );
+    await expect(page.getByRole('dialog').getByPlaceholder('Path to a project folder')).toHaveValue(project);
+    await expect(page.getByRole('dialog').getByRole('combobox', { name: 'Effort', exact: true })).toHaveValue('high');
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await gptProjects
+      .getByRole('button', { name: `New ChatGPT session in ${path.basename(project)}`, exact: true })
+      .click();
+    await expect(page.getByRole('dialog').getByRole('combobox', { name: 'Model provider', exact: true })).toHaveValue(
+      'chatgpt',
+    );
+    await expect(page.getByRole('dialog').getByPlaceholder('Path to a project folder')).toHaveValue(project);
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.locator('.sidebar-recents .sidebar-row[draggable="true"]')).toHaveCount(2);
-    await page.locator('.folder-workspace', { hasText: path.basename(project) }).click();
+    await gptProjects.locator('.folder-workspace').click();
     await page.locator('.tile').first().locator('.tile-header').click({ button: 'right' });
     const archiveEnabled = await app.evaluate(() => {
       const main = (
@@ -85,9 +126,84 @@ test('providers, automatic folders and native inactive-chat actions survive rest
     ({ app, page } = await launch(env));
     await expect(page.locator('.tile .provider-icon[aria-label="ChatGPT"]')).toHaveCount(1);
     await expect(page.locator('.tile .provider-icon[aria-label="Anthropic"]')).toHaveCount(1);
+    await expect(
+      page.getByRole('group', { name: 'ChatGPT workspaces', exact: true }).locator('.folder-workspace'),
+    ).toHaveAttribute('aria-expanded', 'false');
+    await expect(
+      page.getByRole('group', { name: 'Claude workspaces', exact: true }).locator('.folder-workspace'),
+    ).toHaveAttribute('aria-expanded', 'true');
+    expect(state().preferences.defaultEffort).toBe('high');
+    expect(byName('ChatGPT fixture').launch.effort).toBe('high');
+    expect(byName('Anthropic fixture').launch.effort).toBe('xhigh');
+    await page.getByRole('button', { name: 'New session', exact: true }).first().click();
+    const defaults = await page.evaluate(() => window.reframe.getDialogDefaults());
+    await expect(page.getByRole('dialog').getByPlaceholder('Path to a project folder')).toHaveValue(
+      defaults.providerWorkspaceRoots.chatgpt,
+    );
+    await page
+      .getByRole('dialog')
+      .getByRole('combobox', { name: 'Model provider', exact: true })
+      .selectOption('anthropic');
+    await expect(page.getByRole('dialog').getByPlaceholder('Path to a project folder')).toHaveValue(
+      defaults.providerWorkspaceRoots.anthropic,
+    );
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
     await quit(app);
   } finally {
     await cleanup(dir);
+  }
+});
+
+test('legacy folder expansion migrates into separate provider workspace branches without moving histories', async () => {
+  const fixture = setup();
+  try {
+    let { app, page } = await launch(fixture.env);
+    await quit(app);
+    const file = path.join(fixture.env.REFRAME_USER_DATA!, 'state.json');
+    const state = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const ids = ['a9157600-1122-4333-8444-000000000001', 'a9157600-1122-4333-8444-000000000002'];
+    state.sessions = Object.fromEntries(
+      ids.map((id, index) => [
+        id,
+        {
+          id,
+          claudeSessionId: id,
+          cwd: fixture.project,
+          name: index ? 'Legacy Claude' : 'Legacy ChatGPT',
+          launch: { provider: index ? 'anthropic' : 'chatgpt' },
+          lifecycle: 'ended',
+          createdAt: 0,
+          lastActiveAt: 0,
+        },
+      ]),
+    );
+    const legacyKey = folderKey(fixture.project);
+    state.expandedProjects = [legacyKey];
+    state.folderWorkspaces = [
+      { id: legacyKey, cwd: fixture.project, name: path.basename(fixture.project), sessionIds: ids },
+    ];
+    delete state.preferences.defaultEffort;
+    fs.writeFileSync(file, JSON.stringify(state));
+    ({ app, page } = await launch(fixture.env));
+    if (!(await page.locator('.sidebar').isVisible()))
+      await page.getByRole('button', { name: 'Sessions', exact: true }).click();
+    const gpt = page.getByRole('group', { name: 'ChatGPT workspaces', exact: true });
+    const claude = page.getByRole('group', { name: 'Claude workspaces', exact: true });
+    await expect(gpt.locator('.folder-workspace')).toHaveAttribute('aria-expanded', 'true');
+    await expect(claude.locator('.folder-workspace')).toHaveAttribute('aria-expanded', 'true');
+    await expect(gpt.locator('.sidebar-project-chats')).toContainText('Legacy ChatGPT');
+    await expect(gpt.locator('.sidebar-project-chats')).not.toContainText('Legacy Claude');
+    await expect(claude.locator('.sidebar-project-chats')).toContainText('Legacy Claude');
+    await expect(claude.locator('.sidebar-project-chats')).not.toContainText('Legacy ChatGPT');
+    expect(fixture.launches()).toHaveLength(0);
+    expect(Object.values(fixture.state().sessions).map((record) => record.cwd)).toEqual([
+      fixture.project,
+      fixture.project,
+    ]);
+    expect(fixture.state().preferences.defaultEffort).toBeUndefined();
+    await quit(app);
+  } finally {
+    await cleanup(fixture.dir);
   }
 });
 
@@ -181,11 +297,20 @@ test('desktop sizes retain provider controls, readable tiles and a scrollable fo
         .evaluate((e) => ({ width: e.getBoundingClientRect().width, height: e.getBoundingClientRect().height }));
       expect(metrics.width).toBeGreaterThan(400);
       expect(metrics.height).toBeGreaterThan(400);
+      await page.getByRole('button', { name: 'New session', exact: true }).first().click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.getByRole('combobox', { name: 'Effort', exact: true })).toBeVisible();
+      const dialogFits = await dialog.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return box.top >= 0 && box.bottom <= window.innerHeight + 1 && element.scrollWidth <= element.clientWidth + 1;
+      });
+      expect(dialogFits).toBe(true);
       const output = process.env.REFRAME_VISUAL_EVIDENCE;
       if (output) {
         fs.mkdirSync(output, { recursive: true });
         await page.screenshot({ path: path.join(output, `desktop-${width}x${height}.png`), scale: 'css' });
       }
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     }
     await quit(app);
   } finally {

@@ -1,22 +1,37 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { NewSessionResult } from '@shared/ipc';
 import { providerName, PROVIDERS, type Provider } from '@shared/providers';
-import { MODEL_SUGGESTIONS, PERMISSION_MODES, type PermissionMode } from '@shared/launch';
+import {
+  EFFORT_LEVELS,
+  MODEL_SUGGESTIONS,
+  PERMISSION_MODES,
+  type EffortLevel,
+  type PermissionMode,
+} from '@shared/launch';
 import { useApp } from '../context';
+import { folderKey } from '@shared/folder-workspaces';
 
 const folderName = (folder: string): string => folder.trim().split(/[\\/]/).filter(Boolean).pop() ?? '';
 
-export function NewSessionDialog({ onClose }: { onClose: () => void }) {
+export interface NewSessionPreset {
+  cwd: string;
+  provider: Provider;
+}
+
+export function NewSessionDialog({ onClose, initial }: { onClose: () => void; initial?: NewSessionPreset }) {
   const { t } = useApp();
-  const [cwd, setCwd] = useState('');
+  const [cwd, setCwd] = useState(initial?.cwd ?? '');
   // null until the user types a name; then the typed name wins over the folder name.
   const [customName, setCustomName] = useState<string | null>(null);
   const [nameFromFolder, setNameFromFolder] = useState(false);
   const [worktree, setWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
   const [model, setModel] = useState('');
-  const [provider, setProvider] = useState<Provider>('chatgpt');
-  const providerRef = useRef<Provider>('chatgpt');
+  const [effort, setEffort] = useState<EffortLevel | '' | null>(null);
+  const effortPicked = useRef(false);
+  const [provider, setProvider] = useState<Provider>(initial?.provider ?? 'chatgpt');
+  const providerRef = useRef<Provider>(initial?.provider ?? 'chatgpt');
+  const [providerRoots, setProviderRoots] = useState<Record<Provider, string>>({ chatgpt: '', anthropic: '' });
   const [permissionMode, setPermissionMode] = useState<PermissionMode | ''>('');
   const [recent, setRecent] = useState<string[]>([]);
   const [error, setError] = useState<Extract<NewSessionResult, { ok: false }> | null>(null);
@@ -24,18 +39,28 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
   const folderInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    void window.reframe.getDialogDefaults().then(({ recentFolders, preferences }) => {
+    void window.reframe.getDialogDefaults().then(({ recentFolders, preferences, providerWorkspaceRoots }) => {
       setRecent(recentFolders);
-      setCwd((current) => current || recentFolders[0] || '');
+      setProviderRoots(providerWorkspaceRoots);
+      setCwd((current) => current || providerWorkspaceRoots[providerRef.current]);
       setNameFromFolder(preferences.nameFromFolder);
       // What Settings says new sessions start with, unless something was picked here already.
       setModel((current) => current || (providerRef.current === 'chatgpt' ? preferences.defaultModel : '') || '');
       setPermissionMode((current) => current || preferences.defaultPermissionMode || '');
+      if (!effortPicked.current) setEffort(preferences.defaultEffort || '');
     });
     folderInput.current?.focus();
   }, []);
 
   const name = customName ?? (nameFromFolder ? folderName(cwd) : '');
+  const otherRoot = folderKey(providerRoots[provider === 'chatgpt' ? 'anthropic' : 'chatgpt']);
+  const providerRecent = recent.filter((folder) => {
+    const key = folderKey(folder);
+    return (
+      !providerRoots[provider === 'chatgpt' ? 'anthropic' : 'chatgpt'] ||
+      (key !== otherRoot && !key.startsWith(otherRoot + '/'))
+    );
+  });
 
   const toggleNameFromFolder = (on: boolean) => {
     setNameFromFolder(on);
@@ -55,6 +80,7 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
       worktree,
       worktreeName: worktree ? worktreeName.trim() || undefined : undefined,
       model: model.trim() || undefined,
+      effort: effort ?? undefined,
       provider,
       permissionMode: permissionMode || undefined,
     });
@@ -91,6 +117,7 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
               providerRef.current = e.target.value as Provider;
               setProvider(e.target.value as Provider);
               setModel('');
+              setCwd(providerRoots[e.target.value as Provider]);
             }}
           >
             {PROVIDERS.map((p) => (
@@ -105,6 +132,24 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
             ? 'Uses your Claude subscription. Sign in with /login in this chat if asked.'
             : 'Uses your existing ClaudeGPT proxy, model and effort.'}
         </p>
+        <label className="field">
+          <span>Effort</span>
+          <select
+            aria-label="Effort"
+            value={effort ?? ''}
+            onChange={(event) => {
+              effortPicked.current = true;
+              setEffort(event.target.value as EffortLevel | '');
+            }}
+          >
+            <option value="">Default (CLI settings)</option>
+            {EFFORT_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {level}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <label className="field">
           <span>{t('dialog.folder')}</span>
@@ -124,9 +169,9 @@ export function NewSessionDialog({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         </label>
-        {recent.length > 0 && (
+        {providerRecent.length > 0 && (
           <div className="recent" aria-label={t('dialog.recent')}>
-            {recent.map((folder) => (
+            {providerRecent.map((folder) => (
               <button
                 type="button"
                 key={folder}

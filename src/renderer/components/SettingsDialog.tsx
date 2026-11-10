@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { PreferencesPatch } from '@shared/ipc';
-import { MODEL_SUGGESTIONS, PERMISSION_MODES, type PermissionMode } from '@shared/launch';
+import {
+  EFFORT_LEVELS,
+  MODEL_SUGGESTIONS,
+  PERMISSION_MODES,
+  type EffortLevel,
+  type PermissionMode,
+} from '@shared/launch';
 import { FONT_SIZE, type CloseWindow, type Language } from '@shared/state';
 import { useApp } from '../context';
 import { fontSizeAfter } from '../shortcuts';
@@ -20,6 +26,7 @@ export function SettingsDialog({
   checkForUpdates,
   claudeBin,
   defaultModel,
+  defaultEffort,
   defaultPermissionMode,
   archiveRoot,
   onClose,
@@ -33,6 +40,7 @@ export function SettingsDialog({
   checkForUpdates: boolean | null;
   claudeBin: string | null;
   defaultModel: string | null;
+  defaultEffort: EffortLevel | null;
   defaultPermissionMode: PermissionMode | null;
   archiveRoot?: string;
   onClose: () => void;
@@ -209,6 +217,21 @@ export function SettingsDialog({
               <option key={m} value={m} />
             ))}
           </datalist>
+        </label>
+        <label className="setting">
+          <span>Default effort</span>
+          <select
+            aria-label="Default effort"
+            value={defaultEffort ?? ''}
+            onChange={(event) => set({ defaultEffort: event.target.value as EffortLevel | '' })}
+          >
+            <option value="">Default (CLI settings)</option>
+            {EFFORT_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {level}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="setting">
           <span>{t('settings.defaultPermissionMode')}</span>

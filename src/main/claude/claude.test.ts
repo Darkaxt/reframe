@@ -64,6 +64,14 @@ describe('claudeEnv', () => {
 });
 
 describe('claudeArgs', () => {
+  it('keeps inherited effort untouched and passes an explicit effort on new and resumed chats', () => {
+    expect(claudeArgs(session(), 'new')).not.toContain('--effort');
+    for (const provider of ['chatgpt', 'anthropic'] as const) {
+      const record = session({ launch: { provider, effort: 'xhigh' } });
+      for (const mode of ['new', 'resume'] as const)
+        expect(claudeArgs(record, mode)).toEqual(expect.arrayContaining(['--effort', 'xhigh']));
+    }
+  });
   it('starts a new session with a fixed id and options', () => {
     const s = session({
       name: 'api',

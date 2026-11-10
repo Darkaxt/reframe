@@ -55,8 +55,8 @@ export function sidebarChats(list: SessionList): SidebarChat[] {
               }
             : { kind: 'found', claudeSessionId: item.claudeSessionId, ...(item.distro ? { distro: item.distro } : {}) },
       label: item.kind === 'app' ? item.label : item.kind === 'running' ? item.name || folder : item.title || folder,
-      provider: item.kind === 'app' ? item.provider : item.kind === 'found' ? 'chatgpt' : undefined,
-      defaulted: item.kind === 'found',
+      provider: item.provider ?? (item.kind === 'found' ? 'chatgpt' : undefined),
+      defaulted: item.kind === 'found' && !item.provider,
       lastActiveAt: item.kind === 'found' ? item.modifiedAt : item.lastActiveAt || 0,
       status: item.kind === 'app' ? item.status : item.kind === 'running' ? 'idle' : 'ended',
     });

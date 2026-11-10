@@ -19,7 +19,14 @@ export interface SavedSession {
   pid?: number;
   linuxPid?: number;
   cwd: string;
-  launch: { worktree?: boolean; worktreeName?: string; worktreeCreated?: boolean };
+  launch: {
+    worktree?: boolean;
+    worktreeName?: string;
+    worktreeCreated?: boolean;
+    provider?: 'chatgpt' | 'anthropic';
+    model?: string;
+    effort?: string;
+  };
 }
 
 export interface SavedWindow {
@@ -43,6 +50,7 @@ export interface SavedState {
     closeWindow: 'ask' | 'end' | 'keep';
     claudeBin?: string;
     defaultModel?: string;
+    defaultEffort?: string;
     defaultPermissionMode?: string;
   };
   workspaces: { id: string; name: string }[];

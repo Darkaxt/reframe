@@ -5,7 +5,7 @@ import { AppContext, makeTranslate, type AppContextValue, type DragState } from 
 import { dragKind, dropTargetAt, handleDrop, type PreviewRect } from './dnd';
 import type { TerminalRegistry } from './terminals';
 import { DockStrip } from './components/DockStrip';
-import { NewSessionDialog } from './components/NewSessionDialog';
+import { NewSessionDialog, type NewSessionPreset } from './components/NewSessionDialog';
 import { LayoutView } from './components/SplitView';
 import { Tile } from './components/Tile';
 import { ExitFullscreenIcon, GearIcon, InfoIcon, LayersIcon, ListIcon, PlusIcon, WindowIcon } from './components/icons';
@@ -44,6 +44,7 @@ function whenShown(selector: string, action: () => void, frames = 60): void {
 export function App({ terminals }: { terminals: TerminalRegistry }) {
   const [view, setView] = useState<WindowView | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [newSessionPreset, setNewSessionPreset] = useState<NewSessionPreset | undefined>();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingModels, setEditingModels] = useState<ChatModelEdit | null>(null);
@@ -467,7 +468,15 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
           </button>
         </div>
         <div className="workspace">
-          {view.sidebarOpen && <SessionSidebar sessionList={sessionList} />}
+          {view.sidebarOpen && (
+            <SessionSidebar
+              sessionList={sessionList}
+              onNewSession={(preset) => {
+                setNewSessionPreset(preset);
+                setDialogOpen(true);
+              }}
+            />
+          )}
           <DockStrip entries={view.dock} />
           <main className="layout">
             {view.layout && zoomed ? (
@@ -512,7 +521,15 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             {t('fullscreen.hint')}
           </div>
         )}
-        {dialogOpen && <NewSessionDialog onClose={() => setDialogOpen(false)} />}
+        {dialogOpen && (
+          <NewSessionDialog
+            initial={newSessionPreset}
+            onClose={() => {
+              setDialogOpen(false);
+              setNewSessionPreset(undefined);
+            }}
+          />
+        )}
         {editingModels && (
           <ChatModelDialog
             key={JSON.stringify(editingModels)}
@@ -547,6 +564,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             checkForUpdates={view.checkForUpdates}
             claudeBin={view.claudeBin}
             defaultModel={view.defaultModel}
+            defaultEffort={view.defaultEffort}
             defaultPermissionMode={view.defaultPermissionMode}
             onClose={() => setSettingsOpen(false)}
           />

@@ -79,7 +79,7 @@ import {
   type WindowView,
   type ChatBatchResult,
 } from '@shared/ipc';
-import { PERMISSION_MODES, type PermissionMode } from '@shared/launch';
+import { EFFORT_LEVELS, PERMISSION_MODES, type PermissionMode } from '@shared/launch';
 import { RELEASES_URL } from '@shared/links';
 import {
   CLOSE_WINDOW,
@@ -130,7 +130,7 @@ import { settle, withTimeout } from './wait';
 import { cleanUp, dropsDir } from './cleanup';
 import { History } from './history';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
-import { folderKey, folderWorkspaces } from '@shared/folder-workspaces';
+import { folderKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
 
 export interface AppAssets {
@@ -529,6 +529,7 @@ export class ReframeApp {
       closeWindow: this.state.preferences.closeWindow,
       claudeBin: this.state.preferences.claudeBin ?? null,
       defaultModel: this.state.preferences.defaultModel ?? null,
+      defaultEffort: this.state.preferences.defaultEffort ?? null,
       defaultPermissionMode: this.state.preferences.defaultPermissionMode ?? null,
       startWithSystem: this.startsWithSystem,
       systemLocale: this.systemLocale,
@@ -800,6 +801,10 @@ export class ReframeApp {
       launch: {
         provider: isProvider(request.provider) ? request.provider : 'chatgpt',
         model: request.model?.trim() || undefined,
+        effort:
+          request.effort === ''
+            ? undefined
+            : EFFORT_LEVELS.find((level) => level === (request.effort ?? this.state.preferences.defaultEffort)),
         permissionMode: PERMISSION_MODES.find((m) => m === request.permissionMode),
         worktree: request.worktree || undefined,
         worktreeName: (request.worktree && request.worktreeName?.trim()) || undefined,
@@ -1465,10 +1470,18 @@ export class ReframeApp {
 
   // ---------- session list ----------
 
-  private async sessionList(query: string, limit: number, folder?: string): Promise<SessionList> {
+  private async sessionList(query: string, limit: number, folder?: string, provider?: Provider): Promise<SessionList> {
     const q = query.trim().toLowerCase();
     const matches = (...fields: (string | undefined)[]) => !q || fields.some((f) => f?.toLowerCase().includes(q));
     const records = Object.values(this.state.sessions);
+    const recordedProviders = new Map<string, Provider>(
+      records.map((record) => [
+        chatKey(record.claudeSessionId, this.wslPath(record.cwd)?.distro),
+        record.launch.provider ?? 'chatgpt',
+      ]),
+    );
+    const providerOf = (id: string, distro?: string): Provider =>
+      recordedProviders.get(chatKey(id, distro)) ?? 'chatgpt';
 
     // Where Claude Code keeps its sessions (on Windows, and in each running WSL distribution that has it) and what
     // runs there outside reframe: other sessions, and reframe's own ones that someone resumed elsewhere.
@@ -1514,7 +1527,12 @@ export class ReframeApp {
           elsewhere,
         };
       })
-      .filter((item) => matches(item.label, item.cwd) && (!folder || folderKey(item.cwd) === folderKey(folder)))
+      .filter(
+        (item) =>
+          matches(item.label, item.cwd) &&
+          (!folder || folderKey(item.cwd) === folderKey(folder)) &&
+          (!provider || (item.provider ?? 'chatgpt') === provider),
+      )
       // Sessions in a window first, then the rest; most recently used first within each.
       .sort((a, b) => Number(!a.windowId) - Number(!b.windowId) || b.lastActiveAt - a.lastActiveAt);
 
@@ -1528,11 +1546,19 @@ export class ReframeApp {
             claudeSessionId: entry.sessionId,
             cwd: source.windowsPath(entry.cwd!),
             name: entry.name,
+            ...(recordedProviders.has(chatKey(entry.sessionId, source.distro))
+              ? { provider: providerOf(entry.sessionId, source.distro) }
+              : {}),
             ...(usedOutside.has(entry.sessionId) ? { lastActiveAt: usedOutside.get(entry.sessionId) } : {}),
             ...(source.distro ? { distro: source.distro } : {}),
           })),
       )
-      .filter((item) => matches(item.name, item.cwd) && (!folder || folderKey(item.cwd) === folderKey(folder)));
+      .filter(
+        (item) =>
+          matches(item.name, item.cwd) &&
+          (!folder || folderKey(item.cwd) === folderKey(folder)) &&
+          (!provider || providerOf(item.claudeSessionId, item.distro) === provider),
+      );
 
     const exclude = new Set([...ownIds, ...running.map((r) => r.claudeSessionId)]);
     const pages = await Promise.all(
@@ -1551,9 +1577,13 @@ export class ReframeApp {
             cwd: source.windowsPath(info.cwd!),
             title: info.title,
             modifiedAt: info.modifiedAt,
+            ...(recordedProviders.has(chatKey(info.sessionId, source.distro))
+              ? { provider: providerOf(info.sessionId, source.distro) }
+              : {}),
             ...(source.distro ? { distro: source.distro } : {}),
           })),
       )
+      .filter((item) => !provider || providerOf(item.claudeSessionId, item.distro) === provider)
       .sort((a, b) => b.modifiedAt - a.modifiedAt);
     const workspaces = this.state.workspaces.map((w) => ({
       id: w.id,
@@ -1562,7 +1592,8 @@ export class ReframeApp {
       savedAt: w.savedAt,
       open: !!this.windowOfWorkspace(w.id),
     }));
-    const hasMore = found.length > limit || pages.some(({ page }) => page.hasMore);
+    const hasMore =
+      found.length > limit || ((!provider || provider === 'chatgpt') && pages.some(({ page }) => page.hasMore));
     const pinnedItems: FoundListItem[] = [];
     const knownKeys = new Set([
       ...records.map((record) => chatKey(record.claudeSessionId, this.wslPath(record.cwd)?.distro)),
@@ -1578,6 +1609,7 @@ export class ReframeApp {
       const info = await source?.transcripts.find(pin.id);
       if (!source || !info?.cwd) continue;
       const cwd = source.windowsPath(info.cwd);
+      if (provider && providerOf(pin.id, source.distro) !== provider) continue;
       if (!matches(info.title, cwd) || (folder && folderKey(folder) !== folderKey(cwd))) continue;
       pinnedItems.push({
         kind: 'found',
@@ -1589,23 +1621,47 @@ export class ReframeApp {
       });
     }
     const automatic = folderWorkspaces([
-      ...records.map((r) => ({ cwd: r.cwd, id: r.claudeSessionId })),
+      ...records.map((r) => ({
+        cwd: r.cwd,
+        id: r.claudeSessionId,
+        provider: r.launch.provider ?? ('chatgpt' as Provider),
+      })),
       ...scanned.flatMap((s) =>
-        s.running.filter((r) => r.cwd).map((r) => ({ cwd: s.source.windowsPath(r.cwd!), id: r.sessionId })),
+        s.running
+          .filter((r) => r.cwd)
+          .map((r) => ({
+            cwd: s.source.windowsPath(r.cwd!),
+            id: r.sessionId,
+            provider: providerOf(r.sessionId, s.source.distro),
+          })),
       ),
       ...pages.flatMap(({ source, page }) =>
-        page.folders.flatMap((f) => f.sessionIds.map((id) => ({ cwd: source.windowsPath(f.cwd), id }))),
+        page.folders.flatMap((f) =>
+          f.sessionIds.map((id) => ({ cwd: source.windowsPath(f.cwd), id, provider: providerOf(id, source.distro) })),
+        ),
       ),
     ]);
-    if (JSON.stringify(automatic) !== JSON.stringify(this.state.folderWorkspaces)) {
-      this.state = { ...this.state, folderWorkspaces: automatic };
+    const previousExpanded = this.state.expandedProjects || [];
+    const expandedProjects = [
+      ...new Set([
+        ...previousExpanded.filter((key) => !automatic.some((project) => folderKey(project.cwd) === key)),
+        ...automatic
+          .filter((project) => previousExpanded.includes(folderKey(project.cwd)))
+          .map((project) => project.id),
+      ]),
+    ];
+    if (
+      JSON.stringify(automatic) !== JSON.stringify(this.state.folderWorkspaces) ||
+      JSON.stringify(expandedProjects) !== JSON.stringify(previousExpanded)
+    ) {
+      this.state = { ...this.state, folderWorkspaces: automatic, expandedProjects };
       this.store.saveSoon(this.state);
     }
     return {
       workspaces,
       pinnedChats: this.state.pinnedChats || [],
       pinnedItems,
-      expandedProjects: this.state.expandedProjects || [],
+      expandedProjects,
       folderWorkspaces: automatic,
       archives: this.state.archives || [],
       app,
@@ -2695,9 +2751,9 @@ export class ReframeApp {
     on(IPC.listMenu, (id, _event, items: unknown) => {
       if (isListItems(items)) this.showListMenu(id, items);
     });
-    on(IPC.setProjectExpanded, (_id, _event, folder: unknown, expanded: unknown) => {
+    on(IPC.setProjectExpanded, (_id, _event, folder: unknown, expanded: unknown, provider: unknown) => {
       if (typeof folder !== 'string' || typeof expanded !== 'boolean') return;
-      const key = folderKey(folder);
+      const key = workspaceKey(folder, isProvider(provider) ? provider : 'chatgpt');
       if (!this.state.folderWorkspaces?.some((project) => project.id === key)) return;
       this.state = {
         ...this.state,
@@ -2725,6 +2781,10 @@ export class ReframeApp {
       if (typeof url === 'string' && /^https?:\/\//i.test(url)) void shell.openExternal(url);
     });
     handle(IPC.dialogDefaults, () => ({
+      providerWorkspaceRoots: {
+        chatgpt: path.join(app.getPath('documents'), 'ChatGPT'),
+        anthropic: path.join(app.getPath('documents'), 'Anthropic'),
+      },
       recentFolders: this.state.recentFolders.filter((folder) => !!this.wslPath(folder) || isDirectory(folder)),
       preferences: this.state.preferences,
       claude: this.findClaude()?.source ?? null,
@@ -2764,6 +2824,9 @@ export class ReframeApp {
       if (typeof patch.claudeBin === 'string') next.claudeBin = patch.claudeBin.trim().slice(0, 1024) || undefined;
       if (typeof patch.defaultModel === 'string')
         next.defaultModel = patch.defaultModel.trim().slice(0, 100) || undefined;
+      if (patch.defaultEffort === '') next.defaultEffort = undefined;
+      else if (EFFORT_LEVELS.includes(patch.defaultEffort as (typeof EFFORT_LEVELS)[number]))
+        next.defaultEffort = patch.defaultEffort as (typeof EFFORT_LEVELS)[number];
       if (patch.defaultPermissionMode === '') next.defaultPermissionMode = undefined;
       else if (PERMISSION_MODES.includes(patch.defaultPermissionMode as PermissionMode)) {
         next.defaultPermissionMode = patch.defaultPermissionMode as PermissionMode;
@@ -2781,6 +2844,7 @@ export class ReframeApp {
         next.closeWindow !== was.closeWindow ||
         next.claudeBin !== was.claudeBin ||
         next.defaultModel !== was.defaultModel ||
+        next.defaultEffort !== was.defaultEffort ||
         next.defaultPermissionMode !== was.defaultPermissionMode;
       this.state = { ...this.state, preferences: next };
       this.save();
@@ -2825,13 +2889,14 @@ export class ReframeApp {
         throw Error('Invalid selected chats/provider/model.');
       return this.trackHistory(() => this.runChatBatch(id, items, 'model', provider, model));
     });
-    handle(IPC.sessionList, async (_id, _event, query: unknown, limit: unknown, folder: unknown) => {
+    handle(IPC.sessionList, async (_id, _event, query: unknown, limit: unknown, folder: unknown, provider: unknown) => {
       // Asked for by the user (opening the list, searching, after an action there): as fresh as before.
       await this.scanOutside(LIST_ASKED_MS);
       return this.sessionList(
         typeof query === 'string' ? query : '',
         typeof limit === 'number' && Number.isSafeInteger(limit) && limit > 0 ? limit : LIST_PAGE,
         typeof folder === 'string' ? folder : undefined,
+        isProvider(provider) ? provider : undefined,
       );
     });
     on(IPC.openSession, (id, _event, request: Partial<OpenSessionRequest> | null) => {
