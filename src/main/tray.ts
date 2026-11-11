@@ -12,8 +12,6 @@ export interface TrayLabels {
   tooltip: string;
   newSession: string;
   newWindow: string;
-  workspaces: string;
-  noWorkspaces: string;
   about: string;
   quit: string;
 }
@@ -25,9 +23,6 @@ export interface TrayActions {
   showPrimary: () => void;
   newSession: () => void;
   newWindow: () => void;
-  /** Saved workspaces with their menu labels. */
-  workspaces: () => { id: string; label: string }[];
-  openWorkspace: (workspaceId: string) => void;
   /** "Restart to update" once an update is downloaded; in the portable copy "Download reframe X" (the release page). */
   update: () => { label: string; install: () => void } | null;
   about: () => void;
@@ -42,12 +37,6 @@ export function createTray(
   const image = nativeImage.createFromPath(icon);
   image.addRepresentation({ scaleFactor: 2, buffer: nativeImage.createFromPath(icon2x).toPNG() });
   const tray = new Tray(image);
-
-  const workspaceSubmenu = () => {
-    const workspaces = actions.workspaces();
-    if (workspaces.length === 0) return [{ label: actions.labels().noWorkspaces, enabled: false }];
-    return workspaces.map((w) => ({ label: w.label, click: () => actions.openWorkspace(w.id) }));
-  };
 
   const refresh = () => {
     const labels = actions.labels();
@@ -64,7 +53,6 @@ export function createTray(
         { type: 'separator' },
         { label: labels.newSession, click: actions.newSession },
         { label: labels.newWindow, click: actions.newWindow },
-        { label: labels.workspaces, submenu: workspaceSubmenu() },
         { type: 'separator' },
         ...(update ? [{ label: update.label, click: update.install }] : []),
         { label: labels.about, click: actions.about },

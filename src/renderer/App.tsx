@@ -11,7 +11,6 @@ import { Tile } from './components/Tile';
 import { ExitFullscreenIcon, GearIcon, GridIcon, InfoIcon, ListIcon, PlusIcon, WindowIcon } from './components/icons';
 import { dockSessions } from '@shared/actions';
 import { workspaceKey } from '@shared/folder-workspaces';
-import { SaveWorkspaceDialog } from './components/SaveWorkspaceDialog';
 import { AboutDialog } from './components/AboutDialog';
 import { SettingsDialog } from './components/SettingsDialog';
 import { neighbor, type Box } from './focus-nav';
@@ -55,8 +54,6 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
   const [chatBatch, setChatBatch] = useState<ChatBatchResult | null>(null);
   useEffect(() => window.reframe.onEditChatModels(setEditingModels), []);
   useEffect(() => window.reframe.onChatBatchResult(setChatBatch), []);
-  const [namingWorkspace, setNamingWorkspace] = useState(false);
-  const [renamingWorkspace, setRenamingWorkspace] = useState<string | null>(null);
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [emptyDropActive, setEmptyDropActive] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -330,8 +327,6 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
 
   useEffect(() => window.reframe.onOpenNewSession(() => setDialogOpen(true)), []);
   useEffect(() => window.reframe.onOpenAbout(() => setAboutOpen(true)), []);
-  useEffect(() => window.reframe.onPromptWorkspaceName(() => setNamingWorkspace(true)), []);
-  useEffect(() => window.reframe.onRenameWorkspace(setRenamingWorkspace), []);
   useEffect(() => window.reframe.onRenameGroup(setRenaming), []);
   useEffect(() => window.reframe.onRenameSession(setRenamingSession), []);
   useEffect(
@@ -489,7 +484,6 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             <WindowIcon />
             {t('toolbar.newWindow')}
           </button>
-          {view.workspace && <span className="toolbar-workspace">{view.workspace.name}</span>}
           <div className="segmented" role="group" aria-label={`${t('toolbar.viewMode')} (${keys('G')})`}>
             {(['single', 'tiled'] as const).map((mode) => (
               <button
@@ -615,20 +609,6 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             key={JSON.stringify(editingModels)}
             request={editingModels}
             onClose={() => setEditingModels(null)}
-          />
-        )}
-        {(namingWorkspace || renamingWorkspace) && (
-          <SaveWorkspaceDialog
-            key={renamingWorkspace || 'new'}
-            workspaceId={renamingWorkspace || undefined}
-            suggestion={
-              sessionList.list?.workspaces.find((workspace) => workspace.id === renamingWorkspace)?.name ||
-              t('workspace.defaultName', { n: (sessionList.list?.workspaces.length ?? 0) + 1 })
-            }
-            onClose={() => {
-              setNamingWorkspace(false);
-              setRenamingWorkspace(null);
-            }}
           />
         )}
         {aboutOpen && <AboutDialog version={view.version} onClose={() => setAboutOpen(false)} />}

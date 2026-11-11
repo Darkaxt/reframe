@@ -17,7 +17,7 @@ const managed: AppListItem = {
   lastActiveAt: 10,
   elsewhere: false,
 };
-const empty: SessionList = { app: [], running: [], found: [], workspaces: [], hasMore: false, wslStopped: [] };
+const empty: SessionList = { app: [], running: [], found: [], hasMore: false, wslStopped: [] };
 describe('unified sidebar conversations', () => {
   it('keeps a canonical identity through history adoption and retains the recorded provider', () => {
     const found = { kind: 'found' as const, claudeSessionId: id, cwd: 'D:\\Project', title: 'Old', modifiedAt: 5 };

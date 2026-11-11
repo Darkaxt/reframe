@@ -10,13 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import type { GroupNode, LayoutNode } from '../src/shared/layout';
-import {
-  DEFAULT_PREFERENCES,
-  type AppState,
-  type SessionRecord,
-  type WindowState,
-  type Workspace,
-} from '../src/shared/state';
+import { DEFAULT_PREFERENCES, type AppState, type SessionRecord, type WindowState } from '../src/shared/state';
 import { callMain, cleanup, launch, pageOf, quit, root, tileByLabel } from '../e2e/helpers';
 import { Composer, encodeGif, windowSize, type Shot } from './compose';
 
@@ -103,14 +97,13 @@ class Demo {
     fs.writeFileSync(path.join(this.claudeHome, 'sessions', `${child.pid}.json`), JSON.stringify(entry));
   }
 
-  write(windows: WindowState[], workspaces: Workspace[] = []): void {
+  write(windows: WindowState[]): void {
     const state: AppState = {
       version: 1,
       sessions: Object.fromEntries(this.inApp.map((record) => [record.id, record])),
       windows,
       recentFolders: [],
       preferences: { ...DEFAULT_PREFERENCES, language: 'en' },
-      workspaces,
     };
     fs.mkdirSync(this.userData, { recursive: true });
     fs.writeFileSync(path.join(this.userData, 'state.json'), JSON.stringify(state, null, 2));
@@ -142,10 +135,7 @@ const group = (name: string, color: string, child: LayoutNode): GroupNode => ({
   child,
 });
 
-function windowState(
-  layout: LayoutNode,
-  options: { dock?: SessionRecord[]; sidebarOpen?: boolean; workspace?: Workspace } = {},
-): WindowState {
+function windowState(layout: LayoutNode, options: { dock?: SessionRecord[]; sidebarOpen?: boolean } = {}): WindowState {
   return {
     id: crypto.randomUUID(),
     bounds: { x: 60, y: 60, width: 1280, height: 800 },
@@ -154,24 +144,6 @@ function windowState(
     layout,
     dock: (options.dock ?? []).map((record) => ({ kind: 'tile' as const, sessionId: record.id, hint: null })),
     sidebarOpen: options.sidebarOpen,
-    workspaceId: options.workspace?.id,
-  };
-}
-
-/** A workspace saved `hoursAgo` from `win` (its sessions: `sessions`). */
-function workspace(name: string, hoursAgo: number, sessions: SessionRecord[], win?: WindowState): Workspace {
-  return {
-    id: crypto.randomUUID(),
-    name,
-    savedAt: Date.now() - hoursAgo * HOUR,
-    window: {
-      bounds: win?.bounds ?? null,
-      maximized: false,
-      sidebarOpen: win?.sidebarOpen,
-      layout: win?.layout ?? row(sessions.map(tile)),
-      dock: win?.dock ?? [],
-    },
-    sessions,
   };
 }
 
@@ -390,7 +362,7 @@ const GIF_SIZE = { width: 960, height: 580 };
 
 // ---------- the pictures ----------
 
-test('hero: a workspace with a group of four, and the session list', async () => {
+test('hero: a project with a group of four, and the session list', async () => {
   const demo = new Demo();
   try {
     const checkout = demo.session('checkout-fix', 'webshop');
@@ -412,19 +384,8 @@ test('hero: a workspace with a group of four, and the session list', async () =>
       row([col([tile(checkout), tile(limiter)]), col([tile(migration), tile(webhooks)])]),
     );
     const layout = row([backend, col([tile(docs), tile(crash)])], [63, 37]);
-    const webshop = workspace('Webshop', 2, [checkout, limiter, migration, webhooks, docs, crash, notes]);
-    const main = windowState(layout, { dock: [notes], sidebarOpen: true, workspace: webshop });
-    webshop.window = { ...webshop.window, layout, dock: main.dock, sidebarOpen: true };
-    const mobile = workspace('Mobile release', 30, [
-      demo.session('ios-crash', 'mobile-app', false),
-      demo.session('android-push', 'mobile-app', false),
-      demo.session('release-notes', 'mobile-app', false),
-    ]);
-    const website = workspace('Docs & website', 75, [
-      demo.session('docs-refresh', 'docs-site', false),
-      demo.session('landing-page', 'webshop', false),
-    ]);
-    demo.write([main], [webshop, mobile, website]);
+    const main = windowState(layout, { dock: [notes], sidebarOpen: true });
+    demo.write([main]);
 
     const { app, page } = await start(demo, 2);
     const size = { width: 1600, height: 1000 };
@@ -448,7 +409,7 @@ test('hero: a workspace with a group of four, and the session list', async () =>
   }
 });
 
-test('windows: two windows, each a workspace', async () => {
+test('windows: two windows, each a project', async () => {
   const demo = new Demo();
   try {
     const checkout = demo.session('checkout-fix', 'webshop');
@@ -463,11 +424,7 @@ test('windows: two windows, each a workspace', async () => {
       row([group('Backend', BLUE, col([tile(checkout), tile(migration)])), col([tile(limiter), tile(docs)])], [55, 45]),
     );
     const second = windowState(row([group('Mobile', GREEN, col([tile(crash), tile(push)])), tile(notes)], [60, 40]));
-    const webshop = workspace('Webshop', 2, [checkout, limiter, migration, docs], first);
-    const mobile = workspace('Mobile release', 30, [crash, push, notes], second);
-    first.workspaceId = webshop.id;
-    second.workspaceId = mobile.id;
-    demo.write([first, second], [webshop, mobile]);
+    demo.write([first, second]);
 
     const { app } = await start(demo, 2);
     const pages = [await pageOf(app, first.id), await pageOf(app, second.id)];

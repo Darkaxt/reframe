@@ -142,7 +142,6 @@ test('the session list: WSL sessions, taking over one, starting a distribution',
         windows: [],
         recentFolders: [],
         preferences: { nameFromFolder: true, language: 'en', fontSize: 13 },
-        workspaces: [],
         wslDistros: ['Stopped'],
       }),
     );

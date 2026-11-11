@@ -33,7 +33,6 @@ export interface SavedWindow {
   id: string;
   hidden: boolean;
   fullscreen?: boolean;
-  workspaceId?: string;
   layout: unknown;
   dock: { sessionId: string }[];
 }
@@ -53,7 +52,6 @@ export interface SavedState {
     defaultEffort?: string;
     defaultPermissionMode?: string;
   };
-  workspaces: { id: string; name: string }[];
   recentFolders: string[];
   expandedProjects?: string[];
 }
