@@ -1,92 +1,148 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "4cd33ecee7f4942111e4099a0e3a59d926b8c4ae",
-  "scope": "0.10.1-claudegpt.17: \"Use GPU acceleration\" setting, off by default (also for state files without it); when off, app.disableHardwareAcceleration() before ready (read synchronously from state.json, unreadable means off) and terminals use the xterm DOM renderer without trying WebGL; when on, WebGL with the .14 GPU-loss recovery; a change applies after a restart (Settings says so); startup logs whether hardware acceleration is on",
+  "sourceBase": "a41cb1db0b2f9eb8d318004559aea659b3a0f555",
+  "scope": "0.10.1-claudegpt.18: Rust PTY host (rust/reframe-host, ConPTY in rust/reframe-conpty, the only crate with unsafe) speaking the Node host's pipe protocol (docs/ptyhost-protocol.md); opt-in with REFRAME_PTYHOST=rust (default stays Node; falls back to Node if the Rust files are missing); hosts of the other kind keep their sessions, new sessions go to the configured host; versioned <version>-rust-<hash12> runtime copy; shared conformance suite (npm run test:conformance) run against both hosts in CI; CI rust job (fmt, clippy -D warnings, tests, release build artifact) feeding packaging (resources/reframe-host with conpty.dll and OpenConsole.exe); inspect-payload and build-windows require the CI-built host; stop-managed counts reframe-host.exe as a PTY host",
   "inputHashes": [
     {
-      "file": "docs/releases/v0.10.1-claudegpt.17.md",
-      "sha256": "bda7f2b688c73ad91c575e7ae19c328a7194aeb9007145d21919a1a06bb5442c"
+      "file": ".github/workflows/ci.yml",
+      "sha256": "4a1b28e6fbf52c7a20a26775c979910221900f918d35981c6e9ca1064ed944c8"
     },
     {
-      "file": "e2e/helpers.ts",
-      "sha256": "b0b1a8dc27dc48d98967b073ff1bcc12766cd3f2039515990a83263a6363af26"
+      "file": "docs/ptyhost-protocol.md",
+      "sha256": "591aae182deb5af31183b2b1bad2712af3211b5572e4cfb8722c4381c98df4f7"
     },
     {
-      "file": "e2e/settings.spec.ts",
-      "sha256": "c536f396c8daa9ce57e8b995354e5ad4ed677783d8ad44ee26dce67f13ade0c6"
+      "file": "docs/releases/v0.10.1-claudegpt.18.md",
+      "sha256": "6bae63e909ee6db482af10f55b4ee8a9d38873c079285607a03b49902a3d2f71"
+    },
+    {
+      "file": "electron-builder.yml",
+      "sha256": "5dcda021c16dcfd65756fd2d9390f775ea5deb1ff9a2e1c72923026bab49b599"
+    },
+    {
+      "file": "maintenance/build-windows.ps1",
+      "sha256": "962b2eaacf0334d66502aea5a3f220d3ca55b8ab7e23dcf3054731ad2b603600"
+    },
+    {
+      "file": "maintenance/inspect-payload.mjs",
+      "sha256": "3993f56e859730f0c9880b3c56ae124e7b13a18ea8c220d6a5b3b58f2dca1f8c"
+    },
+    {
+      "file": "maintenance/windows/stop-managed.ps1",
+      "sha256": "a4fe811e0dfd48dfb9987ac52709167b5e6dcbf4165832059e202199854ebee6"
     },
     {
       "file": "package-lock.json",
-      "sha256": "bf9d6a7ce9408ad01ff21c7e0a91041d7a7a7e92b7cca5b8573496c4be6f5472"
+      "sha256": "6d7299f96245a93d1d23cb71fbfb0bb7877308946e6ee92d827be36649fee9de"
     },
     {
       "file": "package.json",
-      "sha256": "26465477c37b1f9f4c1bc18464e252632081789181f1f2de988941dc297e07a2"
+      "sha256": "87a491f2678e3bfe5be64ff9794309d4d9a51a1d2e8af36d378069bc9fbb6c04"
+    },
+    {
+      "file": "rust/.gitignore",
+      "sha256": "ad8ebeaeb880ec8c2388bbdf361e28d59d1ed0d7ae34a5c0a0e8ba60b7265483"
+    },
+    {
+      "file": "rust/Cargo.lock",
+      "sha256": "9c831d647a390aecfacf33fccaf48fe1b26d9a0c2cc3b3a746288096bb0f0e9e"
+    },
+    {
+      "file": "rust/Cargo.toml",
+      "sha256": "aed85b864ffe4c8476ab4a190b3940820bf7e9dc789b9bd43e54de0f94cb8be4"
+    },
+    {
+      "file": "rust/reframe-conpty/Cargo.toml",
+      "sha256": "61faf67616d293f2ca92d925b39c4a750c6f8f861bbc1c692d9bc9b1d140a045"
+    },
+    {
+      "file": "rust/reframe-conpty/src/lib.rs",
+      "sha256": "faa94f887ae8e61b664a6831eee096151d5f2ae4bd96db56ec64f43da4ec1ffa"
+    },
+    {
+      "file": "rust/reframe-host/Cargo.toml",
+      "sha256": "749da0edcef69bf6993fe36fc86a2c0777050cc18a57ecf407efa9b081813f83"
+    },
+    {
+      "file": "rust/reframe-host/src/files.rs",
+      "sha256": "14fbcfa921b561fdc72c563df6c2470c8021c90a73fb0e6d0568aefe49aa8b85"
+    },
+    {
+      "file": "rust/reframe-host/src/hooks.rs",
+      "sha256": "dbac2ed9ae4c797e116dd34dc16f40888028dbf643cfcceada627f1826a81a0d"
+    },
+    {
+      "file": "rust/reframe-host/src/host.rs",
+      "sha256": "b3a192c960308fd212a4bba7d234a321de0814fc79c1f13d7b47d523586030bc"
+    },
+    {
+      "file": "rust/reframe-host/src/main.rs",
+      "sha256": "687474d3570e330525a6fb589aaadf346100b9c7a82175fbe2d95f1294a624a3"
+    },
+    {
+      "file": "rust/reframe-host/src/mirror.rs",
+      "sha256": "bc9ac42d31d6c613890786d2f6a945770ba1476690bd9832e347ba32a80ce26c"
+    },
+    {
+      "file": "rust/reframe-host/src/process.rs",
+      "sha256": "5bde8700448faeae5f4cd07a01dae17b7a9c4aca09b03a2e49281c2b90dffc44"
+    },
+    {
+      "file": "rust/reframe-host/src/protocol.rs",
+      "sha256": "9132bd1799c6fbaeaa28a97ed71ea176782cfeb2da0df6080ac8a4e281a4fa23"
+    },
+    {
+      "file": "rust/rustfmt.toml",
+      "sha256": "3e9d5e1c02150a0d1c9286b17ed5ac3bb1c770bf81a6eea6895c79a8d7779ab1"
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "6b6821bdce4f4cee909f6cb2725275d9015be31b7e7a0ac345d6f25b04c5f0d1"
+      "sha256": "eaca8af767953c2d099b93d0675f943d7f1dcb0cb1f2e77b26a58a3b24715465"
     },
     {
-      "file": "src/main/gpu.test.ts",
-      "sha256": "8d99fabe41dac0c19825665f5a3ab7dd25f15ff5907e568989645e1a85f3816f"
+      "file": "src/main/ptyhost-client.test.ts",
+      "sha256": "fbe1b3457a09782b4082a7e7c7049fec0634eeea162f3c9056999f6039a6f262"
     },
     {
-      "file": "src/main/gpu.ts",
-      "sha256": "48b03ba262b8b47e33a63c9e2b11fdc74ae99a0e1486d53caf230d3327f91490"
+      "file": "src/main/ptyhost-client.ts",
+      "sha256": "ec0f4d6b16101c3915d692c89d89c7860e2b63ad48d65ebea4dcd8aeab9a1d22"
     },
     {
-      "file": "src/main/index.ts",
-      "sha256": "8fb7c2a34205c73db683b939b3ea776f995066f227bdd3d3efbaf233c81b38a5"
+      "file": "src/main/ptyhost-files.test.ts",
+      "sha256": "94b2c1cbe0e8374231e35c2bd29858f800a5c8b8924c52b21f2c8125ea068069"
     },
     {
-      "file": "src/main/state/store.test.ts",
-      "sha256": "b3c77ba58b271f100a82f654a6bcecd821dec538350d03f15143869e443c517d"
+      "file": "src/main/ptyhost-files.ts",
+      "sha256": "6aace1a06348d8d4d84cf44ddaf3e63b6afdc1165456ef993a843925796bfb73"
     },
     {
-      "file": "src/main/windows.ts",
-      "sha256": "c3c94dbf0610c6209627df0d578a1e986ab8798d15aed716e91bf6db0c5e320d"
+      "file": "src/main/ptyhost-runtime.test.ts",
+      "sha256": "029dc5770798973a899355edb7ef846b68d361d844a32924f3ef24c90849a7c8"
     },
     {
-      "file": "src/preload/index.ts",
-      "sha256": "6c1ed3702d09859bc50dc9d143ef046c5d6d53fe2ba1a1bd9541f2693335d723"
+      "file": "src/main/ptyhost-runtime.ts",
+      "sha256": "a412eba0a42a6f2b6842d9731b1608e441530d5c782d96a7c6e2561d82cf9fb3"
     },
     {
-      "file": "src/renderer/App.tsx",
-      "sha256": "4350b081096b2dd931dea6aedd9d272525486663b21742bdeed9c3fa6d627721"
+      "file": "src/ptyhost/host.conformance.ts",
+      "sha256": "a61dcfe0111b96838019a078264cc565635c2eb02d21c7b83e5d719143e2a0be"
     },
     {
-      "file": "src/renderer/components/SettingsDialog.tsx",
-      "sha256": "874a3384d9f22da814822b337b0711d14f26f5979e6f5b770b55d94880457ca7"
+      "file": "src/ptyhost/index.ts",
+      "sha256": "27c3ce4478330da662dd96fcd97dfd54247ef5bc65c034bb8105c247cc47403c"
     },
     {
-      "file": "src/renderer/main.tsx",
-      "sha256": "ebdab0f59397c3e602d16e4e1bec8ecfa9fc697a00e3dc334901f105397fc396"
+      "file": "src/ptyhost/protocol.ts",
+      "sha256": "d6d9c35cee4d53669683ba4f5cbabd90a9820c5513b385172466d35deeba9c9d"
     },
     {
-      "file": "src/renderer/terminals.ts",
-      "sha256": "2aae1c2c2792f175960c54b62d9a65c24f19030b6ef0b3b92f7aca62792e8bff"
+      "file": "test/ptyhost-conformance-child.mjs",
+      "sha256": "802a3a700bad79e44b3269f0dc47cb4e77819f69a4015af2de55b2511591197e"
     },
     {
-      "file": "src/renderer/webgl-recovery.test.ts",
-      "sha256": "aee5a32ccfe4722a01bfdec4d1d778e5749ee0d31378918b4b6a8626eeab4d7e"
-    },
-    {
-      "file": "src/renderer/webgl-recovery.ts",
-      "sha256": "02db3c8190f1c234f14e77149527a065fc16d1c8c67eb79dce0ff73bd0270389"
-    },
-    {
-      "file": "src/shared/i18n.ts",
-      "sha256": "3855c9909c78f3aad6df7844490e5169baf35313251329bb9f4f9669242c3786"
-    },
-    {
-      "file": "src/shared/ipc.ts",
-      "sha256": "1ff8b80474943dcf6b962a2bf621c39fab8f44f5f4ce12dd2fdbd793fd64aa01"
-    },
-    {
-      "file": "src/shared/state.ts",
-      "sha256": "6524e1dbde08c63d5c167b83ae8b9252ff1b4aea65fb262c3671a4adb10e8e38"
+      "file": "vitest.conformance.config.ts",
+      "sha256": "5b9f9cf1849862a4cf614dd444ab8ffa707b6587a4d7934466111575eee9132e"
     }
   ],
   "checksNotYetRun": [

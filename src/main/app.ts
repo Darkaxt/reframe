@@ -113,7 +113,7 @@ import { activeByTitle, isShell, onlyShells } from './foreign-match';
 import { createLogger } from './log';
 import { isAlive } from './process';
 import { PtyHostClient, type QuitMode } from './ptyhost-client';
-import { hostRuntime } from './ptyhost-runtime';
+import { configuredHostKind, hostRuntime, rustHostAvailable, rustHostSource } from './ptyhost-runtime';
 import { SessionManager, type IdentityPatch, type NotifyKind } from './sessions';
 import type { LaunchMode } from './claude/args';
 import { StateStore } from './state/store';
@@ -300,10 +300,17 @@ export class ReframeApp {
     // Fail before any side effect: a state that cannot be written ends the start here, before a token is written or a
     // detached PTY host (which would outlive this failed start) is spawned.
     this.store.save(this.state);
+    // REFRAME_PTYHOST=rust: new sessions go to the Rust host (opt-in); without its files, to the Node host.
+    let hostKind = configuredHostKind();
+    if (hostKind === 'rust' && !rustHostAvailable()) {
+      this.log('warn', 'the rust pty host is not in this build; using the node host', { source: rustHostSource() });
+      hostKind = 'node';
+    }
     this.host = new PtyHostClient({
       dir: path.join(app.getPath('userData'), 'ptyhost'),
       version: app.getVersion(),
-      runtime: () => hostRuntime(app.getPath('userData'), this.log),
+      kind: hostKind,
+      runtime: () => hostRuntime(app.getPath('userData'), this.log, hostKind),
       log: this.log,
     });
     await this.host.start();

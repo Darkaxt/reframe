@@ -35,6 +35,8 @@ try{
    if($LASTEXITCODE){throw 'Application build failed'}
   }else{
    if(!$PackageDirectory){$PackageDirectory=Join-Path $root 'dist'}
+   # The Rust PTY host is built by CI (never here); the deploy puts the verified run's artifact in rust\dist.
+   if(!(Test-Path -LiteralPath (Join-Path $root 'rust\dist\reframe-host.exe'))){throw 'rust\dist\reframe-host.exe (the CI artifact) required for packaging'}
    $env:REFRAME_PACKAGE_DIR=[IO.Path]::GetFullPath($PackageDirectory)
    & node.exe node_modules\electron-builder\cli.js --win --x64 --dir --publish never --config.directories.output $env:REFRAME_PACKAGE_DIR
    if($LASTEXITCODE){throw 'Windows packaging failed'}

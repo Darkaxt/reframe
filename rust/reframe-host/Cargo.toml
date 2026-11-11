@@ -1,0 +1,19 @@
+[package]
+name = "reframe-host"
+version = "0.10.1"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Reframe's PTY host: owns the claude sessions (ConPTY) and their terminal mirrors, reached over a named pipe."
+
+[dependencies]
+reframe-conpty = { path = "../reframe-conpty" }
+vt100 = "0.18"
+tokio = { version = "1", features = ["rt", "net", "io-util", "sync", "time", "macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+getrandom = "0.3"
+
+[dev-dependencies]
+proptest = { version = "1", default-features = false, features = ["std"] }

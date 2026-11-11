@@ -92,6 +92,7 @@ function writeDescriptor(): void {
     version,
     startedAt: startedAt,
     sessionPids: [...sessions.values()].filter((s) => s.exitCode === null).map((s) => s.proc.pid),
+    kind: 'node',
   };
   const temp = `${descriptorFile}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(descriptor));
@@ -285,6 +286,7 @@ function connected(socket: net.Socket): void {
               exitCode: s.exitCode,
               meta: s.meta,
             })),
+            kind: 'node',
           }),
         );
         for (const message of held.splice(0)) send({ type: 'hook', message });

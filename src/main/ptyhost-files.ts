@@ -12,6 +12,10 @@ import type { HostDescriptor } from '../ptyhost/protocol';
 
 /** The executable's name in a runtime copy: tells a host from a reframe in the process list. */
 export const HOST_EXE = process.platform === 'win32' ? 'reframe-ptyhost.exe' : 'reframe-ptyhost';
+/** The Rust host's executable (Windows only), in the release's resources/reframe-host and in its runtime copies. */
+export const RUST_HOST_EXE = 'reframe-host.exe';
+/** What a Rust host runs from: the executable and the ConPTY it brings (node-pty's, as the Node host uses). */
+export const RUST_HOST_FILES = [RUST_HOST_EXE, 'conpty.dll', 'OpenConsole.exe'];
 
 /** The profile's token, made on first use, readable by the current user only. */
 export function ensureToken(dir: string): string {
@@ -146,10 +150,32 @@ export function ensureRuntimeCopy(installDir: string, root: string, name: string
 }
 
 /**
- * Removes runtime copies no host runs from any more: all but `keep`, where the executable can be deleted (Windows
- * refuses that while a process runs it). Returns the folders removed.
+ * Copies the Rust host's files from `sourceDir` to `<root>/<name>`, unless that is there already (made under a
+ * temporary name first, so a copy is whole or absent).
  */
-export function collectRuntimes(root: string, keep: string): string[] {
+export function ensureRustHostCopy(sourceDir: string, root: string, name: string): string {
+  const target = path.join(root, name);
+  if (fs.existsSync(path.join(target, RUST_HOST_EXE))) return target;
+  fs.mkdirSync(root, { recursive: true });
+  const temp = path.join(root, `${name}.tmp-${process.pid}`);
+  fs.rmSync(temp, { recursive: true, force: true });
+  fs.mkdirSync(temp, { recursive: true });
+  for (const file of RUST_HOST_FILES) fs.copyFileSync(path.join(sourceDir, file), path.join(temp, file));
+  try {
+    fs.renameSync(temp, target);
+  } catch (error) {
+    fs.rmSync(temp, { recursive: true, force: true });
+    if (!fs.existsSync(path.join(target, RUST_HOST_EXE))) throw error;
+  }
+  return target;
+}
+
+/**
+ * Removes runtime copies no host runs from any more: all but those in `keep`, where the host executable (Node's or
+ * Rust's) can be deleted (Windows refuses that while a process runs it). Returns the folders removed.
+ */
+export function collectRuntimes(root: string, keep: string | string[]): string[] {
+  const kept = new Set(typeof keep === 'string' ? [keep] : keep);
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(root, { withFileTypes: true });
@@ -158,13 +184,14 @@ export function collectRuntimes(root: string, keep: string): string[] {
   }
   const removed: string[] = [];
   for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name === keep) continue;
+    if (!entry.isDirectory() || kept.has(entry.name)) continue;
     const folder = path.join(root, entry.name);
     // Another reframe's copy that is still being made.
     const making = /\.tmp-(\d+)$/.exec(entry.name);
     if (making && alive(Number(making[1]))) continue;
     try {
-      fs.rmSync(path.join(folder, HOST_EXE), { force: true });
+      // The executable first: a folder whose host still runs keeps all its files.
+      for (const exe of [HOST_EXE, RUST_HOST_EXE]) fs.rmSync(path.join(folder, exe), { force: true });
     } catch {
       continue; // in use
     }

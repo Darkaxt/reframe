@@ -11,6 +11,14 @@ import type { HookMessage } from '../main/hooks/server';
 /** Bumped whenever a message changes incompatibly; a reframe talks only to hosts with its own version. */
 export const PROTOCOL_VERSION = 1;
 
+/** Which implementation a host is: the Node host (this folder) or the Rust one (rust/reframe-host). */
+export type HostKind = 'node' | 'rust';
+
+/** The kind of a host from its descriptor or welcome; hosts from before 0.10.1-claudegpt.18 do not say: Node. */
+export function hostKind(host: { kind?: HostKind }): HostKind {
+  return host.kind ?? 'node';
+}
+
 /** What a reframe puts with a session for itself, and gets back when it takes the session over. */
 export interface SessionMeta {
   wsl?: { distro: string; home: string; claudeSessionId: string };
@@ -74,6 +82,7 @@ export type Welcome =
       /** The hook endpoint of the host: the sessions' hook settings point there, whichever reframe is attached. */
       hooks: { port: number; token: string };
       sessions: HostSession[];
+      kind?: HostKind;
     }
   | { type: 'refused'; reason: 'token' | 'protocol'; protocol: number };
 
@@ -96,6 +105,7 @@ export interface HostDescriptor {
   startedAt: number;
   /** Process ids of its running sessions. */
   sessionPids: number[];
+  kind?: HostKind;
 }
 
 /** The host's answer to a hello: welcome only with the profile's token and the same protocol version. */

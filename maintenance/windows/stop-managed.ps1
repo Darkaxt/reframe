@@ -27,7 +27,7 @@ do {
  $children=@($processes|Where-Object {$_.ParentProcessId -in $ids -and $_.ProcessId -notin $ids -and $_.ProcessId -notin $hosts})
  foreach($child in $children){
   # The PTY host outlives the app by design (with its sessions, if any; without, it exits by itself).
-  if($child.Name -ieq 'reframe-ptyhost.exe'){$hosts+=[int]$child.ProcessId;continue}
+  if($child.Name -ieq 'reframe-ptyhost.exe' -or $child.Name -ieq 'reframe-host.exe'){$hosts+=[int]$child.ProcessId;continue}
   if($child.ExecutablePath -cne $active.executable){throw 'Unknown owned child; inspect its lifecycle first.'}
   $handle=Get-Process -Id $child.ProcessId -ErrorAction SilentlyContinue
   if($handle){if($handle.Path -cne $active.executable -or $handle.StartTime.ToUniversalTime().Ticks -lt $primary.StartTime.ToUniversalTime().Ticks){throw 'Child identity differs'};$owned+=$handle}

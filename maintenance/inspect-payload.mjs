@@ -36,6 +36,18 @@ for (const name of ['stop-managed.ps1', 'release-files.ps1'])
       .equals(fs.readFileSync(new URL('./windows/' + name, import.meta.url)))
   )
     throw Error('Packaged quit helper differs from reviewed source: ' + name);
+// The Rust PTY host and the ConPTY it runs with, as built by CI and shipped by node-pty.
+const hostDir = path.join(directory, 'resources', 'reframe-host');
+for (const [name, source] of [
+  ['reframe-host.exe', '../rust/dist/reframe-host.exe'],
+  ['conpty.dll', '../node_modules/node-pty/prebuilds/win32-x64/conpty/conpty.dll'],
+  ['OpenConsole.exe', '../node_modules/node-pty/prebuilds/win32-x64/conpty/OpenConsole.exe'],
+])
+  if (
+    !fs.existsSync(path.join(hostDir, name)) ||
+    !fs.readFileSync(path.join(hostDir, name)).equals(fs.readFileSync(new URL(source, import.meta.url)))
+  )
+    throw Error('Packaged Rust PTY host file missing or different: ' + name);
 if (!backend.equals(fs.readFileSync(new URL('./history_backend.py', import.meta.url))))
   throw Error('Packaged history backend differs from qualified source');
 // The main process, the PTY host and the chunks they share (built together, so a feature may sit in a chunk).
