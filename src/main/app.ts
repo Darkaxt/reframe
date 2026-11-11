@@ -296,6 +296,9 @@ export class ReframeApp {
       claudeHome: this.claudeHome,
     });
 
+    // Fail before any side effect: a state that cannot be written ends the start here, before a token is written or a
+    // detached PTY host (which would outlive this failed start) is spawned.
+    this.store.save(this.state);
     this.host = new PtyHostClient({
       dir: path.join(app.getPath('userData'), 'ptyhost'),
       version: app.getVersion(),

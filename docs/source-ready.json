@@ -42,7 +42,7 @@
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "469efd1ba1bbd1c00f5e94711970562054fc802766f3f377aaa6559c80c4870d"
+      "sha256": "791a3304f035b83aab7f1b35d1496fb14d1e6ea1879f1fd085893d7b42967a06"
     },
     {
       "file": "src/main/ptyhost-client.test.ts",
