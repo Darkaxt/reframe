@@ -135,6 +135,7 @@ import { History, type PreparedHistory, type RetireJob } from './history';
 import { isArchiveRoot } from './archive-root';
 import { staleTiles } from './stale-tiles';
 import { cleanAddDirs, cleanPrompt, rememberedDefaults } from '@shared/new-session';
+import { refusedProviders } from './launch-config';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
 import { expandedWorkspaceKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
@@ -3069,6 +3070,12 @@ export class ReframeApp {
    * REFRAME_CLAUDE_BIN (tests: a .js fake run by REFRAME_NODE), else the one on the PATH.
    */
   private findClaude(provider?: Provider): ClaudeBinary | null {
+    // A binary the launch config refused (missing or changed) never falls back to the PATH or the other provider.
+    const refused = refusedProviders[provider ?? 'chatgpt'];
+    if (refused) {
+      this.log('error', 'provider refused by launch config', { provider: provider ?? 'chatgpt', reason: refused });
+      return null;
+    }
     const node = process.env.REFRAME_NODE;
     return resolveClaude({
       env: process.env,
