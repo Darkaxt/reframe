@@ -46,6 +46,16 @@ $values = @{
     REFRAME_HISTORY_PYTHON = $active.helper.python; REFRAME_HISTORY_HELPER = $active.helper.helper
     REFRAME_HISTORY_HELPER_SHA256 = $active.helper.helperSha256
     REFRAME_CLIENT_ADOPTION = $null
+    REFRAME_APP_ID = $null; REFRAME_APP_SHORTCUT = $null; REFRAME_APP_LAUNCHER = $null
+}
+# Toast clicks: a fixed app id per profile and a Start menu shortcut (kept by the app) that runs this profile's VBS
+# launcher, the one the desktop shortcut runs. Without that launcher the app keeps its executable-path id.
+$profileName = Split-Path -Leaf $active.profile
+$launcher = Join-Path (Split-Path -Parent $ActivePath) "maintenance\start-$($profileName.ToLowerInvariant()).vbs"
+if ($profileName -match '^[A-Za-z0-9-]+$' -and (Test-Path -LiteralPath $launcher -PathType Leaf)) {
+    $values.REFRAME_APP_ID = "Darkaxt.Reframe.$profileName"
+    $values.REFRAME_APP_SHORTCUT = Join-Path ([Environment]::GetFolderPath('Programs')) "Reframe - $profileName.lnk"
+    $values.REFRAME_APP_LAUNCHER = $launcher
 }
 if ($adoption) {
     # New sessions start on the adopted copies; the app re-reads the record (by hash) for each new session.

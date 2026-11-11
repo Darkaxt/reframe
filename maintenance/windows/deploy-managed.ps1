@@ -138,6 +138,24 @@ try {
     if (-not $KeepRunning) {
         Start-Process -FilePath "$env:SystemRoot\System32\wscript.exe" -ArgumentList @('//B', '//Nologo', ('"' + $previous.launcher + '"')) -WindowStyle Hidden
     }
+    # Entry points, best effort (never fails an activation): Reframe.lnk in the installation folder runs the launcher
+    # with the active release's icon (the app adds its fixed app id on start), and a Start menu reframe.lnk that
+    # Electron pointed straight at a release's reframe.exe goes: it bypasses the launcher and dies with that release.
+    try {
+        $wsh = New-Object -ComObject WScript.Shell
+        $entry = $wsh.CreateShortcut((Join-Path $installRoot 'Reframe.lnk'))
+        $entry.TargetPath = "$env:SystemRoot\System32\wscript.exe"
+        $entry.Arguments = '//B //Nologo "' + $previous.launcher + '"'
+        $entry.WorkingDirectory = $installRoot
+        $entry.IconLocation = "$($active['executable']),0"
+        $entry.Save()
+        $stray = Join-Path ([Environment]::GetFolderPath('Programs')) 'reframe.lnk'
+        $releases = (Join-Path $installRoot 'releases') + '\'
+        if ((Test-Path -LiteralPath $stray -PathType Leaf) -and
+            $wsh.CreateShortcut($stray).TargetPath.StartsWith($releases, [StringComparison]::OrdinalIgnoreCase)) {
+            Remove-Item -LiteralPath $stray
+        }
+    } catch { Write-Warning "Entry shortcuts not updated: $_" }
     Write-AtomicJson (Join-Path $m.receiptDirectory 'activation.json') @{
         status = if ($KeepRunning) { 'installed_pending_launch' } else { 'started_verification_pending' }; manifest = $Manifest; manifestSha256 = $ManifestSha256
         activeSha256 = Get-Sha256 $m.activePath; rollback = $rollbackPath; rollbackSha256 = Get-Sha256 $rollbackPath
