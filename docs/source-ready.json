@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "d951758e0dadf65ebeea793c1d45550423373814",
-  "scope": "0.10.0-claudegpt.8: offer to create a missing folder when starting a new session (on top of 0.10.0-claudegpt.7)",
+  "sourceBase": "349f301538c20fc463f7c9ed8f60ff709c58eabe",
+  "scope": "0.10.0-claudegpt.9: a directly started installed reframe.exe uses reframe-config.json for its profile and exact per-provider CLI routes (on top of 0.10.0-claudegpt.8)",
   "inputHashes": [
     {
       "file": ".github/workflows/ci.yml",
@@ -21,8 +21,8 @@
       "sha256": "2f85ccdbe7fbbc0f19ceeaee1723494aa5f24384708408d385a75605749b09ee"
     },
     {
-      "file": "docs/releases/v0.10.0-claudegpt.8.md",
-      "sha256": "47a90895a61ba9d4c930c10e2dc05166c245d1aec783215bcaacf57558257b1d"
+      "file": "docs/releases/v0.10.0-claudegpt.9.md",
+      "sha256": "aef966a4d33087615dec83ac52e17c5dc3e2b263d918ca9562568e9b37ed07ec"
     },
     {
       "file": "e2e/bulk-chats.spec.ts",
@@ -62,11 +62,11 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "2f24cd5c44c6b699fa06d945d85c60f21e279fec0a91e18a68c5a2ebb92258c0"
+      "sha256": "fcb411ff089a7b13177649a1cfa067db2bcebdc3e93f534cb55a0d18b5e14b12"
     },
     {
       "file": "package.json",
-      "sha256": "9fdc13b6fd62d94ce5a3c68be5bb2a01f48defe0d278fab181d950eb0f314ed0"
+      "sha256": "cc87d6dfcf462ce9fa35d8d72f9c1d0c682a0f0b787b07a0a388a720926ac3a5"
     },
     {
       "file": "resources/icon.png",
@@ -74,7 +74,7 @@
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "e13903604bf455c982187d1e0a7d0ddb1debdd9ccdf1876e7c982b215ea6405d"
+      "sha256": "aa5b4ebc984e8a1775aa8193cdd9717c82bdb5fd26db8fef6d7de508ee1ac74c"
     },
     {
       "file": "src/main/archive-root.test.ts",
@@ -95,6 +95,18 @@
     {
       "file": "src/main/history.ts",
       "sha256": "ab4e58072127f32d522b4c08b22ef4a61420c5f93a09580e9872b9cd34350140"
+    },
+    {
+      "file": "src/main/index.ts",
+      "sha256": "768ed03b345a127fb63ea4a063f184cb860311ea2cef489161377b53a6ae727e"
+    },
+    {
+      "file": "src/main/launch-config.test.ts",
+      "sha256": "3b722e60a041a64d6ed25bdc5c0a29e300050256f68819317a11de8394477f9a"
+    },
+    {
+      "file": "src/main/launch-config.ts",
+      "sha256": "b0a6a9e85179bb1ecf8f43ca0aa213435cfae937f44dd01a8b60667ac6d96de0"
     },
     {
       "file": "src/main/menus.ts",

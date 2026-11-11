@@ -8,9 +8,14 @@ import { ReframeApp } from './app';
 import { createLogger } from './log';
 import { startedBySystem } from './autostart';
 import { portableDataDir } from './portable';
+import { applyLaunchConfig, refusedProviders } from './launch-config';
+
+// Started directly (not by the managed launcher): the fixed profile and CLI routes next to reframe.exe.
+const launchConfig = applyLaunchConfig(process.execPath, process.env, { packaged: app.isPackaged });
+if (launchConfig) Object.assign(refusedProviders, launchConfig.refused);
 
 // Tests and side-by-side dev runs use their own profile; the portable copy keeps it next to itself.
-const portable = app.isPackaged ? portableDataDir(process.execPath) : null;
+const portable = app.isPackaged && !launchConfig ? portableDataDir(process.execPath) : null;
 const profile = process.env.REFRAME_USER_DATA || portable;
 if (profile) app.setPath('userData', profile);
 
@@ -38,6 +43,7 @@ if (!app.requestSingleInstanceLock({ build, quit: quitCommand })) {
   }
 
   const log = createLogger(path.join(app.getPath('userData'), 'logs'));
+  if (launchConfig) log('info', 'launch config applied', { ...launchConfig });
   // Logged and survived: ending the process would end every session, and Electron's own error box is a modal
   // nobody sees while reframe sits in the tray.
   process.on('uncaughtException', (error) =>
