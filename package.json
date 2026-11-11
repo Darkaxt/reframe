@@ -1,7 +1,7 @@
 {
   "name": "reframe",
   "productName": "reframe",
-  "version": "0.10.1-claudegpt.17",
+  "version": "0.10.1-claudegpt.18",
   "description": "Keep your Claude Code sessions side by side in one window: tile and group them, take over the ones running in other terminals, and get every session back after a restart.",
   "license": "MIT",
   "private": true,
@@ -14,6 +14,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
+    "test:conformance": "vitest run -c vitest.conformance.config.ts",
     "test:e2e": "electron-vite build && playwright test",
     "screenshots": "electron-vite build && playwright test -c playwright.screenshots.config.ts",
     "dist": "electron-vite build && electron-builder --publish never",

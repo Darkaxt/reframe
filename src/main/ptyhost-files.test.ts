@@ -8,12 +8,15 @@ vi.mock('original-fs', async () => await import('node:fs'));
 import {
   collectRuntimes,
   ensureRuntimeCopy,
+  ensureRustHostCopy,
   ensureToken,
   HOST_EXE,
   principals,
   readDescriptors,
   runtimeHash,
   runtimeName,
+  RUST_HOST_EXE,
+  RUST_HOST_FILES,
 } from './ptyhost-files';
 
 let dir: string;
@@ -140,6 +143,57 @@ describe('runtime copies', () => {
       '1.0.2-cccccccccccc.tmp-999999',
     ]);
     expect(fs.readdirSync(root)).toEqual(['1.0.1-bbbbbbbbbbbb']);
+  });
+
+  it('removes Rust host copies too, and keeps every current one', () => {
+    const root = path.join(dir, 'ptyhost');
+    for (const [name, exe] of <[string, string][]>[
+      ['1.0.0-aaaaaaaaaaaa', HOST_EXE],
+      ['1.0.0-rust-bbbbbbbbbbbb', RUST_HOST_EXE],
+      ['1.0.1-cccccccccccc', HOST_EXE],
+      ['1.0.1-rust-dddddddddddd', RUST_HOST_EXE],
+    ]) {
+      fs.mkdirSync(path.join(root, name), { recursive: true });
+      fs.writeFileSync(path.join(root, name, exe), '');
+      fs.writeFileSync(path.join(root, name, 'conpty.dll'), '');
+    }
+    const removed = collectRuntimes(root, ['1.0.1-cccccccccccc', '1.0.1-rust-dddddddddddd']);
+    expect(removed.map((r) => path.basename(r)).sort()).toEqual(['1.0.0-aaaaaaaaaaaa', '1.0.0-rust-bbbbbbbbbbbb']);
+    expect(fs.readdirSync(root).sort()).toEqual(['1.0.1-cccccccccccc', '1.0.1-rust-dddddddddddd']);
+  });
+
+  it('copies the Rust host with its ConPTY, once', () => {
+    const source = path.join(dir, 'release', 'resources', 'reframe-host');
+    fs.mkdirSync(source, { recursive: true });
+    for (const file of RUST_HOST_FILES) fs.writeFileSync(path.join(source, file), file);
+    fs.writeFileSync(path.join(source, 'unrelated.txt'), '');
+    const root = path.join(dir, 'ptyhost');
+    const copy = ensureRustHostCopy(source, root, '1.0.0-rust-aaaaaaaaaaaa');
+    expect(fs.readdirSync(copy).sort()).toEqual([...RUST_HOST_FILES].sort());
+    expect(fs.readFileSync(path.join(copy, RUST_HOST_EXE), 'utf8')).toBe(RUST_HOST_EXE);
+    fs.writeFileSync(path.join(source, RUST_HOST_EXE), 'changed');
+    expect(ensureRustHostCopy(source, root, '1.0.0-rust-aaaaaaaaaaaa')).toBe(copy);
+    expect(fs.readFileSync(path.join(copy, RUST_HOST_EXE), 'utf8')).toBe(RUST_HOST_EXE);
+    expect(fs.readdirSync(root)).toEqual(['1.0.0-rust-aaaaaaaaaaaa']);
+  });
+
+  it.runIf(process.platform === 'win32')('keeps a Rust copy whose executable runs', async () => {
+    const root = path.join(dir, 'ptyhost');
+    const running = path.join(root, '1.0.0-rust-aaaaaaaaaaaa');
+    fs.mkdirSync(running, { recursive: true });
+    fs.copyFileSync(process.execPath, path.join(running, RUST_HOST_EXE));
+    fs.writeFileSync(path.join(running, 'conpty.dll'), '');
+    const { spawn } = await import('node:child_process');
+    const child = spawn(path.join(running, RUST_HOST_EXE), ['-e', 'setTimeout(() => {}, 20000)'], { stdio: 'ignore' });
+    await new Promise((resolve) => child.once('spawn', resolve));
+    try {
+      expect(collectRuntimes(root, 'other')).toEqual([]);
+      expect(fs.readdirSync(running).sort()).toEqual(['conpty.dll', RUST_HOST_EXE]);
+    } finally {
+      child.kill();
+      await new Promise((resolve) => child.once('exit', resolve));
+    }
+    await vi.waitFor(() => expect(collectRuntimes(root, 'other')).toEqual([running]), { timeout: 10_000 });
   });
 
   it.runIf(process.platform === 'win32')('keeps a copy whose executable runs', async () => {

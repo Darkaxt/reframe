@@ -1,0 +1,18 @@
+[package]
+name = "reframe-conpty"
+version = "0.10.1"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "The only unsafe code of reframe's Rust host: ConPTY and the Win32 process calls around it."
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Console",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Pipes",
+  "Win32_System_Threading",
+] }

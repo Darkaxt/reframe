@@ -19,6 +19,7 @@ import {
   checkHello,
   type HostSession,
   type HostDescriptor,
+  type HostKind,
 } from '../ptyhost/protocol';
 import { ensureToken } from './ptyhost-files';
 
@@ -38,7 +39,7 @@ afterEach(async () => {
 });
 
 /** A host that answers like the real one, and records what it was sent. */
-function fakeHost(pid: number, sessions: HostSession[], protocol = PROTOCOL_VERSION) {
+function fakeHost(pid: number, sessions: HostSession[], protocol = PROTOCOL_VERSION, kind?: HostKind) {
   const received: unknown[] = [];
   const pipe = pipeName(dir, pid) + '-test';
   const server = net.createServer((socket) => {
@@ -61,7 +62,7 @@ function fakeHost(pid: number, sessions: HostSession[], protocol = PROTOCOL_VERS
     });
   });
   servers.push(server);
-  const descriptor: HostDescriptor = { pid, pipe, protocol, version: 'test', startedAt: pid, sessionPids: [] };
+  const descriptor: HostDescriptor = { pid, pipe, protocol, version: 'test', startedAt: pid, sessionPids: [], kind };
   fs.mkdirSync(path.join(dir, 'hosts'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'hosts', `${pid}.json`), JSON.stringify(descriptor));
   const listening = new Promise<void>((resolve) => server.listen(pipe, resolve));
@@ -95,6 +96,28 @@ describe('PtyHostClient', () => {
     await expect(client.start()).rejects.toThrow('no new host');
     expect(client.foreign.map((h) => h.pid)).toEqual([process.ppid]);
     expect(old.received).toEqual([]);
+  });
+
+  it('takes over only a host of the configured kind; one of the other kind keeps its sessions', async () => {
+    ensureToken(dir);
+    const rust = fakeHost(
+      process.ppid,
+      [{ sessionId: 'r1', instance: 1, pid: 77, exitCode: null }],
+      PROTOCOL_VERSION,
+      'rust',
+    );
+    await rust.listening;
+    // A Node reframe leaves the Rust host alone (and would start a Node host for its new sessions).
+    const node = new PtyHostClient({ dir, version: 'test', runtime: noRuntime });
+    await expect(node.start()).rejects.toThrow('no new host');
+    expect(node.foreign.map((h) => h.pid)).toEqual([process.ppid]);
+    expect(rust.received).toEqual([]);
+    // A reframe configured for the Rust host takes it over.
+    const client = new PtyHostClient({ dir, version: 'test', kind: 'rust', runtime: noRuntime });
+    await client.start();
+    expect(client.adopted.map((s) => s.sessionId)).toEqual(['r1']);
+    expect(client.foreign).toEqual([]);
+    await client.stop('keep');
   });
 
   it('is refused by a host of the profile with another token', async () => {

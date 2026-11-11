@@ -12,10 +12,12 @@ import { IPC, type TerminalViewMessage } from '@shared/ipc';
 import {
   compatible,
   encode,
+  hostKind,
   LineDecoder,
   PROTOCOL_VERSION,
   type HostDescriptor,
   type HostEvent,
+  type HostKind,
   type HostRequest,
   type HostSession,
   type ServerMessage,
@@ -41,16 +43,19 @@ type Events = {
   crashed: [code: number, restarting: boolean];
 };
 
-/** How the host is started: an executable run as Node with the host's script. */
+/** How the host is started: an executable run as Node with the host's script (Node host), or on its own (Rust). */
 export interface HostRuntime {
   exe: string;
-  script: string;
+  script?: string;
+  kind: HostKind;
 }
 
 export interface PtyHostOptions {
   /** The profile's host folder: token, descriptors, log. */
   dir: string;
   version: string;
+  /** The host new sessions go to; a running host of the other kind keeps its sessions and is left alone. */
+  kind?: HostKind;
   /** Prepares the runtime a new host runs from (copied out of the release, for an installed reframe). */
   runtime: () => HostRuntime;
   log?: LogFn;
@@ -80,7 +85,10 @@ export class PtyHostClient extends EventEmitter<Events> {
   hooks = { port: 0, token: '' };
   /** Sessions the host already ran when reframe attached (a reframe before this one started them). */
   adopted: HostSession[] = [];
-  /** Hosts of the profile from a reframe this one cannot talk to: left alone, they end with their last session. */
+  /**
+   * Hosts of the profile this reframe does not take over: of a protocol it cannot talk, or of the other kind than the
+   * configured one. Left alone, they end with their last session.
+   */
   foreign: HostDescriptor[] = [];
 
   constructor(private options: PtyHostOptions) {
@@ -96,8 +104,10 @@ export class PtyHostClient extends EventEmitter<Events> {
     this.stopped = false;
     const token = ensureToken(this.options.dir);
     const hosts = readDescriptors(this.options.dir);
-    this.foreign = hosts.filter((h) => !compatible(h));
-    for (const host of hosts.filter(compatible)) {
+    const kind = this.options.kind ?? 'node';
+    const ours = (h: HostDescriptor) => compatible(h) && hostKind(h) === kind;
+    this.foreign = hosts.filter((h) => !ours(h));
+    for (const host of hosts.filter(ours)) {
       const welcome = await this.connect(host.pipe, token).catch((error: unknown) => {
         this.log('warn', 'could not attach to a running pty host', { pid: host.pid, error: String(error) });
         return null;
@@ -107,6 +117,7 @@ export class PtyHostClient extends EventEmitter<Events> {
         this.log('info', 'attached to the running pty host', {
           pid: welcome.pid,
           version: welcome.version,
+          kind: hostKind(welcome),
           sessions: welcome.sessions.length,
         });
         return;
@@ -114,7 +125,7 @@ export class PtyHostClient extends EventEmitter<Events> {
     }
     if (this.foreign.length) {
       this.log('info', 'pty hosts of another reframe keep their sessions', {
-        hosts: this.foreign.map((h) => ({ pid: h.pid, version: h.version, protocol: h.protocol })),
+        hosts: this.foreign.map((h) => ({ pid: h.pid, version: h.version, protocol: h.protocol, kind: hostKind(h) })),
       });
     }
     await this.launch(token);
@@ -123,13 +134,14 @@ export class PtyHostClient extends EventEmitter<Events> {
   /** Starts a new host and attaches to it. */
   private async launch(token = ensureToken(this.options.dir)): Promise<void> {
     const runtime = this.options.runtime();
-    const env = {
+    const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
-      ELECTRON_RUN_AS_NODE: '1',
       REFRAME_PTYHOST_DIR: this.options.dir,
       REFRAME_PTYHOST_VERSION: this.options.version,
     };
-    const pid = spawnDetached(runtime.exe, [runtime.script], env, this.options.dir);
+    if (runtime.script) env.ELECTRON_RUN_AS_NODE = '1';
+    else delete env.ELECTRON_RUN_AS_NODE;
+    const pid = spawnDetached(runtime.exe, runtime.script ? [runtime.script] : [], env, this.options.dir);
     const descriptorFile = path.join(this.options.dir, 'hosts', `${pid}.json`);
     const deadline = Date.now() + LAUNCH_TIMEOUT_MS;
     while (!fs.existsSync(descriptorFile)) {
@@ -143,7 +155,7 @@ export class PtyHostClient extends EventEmitter<Events> {
     const descriptor = JSON.parse(fs.readFileSync(descriptorFile, 'utf8')) as HostDescriptor;
     const welcome = await this.connect(descriptor.pipe, token);
     this.adopted = [];
-    this.log('info', 'pty host started', { pid: welcome.pid, exe: runtime.exe });
+    this.log('info', 'pty host started', { pid: welcome.pid, exe: runtime.exe, kind: runtime.kind });
   }
 
   private connect(pipe: string, token: string): Promise<Extract<Welcome, { type: 'welcome' }>> {
