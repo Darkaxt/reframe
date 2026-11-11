@@ -1,68 +1,104 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "4c4d3be7bfec6a0b7bf156f8f7d14a5ad305e423",
-  "scope": "0.10.1-claudegpt.15: new 'Look for Claude Code in WSL' preference (default off, also for older state files); when off the session list watcher, scanOutside, and claudeSources make no wsl.exe calls and list no WSL sources or stopped distributions, while opening/resuming a \\wsl$ session still asks its distribution on demand; when on, a running distribution without claude is probed once until seen not running (was every 30 s); toggling on scans at once, off drops WSL sources; dragging a WSL terminal window onto reframe still asks WSL on demand",
+  "sourceBase": "f89d665eb27200d8e513b51a5ea0397767f77ccf",
+  "scope": "0.10.1-claudegpt.16: Claude sessions survive Reframe's quit in a detached per-profile PTY host (Electron as Node, versioned runtime copy under <install>\\ptyhost for installed builds, GC of unused copies); named pipe per profile with user-only token file and versioned handshake; the next Reframe attaches and adopts the host's sessions (views redraw from mirrors), hosts of another protocol keep their sessions until the last ends (tiles show olderHost with Take over); hooks and statusLine run through the host to whichever Reframe is attached; quit keeps sessions by default, tray 'End sessions and quit' ends them; stop-managed -KeepSessions and deploy-managed -HotSwap for hot swaps; e2e isolate and stop their hosts",
   "inputHashes": [
     {
-      "file": "docs/releases/v0.10.1-claudegpt.15.md",
-      "sha256": "e18868d8faf0f72c1aee6698c8ee78adb0f5f096d26260a45111cede6ba6e695"
+      "file": "docs/releases/v0.10.1-claudegpt.16.md",
+      "sha256": "339a3e2a65991bd7bdfd082241ffd6845a3251b30e7aedbfecfe1a3e44e858d3"
     },
     {
       "file": "e2e/helpers.ts",
-      "sha256": "bbdc9950ab84d47959e61601664e9c95bcd407f6bc2188220b5d88f5901e19cc"
+      "sha256": "865b9d8ba865e6414e6e700f7a32b456847d5746ae64c9ee90929ffd6d3b58db"
     },
     {
-      "file": "e2e/real-wsl.spec.ts",
-      "sha256": "ab85aea3a5bc287e7a135df2392f00c30f4e127d50dec68354b908c36901b9cc"
+      "file": "e2e/hot-swap.spec.ts",
+      "sha256": "e840eaee0824cb01661b89b95d4e352dff16768e9d8e0189fab6262879f64863"
     },
     {
-      "file": "e2e/wsl.spec.ts",
-      "sha256": "55235f63ff9ff7a9811794b143399f9c78fb11ed63ffc7761d4786403d6c3f41"
+      "file": "electron.vite.config.ts",
+      "sha256": "b1c119a9c5d0805a48c38eaf4d8636e89a8a06e1b798e7cd4701bc751e635ace"
+    },
+    {
+      "file": "maintenance/windows/deploy-managed.ps1",
+      "sha256": "bacee6d3d9c275f0958de14afcc418a302194ed4f199dbba801e0cc0f6eccd9d"
+    },
+    {
+      "file": "maintenance/windows/start-managed.ps1",
+      "sha256": "e821d763ca8ec4937f915a28358b8d1aede1410785463e5ee86b42bbb988ee6c"
+    },
+    {
+      "file": "maintenance/windows/stop-managed.ps1",
+      "sha256": "6e38832a5b79037fb4a0f8b27e5e845ff9119897808cd8f207297ecb1191345e"
     },
     {
       "file": "package-lock.json",
-      "sha256": "ab56dd6a8ede85b9caa1eb8be21d9b86cd1314c3e3002b48d4eb41ea9332dec4"
+      "sha256": "b4e6dfc269d52722453a32b7161414f1d3560135758009a3a413dd51c6274bb2"
     },
     {
       "file": "package.json",
-      "sha256": "a88c7810e99038303f50210c73305f7160fdc5fd7819dc631410253667badd68"
+      "sha256": "1d718fbee44ac2d17be88adcf3fefb74e5758c3b9138f756e895315c6d7fa5f6"
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "b036e5a63377d9175249a4ca7b737c77af8528f730045a3e4ff0073f8ea8f2aa"
+      "sha256": "791a3304f035b83aab7f1b35d1496fb14d1e6ea1879f1fd085893d7b42967a06"
     },
     {
-      "file": "src/main/state/store.test.ts",
-      "sha256": "8b37614ab0381dea74d0b7d7075af68316b74d64d13b6d899979a599acc68e2a"
+      "file": "src/main/ptyhost-client.test.ts",
+      "sha256": "7d1c2fd05c9b0b841f1383953bf0b94e7859f5e739cab1f8062ff7d9ba0eb956"
     },
     {
-      "file": "src/main/wsl/distros.test.ts",
-      "sha256": "e87c94c9ddd787a574ddeb4419c6fc8552051d7ce36b2283700b5ae2484c3b37"
+      "file": "src/main/ptyhost-client.ts",
+      "sha256": "ac2bafbf1f992d64cf267fcddf44fbc897391a89901ae5722687f8878e7b886a"
     },
     {
-      "file": "src/main/wsl/distros.ts",
-      "sha256": "891a67d2a4910b0cb449f8e9abde1e94ceb70d564e279e081a8c04eff12a74a8"
+      "file": "src/main/ptyhost-files.test.ts",
+      "sha256": "07fceaabe5dea19502875c0476b258a29dbdb52d1a447ab08820138d7ef8d1d2"
     },
     {
-      "file": "src/renderer/App.tsx",
-      "sha256": "163efd5eec9c2400ac99db5406dc0ce44f5f24a34f4f55307a5572f2aa9a8ca3"
+      "file": "src/main/ptyhost-files.ts",
+      "sha256": "edce0c2aad2c3f86222effee7aa980ac57865a5593325045f0c7c5957fe48402"
     },
     {
-      "file": "src/renderer/components/SettingsDialog.tsx",
-      "sha256": "287f5510fdf4662149fb69b420e68db10162c09b4fae8c840b4b746e8f9b10b0"
+      "file": "src/main/ptyhost-runtime.ts",
+      "sha256": "7de5dd35fa3ce7ae94698fdb013b5a3905c11358e52698b6e10fe3c73eb2e1a8"
+    },
+    {
+      "file": "src/main/sessions.ts",
+      "sha256": "116128d201213f770395d9cc55832e00a257c535fd53da3bd57c6d61a5af25ec"
+    },
+    {
+      "file": "src/main/tray.ts",
+      "sha256": "97e85ef32e3cb5113e599975169b2532f3bf652c89fc7b9f1e3a0b6287b570d3"
+    },
+    {
+      "file": "src/main/win32.ts",
+      "sha256": "5977d3e672cccc4df183d1053b09fef80adfe106f668fdcda47b1ee48ecb9e0d"
+    },
+    {
+      "file": "src/ptyhost/index.ts",
+      "sha256": "d6a1a80ec32e6368a5bcf119be3f802b18eaed6ece707a93102e9097ac9e73f5"
+    },
+    {
+      "file": "src/ptyhost/protocol.test.ts",
+      "sha256": "45cd9e65f593bd428c759540bdddb6fad2739409c60b905c234598f401bf915e"
+    },
+    {
+      "file": "src/ptyhost/protocol.ts",
+      "sha256": "1bc56f2950ca5b14314a0bc1deb4de0fa965488ef4305dfd80a8a2f796c31f0e"
+    },
+    {
+      "file": "src/renderer/components/Tile.tsx",
+      "sha256": "7734b639a681d134fe470874e13070abd9ce48bf54887777f381acdacb97255a"
     },
     {
       "file": "src/shared/i18n.ts",
-      "sha256": "f172d62ed7c8c671f002711bde816f2e7f3bbe308ee3bf428b5ea293400f9a5f"
+      "sha256": "0aaec217bf2e12a4f3095bc8c809909be677d9f6c49b04d255e3eaa733af4bab"
     },
     {
       "file": "src/shared/ipc.ts",
-      "sha256": "f3d50d3cb3e32e8f596982572585d5f4684d8c964c5f7a9e520fe27f143ab33d"
-    },
-    {
-      "file": "src/shared/state.ts",
-      "sha256": "29c4ec5b296d966e451b73fc73521693e81bbbfe4f439cc40db8cdf0c23b01a1"
+      "sha256": "94023aa5a6a515b608608af27350097ab40833add6c1dd90cfeae9a2186495ac"
     }
   ],
   "checksNotYetRun": [

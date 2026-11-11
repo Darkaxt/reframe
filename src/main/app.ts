@@ -107,13 +107,13 @@ import {
   type RegistryEntry,
 } from './claude/registry';
 import { resolveClaude, type ClaudeBinary } from './claude/resolve';
-import { HookServer } from './hooks/server';
 import { consoleHelper } from './console';
 import { ForeignWindowWatcher, type ForeignDrop, type OutsideClaude } from './foreign';
 import { activeByTitle, isShell, onlyShells } from './foreign-match';
 import { createLogger } from './log';
 import { isAlive } from './process';
-import { PtyHostClient } from './ptyhost-client';
+import { PtyHostClient, type QuitMode } from './ptyhost-client';
+import { hostRuntime } from './ptyhost-runtime';
 import { SessionManager, type IdentityPatch, type NotifyKind } from './sessions';
 import type { LaunchMode } from './claude/args';
 import { StateStore } from './state/store';
@@ -205,8 +205,14 @@ export class ReframeApp {
   }
   private store = new StateStore(path.join(app.getPath('userData'), 'state.json'));
   private state!: AppState;
-  private hooks = new HookServer();
-  private host = new PtyHostClient();
+  private host!: PtyHostClient;
+  /**
+   * How quitting leaves the sessions: running in the PTY host (the next reframe, e.g. an update, takes them over), or
+   * ended ("End sessions and quit"). The end-to-end tests end them unless a test says otherwise.
+   */
+  private quitMode: QuitMode = process.env.REFRAME_QUIT_ENDS_SESSIONS === '1' ? 'end' : 'keep';
+  /** Sessions a PTY host of another reframe still runs: shown as such, and taken over only when asked. */
+  private olderHost = new Set<string>();
   private sessions!: SessionManager;
   private windows: WindowManager;
   private refreshTray: () => void = () => {};
@@ -290,11 +296,18 @@ export class ReframeApp {
       claudeHome: this.claudeHome,
     });
 
-    await this.hooks.start();
-    this.host.start();
+    // Fail before any side effect: a state that cannot be written ends the start here, before a token is written or a
+    // detached PTY host (which would outlive this failed start) is spawned.
+    this.store.save(this.state);
+    this.host = new PtyHostClient({
+      dir: path.join(app.getPath('userData'), 'ptyhost'),
+      version: app.getVersion(),
+      runtime: () => hostRuntime(app.getPath('userData'), this.log),
+      log: this.log,
+    });
+    await this.host.start();
     this.sessions = new SessionManager({
       host: this.host,
-      hooks: this.hooks,
       claudeHome: this.claudeHome,
       settingsDir: path.join(app.getPath('userData'), 'hooks'),
       env: process.env,
@@ -330,7 +343,15 @@ export class ReframeApp {
       this.state = { ...this.state, wslDistros: [...known, distro] };
       this.save();
     });
-    await this.sessions.cleanupOrphans(Object.values(this.state.sessions));
+    // Sessions the host still runs (reframe quit keeping them) go on; those of a host of another reframe are left to
+    // it. Neither is an orphan.
+    const taken = this.sessions.adopt(this.state.sessions, (id) => !!this.windowOf(id));
+    const foreignPids = new Set(this.host.foreign.flatMap((h) => h.sessionPids));
+    const hosted = new Set([...this.host.adopted.map((s) => s.pid), ...foreignPids]);
+    await this.sessions.cleanupOrphans(Object.values(this.state.sessions), hosted);
+    for (const s of Object.values(this.state.sessions)) {
+      if (!taken.has(s.id) && s.pid && foreignPids.has(s.pid)) this.olderHost.add(s.id);
+    }
 
     this.registerIpc();
     // Told first when the system goes down, before it closes the claudes, which then must not count as ended.
@@ -400,23 +421,37 @@ export class ReframeApp {
     void (browserWindow ? dialog.showMessageBox(browserWindow, options) : dialog.showMessageBox(options));
   }
 
-  /** Ends all sessions the way a user would, saves, and exits. Sessions stay open and resume next time. */
+  /** "End sessions and quit": quits the way reframe did before its sessions outlived it. */
+  endSessionsAndQuit(): void {
+    this.quitMode = 'end';
+    app.quit();
+  }
+
+  /**
+   * Saves and exits. By default the sessions keep running in the PTY host, and the next reframe (this one again, or
+   * an update) takes them over; with "End sessions and quit" they end the way a user would, and resume next time.
+   */
   async shutdown(): Promise<void> {
     if (this.shuttingDown) return;
     this.shuttingDown = true;
     this.windows.quitting = true;
-    this.log('info', 'reframe quitting, ending sessions');
+    const mode = this.quitMode;
+    this.log('info', mode === 'keep' ? 'reframe quitting, sessions keep running' : 'reframe quitting, ending sessions');
     // Open confirmations behave as Cancel; operations already confirmed own durable outcomes, so quit waits for them.
     this.confirmations.abort();
     await Promise.allSettled([...this.historyOperations]);
-    this.save();
+    // A state that cannot be saved (a failed start) must not keep the sessions and the PTY host from being let go.
+    try {
+      this.save();
+    } catch (error) {
+      this.log('error', 'could not save the state on quitting', { error: String(error) });
+    }
     // Quitting must not hang on a session that does not go: what is left is ended as an orphan on the next start.
-    if (!(await settle(this.sessions.stopAll(), SHUTDOWN_MS))) {
+    if (this.sessions && mode === 'end' && !(await settle(this.sessions.stopAll(), SHUTDOWN_MS))) {
       this.log('warn', 'sessions did not end in time, quitting anyway', { sessions: this.sessions.active });
     }
-    this.sessions.dispose();
-    this.host.stop();
-    this.hooks.stop();
+    this.sessions?.dispose();
+    await this.host?.stop(mode);
     this.wsl?.release();
     this.listWatcher?.stop();
     clearInterval(this.listLook);
@@ -821,7 +856,8 @@ export class ReframeApp {
     for (const record of Object.values(this.state.sessions)) {
       if (record.lifecycle !== 'open') continue;
       // On the start nobody can be asked: one whose conversation runs elsewhere now waits for "Take over".
-      if (this.windowOf(record.id)) void this.startOrTakeOver(record.id, 'resume', null);
+      if (this.windowOf(record.id) && this.olderHost.has(record.id)) this.sessions.refuse(record.id, 'olderHost');
+      else if (this.windowOf(record.id)) void this.startOrTakeOver(record.id, 'resume', null);
       else this.updateSession(record.id, { lifecycle: 'ended' }, false);
     }
   }
@@ -2628,6 +2664,7 @@ export class ReframeApp {
         newWindow: t('tray.newWindow'),
         about: t('tray.about'),
         quit: t('tray.quit'),
+        endSessionsAndQuit: t('tray.endSessionsAndQuit'),
       }),
       windows: () =>
         this.state.windows.map((w, i) => {
@@ -2669,6 +2706,7 @@ export class ReframeApp {
         return null;
       },
       quit: () => app.quit(),
+      endSessionsAndQuit: () => this.endSessionsAndQuit(),
     });
     this.refreshTray = refresh;
     this.refreshTrayTooltip = refreshTooltip;

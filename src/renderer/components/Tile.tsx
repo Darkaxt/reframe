@@ -206,15 +206,18 @@ export function Tile({ sessionId, group }: { sessionId: string; group: GroupNode
               <div className="button-row">
                 {session.error === 'transcriptMissing' || session.error === 'folderMissing' ? null : (
                   <button className="button primary" onClick={() => window.reframe.restartSession(sessionId)}>
-                    {session.error === 'runningElsewhere' ? t('takeover.confirm') : t('tile.resume')}
+                    {session.error === 'runningElsewhere' || session.error === 'olderHost'
+                      ? t('takeover.confirm')
+                      : t('tile.resume')}
                   </button>
                 )}
                 {/* A fresh start is for a session whose history is the trouble, not for one its host lost. */}
-                {session.error && !['folderMissing', 'hostCrashed', 'runningElsewhere'].includes(session.error) && (
-                  <button className="button" onClick={() => window.reframe.restartSession(sessionId, true)}>
-                    {t('tile.startFresh')}
-                  </button>
-                )}
+                {session.error &&
+                  !['folderMissing', 'hostCrashed', 'runningElsewhere', 'olderHost'].includes(session.error) && (
+                    <button className="button" onClick={() => window.reframe.restartSession(sessionId, true)}>
+                      {t('tile.startFresh')}
+                    </button>
+                  )}
                 <button className="button" onClick={() => window.reframe.endSession(sessionId)}>
                   {t('tile.close')}
                 </button>

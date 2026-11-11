@@ -68,6 +68,8 @@ const en = {
   'tile.error.folderMissing': 'The session folder no longer exists.',
   'tile.error.hostCrashed': "Reframe's terminal host stopped unexpectedly, and the session with it. It can be resumed.",
   'tile.error.runningElsewhere': 'This session is running in another terminal. Take it over to continue it here.',
+  'tile.error.olderHost':
+    'This session still runs in the terminal host of an earlier Reframe version. Take it over to continue it here.',
   'status.starting': 'Starting',
   'status.idle': 'Ready',
   'status.busy': 'Working',
@@ -146,7 +148,8 @@ const en = {
   'tray.window': 'Window {n}',
   'tray.newSession': 'New session',
   'tray.newWindow': 'New window',
-  'tray.quit': 'Quit Reframe',
+  'tray.quit': 'Quit Reframe (sessions keep running)',
+  'tray.endSessionsAndQuit': 'End sessions and quit',
   'tray.about': 'About Reframe',
   'fullscreen.hint': 'Press F11 to exit full screen',
   'fullscreen.exit': 'Exit full screen',
@@ -312,6 +315,8 @@ const de: Record<MessageKey, string> = {
     'Der Terminal-Prozess von Reframe wurde unerwartet beendet und die Session mit ihm. Sie lässt sich fortsetzen.',
   'tile.error.runningElsewhere':
     'Diese Session läuft in einem anderen Terminal. Übernimm sie, um sie hier fortzusetzen.',
+  'tile.error.olderHost':
+    'Diese Session läuft noch im Terminal-Host einer früheren Reframe-Version. Übernimm sie, um sie hier fortzusetzen.',
   'status.starting': 'Startet',
   'status.idle': 'Bereit',
   'status.busy': 'Arbeitet',
@@ -391,7 +396,8 @@ const de: Record<MessageKey, string> = {
   'tray.window': 'Fenster {n}',
   'tray.newSession': 'Neue Session',
   'tray.newWindow': 'Neues Fenster',
-  'tray.quit': 'Reframe beenden',
+  'tray.quit': 'Reframe beenden (Sessions laufen weiter)',
+  'tray.endSessionsAndQuit': 'Sessions beenden und Reframe beenden',
   'tray.about': 'Über Reframe',
   'fullscreen.hint': 'F11 beendet den Vollbildmodus',
   'fullscreen.exit': 'Vollbild beenden',

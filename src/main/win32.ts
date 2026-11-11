@@ -23,6 +23,12 @@ export interface Win32 {
   clipboardFiles(): string[];
   /** Has Windows close reframe before other programs (its claudes among them) when it shuts down or logs off. */
   shutDownFirst(): void;
+  /**
+   * Starts a process that outlives reframe (the PTY host): hidden, without a console, out of reframe's job if it may
+   * leave it, and inheriting none of reframe's handles (whoever started reframe with pipes as its standard handles
+   * would otherwise wait for that process to end too). Returns its process id.
+   */
+  spawnDetached(file: string, args: string[], env: Record<string, string>, cwd: string): number;
 }
 
 let instance: Win32 | null = null;
@@ -63,6 +69,36 @@ function load(): Win32 {
   const SetProcessShutdownParameters = kernel32.func(
     'bool __stdcall SetProcessShutdownParameters(uint32_t level, uint32_t flags)',
   );
+  koffi.struct('STARTUPINFOW', {
+    cb: 'uint32_t',
+    lpReserved: 'void*',
+    lpDesktop: 'void*',
+    lpTitle: 'void*',
+    dwX: 'uint32_t',
+    dwY: 'uint32_t',
+    dwXSize: 'uint32_t',
+    dwYSize: 'uint32_t',
+    dwXCountChars: 'uint32_t',
+    dwYCountChars: 'uint32_t',
+    dwFillAttribute: 'uint32_t',
+    dwFlags: 'uint32_t',
+    wShowWindow: 'uint16_t',
+    cbReserved2: 'uint16_t',
+    lpReserved2: 'void*',
+    hStdInput: 'void*',
+    hStdOutput: 'void*',
+    hStdError: 'void*',
+  });
+  koffi.struct('PROCESS_INFORMATION', {
+    hProcess: 'void*',
+    hThread: 'void*',
+    dwProcessId: 'uint32_t',
+    dwThreadId: 'uint32_t',
+  });
+  const CreateProcessW = kernel32.func(
+    'bool __stdcall CreateProcessW(void* app, void* commandLine, void* processAttributes, void* threadAttributes, bool inherit, uint32_t flags, void* environment, void* cwd, STARTUPINFOW* startup, _Out_ PROCESS_INFORMATION* info)',
+  );
+  const GetLastError = kernel32.func('uint32_t __stdcall GetLastError()');
   const shell32 = koffi.load('shell32.dll');
   const IsClipboardFormatAvailable = user32.func('bool __stdcall IsClipboardFormatAvailable(uint32_t format)');
   const OpenClipboard = user32.func('bool __stdcall OpenClipboard(void* owner)');
@@ -161,6 +197,34 @@ function load(): Win32 {
     },
     shutDownFirst() {
       SetProcessShutdownParameters(SHUTDOWN_LEVEL_FIRST, 0);
+    },
+    spawnDetached(file, args, env, cwd) {
+      const wide = (text: string) => Buffer.from(`${text} `, 'utf16le');
+      const commandLine = wide([file, ...args].map((a) => `"${a}"`).join(' '));
+      // Sorted (as Windows wants it) NAME=value strings, each ended by a NUL, and one more at the end.
+      const block = Object.keys(env)
+        .sort((a, b) => a.toUpperCase().localeCompare(b.toUpperCase()))
+        .map((key) => `${key}=${env[key]} `)
+        .join('');
+      const environment = Buffer.from(`${block} `, 'utf16le');
+      const STARTF_USESHOWWINDOW = 0x1;
+      const SW_HIDE = 0;
+      const startup = { cb: koffi.sizeof('STARTUPINFOW'), dwFlags: STARTF_USESHOWWINDOW, wShowWindow: SW_HIDE };
+      const DETACHED_PROCESS = 0x8;
+      const CREATE_NEW_PROCESS_GROUP = 0x200;
+      const CREATE_UNICODE_ENVIRONMENT = 0x400;
+      const CREATE_BREAKAWAY_FROM_JOB = 0x01000000;
+      const flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_UNICODE_ENVIRONMENT;
+      const info: { hProcess?: unknown; hThread?: unknown; dwProcessId?: number } = {};
+      const create = (extra: number) =>
+        CreateProcessW(null, commandLine, null, null, false, flags | extra, environment, wide(cwd), startup, info);
+      // Out of reframe's job where that is allowed (a job that ends its processes with it would end the host too).
+      if (!create(CREATE_BREAKAWAY_FROM_JOB) && !create(0)) {
+        throw new Error(`could not start ${file} (error ${GetLastError()})`);
+      }
+      CloseHandle(info.hThread);
+      CloseHandle(info.hProcess);
+      return info.dwProcessId!;
     },
     clipboardFiles() {
       if (!IsClipboardFormatAvailable(CF_HDROP) || !OpenClipboard(null)) return [];

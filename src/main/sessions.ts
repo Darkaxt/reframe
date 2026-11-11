@@ -25,7 +25,7 @@ import {
 } from './claude/registry';
 import { cmdCommandLine, type ClaudeBinary } from './claude/resolve';
 import { writeHookSettings } from './claude/settings';
-import type { HookMessage, HookServer } from './hooks/server';
+import type { HookMessage } from './hooks/server';
 import type { LogFn } from './log';
 import { isAlive, killTree, processStart } from './process';
 import type { PtyHostClient } from './ptyhost-client';
@@ -80,8 +80,8 @@ interface Runtime {
 }
 
 export interface SessionManagerDeps {
+  /** Runs the processes, and receives their hooks (it outlives reframe, so the hooks reach whichever is attached). */
   host: PtyHostClient;
-  hooks: HookServer;
   claudeHome: string;
   settingsDir: string;
   resolveClaude: (provider?: Provider) => ClaudeBinary | null;
@@ -132,6 +132,7 @@ export class SessionManager extends EventEmitter<Events> {
     this.log = deps.log ?? (() => {});
     deps.host.on('event', (event) => {
       if (event.type === 'error') return this.log('warn', 'error in the pty host', { error: event.message });
+      if (event.type === 'hook') return this.onHook(event.message);
       const runtime = this.runtimes.get(event.sessionId);
       // A process that is still going away while its session was started again: not this runtime's business.
       if (!runtime || runtime.instance !== event.instance) return;
@@ -143,7 +144,6 @@ export class SessionManager extends EventEmitter<Events> {
       this.log('error', 'pty host stopped unexpectedly, all its sessions are gone', { code, restarting });
       for (const [id, runtime] of this.runtimes) if (this.isRunning(id)) this.lostWithHost(id, runtime);
     });
-    deps.hooks.on('hook', (message) => this.onHook(message));
     this.poller = setInterval(() => void this.pollRegistry(), POLL_MS);
     this.poller.unref();
   }
@@ -201,8 +201,8 @@ export class SessionManager extends EventEmitter<Events> {
 
     const settings = writeHookSettings(
       this.deps.settingsDir,
-      this.deps.hooks.port,
-      this.deps.hooks.token,
+      this.deps.host.hooks.port,
+      this.deps.host.hooks.token,
       session.id,
       session.launch.provider,
       session.launch.provider === 'anthropic' && !!this.deps.captureStatusLine?.(),
@@ -239,8 +239,48 @@ export class SessionManager extends EventEmitter<Events> {
       ),
       cols: 120,
       rows: 32,
+      ...(runtime.launched ? { meta: { launched: { claudeSessionId: session.claudeSessionId } } } : {}),
     });
     this.emit('changed', session.id);
+  }
+
+  /**
+   * Takes over the sessions the host already ran when reframe attached to it (a reframe before this one started
+   * them, and quit keeping them). Those of records that are gone, or not shown anywhere, are ended. Returns the ids
+   * of the sessions taken over (still running).
+   */
+  adopt(records: Record<string, SessionRecord>, shown: (sessionId: string) => boolean): Set<string> {
+    const taken = new Set<string>();
+    for (const hosted of this.deps.host.adopted) {
+      this.instances = Math.max(this.instances, hosted.instance);
+      const record = records[hosted.sessionId];
+      const runtime: Runtime = {
+        instance: hosted.instance,
+        status: hosted.exitCode === null ? 'starting' : 'ended',
+        mode: 'resume',
+        startedAt: Date.now(),
+        pid: hosted.pid,
+        procStart: processStart(hosted.pid),
+        ...(hosted.meta?.launched ? { launched: { ...hosted.meta.launched } } : {}),
+        ...(hosted.meta?.wsl ? { wsl: { ...hosted.meta.wsl } } : {}),
+      };
+      runtime.exited = new Promise((resolve) => (runtime.markExited = resolve));
+      if (hosted.exitCode !== null) runtime.markExited?.();
+      this.runtimes.set(hosted.sessionId, runtime);
+      if (!record || record.lifecycle !== 'open' || !shown(hosted.sessionId) || hosted.exitCode !== null) {
+        this.log('info', 'session of the pty host ended on attach', {
+          session: hosted.sessionId,
+          reason: !record ? 'unknown' : hosted.exitCode !== null ? 'exited meanwhile' : 'not open',
+        });
+        if (record && hosted.exitCode !== null) this.emit('ended', hosted.sessionId);
+        void this.stop(hosted.sessionId);
+        continue;
+      }
+      taken.add(hosted.sessionId);
+      this.log('info', 'session taken over from the pty host', { session: hosted.sessionId, pid: hosted.pid });
+      this.emit('changed', hosted.sessionId);
+    }
+    return taken;
   }
 
   /**
@@ -305,6 +345,7 @@ export class SessionManager extends EventEmitter<Events> {
       env: claudeEnv(this.deps.env, env),
       cols: 120,
       rows: 32,
+      meta: { wsl: { distro: where.distro, home, claudeSessionId: session.claudeSessionId } },
     });
     this.emit('changed', session.id);
   }
@@ -367,11 +408,14 @@ export class SessionManager extends EventEmitter<Events> {
     return Promise.all([...this.runtimes.keys()].map((id) => this.stop(id, timeoutMs))).then(() => undefined);
   }
 
-  /** Kills processes of sessions that survived a crash of a previous run, so they are not resumed twice. */
-  async cleanupOrphans(sessions: SessionRecord[]): Promise<void> {
+  /**
+   * Kills processes of sessions that survived a crash of a previous run, so they are not resumed twice. Those a pty
+   * host runs (`hosted`: taken over, or kept by a host of another reframe) are not orphans.
+   */
+  async cleanupOrphans(sessions: SessionRecord[], hosted: Set<number> = new Set()): Promise<void> {
     await Promise.all(
       sessions.map(async (s) => {
-        if (!s.pid || !isAlive(s.pid)) return;
+        if (!s.pid || !isAlive(s.pid) || hosted.has(s.pid) || this.runtimes.has(s.id)) return;
         const entry = readRegistryEntry(this.deps.claudeHome, s.pid);
         // Its entry alone is not enough: the process may be gone and its id another program's now.
         if (entry && entry.sessionId === s.claudeSessionId && isRunningEntry(entry)) {

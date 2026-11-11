@@ -82,6 +82,10 @@ export function setup() {
     REFRAME_NODE: process.execPath,
     REFRAME_FAKE_LOG: path.join(dir, 'fake.log'),
     REFRAME_LOCALE: 'en',
+    // Quitting ends the sessions (and the PTY host), as before they outlived reframe; hot-swap.spec keeps them.
+    REFRAME_QUIT_ENDS_SESSIONS: '1',
+    // A packaged app copies its runtime for the PTY host: once for all tests, not into every profile.
+    REFRAME_PTYHOST_ROOT: path.join(os.tmpdir(), 'reframe-e2e-ptyhost'),
     REFRAME_DISABLE_NOTIFICATIONS: '1',
     REFRAME_WSL_EXE: path.join(root, 'test', 'fake-wsl', 'fake-wsl.mjs'),
     REFRAME_WSL_SHARE: wsl,
@@ -179,6 +183,8 @@ export async function captureWindows(name: string): Promise<void> {
 export async function cleanup(dir: string): Promise<void> {
   await running?.close().catch(() => {});
   running = null;
+  // The PTY host outlives the app (e.g. one that was closed without quitting): it and its sessions go too.
+  await stopHosts(path.join(dir, 'user-data'));
   // The managed host inventories and retires these exact task outputs transactionally after consumers exit.
   if (process.env.REFRAME_DEFER_CLEANUP === '1') return;
   // Chromium helper processes can hold the profile for a few seconds after the app exits.
@@ -191,6 +197,30 @@ export async function cleanup(dir: string): Promise<void> {
     }
   }
   console.warn(`could not remove ${dir}`);
+}
+
+/** Process ids of the PTY hosts a profile runs (they outlive the app). */
+export function hostPids(userData: string): number[] {
+  const hosts = path.join(userData, 'ptyhost', 'hosts');
+  if (!fs.existsSync(hosts)) return [];
+  return fs
+    .readdirSync(hosts)
+    .filter((name) => /^\d+\.json$/.test(name))
+    .map((name) => Number(name.slice(0, -5)));
+}
+
+/** Ends the profile's PTY hosts with their sessions, so no test leaves processes behind. */
+export async function stopHosts(userData: string): Promise<void> {
+  for (const pid of hostPids(userData)) {
+    await new Promise<void>((resolve) => {
+      const kill =
+        process.platform === 'win32'
+          ? spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' })
+          : spawn('kill', ['-9', String(pid)], { stdio: 'ignore' });
+      kill.on('exit', () => resolve());
+      kill.on('error', () => resolve());
+    });
+  }
 }
 
 export const tileByLabel = (page: Page, label: string) =>
