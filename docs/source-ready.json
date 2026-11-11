@@ -22,7 +22,7 @@
     },
     {
       "file": "maintenance/windows/client-adoption.ps1",
-      "sha256": "bc8149c117c7f6b476a989ff020d9af87178f1f6d61cf6298be4d5e75cd095e0"
+      "sha256": "56ba7eb3bdc6028ba5c9be89e1366d4d10cd7dd0a8007c90123be41f0c06a30b"
     },
     {
       "file": "maintenance/windows/deploy-managed.ps1",

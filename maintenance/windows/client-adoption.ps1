@@ -30,7 +30,7 @@ function Get-ClientCandidates($PipelineActive) {
             version = [string](Get-ClientProperty $e 'version')
             sha256 = [string](Get-ClientProperty $e 'sha256')
             directory = [string]$directory
-            binary = Join-Path $directory 'claude.exe'
+            binary = [IO.Path]::Combine([string]$directory, 'claude.exe')
             verification = [string](Get-ClientProperty $e 'verification')
             verificationSha256 = Get-ClientProperty $e 'verificationSha256'
             candidate = Get-ClientProperty $e 'candidate'
