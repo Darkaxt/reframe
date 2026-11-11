@@ -2,6 +2,8 @@
 import {
   appendNode,
   findNode,
+  gridLayout,
+  layoutUnits,
   groupOf,
   groups,
   insertNode,
@@ -34,7 +36,9 @@ export type LayoutAction =
   | { type: 'group/expand'; groupId: string }
   | { type: 'group/rename'; groupId: string; name: string }
   | { type: 'split/resize'; splitId: string; sizes: number[] }
-  | { type: 'window/sidebar'; open: boolean };
+  | { type: 'window/sidebar'; open: boolean }
+  /** Arranges the visible tiles (and groups) in an even grid by their count. */
+  | { type: 'layout/tile' };
 
 export function dockSessions(entry: DockEntry): string[] {
   return entry.kind === 'tile' ? [entry.sessionId] : leaves(entry.node);
@@ -104,6 +108,8 @@ export function applyLayoutAction(win: WindowState, action: LayoutAction): Windo
       return { ...win, layout: setSplitSizes(win.layout, action.splitId, action.sizes) };
     case 'window/sidebar':
       return { ...win, sidebarOpen: action.open };
+    case 'layout/tile':
+      return { ...win, layout: gridLayout(layoutUnits(win.layout)) };
   }
 }
 
@@ -207,6 +213,8 @@ export function isLayoutAction(value: unknown): value is LayoutAction {
       return typeof a.splitId === 'string' && Array.isArray(a.sizes) && a.sizes.every((s) => typeof s === 'number');
     case 'window/sidebar':
       return typeof a.open === 'boolean';
+    case 'layout/tile':
+      return true;
     default:
       return false;
   }

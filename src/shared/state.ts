@@ -60,6 +60,8 @@ export const windowStateSchema = z.object({
   sidebarOpen: z.boolean().optional(),
   /** The workspace this window was saved as or opened from. */
   workspaceId: z.string().optional(),
+  /** The project (session list workspace key) whose tiles the window shows; the others are collapsed. */
+  activeProject: z.string().optional(),
 });
 
 export const launchOptionsSchema = z.object({
@@ -160,7 +162,7 @@ export const preferencesSchema = z.object({
 });
 
 export const DEFAULT_PREFERENCES: z.infer<typeof preferencesSchema> = {
-  nameFromFolder: true,
+  nameFromFolder: false,
   language: 'system',
   fontSize: FONT_SIZE.normal,
   snapToGrid: true,

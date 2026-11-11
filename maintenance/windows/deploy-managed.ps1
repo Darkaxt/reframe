@@ -1,7 +1,10 @@
 #Requires -Version 7.4
 param(
     [Parameter(Mandatory)][string]$Manifest,
-    [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{64}$')][string]$ManifestSha256
+    [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{64}$')][string]$ManifestSha256,
+    # Install and repoint the launcher while the running app keeps running from its own release folder: no idle
+    # requirement, no launch. The new release starts with the next launch (status installed_pending_launch).
+    [switch]$KeepRunning
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -53,22 +56,27 @@ try {
     Assert-Hash $candidate.helper.helper $candidate.helper.helperSha256
     Assert-Hash $m.idleReservation $m.idleReservationSha256
     $idle = Get-Content -LiteralPath $m.idleReservation -Raw | ConvertFrom-Json
-    foreach ($condition in @('clientsClosed', 'backgroundAndGoalsPaused', 'keepIdleUntilVerified')) {
-        if ($idle.$condition -cne $true) { throw "No idle reservation for this activation: $condition" }
+    $conditions = if ($KeepRunning) { @('keepRunning') } else { @('clientsClosed', 'backgroundAndGoalsPaused', 'keepIdleUntilVerified') }
+    foreach ($condition in $conditions) {
+        if ($idle.PSObject.Properties.Name -notcontains $condition -or $idle.$condition -cne $true) { throw "No idle reservation for this activation: $condition" }
     }
     if ($idle.candidateSha256 -cne $m.candidateSha256) { throw 'Idle reservation belongs to another candidate' }
     $tasks = @(Get-ReframeRequestTasks)
     if ($tasks.Count) { throw "Enabled scheduled request producers need review/reservation before activation: $($tasks | ConvertTo-Json -Compress -Depth 8)" }
-    Assert-ReframeIdle $installRoot
+    if (-not $KeepRunning) { Assert-ReframeIdle $installRoot }
     Assert-PlainPath $m.releaseDirectory
     if (Test-Path -LiteralPath $m.releaseDirectory) { throw 'Destination exists; resolve prior activation before another copy' }
     Assert-PlainPath $m.receiptDirectory
     if (Test-Path -LiteralPath $m.receiptDirectory) { throw 'Activation receipt already exists; resolve it first' }
     [IO.Directory]::CreateDirectory($m.receiptDirectory) | Out-Null
     # Defined recovery purpose: original launcher, pointer and durable app state.
-    $paths = @($m.activePath, $m.launcherPath, (Join-Path $previous.profile 'state.json'))
-    $stateBackup = Join-Path $previous.profile 'state.json.bak'
-    if (Test-Path -LiteralPath $stateBackup) { $paths += $stateBackup }
+    # A running app owns its state: then only the pointer and launcher are frozen (and restored on failure).
+    $paths = @($m.activePath, $m.launcherPath)
+    if (-not $KeepRunning) {
+        $paths += Join-Path $previous.profile 'state.json'
+        $stateBackup = Join-Path $previous.profile 'state.json.bak'
+        if (Test-Path -LiteralPath $stateBackup) { $paths += $stateBackup }
+    }
     $frozen = Save-RestoreFiles (Join-Path $m.receiptDirectory 'frozen') $paths
     $rollback = [ordered]@{
         schema = 'claudegpt.reframe-rollback.v1'; status = 'prepared'; at = [DateTime]::UtcNow.ToString('o')
@@ -94,10 +102,11 @@ try {
         [IO.File]::Copy((Join-Path $PSScriptRoot $name), (Join-Path $m.launcherDirectory $name), $false)
         Assert-Hash (Join-Path $m.launcherDirectory $name) (Get-Sha256 (Join-Path $PSScriptRoot $name))
     }
-    Assert-ReframeIdle $installRoot
+    if (-not $KeepRunning) { Assert-ReframeIdle $installRoot }
     foreach ($file in $m.protected) { Assert-Hash $file.path $file.sha256 }
     $active = [ordered]@{
-        schema = 'claudegpt.reframe.v2'; version = $candidate.version; status = 'activation_verification_pending'
+        schema = 'claudegpt.reframe.v2'; version = $candidate.version
+        status = if ($KeepRunning) { 'installed_pending_launch' } else { 'activation_verification_pending' }
         executable = Join-Path $m.releaseDirectory 'reframe.exe'; executableSha256 = $candidate.executableSha256
         sourceCommit = $candidate.sourceCommit; archiveSha256 = $candidate.archiveSha256; files = $candidate.files
         profile = $previous.profile; runtime = $previous.runtime; managedBinary = $previous.managedBinary
@@ -117,9 +126,11 @@ try {
     $changed = $true
     Write-AtomicBytes $m.launcherPath ([Text.Encoding]::UTF8.GetBytes($launcherBody))
     Write-AtomicJson $m.activePath $active
-    Start-Process -FilePath "$env:SystemRoot\System32\wscript.exe" -ArgumentList @('//B', '//Nologo', ('"' + $previous.launcher + '"')) -WindowStyle Hidden
+    if (-not $KeepRunning) {
+        Start-Process -FilePath "$env:SystemRoot\System32\wscript.exe" -ArgumentList @('//B', '//Nologo', ('"' + $previous.launcher + '"')) -WindowStyle Hidden
+    }
     Write-AtomicJson (Join-Path $m.receiptDirectory 'activation.json') @{
-        status = 'started_verification_pending'; manifest = $Manifest; manifestSha256 = $ManifestSha256
+        status = if ($KeepRunning) { 'installed_pending_launch' } else { 'started_verification_pending' }; manifest = $Manifest; manifestSha256 = $ManifestSha256
         activeSha256 = Get-Sha256 $m.activePath; rollback = $rollbackPath; rollbackSha256 = Get-Sha256 $rollbackPath
     }
 } catch {
@@ -128,7 +139,14 @@ try {
         Write-AtomicJson (Join-Path $m.receiptDirectory 'activation-failure.json') @{
             status = 'failed'; error = $failure; rollback = $rollbackPath; rollbackSha256 = Get-Sha256 $rollbackPath
         }
-        try {
+        if ($KeepRunning) {
+            # Nothing was stopped or started: putting the pointer and launcher back is the whole restore.
+            Restore-FrozenFiles $rollback.files
+            Write-AtomicJson (Join-Path $m.receiptDirectory 'restore-result.json') @{
+                status = 'pointer_restored_app_untouched'; error = $failure
+                executable = $rollback.previousExecutable; executableSha256 = $rollback.previousExecutableSha256
+            }
+        } else { try {
             # Never kill a child/consumer to make rollback possible. A live GUI
             # must exit through its native lifecycle before the frozen restore.
             Assert-ReframeIdle $installRoot
@@ -142,7 +160,7 @@ try {
             Write-AtomicJson (Join-Path $m.receiptDirectory 'restore-result.json') @{
                 status = 'restore_requires_owned_idle_or_repair'; activationError = $failure; restoreError = $_.ToString()
             }
-        }
+        } }
     }
     throw $failure
 } finally {

@@ -41,7 +41,7 @@ test('real claude in WSL: start, a prompt, restart, resume', async () => {
   await page.getByRole('button', { name: 'New session' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByPlaceholder('Path to a project folder').fill(folder);
-  await dialog.getByPlaceholder('Shown on the tile and in notifications').fill('wsl');
+  await dialog.getByPlaceholder('Optional: otherwise Claude Code names it').fill('wsl');
   await dialog.getByRole('button', { name: 'Start' }).click();
   const tile = tileByLabel(page, 'wsl');
   await expect(tile.locator('.status-idle')).toBeVisible({ timeout: 60_000 });

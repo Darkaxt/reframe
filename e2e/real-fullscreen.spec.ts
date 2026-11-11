@@ -60,7 +60,7 @@ test("real claude, fullscreen: a right-click pastes once (Claude Code's), Shift+
     await page.getByRole('button', { name: 'New session' }).first().click();
     const dialog = page.getByRole('dialog');
     await dialog.getByPlaceholder('Path to a project folder').fill(folder);
-    await dialog.getByPlaceholder('Shown on the tile and in notifications').fill('fullscreen');
+    await dialog.getByPlaceholder('Optional: otherwise Claude Code names it').fill('fullscreen');
     await dialog.getByRole('button', { name: 'Start' }).click();
     const tile = tileByLabel(page, 'fullscreen');
     await expect(tile.locator('.status-idle')).toBeVisible({ timeout: 60_000 });

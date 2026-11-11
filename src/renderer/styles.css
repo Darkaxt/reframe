@@ -12,6 +12,7 @@
   --ok: #4fbf7f;
   --warn: #e0b04a;
   --danger: #e06060;
+  --orange: #e8913a;
   --radius: 6px;
   color-scheme: dark;
   font:
@@ -50,9 +51,23 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  height: 40px;
+  flex: none;
+  padding: 0 8px;
+  /* Room for the window buttons Windows draws over the right end (titleBarOverlay, about 138px wide). */
+  padding-right: calc(8px + 100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 138px)));
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  /* The empty part of the row moves the window (and double-click maximizes it); its controls stay clickable. */
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.toolbar button,
+.toolbar input,
+.toolbar a {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 .workspace {
@@ -1308,4 +1323,128 @@ textarea {
 .sidebar-resizer.is-dragging {
   background: var(--accent);
   outline: none;
+}
+
+/* ---------- project activity (session list) ---------- */
+
+.folder-workspace.is-busy .sidebar-title {
+  font-weight: 600;
+}
+
+.folder-workspace.is-current {
+  background: var(--surface-2);
+}
+
+.project-active-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.project-idle .project-active-count {
+  color: var(--ok);
+}
+
+.project-busy .project-active-count {
+  color: var(--orange);
+}
+
+.project-waiting .project-active-count,
+.project-error .project-active-count {
+  color: var(--danger);
+}
+
+/* A shape per state as well as a colour: idle a dot, busy a diamond, waiting a square, error a "!" badge. */
+.project-state {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 8px;
+  height: 8px;
+}
+
+.project-state-idle {
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.project-state-busy {
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--orange);
+}
+
+.project-state-waiting {
+  background: var(--danger);
+  animation: pulse 0.9s ease-in-out infinite;
+}
+
+.project-state-error {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: var(--accent-text);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-state-waiting {
+    animation: none;
+  }
+}
+
+/* ---------- quota (foot of the session list) ---------- */
+
+.sidebar-quota {
+  flex: none;
+  border-top: 1px solid var(--border);
+  padding: 2px 6px 8px;
+}
+
+.sidebar-quota .sidebar-heading {
+  margin-top: 6px;
+}
+
+.quota-row {
+  display: grid;
+  grid-template-columns: 2.2em 1fr 3em auto;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quota-window,
+.quota-reset {
+  color: var(--muted);
+}
+
+.quota-percent {
+  text-align: right;
+}
+
+.quota-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.quota-fill {
+  display: block;
+  height: 100%;
+  width: var(--quota-used);
+  background: var(--ok);
+}
+
+.quota-warn .quota-fill {
+  background: var(--orange);
+}
+
+.quota-danger .quota-fill {
+  background: var(--danger);
 }

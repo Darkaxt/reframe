@@ -24,9 +24,9 @@ export interface NewSessionPreset {
 export function NewSessionDialog({ onClose, initial }: { onClose: () => void; initial?: NewSessionPreset }) {
   const { t } = useApp();
   const [cwd, setCwd] = useState(initial?.cwd ?? '');
-  // null until the user types a name; then the typed name wins over the folder name.
-  const [customName, setCustomName] = useState<string | null>(null);
-  const [nameFromFolder, setNameFromFolder] = useState(false);
+  // Only a name the user types is given to the session (and to Claude Code as --name). Without one, Claude Code's own
+  // title names it, and the folder until there is one.
+  const [customName, setCustomName] = useState('');
   const [worktree, setWorktree] = useState(false);
   const [worktreeName, setWorktreeName] = useState('');
   const [model, setModel] = useState('');
@@ -49,7 +49,6 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
       setRecent(recentFolders);
       setProviderRoots(providerWorkspaceRoots);
       setCwd((current) => current || providerWorkspaceRoots[providerRef.current]);
-      setNameFromFolder(preferences.nameFromFolder);
       // What was used last for this provider (else Settings' defaults), unless something was picked here already.
       const remembered = defaultsFor(preferences, providerRef.current);
       currentPreferences.current = preferences;
@@ -61,7 +60,7 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
     folderInput.current?.focus();
   }, []);
 
-  const name = customName ?? (nameFromFolder ? folderName(cwd) : '');
+  const name = customName;
   const otherRoot = folderKey(providerRoots[provider === 'chatgpt' ? 'anthropic' : 'chatgpt']);
   const providerRecent = recent.filter((folder) => {
     const key = folderKey(folder);
@@ -70,14 +69,6 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
       (key !== otherRoot && !key.startsWith(otherRoot + '/'))
     );
   });
-
-  const toggleNameFromFolder = (on: boolean) => {
-    setNameFromFolder(on);
-    window.reframe.setPreferences({ nameFromFolder: on });
-    // Back on: follow the folder again. Off: drop the folder name, but keep anything typed.
-    if (on) setCustomName(null);
-    else setCustomName((typed) => typed ?? '');
-  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -212,10 +203,6 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
             placeholder={t('dialog.namePlaceholder')}
             onChange={(e) => setCustomName(e.target.value)}
           />
-        </label>
-        <label className="checkbox nested">
-          <input type="checkbox" checked={nameFromFolder} onChange={(e) => toggleNameFromFolder(e.target.checked)} />
-          <span>{t('dialog.nameFromFolder')}</span>
         </label>
 
         <label className="field">

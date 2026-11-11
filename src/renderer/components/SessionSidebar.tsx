@@ -3,6 +3,9 @@ import type { ListItemRef, SessionList } from '@shared/ipc';
 import { tileKey } from '@shared/layout';
 import { workspaceKey } from '@shared/folder-workspaces';
 import { sidebarChats, type SidebarChat } from '@shared/sidebar-chats';
+import { projectActivity } from '@shared/project-view';
+import type { ProviderQuota } from '@shared/quota';
+import { QuotaPanel } from './QuotaPanel';
 import { useApp } from '../context';
 import { dragKind, setListDrag, setNodeDrag } from '../dnd';
 import { PAGE, type SessionListState } from '../session-list';
@@ -19,9 +22,13 @@ const folderName = (cwd: string) => cwd.split(/[\\/]/).filter(Boolean).pop() ?? 
 export function SessionSidebar({
   sessionList,
   onNewSession,
+  activeProject,
+  quota,
 }: {
   sessionList: SessionListState;
   onNewSession: (preset: NewSessionPreset) => void;
+  activeProject: string | null;
+  quota: ProviderQuota[];
 }) {
   const { t, locale, renamingSession, setRenamingSession, setDragging } = useApp();
   const { list, query, setQuery, limit, setLimit, fresh, reload } = sessionList;
@@ -76,6 +83,7 @@ export function SessionSidebar({
   }, [list, query, projectLimits]);
 
   const catalogue = useMemo(() => (list ? sidebarChats(list) : []), [list]);
+  const activity = useMemo(() => projectActivity(list?.app ?? []), [list]);
   const pinned = (list?.pinnedChats || []).flatMap((key) => {
     const chat = catalogue.find((entry) => entry.key === key);
     return chat ? [chat] : [];
@@ -267,79 +275,103 @@ export function SessionSidebar({
         <section className="sidebar-projects" aria-label="Projects">
           <h3 className="sidebar-heading">Projects</h3>
           {!branches.length && <p className="sidebar-empty">No projects yet.</p>}
-          {branches.map((project) => (
-            <div className="sidebar-project" key={project.id} data-project={project.id}>
-              <div className="sidebar-project-header">
-                <button
-                  className="sidebar-row folder-workspace"
-                  title={project.locations
-                    .map((location) => location.cwd)
-                    .filter((cwd, index, paths) => paths.indexOf(cwd) === index)
-                    .join('\n')}
-                  aria-expanded={project.expanded}
-                  onClick={() => window.reframe.setProjectExpanded(project.cwd, !project.expanded)}
-                >
-                  <span className={`project-chevron${project.expanded ? ' is-expanded' : ''}`}>
-                    <CollapseIcon />
-                  </span>
-                  <FolderIcon />
-                  <span className="sidebar-text">
-                    <span className="sidebar-title">{project.name}</span>
-                  </span>
-                  <span className="sidebar-project-count">{project.sessionIds.length}</span>
-                </button>
-                <button
-                  className="icon-button workspace-new-session"
-                  title={`New session in ${project.name}`}
-                  aria-label={`New session in ${project.name}`}
-                  onClick={() =>
-                    onNewSession({
-                      cwd: project.cwd,
-                      provider: project.locations[0]?.provider ?? 'chatgpt',
-                      locations: project.locations,
-                    })
-                  }
-                >
-                  <PlusIcon />
-                </button>
-              </div>
-              {project.expanded && (
-                <div className="sidebar-project-chats" role="group" aria-label={`${project.name} chats`}>
-                  {project.chats.slice(0, project.limit).map((chat) => renderChat(chat, `project:${project.id}`))}
-                  {projectErrors[project.id] ? (
-                    <p className="sidebar-error" role="alert">
-                      {projectErrors[project.id]}{' '}
-                      <button
-                        className="button"
-                        onClick={() => {
-                          projectRequests.current.delete(project.id);
-                          setProjectLimits((current) => ({ ...current }));
-                        }}
+          {branches.map((project) => {
+            const busy = activity.get(project.id);
+            const state = busy ? t(`status.${busy.status}`) : '';
+            const current = activeProject === project.id;
+            const paths = project.locations
+              .map((location) => location.cwd)
+              .filter((cwd, index, all) => all.indexOf(cwd) === index)
+              .join('\n');
+            return (
+              <div className="sidebar-project" key={project.id} data-project={project.id}>
+                <div className="sidebar-project-header">
+                  <button
+                    className={`sidebar-row folder-workspace${busy ? ` is-busy project-${busy.status}` : ''}${current ? ' is-current' : ''}`}
+                    title={busy ? `${paths}\n${t('project.activity', { n: busy.count, state })}` : paths}
+                    aria-expanded={project.expanded}
+                    aria-current={current ? 'true' : undefined}
+                    onClick={() => {
+                      // Shows the project's tiles in this window; a click on the shown one only opens or closes it.
+                      if (!current) window.reframe.showProject(project.id);
+                      window.reframe.setProjectExpanded(project.cwd, !current || !project.expanded);
+                    }}
+                  >
+                    <span className={`project-chevron${project.expanded ? ' is-expanded' : ''}`}>
+                      <CollapseIcon />
+                    </span>
+                    <FolderIcon />
+                    <span className="sidebar-text">
+                      <span className="sidebar-title">
+                        {project.name}
+                        {busy && <span className="project-active-count"> ({busy.count})</span>}
+                      </span>
+                    </span>
+                    {busy && (
+                      <span
+                        className={`project-state project-state-${busy.status}`}
+                        role="img"
+                        aria-label={state}
+                        title={state}
                       >
-                        Reload chats
-                      </button>
-                    </p>
-                  ) : !project.page ? (
-                    <p className="sidebar-empty" role="status">
-                      Loading chats…
-                    </p>
-                  ) : !project.chats.length ? (
-                    <p className="sidebar-empty">No matching chats.</p>
-                  ) : null}
-                  {(project.page?.hasMore || project.chats.length > project.limit) && (
-                    <button
-                      className="button sidebar-more"
-                      onClick={() =>
-                        setProjectLimits((current) => ({ ...current, [project.id]: project.limit + PAGE }))
-                      }
-                    >
-                      {t('list.more')}
-                    </button>
-                  )}
+                        {busy.status === 'error' ? '!' : ''}
+                      </span>
+                    )}
+                    <span className="sidebar-project-count">{project.sessionIds.length}</span>
+                  </button>
+                  <button
+                    className="icon-button workspace-new-session"
+                    title={`New session in ${project.name}`}
+                    aria-label={`New session in ${project.name}`}
+                    onClick={() =>
+                      onNewSession({
+                        cwd: project.cwd,
+                        provider: project.locations[0]?.provider ?? 'chatgpt',
+                        locations: project.locations,
+                      })
+                    }
+                  >
+                    <PlusIcon />
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
+                {project.expanded && (
+                  <div className="sidebar-project-chats" role="group" aria-label={`${project.name} chats`}>
+                    {project.chats.slice(0, project.limit).map((chat) => renderChat(chat, `project:${project.id}`))}
+                    {projectErrors[project.id] ? (
+                      <p className="sidebar-error" role="alert">
+                        {projectErrors[project.id]}{' '}
+                        <button
+                          className="button"
+                          onClick={() => {
+                            projectRequests.current.delete(project.id);
+                            setProjectLimits((current) => ({ ...current }));
+                          }}
+                        >
+                          Reload chats
+                        </button>
+                      </p>
+                    ) : !project.page ? (
+                      <p className="sidebar-empty" role="status">
+                        Loading chats…
+                      </p>
+                    ) : !project.chats.length ? (
+                      <p className="sidebar-empty">No matching chats.</p>
+                    ) : null}
+                    {(project.page?.hasMore || project.chats.length > project.limit) && (
+                      <button
+                        className="button sidebar-more"
+                        onClick={() =>
+                          setProjectLimits((current) => ({ ...current, [project.id]: project.limit + PAGE }))
+                        }
+                      >
+                        {t('list.more')}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </section>
         <section className="sidebar-recents" aria-label="Recents">
           <h3 className="sidebar-heading">Recents</h3>
@@ -400,6 +432,7 @@ export function SessionSidebar({
           </div>
         ))}
       </div>
+      <QuotaPanel quota={quota} />
     </aside>
   );
 }

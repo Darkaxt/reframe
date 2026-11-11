@@ -2,7 +2,7 @@
 import { EventEmitter } from 'node:events';
 import http from 'node:http';
 import crypto from 'node:crypto';
-import { HOOK_EVENTS, HOOK_TOKEN_HEADER, type HookEvent } from '../claude/settings';
+import { HOOK_EVENTS, HOOK_TOKEN_HEADER, STATUS_LINE_EVENT, type HookEvent } from '../claude/settings';
 
 export interface HookPayload {
   session_id?: string;
@@ -10,6 +10,8 @@ export interface HookPayload {
   hook_event_name?: string;
   notification_type?: string;
   message?: string;
+  /** Status line input only: the subscription's quota windows. */
+  rate_limits?: unknown;
 }
 
 export interface HookMessage {
@@ -51,7 +53,7 @@ export class HookServer extends EventEmitter<{ hook: [HookMessage] }> {
     if (req.method !== 'POST' || !match) return reply(404);
     if (typeof token !== 'string' || !safeEqual(token, this.token)) return reply(403);
     const event = match[2] as HookEvent;
-    if (!HOOK_EVENTS.includes(event)) return reply(404);
+    if (event !== STATUS_LINE_EVENT && !(HOOK_EVENTS as readonly string[]).includes(event)) return reply(404);
     // A broken escape in the path would otherwise throw where nothing catches it.
     let sessionId: string;
     try {

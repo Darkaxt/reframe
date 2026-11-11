@@ -89,6 +89,8 @@ export interface SessionManagerDeps {
   log?: LogFn;
   /** Windows only: runs sessions in WSL folders. */
   wsl?: WslLauncher;
+  /** Whether an Anthropic session's status line input may be captured (for its quota): no status line of the user's. */
+  captureStatusLine?: () => boolean;
 }
 
 export type IdentityPatch = Partial<Pick<SessionRecord, 'claudeSessionId' | 'cwd' | 'pid' | 'linuxPid' | 'used'>>;
@@ -103,6 +105,10 @@ type Events = {
   used: [sessionId: string];
   /** The process ended on its own (not because reframe stopped it). */
   ended: [sessionId: string];
+  /** An Anthropic session's status line reported its subscription's rate limits. */
+  quota: [sessionId: string, rateLimits: unknown];
+  /** Claude Code's registry has another name for the session (a /rename): its transcript title may have changed. */
+  renamed: [sessionId: string];
 };
 
 const EARLY_EXIT_MS = 5000;
@@ -199,6 +205,7 @@ export class SessionManager extends EventEmitter<Events> {
       this.deps.hooks.token,
       session.id,
       session.launch.provider,
+      session.launch.provider === 'anthropic' && !!this.deps.captureStatusLine?.(),
     );
     this.log('info', 'session start', {
       session: session.id,
@@ -481,6 +488,11 @@ export class SessionManager extends EventEmitter<Events> {
 
   private onHook({ sessionId, event, payload }: HookMessage): void {
     const runtime = this.runtimes.get(sessionId);
+    // Frequent and not a state change: neither logged nor taken as one.
+    if (event === 'StatusLine') {
+      if (runtime && payload.rate_limits) this.emit('quota', sessionId, payload.rate_limits);
+      return;
+    }
     this.log('info', 'hook', {
       session: sessionId,
       event,
@@ -543,6 +555,7 @@ export class SessionManager extends EventEmitter<Events> {
     if (entry.name !== runtime.registryName) {
       runtime.registryName = entry.name;
       this.emit('changed', sessionId);
+      this.emit('renamed', sessionId);
     }
     // Follow the registry only when it changes, so it does not undo a fresher hook-based status.
     if (entry.status && entry.status !== runtime.registryStatus) {
