@@ -13,7 +13,10 @@ import {
   type TerminalViewMessage,
 } from '@shared/ipc';
 import { FONT_SIZE } from '@shared/state';
+import { translate, type Locale } from '@shared/i18n';
 import { formatPaths, imagePasteKey, pastesImageAsFile } from './paste';
+import { WEBGL_RETRY_MS, WebglRecovery } from './webgl-recovery';
+import { NEWLINE, copyPreview, dragWithoutShift, enterKey, type EnterState } from './terminal-keys';
 
 interface Entry {
   sessionId: string;
@@ -26,6 +29,14 @@ interface Entry {
   opened: boolean;
   lastSize: { cols: number; rows: number } | null;
   frame: number;
+  /** The copy notice and select hint shown over the terminal for a moment. */
+  notice: HTMLDivElement;
+  noticeTimer: number;
+  /** Whether the "hold Shift to select" hint was shown (once per session). */
+  hinted: boolean;
+  webgl: WebglAddon | null;
+  recovery: WebglRecovery;
+  retry: number;
 }
 
 const FONT = '"Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", monospace';
@@ -49,6 +60,7 @@ const THEME = {
 export class TerminalRegistry {
   private entries = new Map<string, Entry>();
   private fontSize: number = FONT_SIZE.normal;
+  private locale: Locale = 'en';
   /** Sessions that run in WSL, which get Linux paths. */
   private wsl = new Map<string, NonNullable<SessionView['wsl']>>();
 
@@ -68,15 +80,47 @@ export class TerminalRegistry {
     if (!entry.opened) {
       entry.term.open(entry.element);
       entry.opened = true;
-      try {
-        const webgl = new WebglAddon();
-        webgl.onContextLoss(() => webgl.dispose());
-        entry.term.loadAddon(webgl);
-      } catch {
-        // the DOM renderer is used instead
-      }
+      this.loadWebgl(entry);
     }
     this.scheduleFit(entry);
+  }
+
+  /** Draws every terminal again, e.g. after the GPU process was lost; those without WebGL try it again. */
+  redraw(): void {
+    for (const entry of this.entries.values()) {
+      if (!entry.opened) continue;
+      if (!entry.webgl && !entry.recovery.givenUp) this.loadWebgl(entry);
+      entry.term.refresh(0, entry.term.rows - 1);
+      this.scheduleFit(entry);
+    }
+  }
+
+  /**
+   * WebGL rendering, while the GPU allows it. A lost context (a driver reset) drops to xterm's DOM renderer, which
+   * draws only when told: the terminal is redrawn at once, and WebGL tried again later, until it was lost too often.
+   */
+  private loadWebgl(entry: Entry): void {
+    window.clearTimeout(entry.retry);
+    try {
+      const webgl = new WebglAddon();
+      webgl.onContextLoss(() => {
+        webgl.dispose();
+        if (entry.webgl === webgl) entry.webgl = null;
+        entry.term.refresh(0, entry.term.rows - 1);
+        this.scheduleFit(entry);
+        if (entry.recovery.lost()) {
+          entry.retry = window.setTimeout(() => {
+            if (this.entries.get(entry.sessionId) !== entry || entry.webgl) return;
+            this.loadWebgl(entry);
+            entry.term.refresh(0, entry.term.rows - 1);
+          }, WEBGL_RETRY_MS);
+        }
+      });
+      entry.term.loadAddon(webgl);
+      entry.webgl = webgl;
+    } catch {
+      // the DOM renderer is used instead
+    }
   }
 
   /** Takes the terminal out of `slot` (if it is still there) without ending anything. */
@@ -93,6 +137,7 @@ export class TerminalRegistry {
       if (sessionIds.has(id)) continue;
       entry.port?.close();
       entry.observer.disconnect();
+      window.clearTimeout(entry.retry);
       entry.term.dispose();
       entry.element.remove();
       this.entries.delete(id);
@@ -118,6 +163,11 @@ export class TerminalRegistry {
       entry.element.dataset.fontSize = String(size);
       this.scheduleFit(entry);
     }
+  }
+
+  /** The language of the copy notice and select hint. */
+  setLocale(locale: Locale): void {
+    this.locale = locale;
   }
 
   /** Whether (and where) a session runs in WSL. */
@@ -180,7 +230,17 @@ export class TerminalRegistry {
     term.unicode.activeVersion = '11';
     term.loadAddon(new WebLinksAddon((_event, uri) => window.reframe.openExternal(uri)));
     const input = (data: string) => this.send(entry, { type: 'input', data });
-    term.attachCustomKeyEventHandler((event) => handleClipboardKeys(term, event, input, () => this.wsl.get(sessionId)));
+    const copied = (text: string) =>
+      this.showNotice(entry, translate(this.locale, 'terminal.copied', { text: copyPreview(text), n: text.length }));
+    const enter: EnterState = { swallow: false };
+    term.attachCustomKeyEventHandler((event) => {
+      const action = enterKey(event, term.hasSelection(), enter);
+      if (action === null) return handleClipboardKeys(term, event, input, () => this.wsl.get(sessionId), copied);
+      event.preventDefault();
+      if (action === 'copy') copySelection(term, copied);
+      else if (action === 'newline') input(NEWLINE);
+      return false;
+    });
 
     const element = document.createElement('div');
     element.className = 'terminal-host';
@@ -192,9 +252,25 @@ export class TerminalRegistry {
     element.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       if (term.modes.mouseTrackingMode !== 'none' && !event.shiftKey) return;
-      if (!copySelection(term)) pasteClipboard(term, input, this.wsl.get(sessionId));
+      if (!copySelection(term, copied)) pasteClipboard(term, input, this.wsl.get(sessionId));
       term.focus();
     });
+    // A program that reads the mouse gets a plain drag; Shift+drag selects. Said once per session, on the first drag.
+    let dragStart: { x: number; y: number } | null = null;
+    element.addEventListener('mousedown', (event) => (dragStart = { x: event.clientX, y: event.clientY }), true);
+    element.addEventListener('mouseup', () => (dragStart = null), true);
+    element.addEventListener(
+      'mousemove',
+      (event) => {
+        if (entry.hinted || !dragWithoutShift(dragStart, event, term.modes.mouseTrackingMode !== 'none')) return;
+        entry.hinted = true;
+        this.showNotice(entry, translate(this.locale, 'terminal.holdShift'));
+      },
+      true,
+    );
+    const notice = document.createElement('div');
+    notice.className = 'terminal-notice';
+    notice.setAttribute('role', 'status');
     const entry: Entry = {
       sessionId,
       term,
@@ -206,6 +282,12 @@ export class TerminalRegistry {
       opened: false,
       lastSize: null,
       frame: 0,
+      notice,
+      noticeTimer: 0,
+      hinted: false,
+      webgl: null,
+      recovery: new WebglRecovery(),
+      retry: 0,
     };
     term.onData((data) => this.send(entry, { type: 'input', data }));
     this.entries.set(sessionId, entry);
@@ -248,6 +330,14 @@ export class TerminalRegistry {
     });
   }
 
+  /** Shows `text` over the terminal for about two seconds, without taking focus or blocking anything. */
+  private showNotice(entry: Entry, text: string): void {
+    entry.notice.textContent = text;
+    if (!entry.notice.isConnected) entry.element.appendChild(entry.notice);
+    window.clearTimeout(entry.noticeTimer);
+    entry.noticeTimer = window.setTimeout(() => entry.notice.remove(), 2000);
+  }
+
   private send(entry: Entry, message: TerminalViewMessage): void {
     entry.port?.postMessage(message);
   }
@@ -259,11 +349,12 @@ function handleClipboardKeys(
   event: KeyboardEvent,
   input: (data: string) => void,
   wslOf: () => SessionView['wsl'],
+  copied: (text: string) => void,
 ): boolean {
   if (event.type !== 'keydown' || !event.ctrlKey || event.altKey || event.metaKey) return true;
   const key = event.key.toLowerCase();
   if (key === 'c' && (event.shiftKey || term.hasSelection())) {
-    copySelection(term);
+    copySelection(term, copied);
     return false;
   }
   if (key === 'v') {
@@ -274,10 +365,11 @@ function handleClipboardKeys(
   return true;
 }
 
-/** Copies the terminal's selection and clears it; false if nothing is selected. */
-function copySelection(term: Terminal): boolean {
+/** Copies the terminal's selection, says so and clears it (as the Windows console does); false if none. */
+function copySelection(term: Terminal, copied: (text: string) => void): boolean {
   if (!term.hasSelection()) return false;
-  void navigator.clipboard.writeText(term.getSelection());
+  const text = term.getSelection();
+  void navigator.clipboard.writeText(text).then(() => copied(text));
   term.clearSelection();
   return true;
 }

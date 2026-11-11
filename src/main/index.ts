@@ -1,14 +1,16 @@
-import { app, dialog } from 'electron';
+import { app, dialog, shell } from 'electron';
 import { resolveLocale, translate } from '@shared/i18n';
 import icon from '../../resources/icon.png?asset';
 import trayIcon from '../../resources/tray.png?asset';
 import trayIcon2x from '../../resources/tray@2x.png?asset';
+import fs from 'node:fs';
 import path from 'node:path';
 import { ReframeApp } from './app';
 import { createLogger } from './log';
 import { startedBySystem } from './autostart';
 import { portableDataDir } from './portable';
 import { applyLaunchConfig, refusedProviders } from './launch-config';
+import { appUserModelId, managedShortcuts, shortcutWrite, staleElectronShortcut, toastActivatorClsid } from './toast';
 
 // Started directly (not by the managed launcher): the fixed profile and CLI routes next to reframe.exe.
 const launchConfig = applyLaunchConfig(process.execPath, process.env, { packaged: app.isPackaged });
@@ -36,13 +38,46 @@ if (!app.requestSingleInstanceLock({ build, quit: quitCommand })) {
   // Nothing owns this exact profile. A stop command never starts a GUI or changes saved state.
   app.quit();
 } else {
-  // Windows shows toasts only for an app id with a Start menu shortcut. The installer creates one for
-  // dev.reframe.app; unpackaged (npm run dev) and portable, the executable's path is the id that works.
+  const log = createLogger(path.join(app.getPath('userData'), 'logs'));
+  // Windows shows toasts, and routes their clicks, only for an app id with a Start menu shortcut. The installer
+  // creates one for dev.reframe.app; the managed launcher sets a fixed id (REFRAME_APP_ID) whose shortcut is kept
+  // here; otherwise (npm run dev, portable) the executable's path is the id that works.
   if (process.platform === 'win32') {
-    app.setAppUserModelId(app.isPackaged && !portable ? 'dev.reframe.app' : process.execPath);
+    const appId = appUserModelId(process.env, process.execPath, app.isPackaged && !portable);
+    app.setAppUserModelId(appId);
+    const wanted = managedShortcuts(process.env, appId, process.execPath);
+    if (wanted.length > 0) {
+      const clsid = toastActivatorClsid(appId);
+      const read = (file: string) => {
+        try {
+          return shell.readShortcutLink(file);
+        } catch {
+          return null;
+        }
+      };
+      try {
+        app.setToastActivatorCLSID(clsid);
+        const ownLink = path.join(path.dirname(wanted[0]!.file), `${app.getName()}.lnk`);
+        if (staleElectronShortcut(read(ownLink), clsid)) {
+          fs.rmSync(ownLink, { force: true });
+          log('info', 'stale toast shortcut removed', { file: ownLink });
+        }
+        for (const spec of wanted) {
+          const write = shortcutWrite(read(spec.file), spec);
+          if (!write) continue;
+          const written = shell.writeShortcutLink(
+            spec.file,
+            write.operation,
+            write.options as Electron.ShortcutDetails,
+          );
+          log(written ? 'info' : 'warn', 'shortcut app id', { file: spec.file, appId, ...write, written });
+        }
+      } catch (error) {
+        log('warn', 'could not set up toast activation', { error: String(error) });
+      }
+    }
   }
 
-  const log = createLogger(path.join(app.getPath('userData'), 'logs'));
   if (launchConfig) log('info', 'launch config applied', { ...launchConfig });
   // Logged and survived: ending the process would end every session, and Electron's own error box is a modal
   // nobody sees while reframe sits in the tray.

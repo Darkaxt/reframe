@@ -106,10 +106,11 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
   const locale = view?.locale;
   useEffect(() => {
     if (!locale) return;
+    terminals.setLocale(locale);
     const t = makeTranslate(locale);
     document.title =
       waiting === 0 ? 'Reframe' : waiting === 1 ? t('title.waitingOne') : t('title.waiting', { n: waiting });
-  }, [waiting, locale]);
+  }, [waiting, locale, terminals]);
 
   const sessionList = useSessionList(!!view?.sidebarOpen);
   const newFound = !view?.sidebarOpen && sessionList.fresh.size > 0;
@@ -295,6 +296,18 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
     return () => window.removeEventListener('wheel', onWheel, { capture: true });
   }, [changeTextSize]);
 
+  // The GPU process was lost (a driver reset) or the window comes back into view: the terminals draw again.
+  useEffect(() => {
+    const redraw = () => {
+      if (document.visibilityState === 'visible') terminals.redraw();
+    };
+    document.addEventListener('visibilitychange', redraw);
+    const off = window.reframe.onRedrawTerminals(() => terminals.redraw());
+    return () => {
+      document.removeEventListener('visibilitychange', redraw);
+      off();
+    };
+  }, [terminals]);
   useEffect(
     () =>
       window.reframe.onFocusTile((sessionId) => {

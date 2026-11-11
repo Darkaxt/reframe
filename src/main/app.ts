@@ -117,6 +117,7 @@ import { PtyHostClient } from './ptyhost-client';
 import { SessionManager, type IdentityPatch, type NotifyKind } from './sessions';
 import type { LaunchMode } from './claude/args';
 import { StateStore } from './state/store';
+import { NotificationKeeper, sessionFromActivation, sessionToastXml } from './toast';
 import { stopExternalClaude } from './takeover';
 import { colorMenu, groupMenu, listMenu, tileMenu } from './menus';
 import { parseWslPath, wslWindowsPath, type WslPath } from '@shared/wsl';
@@ -214,6 +215,8 @@ export class ReframeApp {
   private startsWithSystem = false;
   private shuttingDown = false;
   private log = createLogger(path.join(app.getPath('userData'), 'logs'));
+  /** Shown session notifications, held so their 'click' listener lives until it can fire. */
+  private readonly notifications = new NotificationKeeper<Notification>();
   private claudeHome = claudeHome();
   private transcripts = new TranscriptIndex(this.claudeHome);
   private updates: Updates;
@@ -340,6 +343,14 @@ export class ReframeApp {
     this.resumeSessions();
     this.createTray();
     this.watchUpdates();
+    this.watchToastActivation();
+    // A GPU driver reset takes the GPU process (and the terminals' WebGL) down; Electron restarts it, but the
+    // terminals draw again only when told.
+    app.on('child-process-gone', (_event, details) => {
+      if (details.type !== 'GPU') return;
+      this.log('warn', 'gpu process gone', { reason: details.reason, exitCode: details.exitCode });
+      for (const w of this.state.windows) this.windows.send(w.id, IPC.redrawTerminals, null);
+    });
     this.watchList();
     this.save();
     void cleanUp(
@@ -2522,17 +2533,40 @@ export class ReframeApp {
     if (!Notification.isSupported() || process.env.REFRAME_DISABLE_NOTIFICATIONS) return skip('notifications off');
     if (seen) return skip('window in focus, tile visible');
     const label = this.sessionView(record).label;
-    const notification = new Notification({
-      title: translate(this.locale, kind === 'done' ? 'notify.done' : 'notify.waiting', { label }),
-      body: translate(this.locale, kind === 'done' ? 'notify.doneBody' : 'notify.waitingBody'),
-      icon: this.assets.icon,
-    });
-    notification.on('click', () => {
-      this.log('info', 'notification clicked', { session: sessionId });
-      this.focusSession(sessionId);
-    });
+    const title = translate(this.locale, kind === 'done' ? 'notify.done' : 'notify.waiting', { label });
+    const body = translate(this.locale, kind === 'done' ? 'notify.doneBody' : 'notify.waitingBody');
+    const notification = new Notification(
+      // On Windows the toast's launch argument names the session: a click reaches handleActivation (below) even from
+      // Action Center or after this object is gone, so the instance 'click' is only listened to elsewhere.
+      process.platform === 'win32'
+        ? { toastXml: sessionToastXml(sessionId, title, body) }
+        : { title, body, icon: this.assets.icon },
+    );
+    if (process.platform !== 'win32') notification.on('click', () => this.focusFromNotification(sessionId));
+    notification.on('failed', (_event, error) =>
+      this.log('warn', 'notification failed', { session: sessionId, error: String(error) }),
+    );
+    this.notifications.keep(sessionId, notification);
     notification.show();
     this.log('info', 'notification shown', { session: sessionId, kind });
+  }
+
+  /** Toast clicks on Windows, also from Action Center: the session named in the activation arguments comes up. */
+  private watchToastActivation(): void {
+    if (process.platform !== 'win32' || typeof Notification.handleActivation !== 'function') return;
+    Notification.handleActivation((details) => {
+      const sessionId = sessionFromActivation(details.arguments);
+      if (!sessionId) return this.log('info', 'notification activation ignored', { type: details.type });
+      this.focusFromNotification(sessionId);
+    });
+  }
+
+  private focusFromNotification(sessionId: string): void {
+    this.log('info', 'notification clicked', { session: sessionId, known: !!this.windowOf(sessionId) });
+    if (!this.windowOf(sessionId)) return this.revealWindows();
+    // Windows only lets a background process take the foreground with steal; the click is the user's request.
+    app.focus({ steal: true });
+    this.focusSession(sessionId);
   }
 
   private focusSession(sessionId: string): void {

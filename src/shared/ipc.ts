@@ -285,6 +285,8 @@ export interface ReframeApi {
   setStartWithSystem(enabled: boolean): void;
   folderExists(path: string): Promise<boolean>;
   onFocusTile(listener: (sessionId: string) => void): () => void;
+  /** The GPU process was lost: terminals draw again. */
+  onRedrawTerminals(listener: () => void): () => void;
 
   /** The tray asks the window to show About. */
   onOpenAbout(listener: () => void): () => void;
@@ -372,6 +374,7 @@ export const IPC = {
   setStartWithSystem: 'reframe:set-start-with-system',
   folderExists: 'reframe:folder-exists',
   focusTile: 'reframe:focus-tile',
+  redrawTerminals: 'reframe:redraw-terminals',
   openNewSession: 'reframe:open-new-session',
   openAbout: 'reframe:open-about',
   openExternal: 'reframe:open-external',

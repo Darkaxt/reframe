@@ -1,80 +1,84 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "796d2659edcc5cf92d03e5a96c6f897f5c7391fa",
-  "scope": "0.10.1-claudegpt.13: saved workspaces removed end to end (state, actions, IPC/preload, menus, tray, dialog, toolbar name, texts, tests); old state files load and drop them. Folder projects and the Single/Tiled view are unchanged",
+  "sourceBase": "6357dcf39698a843b747ae4e84bc6a651d8274f2",
+  "scope": "0.10.1-claudegpt.14: notification clicks focus their thread (notifications held until click/close/replace; Windows toasts carry the session id and are handled by Notification.handleActivation, also from Action Center); managed build has a fixed AppUserModelID and toast activator CLSID carried by the Start menu shortcut and Reframe.lnk; deploy adds Reframe.lnk and removes a stray release-pointing reframe.lnk; terminals: Shift+Enter newline (ESC CR), Enter copies a selection, copy notice and fullscreen select hint; WebGL context-loss recovery and GPU-process-gone redraw",
   "inputHashes": [
     {
-      "file": "docs/releases/v0.10.1-claudegpt.13.md",
-      "sha256": "f6c25876d42c1b5445c70a4c782999c43f2dc7ae7466e78e961735524182feca"
+      "file": "docs/releases/v0.10.1-claudegpt.14.md",
+      "sha256": "87ae6dbabde949592e7e61aebff90de252a4b97b7b64b33cbbaf088cc3de6d0e"
     },
     {
-      "file": "e2e/helpers.ts",
-      "sha256": "5d4fc59b58fcd59a6fb555143f82300d7cc6b5468c54f8e834e4f4c1d7bcb72f"
+      "file": "maintenance/windows/deploy-managed.ps1",
+      "sha256": "7faa306611069eed5426e0b71d868bd800109ef5df1882c71312acf1355bb542"
     },
     {
-      "file": "e2e/wsl.spec.ts",
-      "sha256": "f19535a0a2e825885f41d5442e3292b26deb71bc38df6fca2bfe0b3ad7fe7b70"
+      "file": "maintenance/windows/start-managed.ps1",
+      "sha256": "f7b5cdc942c5152b2aa184879325643c04c46b58cc4affbdffc1a53081987c38"
     },
     {
       "file": "package-lock.json",
-      "sha256": "3a23161edc1edd84c9da02d06d6762b3f32ca47a5447c1ee5ef3ef7189543751"
+      "sha256": "50e26c3ef0e64e2ce094e3a8ae34c287747e8366e44f6b5c5b996c448afdbfb1"
     },
     {
       "file": "package.json",
-      "sha256": "811776ff02a1e2d0aa6eba58e06577423988eeb5188eb6dad2bcdb7d07364248"
-    },
-    {
-      "file": "screenshots/capture.spec.ts",
-      "sha256": "63e2ef9061dd58a986640ba2ced8e345e28a6a4f5f69eea6bcb9770d6efacccd"
+      "sha256": "7dfadc3bf8a551a1ddbaea6424e3356131c6501fa511d969bd01d5175552cdb8"
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "d0b35668f2a4227d538b5b159aa5db9b7664282ebc7999dab371cf5216c2095b"
+      "sha256": "3c13fcbb075c3c10e0f06f8c71bc41f5b7c4f6b3b19d9e0dd48b348a3fec6ac8"
     },
     {
-      "file": "src/main/menus.ts",
-      "sha256": "afc74fed6e33627fe7999bc7219d4305bc3715546d89dea25a76391ee1c9ec19"
+      "file": "src/main/index.ts",
+      "sha256": "96a5ff1f9febd1f00062f04d9080e0bfecde18a92ed3722da2dc0387c399d47e"
     },
     {
-      "file": "src/main/state/store.test.ts",
-      "sha256": "53d9b0ee224f18d22332f2c98f3cf6207d9f8ed0ef970e321dbe344b93d804de"
+      "file": "src/main/toast.test.ts",
+      "sha256": "aa7fcf39825d6ee7d6f921a9d2c09b9f643bf64c9379ef2651dc352d35ddb2c2"
     },
     {
-      "file": "src/main/tray.ts",
-      "sha256": "e5d36ff714574976dda5600a1fb1dabeca0dc746581ab71ce2868605177c5751"
+      "file": "src/main/toast.ts",
+      "sha256": "ef1bb96b37a16e9e8396bfcdb226a3c743ecca567a43f69ed59ce0b54ef79732"
     },
     {
       "file": "src/preload/index.ts",
-      "sha256": "ce712b4d1fa2bdb0c8ea83647911f83abbbe7d813bc630b7e72e56eb72189205"
+      "sha256": "a59d0d7176612f5d856e7274afbd5ee45eb1c37f6acd07df937441f1ed848f83"
     },
     {
       "file": "src/renderer/App.tsx",
-      "sha256": "d5863d492479f344b40531d9091839534e7f80098d1428b9d5b519a89eaf922e"
-    },
-    {
-      "file": "src/renderer/components/icons.tsx",
-      "sha256": "72a76608da6dda22493975ba6525e7296452942ddf3c3800eeb699b3988a65a1"
+      "sha256": "0662c81f479f0640542eadfb12f2eba4c04036388914f5ab4f399a2c0970cb60"
     },
     {
       "file": "src/renderer/styles.css",
-      "sha256": "acec09fa3aba74cb00af961b283a4787731d0a26fff57b298dc77520a1ec3573"
+      "sha256": "39330e0bbbc1a34117afb83103a2c4911c92ba3b907a9aaabc82734f0ca0e8d5"
+    },
+    {
+      "file": "src/renderer/terminal-keys.test.ts",
+      "sha256": "ba5d1e4b2cb8562975b3e66f2dce736ffde2e2c4c17ae67a1a01ca3942d49b25"
+    },
+    {
+      "file": "src/renderer/terminal-keys.ts",
+      "sha256": "d11a21582356767922f3bc2320ff6d2c2e0e8af23a4a00a822797d3f755873c8"
+    },
+    {
+      "file": "src/renderer/terminals.ts",
+      "sha256": "7ed60f2a0f23158f844235c6f1c59f4715c85f83069e062fed7a15a2d0908e9e"
+    },
+    {
+      "file": "src/renderer/webgl-recovery.test.ts",
+      "sha256": "6d035cf4981bd9cb4797d7193a4eddde522fd2ec168ce7d48f03271351a34b2b"
+    },
+    {
+      "file": "src/renderer/webgl-recovery.ts",
+      "sha256": "53c7dc24338be449d41ed850857676feacb09e262da9b5c27e91cdaba45ef9a1"
     },
     {
       "file": "src/shared/i18n.ts",
-      "sha256": "c7362d81abcfc6219507d3a8a2d03426af11e6a132368ff11a26ea2d9c4f8b20"
+      "sha256": "b4b1754e4aae864eddb5782aa2177f9426ab9fd8886b60af5489f9e1e49e87f3"
     },
     {
       "file": "src/shared/ipc.ts",
-      "sha256": "e5ea847acd7eabadbe8c2798fd926807adf2de411141014ffa52d8908c2f3e4e"
-    },
-    {
-      "file": "src/shared/sidebar-chats.test.ts",
-      "sha256": "a13702e6d4c3807de8b15058019c35e06025513254c6c1d48decd296e04ec7dd"
-    },
-    {
-      "file": "src/shared/state.ts",
-      "sha256": "968ce9865135e290fcae5ca114872b6e242711a1f801aca961e7394de776f7cb"
+      "sha256": "e70087a649eb7a1e3bacd6f0dd7fa8534d959fdda63308af7fb735f0e5d6eab4"
     }
   ],
   "checksNotYetRun": [
