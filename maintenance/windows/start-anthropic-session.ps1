@@ -8,6 +8,12 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $active=Get-Content -LiteralPath $ActivePath -Raw|ConvertFrom-Json
 $binding=$active.providerBinaries.anthropic
+# The newest adopted client (adopt-client.ps1) when the installation adopts clients; its record binds it by hash.
+if($active.PSObject.Properties.Name -contains 'clientAdoption' -and (Test-Path -LiteralPath $active.clientAdoption.record)){
+ $record=Get-Content -LiteralPath $active.clientAdoption.record -Raw|ConvertFrom-Json
+ if($record.schema -cne 'reframe.client-adoption.v1'){throw 'Unknown client adoption record'}
+ $binding=$record.clients.anthropic
+}
 if((Get-FileHash -LiteralPath $binding.binary -Algorithm SHA256).Hash.ToLowerInvariant() -cne $binding.sha256){throw 'Dedicated Anthropic executable differs from its managed binding'}
 
 # Same complete provider isolation as src/shared/providers.ts; never special-case the selected model.

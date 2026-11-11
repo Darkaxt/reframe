@@ -138,6 +138,7 @@ import { isArchiveRoot } from './archive-root';
 import { staleTiles } from './stale-tiles';
 import { cleanAddDirs, cleanPrompt, rememberedDefaults } from '@shared/new-session';
 import { refusedProviders } from './launch-config';
+import { adoptedClient } from './client-adoption';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
 import { expandedWorkspaceKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
@@ -3184,6 +3185,17 @@ export class ReframeApp {
       return null;
     }
     const node = process.env.REFRAME_NODE;
+    // Adopted clients (managed install): each new session starts on the newest adopted copy, verified by hash. It
+    // wins over the Settings choice, which the managed launcher pins to its own route anyway.
+    const adoption = process.env.REFRAME_CLIENT_ADOPTION;
+    if (adoption) {
+      const adopted = adoptedClient(adoption, provider ?? 'chatgpt');
+      if (!adopted.ok) {
+        this.log('error', 'adopted client refused', { provider: provider ?? 'chatgpt', reason: adopted.reason });
+        return null;
+      }
+      return resolveClaude({ env: process.env, platform: process.platform, override: adopted.path });
+    }
     return resolveClaude({
       env: process.env,
       platform: process.platform,

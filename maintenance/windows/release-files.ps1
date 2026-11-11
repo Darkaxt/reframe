@@ -20,6 +20,13 @@ function Assert-ReleaseQualification($Qualification, $Candidate) {
     if ($Qualification.archiveSha256 -cne $Candidate.archiveSha256 -or
         $Qualification.sourceCommit -cne $Candidate.sourceCommit) { throw 'Qualification belongs to a different candidate/source' }
     if ($Qualification.anthropic -ceq $true) { return }
+    if ($Qualification.anthropicState -ceq 'adopted_qualified_client') {
+        # The Anthropic route runs a client adopted from the client pipeline (adopt-client.ps1), qualified there.
+        if ($Qualification.anthropic -cne $false -or $Qualification.anthropicRouting -cne $true) { throw 'Adopted client qualification inconsistent' }
+        Assert-Hash $Qualification.anthropicClientVerification $Qualification.anthropicClientVerificationSha256
+        if (@($Qualification.limits).Count -eq 0) { throw 'The unverified native subscription request must remain explicit' }
+        return
+    }
     # A deferred account check stays visibly unverified. It does not block
     # unrelated verified functionality, and is never inferred from missing auth.
     if ($Qualification.anthropic -cne $false -or $Qualification.anthropicRouting -cne $true -or

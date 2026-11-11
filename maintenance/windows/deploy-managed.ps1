@@ -21,7 +21,7 @@ $rollback = $null
 try {
     try { $owned = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { throw 'Prior deployment interrupted; inspect its journal first' }
     if (-not $owned) { throw 'Another Reframe activation owns the mutex' }
-    foreach ($name in @('deploy-managed.ps1', 'release-files.ps1', 'restore-managed.ps1', 'start-managed.ps1', 'stop-managed.ps1')) {
+    foreach ($name in @('deploy-managed.ps1', 'release-files.ps1', 'restore-managed.ps1', 'start-managed.ps1', 'stop-managed.ps1', 'client-adoption.ps1', 'adopt-client.ps1')) {
         $script = @($m.scripts | Where-Object { $_.file -ceq $name })
         if ($script.Count -ne 1) { throw "Missing or duplicate pinned release script: $name" }
         Assert-Hash (Join-Path $PSScriptRoot $name) $script[0].sha256
@@ -43,8 +43,11 @@ try {
     Assert-Hash $m.activePath $m.previousActiveSha256
     $previous = Get-Content -LiteralPath $m.activePath -Raw | ConvertFrom-Json
     Assert-Hash $previous.executable $previous.executableSha256
-    $managed = Get-Content -LiteralPath $m.managedActive -Raw | ConvertFrom-Json
-    Assert-Hash $previous.managedBinary $managed.sha256
+    if ($previous.PSObject.Properties.Name -notcontains 'clientAdoption') {
+        # Before client adoption the ChatGPT route ran the pipeline's in-place client; afterwards its adopted copy.
+        $managed = Get-Content -LiteralPath $m.managedActive -Raw | ConvertFrom-Json
+        Assert-Hash $previous.managedBinary $managed.sha256
+    }
     foreach ($file in $m.protected) { Assert-Hash $file.path $file.sha256 }
     if ($candidate.PSObject.Properties.Name -contains 'providerBinaries') {
         if ($m.PSObject.Properties.Name -notcontains 'providerBinaries') { throw 'Provider binary binding missing' }
@@ -98,7 +101,7 @@ try {
     Assert-PlainPath $m.launcherDirectory
     if (Test-Path -LiteralPath $m.launcherDirectory) { throw 'Launcher destination already exists; inspect prior activation' }
     [IO.Directory]::CreateDirectory($m.launcherDirectory) | Out-Null
-    foreach ($name in @('start-managed.ps1', 'stop-managed.ps1', 'release-files.ps1')) {
+    foreach ($name in @('start-managed.ps1', 'stop-managed.ps1', 'release-files.ps1', 'client-adoption.ps1', 'adopt-client.ps1')) {
         [IO.File]::Copy((Join-Path $PSScriptRoot $name), (Join-Path $m.launcherDirectory $name), $false)
         Assert-Hash (Join-Path $m.launcherDirectory $name) (Get-Sha256 (Join-Path $PSScriptRoot $name))
     }
@@ -120,6 +123,12 @@ try {
     }
     if ($candidate.PSObject.Properties.Name -contains 'providerBinaries') {
         $active['providerBinaries'] = $m.providerBinaries
+    }
+    # Client adoption: each launch adopts the newest qualified client (adopt-client.ps1) and binds the record by hash.
+    $active['clientAdoption'] = [ordered]@{
+        record = Join-Path $installRoot 'client-adoption.json'
+        script = Join-Path $m.launcherDirectory 'adopt-client.ps1'
+        scriptSha256 = Get-Sha256 (Join-Path $m.launcherDirectory 'adopt-client.ps1')
     }
     $installedLauncher = Join-Path $m.launcherDirectory 'start-managed.ps1'
     $launcherBody = "#Requires -Version 7.4`n& '$($installedLauncher.Replace("'", "''"))' -ActivePath '$($m.activePath.Replace("'", "''"))'`n"

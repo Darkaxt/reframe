@@ -14,12 +14,28 @@ trap {
 $active = Get-Content -LiteralPath $ActivePath -Raw | ConvertFrom-Json
 Test-ReleaseFiles (Split-Path -Parent $active.executable) $active.files
 Assert-Hash $active.executable $active.executableSha256
-$cli = Get-Content -LiteralPath $active.managedActive -Raw | ConvertFrom-Json
-Assert-Hash $active.managedBinary $cli.sha256
 Assert-Hash $active.helper.helper $active.helper.helperSha256
 Assert-PlainPath $active.runtime
 if ([IO.Path]::GetPathRoot($active.runtime) -ine 'D:\') { throw 'Persistent runtime must be on D:' }
 [IO.Directory]::CreateDirectory($active.runtime) | Out-Null
+# Adopted clients (adopt-client.ps1): adopt a newer qualified client and delete unused copies first. A failed
+# adoption never blocks the launch; the current record (verified by hash below) still applies.
+$adoption = $null
+if ($active.PSObject.Properties.Name -contains 'clientAdoption') {
+    . (Join-Path $PSScriptRoot 'client-adoption.ps1')
+    try { & (Join-Path $PSScriptRoot 'adopt-client.ps1') -InstallRoot (Split-Path -Parent $ActivePath) | Out-Null }
+    catch {
+        Write-AtomicJson (Join-Path $active.runtime 'client-adoption-failure.json') @{
+            status = 'adoption_failed'; error = $_.Exception.Message; at = [DateTime]::UtcNow.ToString('o')
+        }
+    }
+    if (Test-Path -LiteralPath $active.clientAdoption.record) { $adoption = Get-AdoptedClients $active.clientAdoption.record }
+}
+if (-not $adoption) {
+    # No adoption yet: the in-place ChatGPT client bound by the pipeline's active.json.
+    $cli = Get-Content -LiteralPath $active.managedActive -Raw | ConvertFrom-Json
+    Assert-Hash $active.managedBinary $cli.sha256
+}
 $state = Get-Content -LiteralPath (Join-Path $active.profile 'state.json') -Raw | ConvertFrom-Json
 if ($state.preferences.claudeBin -cne $active.managedBinary) { throw 'Managed CLI selection changed; inspect before launch' }
 $values = @{
@@ -29,8 +45,14 @@ $values = @{
     REFRAME_CLAUDE_HOME = $active.claudeHome; CLAUDE_CONFIG_DIR = $null
     REFRAME_HISTORY_PYTHON = $active.helper.python; REFRAME_HISTORY_HELPER = $active.helper.helper
     REFRAME_HISTORY_HELPER_SHA256 = $active.helper.helperSha256
+    REFRAME_CLIENT_ADOPTION = $null
 }
-if ($active.PSObject.Properties.Name -contains 'providerBinaries') {
+if ($adoption) {
+    # New sessions start on the adopted copies; the app re-reads the record (by hash) for each new session.
+    $values.REFRAME_CLAUDE_BIN = $adoption.chatgpt.binary
+    $values.REFRAME_ANTHROPIC_CLAUDE_BIN = $adoption.anthropic.binary
+    $values.REFRAME_CLIENT_ADOPTION = $active.clientAdoption.record
+} elseif ($active.PSObject.Properties.Name -contains 'providerBinaries') {
     $anthropic = $active.providerBinaries.anthropic
     Assert-PlainPath $anthropic.binary
     Assert-Hash $anthropic.binary $anthropic.sha256
@@ -54,6 +76,8 @@ try {
         activeSha256 = Get-Sha256 $ActivePath; at = [DateTime]::UtcNow.ToString('o')
         configOverridePresent = Test-Path Env:CLAUDE_CONFIG_DIR
         anthropicBinary = [Environment]::GetEnvironmentVariable('REFRAME_ANTHROPIC_CLAUDE_BIN', 'Process')
+        chatgptBinary = [Environment]::GetEnvironmentVariable('REFRAME_CLAUDE_BIN', 'Process')
+        clientAdoption = [Environment]::GetEnvironmentVariable('REFRAME_CLIENT_ADOPTION', 'Process')
     }
 } finally {
     foreach ($key in $saved.Keys) {
