@@ -38,9 +38,17 @@ for (const name of ['stop-managed.ps1', 'release-files.ps1'])
     throw Error('Packaged quit helper differs from reviewed source: ' + name);
 if (!backend.equals(fs.readFileSync(new URL('./history_backend.py', import.meta.url))))
   throw Error('Packaged history backend differs from qualified source');
-const main = asar.extractFile(archive, path.join('out', 'main', 'index.js')).toString();
-if (main !== fs.readFileSync(new URL('../out/main/index.js', import.meta.url), 'utf8'))
-  throw Error('Packaged main differs from the verified build');
+// The main process, the PTY host and the chunks they share (built together, so a feature may sit in a chunk).
+const mainFiles = names.filter((name) => /^out\/main\/.+\.js$/.test(name));
+if (!mainFiles.includes('out/main/index.js')) throw Error('Packaged main is missing');
+for (const name of mainFiles)
+  if (
+    !asar
+      .extractFile(archive, path.join(...name.split('/')))
+      .equals(fs.readFileSync(new URL('../' + name, import.meta.url)))
+  )
+    throw Error('Packaged main differs from the verified build: ' + name);
+const main = mainFiles.map((name) => asar.extractFile(archive, path.join(...name.split('/'))).toString()).join('\n');
 if (
   !asar
     .extractFile(archive, path.join('out', 'preload', 'index.js'))
