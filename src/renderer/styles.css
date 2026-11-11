@@ -989,6 +989,25 @@ textarea {
   border-color: var(--accent);
 }
 
+/* Single window / tiled view: two buttons joined into one control. */
+.segmented {
+  display: flex;
+}
+.segmented .toolbar-button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.segmented .toolbar-button:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: -1px;
+}
+
+.toolbar-workspace {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;

@@ -67,6 +67,8 @@ export interface WindowView {
   dock: DockEntry[];
   /** The project whose tiles the window shows (see showProject), null before one was chosen. */
   activeProject: string | null;
+  /** Single window (one thread fills it) or tiled view. */
+  viewMode: 'single' | 'tiled';
   /** Subscription quota, for the counters below the session list. */
   quota: ProviderQuota[];
   sessions: Record<string, SessionView>;

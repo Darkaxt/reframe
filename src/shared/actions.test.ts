@@ -9,6 +9,8 @@ import {
   isLayoutAction,
   isWindowEmpty,
   putNode,
+  settleGrid,
+  viewModeOf,
   takeNode,
   windowGroups,
   windowHasSession,
@@ -16,7 +18,7 @@ import {
   windowsToRestore,
 } from './actions';
 import { addToGroup, groupOf, groupTile, leaves, tileKey } from './layout';
-import { emptyWindow } from './state';
+import { emptyWindow, windowStateSchema } from './state';
 
 const withTiles = (...ids: string[]) => ids.reduce((w, id) => addTile(w, id), emptyWindow('w1'));
 
@@ -180,5 +182,62 @@ describe('groups in a window', () => {
     const to = putNode(withTiles('x'), node!, { key: tileKey('x'), side: 'bottom' });
     expect(groupOf(to.layout, tileKey('a'))?.id).toBe('g');
     expect(putNode(emptyWindow('w2'), node!, null).layout).toEqual(node);
+  });
+});
+
+describe('view mode', () => {
+  it('defaults to tiled for windows saved without one', () => {
+    const old = windowStateSchema.parse(JSON.parse(JSON.stringify(emptyWindow('w1'))));
+    expect(old.viewMode).toBeUndefined();
+    expect(viewModeOf(old)).toBe('tiled');
+  });
+
+  it('is switched by window/viewMode, and only to a known mode', () => {
+    const win = applyLayoutAction(emptyWindow('w1'), { type: 'window/viewMode', mode: 'single' });
+    expect(viewModeOf(win)).toBe('single');
+    expect(isLayoutAction({ type: 'window/viewMode', mode: 'single' })).toBe(true);
+    expect(isLayoutAction({ type: 'window/viewMode', mode: 'zoomed' })).toBe(false);
+    expect(isLayoutAction({ type: 'layout/tile' })).toBe(false);
+  });
+});
+
+describe('settleGrid', () => {
+  const keyOf = (w: ReturnType<typeof withTiles>) => settleGrid(w, undefined).key;
+
+  it('leaves a window seen for the first time as it is', () => {
+    const win = withTiles('a', 'b', 'c');
+    expect(settleGrid(win, undefined).win).toBe(win);
+  });
+
+  it('regrids a tiled window when a tile is added, closed, docked or expanded', () => {
+    const win = withTiles('a', 'b', 'c');
+    const added = addTile(win, 'd');
+    const settled = settleGrid(added, keyOf(win)).win;
+    // 2×2: two rows of two.
+    expect(settled.layout).toMatchObject({ kind: 'split', children: [{ kind: 'split' }, { kind: 'split' }] });
+    expect(leaves(settled.layout).sort()).toEqual(['a', 'b', 'c', 'd']);
+
+    const closed = dropSession(settled, 'd');
+    expect(settleGrid(closed, keyOf(settled)).win).not.toBe(closed);
+    const docked = applyLayoutAction(settled, { type: 'tile/collapse', sessionId: 'a' });
+    expect(settleGrid(docked, keyOf(settled)).win).not.toBe(docked);
+    const expanded = applyLayoutAction(docked, { type: 'tile/expand', sessionId: 'a' });
+    expect(settleGrid(expanded, keyOf(docked)).win).not.toBe(expanded);
+  });
+
+  it('regrids when the project or the mode changes', () => {
+    const win = withTiles('a', 'b');
+    expect(settleGrid({ ...win, activeProject: 'p' }, keyOf(win)).win).not.toBe(win);
+    const single = { ...win, viewMode: 'single' as const };
+    expect(settleGrid(win, keyOf(single)).win).not.toBe(win);
+  });
+
+  it('does not regrid on a resize or a reorder, nor in single window mode', () => {
+    const win = withTiles('a', 'b', 'c');
+    const resized = { ...win, layout: { ...win.layout!, sizes: [0.5, 0.3, 0.2] } } as typeof win;
+    expect(settleGrid(resized, keyOf(win)).win).toBe(resized);
+    const single = { ...win, viewMode: 'single' as const };
+    const added = addTile(single, 'd');
+    expect(settleGrid(added, keyOf(single)).win).toBe(added);
   });
 });
