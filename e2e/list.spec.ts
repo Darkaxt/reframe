@@ -104,10 +104,10 @@ test('a collapsed session dragged out of the list lands where it is dropped', as
       .dragTo(target, { targetPosition: { x: box.width / 2, y: box.height * 0.9 } });
     await expect(page.locator('.tile')).toHaveCount(2);
     await expect(page.locator('.dock-item')).toHaveCount(0);
-    // Below alpha, where it was dropped.
+    // Dropped below alpha, then the tiled view puts the two back in its even grid, side by side.
     const alpha = (await tileByLabel(page, 'alpha').boundingBox())!;
     const beta = (await tileByLabel(page, 'beta').boundingBox())!;
-    expect(beta.y).toBeGreaterThan(alpha.y + alpha.height / 2);
+    expect(beta.x).toBeGreaterThan(alpha.x + alpha.width / 2);
     await expect.poll(() => state().windows[0]!.dock).toEqual([]);
     await quit(app);
   } catch (error) {

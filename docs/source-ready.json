@@ -9,8 +9,20 @@
       "sha256": "ee9f43f14023644126be2337b9ce261d73bb939a0f20fa5a25f9e2f2f38e40dd"
     },
     {
+      "file": "e2e/list.spec.ts",
+      "sha256": "cfe4e52608abf16574d4ee504483479eff6d80effd395e13efd5b9afe147caf5"
+    },
+    {
       "file": "e2e/shortcuts.spec.ts",
       "sha256": "93b4553d04497a57b03e66d3e2af296bb00e505cd9c041a2f8db32c731c3aa93"
+    },
+    {
+      "file": "e2e/terminal-window.spec.ts",
+      "sha256": "7ad1b4fc306b4dc3a5c8a3efe3aa33937d588a69166374bc00399ab5089aa4ea"
+    },
+    {
+      "file": "e2e/windows.spec.ts",
+      "sha256": "9cf24947399fefba4fdfc310b3b404b72fa66f4288217ab08fc7609de439c881"
     },
     {
       "file": "e2e/workspaces.spec.ts",

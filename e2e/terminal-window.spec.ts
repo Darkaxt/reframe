@@ -268,10 +268,10 @@ test('a terminal tab torn out over reframe (a new terminal window there) is take
 
     await expect.poll(() => alive(pid), { timeout: 15_000 }).toBe(false);
     await expect(tileByLabel(page, 'outside')).toBeVisible({ timeout: 15_000 });
-    // Below alpha: the two tiles are stacked.
+    // Dropped below alpha, then the tiled view puts the two back in its even grid, side by side.
     const alpha = (await tileByLabel(page, 'alpha').boundingBox())!;
     const outside = (await tileByLabel(page, 'outside').boundingBox())!;
-    expect(outside.y).toBeGreaterThan(alpha.y + alpha.height / 2);
+    expect(outside.x).toBeGreaterThan(alpha.x + alpha.width / 2);
     await expect.poll(() => alive(shellPid), { timeout: 15_000 }).toBe(false);
     expect(readLog(s)).toContain('"pointFrom":"drag over reframe"');
 
