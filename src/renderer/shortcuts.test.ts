@@ -33,6 +33,9 @@ describe('shortcutFor', () => {
     expect(shortcutFor(press('Space', { ctrl: true }, ' '), false)).toBeNull();
     expect(shortcutFor(press('KeyF', { ctrl: true, shift: true }), false)).toEqual({ kind: 'find' });
     expect(shortcutFor(press('KeyZ', { ctrl: true, shift: true }), false)).toEqual({ kind: 'zoom' });
+    expect(shortcutFor(press('KeyG', { ctrl: true, shift: true }), false)).toEqual({ kind: 'toggleViewMode' });
+    expect(shortcutFor(press('Tab', { ctrl: true }), false)).toEqual({ kind: 'cycleTile', step: 1 });
+    expect(shortcutFor(press('Tab', { ctrl: true, shift: true }), false)).toEqual({ kind: 'cycleTile', step: -1 });
     expect(shortcutFor(press('ArrowLeft', { ctrl: true, shift: true }), false)).toEqual({
       kind: 'focusDirection',
       direction: 'left',

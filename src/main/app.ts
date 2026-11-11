@@ -23,6 +23,8 @@ import {
 import {
   addTile,
   applyLayoutAction,
+  settleGrid,
+  viewModeOf,
   dropSession,
   isCollapsed,
   isDropTarget,
@@ -571,6 +573,7 @@ export class ReframeApp {
       layout: win.layout,
       dock: win.dock,
       activeProject: win.activeProject ?? null,
+      viewMode: viewModeOf(win),
       quota: [...this.quota.values()],
       sessions,
     };
@@ -790,7 +793,19 @@ export class ReframeApp {
     }
   }
 
+  /** Each window's grid key as last saved (see settleGrid). */
+  private gridKeys = new Map<string, string>();
+
   private save(): void {
+    // Tiled windows are kept in the even grid as their tiles come and go.
+    this.state = {
+      ...this.state,
+      windows: this.state.windows.map((w) => {
+        const { win, key } = settleGrid(w, this.gridKeys.get(w.id));
+        this.gridKeys.set(w.id, key);
+        return win;
+      }),
+    };
     this.store.save(this.state);
     this.listChanged();
   }

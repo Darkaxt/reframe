@@ -62,6 +62,8 @@ export const windowStateSchema = z.object({
   workspaceId: z.string().optional(),
   /** The project (session list workspace key) whose tiles the window shows; the others are collapsed. */
   activeProject: z.string().optional(),
+  /** Single window or tiled view; absent (older files) means tiled. */
+  viewMode: z.enum(['single', 'tiled']).optional(),
 });
 
 export const launchOptionsSchema = z.object({

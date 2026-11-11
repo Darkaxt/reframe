@@ -8,16 +8,7 @@ import { DockStrip } from './components/DockStrip';
 import { NewSessionDialog, type NewSessionPreset } from './components/NewSessionDialog';
 import { LayoutView } from './components/SplitView';
 import { Tile } from './components/Tile';
-import {
-  ExitFullscreenIcon,
-  GearIcon,
-  GridIcon,
-  InfoIcon,
-  LayersIcon,
-  ListIcon,
-  PlusIcon,
-  WindowIcon,
-} from './components/icons';
+import { ExitFullscreenIcon, GearIcon, GridIcon, InfoIcon, ListIcon, PlusIcon, WindowIcon } from './components/icons';
 import { dockSessions } from '@shared/actions';
 import { workspaceKey } from '@shared/folder-workspaces';
 import { SaveWorkspaceDialog } from './components/SaveWorkspaceDialog';
@@ -34,6 +25,7 @@ import {
   type Shortcut,
   type TextSizeChange,
 } from './shortcuts';
+import { cycle, nextShown } from './view-mode';
 import { SessionSidebar } from './components/SessionSidebar';
 import { SidebarResizer } from './components/SidebarResizer';
 import { TakeoverDialog } from './components/TakeoverDialog';
@@ -72,6 +64,8 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
   const [findIn, setFindIn] = useState<string | null>(null);
   /** A tile filling the window, as long as the layout (its tiles) is what it was when it was zoomed. */
   const [zoom, setZoom] = useState<{ sessionId: string; layout: string } | null>(null);
+  /** The selected thread: the one a single window shows (kept as its threads come and go, see nextShown). */
+  const [selected, setSelected] = useState<string | null>(null);
   // A terminal window from another app dragged over this window, and dropped on it.
   const [foreignPreview, setForeignPreview] = useState<PreviewRect | null>(null);
   const [foreignDrop, setForeignDrop] = useState<{ request: ForeignDropRequest; target: DropTarget | null } | null>(
@@ -82,7 +76,14 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
     let pushed = false;
     // A zoom is over as soon as the layout changes (a tile added, moved, expanded or closed): for good, not just
     // until the layout happens to look as before.
-    const unzoom = (next: WindowView) => setZoom((z) => (z && z.layout !== layoutKeyOf(next) ? null : z));
+    let shownBefore: string[] = [];
+    const unzoom = (next: WindowView) => {
+      setZoom((z) => (z && z.layout !== layoutKeyOf(next) ? null : z));
+      const after = leaves(next.layout);
+      const before = shownBefore;
+      shownBefore = after;
+      setSelected((current) => nextShown(before, after, current));
+    };
     const off = window.reframe.onView((next) => {
       pushed = true;
       setView(next);
@@ -146,13 +147,31 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
   const layoutKey = layoutKeyOf(view);
   // Not shown while dragging, nor in the render that brings the layout change (the view's handler ends it then).
   const zoomed = zoom && zoom.layout === layoutKey && !dragging ? zoom.sessionId : null;
+  const single = view?.viewMode === 'single';
+  const threads = view ? leaves(view.layout) : [];
+  // The thread a single window shows (the selected one; the first until the view brings the selection along).
+  const shown = single ? (selected && threads.includes(selected) ? selected : (threads[0] ?? null)) : null;
+  /** Brings a thread up: in a single window it becomes the one shown. */
+  const showThread = useCallback(
+    (sessionId: string) => {
+      setSelected(sessionId);
+      whenShown(`.tile[data-session="${CSS.escape(sessionId)}"]`, () => terminals.focus(sessionId));
+    },
+    [terminals],
+  );
   const toggleZoom = useCallback(
     (sessionId: string) => {
+      // A single window has nothing else to show: its "show all" goes to the tiled view.
+      if (single) {
+        window.reframe.dispatch({ type: 'window/viewMode', mode: 'tiled' });
+        requestAnimationFrame(() => terminals.focus(sessionId));
+        return;
+      }
       setZoom((z) => (z?.sessionId === sessionId && z.layout === layoutKey ? null : { sessionId, layout: layoutKey }));
       // The terminal moves to the other tile and loses the focus on the way.
       requestAnimationFrame(() => terminals.focus(sessionId));
     },
-    [layoutKey, terminals],
+    [layoutKey, terminals, single],
   );
 
   const focusTile = useCallback(
@@ -164,15 +183,28 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
     (shortcut: Shortcut) => {
       const current = viewRef.current;
       if (!current) return;
-      const ids = tileIds();
+      const singleMode = current.viewMode === 'single';
+      // A single window shows one tile; its threads are those of its layout.
+      const ids = singleMode ? leaves(current.layout) : tileIds();
       switch (shortcut.kind) {
         case 'focusTile': {
           const id = ids[shortcut.index];
-          if (id) terminals.focus(id);
+          if (id) showThread(id);
+          return;
+        }
+        case 'cycleTile': {
+          const id = cycle(ids, activeTile(), shortcut.step);
+          if (id) showThread(id);
           return;
         }
         case 'focusDirection': {
           const from = activeTile();
+          if (singleMode) {
+            const step = shortcut.direction === 'left' || shortcut.direction === 'up' ? -1 : 1;
+            const id = cycle(ids, from, step);
+            if (id) showThread(id);
+            return;
+          }
           if (!from) return void (ids[0] && terminals.focus(ids[0]));
           const boxes: Box[] = ids.map((id) => {
             const rect = document.querySelector(`.tile[data-session="${CSS.escape(id)}"]`)!.getBoundingClientRect();
@@ -221,8 +253,8 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
         }
         case 'textSize':
           return changeTextSize(shortcut.change);
-        case 'tileLayout':
-          window.reframe.dispatch({ type: 'layout/tile' });
+        case 'toggleViewMode':
+          window.reframe.dispatch({ type: 'window/viewMode', mode: singleMode ? 'tiled' : 'single' });
           return;
         case 'toggleSidebar': {
           const open = !current.sidebarOpen;
@@ -233,7 +265,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
         }
       }
     },
-    [terminals, focusTile, changeTextSize, toggleZoom],
+    [terminals, focusTile, changeTextSize, toggleZoom, showThread],
   );
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -271,6 +303,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
       window.reframe.onFocusTile((sessionId) => {
         // Another tile brought up (a notification, Ctrl+Shift+Space): all tiles show again.
         setZoom((z) => (z && z.sessionId !== sessionId ? null : z));
+        setSelected(sessionId);
         // A collapsed tile only appears with a later view (it may take more than a frame), so wait for it.
         const tile = `.tile[data-session="${CSS.escape(sessionId)}"]`;
         requestAnimationFrame(() =>
@@ -284,6 +317,16 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
       }),
     [terminals],
   );
+
+  // The tile the user works in is the selected thread, the one a switch to a single window shows.
+  useEffect(() => {
+    const onFocus = (event: FocusEvent) => {
+      const id = (event.target as Element | null)?.closest?.<HTMLElement>('.tile[data-session]')?.dataset.session;
+      if (id) setSelected(id);
+    };
+    document.addEventListener('focusin', onFocus);
+    return () => document.removeEventListener('focusin', onFocus);
+  }, []);
 
   useEffect(() => window.reframe.onOpenNewSession(() => setDialogOpen(true)), []);
   useEffect(() => window.reframe.onOpenAbout(() => setAboutOpen(true)), []);
@@ -380,10 +423,11 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
         // A find bar goes with its session's tile.
         findIn: findIn && view.sessions[findIn] ? findIn : null,
         setFindIn,
-        zoomed,
+        // A single window's tile counts as zoomed (its button goes back to the tiled view).
+        zoomed: shown ?? zoomed,
         toggleZoom,
       },
-    [view, terminals, dragging, renaming, renamingSession, findIn, zoomed, toggleZoom],
+    [view, terminals, dragging, renaming, renamingSession, findIn, zoomed, shown, toggleZoom],
   );
 
   if (!view || !context) return null;
@@ -445,24 +489,21 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             <WindowIcon />
             {t('toolbar.newWindow')}
           </button>
-          <button
-            className={`button toolbar-button${view.workspace ? ' is-active' : ''}`}
-            title={view.workspace ? `${t('toolbar.workspaces')}: ${view.workspace.name}` : t('toolbar.workspaces')}
-            aria-label={t('toolbar.workspaces')}
-            onClick={() => window.reframe.showWorkspaceMenu()}
-          >
-            <LayersIcon />
-            {view.workspace?.name ?? t('toolbar.workspaces')}
-          </button>
-          <button
-            className="button toolbar-button"
-            title={`${t('toolbar.tile')} (${keys('G')})`}
-            disabled={!view.layout}
-            onClick={() => window.reframe.dispatch({ type: 'layout/tile' })}
-          >
-            <GridIcon />
-            {t('toolbar.tile')}
-          </button>
+          {view.workspace && <span className="toolbar-workspace">{view.workspace.name}</span>}
+          <div className="segmented" role="group" aria-label={`${t('toolbar.viewMode')} (${keys('G')})`}>
+            {(['single', 'tiled'] as const).map((mode) => (
+              <button
+                key={mode}
+                className={`button toolbar-button${view.viewMode === mode ? ' is-active' : ''}`}
+                aria-pressed={view.viewMode === mode}
+                title={`${t(mode === 'single' ? 'toolbar.single' : 'toolbar.tiled')} (${keys('G')})`}
+                onClick={() => window.reframe.dispatch({ type: 'window/viewMode', mode })}
+              >
+                {mode === 'single' ? <WindowIcon /> : <GridIcon />}
+                {t(mode === 'single' ? 'toolbar.single' : 'toolbar.tiled')}
+              </button>
+            ))}
+          </div>
           <span className="spacer" />
           {view.fullscreen && (
             <button
@@ -518,8 +559,8 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             }
           />
           <main className="layout">
-            {view.layout && zoomed ? (
-              <Tile sessionId={zoomed} group={null} />
+            {view.layout && (shown ?? zoomed) ? (
+              <Tile sessionId={(shown ?? zoomed)!} group={null} />
             ) : view.layout ? (
               <LayoutView node={view.layout} />
             ) : (

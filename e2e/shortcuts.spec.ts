@@ -18,17 +18,30 @@ test('keyboard shortcuts and new windows', async () => {
     await newSession(page, project, 'beta');
     await newSession(page, project, 'gamma');
 
-    // Ctrl+1…9 by position (alpha left, beta and gamma stacked right), Ctrl+Shift+arrows to the neighbor.
+    // Ctrl+1…9 by position (tiled view: alpha and beta on top, gamma below), Ctrl+Shift+arrows to the neighbor.
     await page.keyboard.press('ControlOrMeta+1');
     await expect.poll(() => focused(page)).toBe('alpha');
     await expect(tileByLabel(page, 'alpha')).toHaveCSS('border-color', 'rgb(217, 119, 87)');
     await expect(tileByLabel(page, 'beta')).not.toHaveCSS('border-color', 'rgb(217, 119, 87)');
     await page.keyboard.press('ControlOrMeta+2');
     await expect.poll(() => focused(page)).toBe('beta');
-    await page.keyboard.press('ControlOrMeta+Shift+ArrowDown');
-    await expect.poll(() => focused(page)).toBe('gamma');
     await page.keyboard.press('ControlOrMeta+Shift+ArrowLeft');
     await expect.poll(() => focused(page)).toBe('alpha');
+    await page.keyboard.press('ControlOrMeta+Shift+ArrowDown');
+    await expect.poll(() => focused(page)).toBe('gamma');
+
+    // Ctrl+Shift+G: a single window shows the selected thread; Ctrl+Tab goes through the others; and back.
+    await page.keyboard.press('ControlOrMeta+Shift+G');
+    await expect(page.locator('.tile')).toHaveCount(1);
+    await expect(tileByLabel(page, 'gamma')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Single window' })).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Control+Tab');
+    await expect(tileByLabel(page, 'gamma')).toHaveCount(0);
+    await expect(page.locator('.tile')).toHaveCount(1);
+    await page.keyboard.press('Control+Shift+Tab');
+    await expect(tileByLabel(page, 'gamma')).toBeVisible();
+    await page.getByRole('button', { name: 'Tiled view' }).click();
+    await expect(page.locator('.tile')).toHaveCount(3);
 
     // Ctrl+Shift+M collapses the focused tile; pressed again (no tile focused), it brings it back, focused.
     await page.keyboard.press('ControlOrMeta+3');

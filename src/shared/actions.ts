@@ -10,6 +10,7 @@ import {
   insertTile,
   leaves,
   moveNode,
+  nodeKey,
   removeNode,
   removeTile,
   resolveTarget,
@@ -37,8 +38,32 @@ export type LayoutAction =
   | { type: 'group/rename'; groupId: string; name: string }
   | { type: 'split/resize'; splitId: string; sizes: number[] }
   | { type: 'window/sidebar'; open: boolean }
-  /** Arranges the visible tiles (and groups) in an even grid by their count. */
-  | { type: 'layout/tile' };
+  /** Single window (one thread fills it) or tiled view (the visible tiles kept in an even grid). */
+  | { type: 'window/viewMode'; mode: ViewMode };
+
+export type ViewMode = 'single' | 'tiled';
+
+/** A window's view mode; windows from before it was added are tiled. */
+export function viewModeOf(win: Pick<WindowState, 'viewMode'>): ViewMode {
+  return win.viewMode ?? 'tiled';
+}
+
+/** What a tiled window's grid depends on: its mode, project and set of tiles/groups (not their order or sizes). */
+export function gridKey(win: WindowState): string {
+  const units = layoutUnits(win.layout).map(nodeKey).sort();
+  return [viewModeOf(win), win.activeProject ?? '', ...units].join('|');
+}
+
+/**
+ * Keeps a tiled window in the even grid: arranged again when a tile or group came or went (added, closed, docked,
+ * expanded, restored), the project or the mode changed, since `previousKey`. A pure resize or reorder is left as it
+ * is, as is a window seen for the first time (`previousKey` undefined) and a single-window one.
+ */
+export function settleGrid(win: WindowState, previousKey: string | undefined): { win: WindowState; key: string } {
+  const key = gridKey(win);
+  if (previousKey === undefined || key === previousKey || viewModeOf(win) === 'single') return { win, key };
+  return { win: { ...win, layout: gridLayout(layoutUnits(win.layout)) }, key };
+}
 
 export function dockSessions(entry: DockEntry): string[] {
   return entry.kind === 'tile' ? [entry.sessionId] : leaves(entry.node);
@@ -108,8 +133,8 @@ export function applyLayoutAction(win: WindowState, action: LayoutAction): Windo
       return { ...win, layout: setSplitSizes(win.layout, action.splitId, action.sizes) };
     case 'window/sidebar':
       return { ...win, sidebarOpen: action.open };
-    case 'layout/tile':
-      return { ...win, layout: gridLayout(layoutUnits(win.layout)) };
+    case 'window/viewMode':
+      return { ...win, viewMode: action.mode };
   }
 }
 
@@ -213,8 +238,8 @@ export function isLayoutAction(value: unknown): value is LayoutAction {
       return typeof a.splitId === 'string' && Array.isArray(a.sizes) && a.sizes.every((s) => typeof s === 'number');
     case 'window/sidebar':
       return typeof a.open === 'boolean';
-    case 'layout/tile':
-      return true;
+    case 'window/viewMode':
+      return a.mode === 'single' || a.mode === 'tiled';
     default:
       return false;
   }

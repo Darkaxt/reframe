@@ -16,7 +16,8 @@ export type Shortcut =
   | { kind: 'zoom' }
   | { kind: 'toggleCollapse' }
   | { kind: 'toggleSidebar' }
-  | { kind: 'tileLayout' }
+  | { kind: 'toggleViewMode' }
+  | { kind: 'cycleTile'; step: 1 | -1 }
   | { kind: 'toggleFullscreen' }
   | { kind: 'openSettings' }
   | { kind: 'textSize'; change: TextSizeChange };
@@ -39,7 +40,7 @@ const LETTERS: Record<string, Shortcut> = {
   Space: { kind: 'nextWaiting' },
   KeyF: { kind: 'find' },
   KeyZ: { kind: 'zoom' },
-  KeyG: { kind: 'tileLayout' },
+  KeyG: { kind: 'toggleViewMode' },
 };
 // By character, not key: they sit elsewhere on other layouts (+ has a key of its own on a German keyboard).
 const TEXT_SIZE: Record<string, TextSizeChange> = { '+': 'bigger', '=': 'bigger', '-': 'smaller', '0': 'reset' };
@@ -48,6 +49,10 @@ const TEXT_SIZE: Record<string, TextSizeChange> = { '+': 'bigger', '=': 'bigger'
 export function shortcutFor(keys: Keys, mac: boolean): Shortcut | null {
   if (keys.code === 'F11' && !keys.ctrlKey && !keys.metaKey && !keys.shiftKey && !keys.altKey) {
     return { kind: 'toggleFullscreen' };
+  }
+  // Ctrl+Tab (also on macOS, where Cmd+Tab is the system's) goes through the project's threads.
+  if (keys.code === 'Tab' && keys.ctrlKey && !keys.metaKey && !keys.altKey) {
+    return { kind: 'cycleTile', step: keys.shiftKey ? -1 : 1 };
   }
   const mod = mac ? keys.metaKey && !keys.ctrlKey : keys.ctrlKey && !keys.metaKey;
   if (!mod || keys.altKey) return null;

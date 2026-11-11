@@ -1,8 +1,11 @@
-// End to end: a window saved as a workspace (from the toolbar's Workspaces menu, with a name) opens again later as
-// a window of its own, with its group and sessions resumed; opened while its window is there, that one just comes
-// up. Workspaces survive a restart and are managed from the Workspaces toolbar.
+// End to end: a window saved as a workspace (from the Workspaces menu, with a name) opens again later as a window of
+// its own, with its group and sessions resumed; opened while its window is there, that one just comes up. Workspaces
+// survive a restart and are managed from that menu. The toolbar has no button for it any more (the project view and
+// the Single window / Tiled view switch took its place), so the tests bring the menu up through the window's bridge.
 import { expect, test, type Page } from '@playwright/test';
 import { callMain, captureWindows, cleanup, launch, newSession, pageOf, quit, setup } from './helpers';
+
+const openWorkspaceMenu = (page: Page) => page.evaluate(() => window.reframe.showWorkspaceMenu());
 
 test('workspaces: save a window, open it again, rename and delete it', async () => {
   const { dir, project, env, launches, state, byName } = setup();
@@ -23,7 +26,7 @@ test('workspaces: save a window, open it again, rename and delete it', async () 
     await callMain(app, 'addSessionToGroup', byName('beta').id, groupId);
     await expect(second.locator('.group .tile')).toHaveCount(2);
 
-    await second.getByRole('button', { name: 'Workspaces' }).click();
+    await openWorkspaceMenu(second);
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Save this window as a workspace …')).toBe(true);
     const naming = second.getByRole('dialog', { name: 'Save as a workspace' });
     await naming.getByRole('textbox').fill('Frontend');
@@ -37,14 +40,14 @@ test('workspaces: save a window, open it again, rename and delete it', async () 
 
     // Saved layouts remain in the toolbar while the sidebar is reserved for chats/projects.
     opened = app.waitForEvent('window');
-    await page.getByRole('button', { name: 'Workspaces' }).click();
+    await openWorkspaceMenu(page);
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Frontend')).toBe(true);
     const restored = await opened;
     await expect(restored.locator('.group .tile')).toHaveCount(2);
     await expect.poll(() => [starts('alpha'), starts('beta')]).toEqual([2, 2]);
 
     // Again while its window is open: that one comes up, no second copy.
-    await page.getByRole('button', { name: 'Workspaces' }).click();
+    await openWorkspaceMenu(page);
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Frontend (open)')).toBe(true);
     expect(app.windows()).toHaveLength(2);
 
@@ -58,7 +61,7 @@ test('workspaces: save a window, open it again, rename and delete it', async () 
     await expect(other.locator('.toolbar')).toContainText('Frontend');
 
     // Existing layout management is available under the toolbar's Manage saved layouts menu.
-    await other.getByRole('button', { name: /Workspaces/ }).click();
+    await openWorkspaceMenu(other);
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Rename')).toBe(true);
     await other.getByRole('dialog').getByRole('textbox').fill('Backend');
     await other.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
@@ -67,7 +70,7 @@ test('workspaces: save a window, open it again, rename and delete it', async () 
     await app.evaluate(({ dialog }) => {
       Object.assign(dialog, { showMessageBox: async () => ({ response: 0, checkboxChecked: false }) });
     });
-    await other.getByRole('button', { name: /Workspaces/ }).click();
+    await openWorkspaceMenu(other);
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Delete')).toBe(true);
     await expect.poll(() => state().workspaces).toEqual([]);
     await expect(other.locator('.toolbar')).not.toContainText('Backend');
@@ -86,7 +89,7 @@ test('a workspace saved from the main window opens as a window of its own once t
   try {
     const { app, page } = await launch(env);
     await newSession(page, project, 'alpha');
-    await page.getByRole('button', { name: 'Workspaces' }).click();
+    await openWorkspaceMenu(page);
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Save this window as a workspace …')).toBe(true);
     const naming = page.getByRole('dialog', { name: 'Save as a workspace' });
     await naming.getByRole('textbox').fill('Main work');
@@ -100,7 +103,7 @@ test('a workspace saved from the main window opens as a window of its own once t
 
     // So opening the workspace gives it a window of its own again, with the session resumed.
     const opened = app.waitForEvent('window');
-    await page.getByRole('button', { name: 'Workspaces' }).click();
+    await openWorkspaceMenu(page);
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Main work')).toBe(true);
     const restored = await opened;
     await expect(restored.locator('.tile')).toHaveCount(1);

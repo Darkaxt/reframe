@@ -1,296 +1,88 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "c864b6ce31616d9ef25ddaf76999619358fbeb2c",
-  "scope": "0.10.0-claudegpt.10: \"Reframe\" display name, project isolation and Tile layout, project activity, notification project switch, quota panel, merged title bar, label from typed name or Claude Code title, deploy -KeepRunning (on top of 0.10.0-claudegpt.9)",
+  "sourceBase": "da39891860d44987e523e6dbe256cddce4a9a643",
+  "scope": "0.10.0-claudegpt.11: Single window / Tiled view switch per window (auto-regridding tiled view, Ctrl+Shift+G, Ctrl+Tab), Workspaces toolbar button removed (on top of 0.10.0-claudegpt.10)",
   "inputHashes": [
     {
-      "file": ".github/workflows/ci.yml",
-      "sha256": "370c5d3fba53cb225f163a3cf495ccaad307fa07eb499871aa8f1c8e3abb5f76"
+      "file": "docs/releases/v0.10.0-claudegpt.11.md",
+      "sha256": "ee9f43f14023644126be2337b9ce261d73bb939a0f20fa5a25f9e2f2f38e40dd"
     },
     {
-      "file": ".github/workflows/release.yml",
-      "sha256": "c57dc49b33e2494477ff150b5f67752499c9418baebc72c95931af2f6df72c8f"
+      "file": "e2e/list.spec.ts",
+      "sha256": "cfe4e52608abf16574d4ee504483479eff6d80effd395e13efd5b9afe147caf5"
     },
     {
-      "file": "build/icon.ico",
-      "sha256": "52d42fe76b66550c02d6f5aff66f20fd608f445bb4936fbe89eaabec67e0cfcf"
+      "file": "e2e/shortcuts.spec.ts",
+      "sha256": "93b4553d04497a57b03e66d3e2af296bb00e505cd9c041a2f8db32c731c3aa93"
     },
     {
-      "file": "build/icon.png",
-      "sha256": "2f85ccdbe7fbbc0f19ceeaee1723494aa5f24384708408d385a75605749b09ee"
+      "file": "e2e/terminal-window.spec.ts",
+      "sha256": "7ad1b4fc306b4dc3a5c8a3efe3aa33937d588a69166374bc00399ab5089aa4ea"
     },
     {
-      "file": "docs/releases/v0.10.0-claudegpt.10.md",
-      "sha256": "be1aeca11ccf8c63a0f9039d2e49425cf7b3172a8e1d1e0fee4b90a778b4431a"
+      "file": "e2e/windows.spec.ts",
+      "sha256": "9cf24947399fefba4fdfc310b3b404b72fa66f4288217ab08fc7609de439c881"
     },
     {
-      "file": "e2e/about.spec.ts",
-      "sha256": "94d4f8199fd202c1bdf7afdfc572ff6bbb91a83811fe6639606300679fe0b9e9"
-    },
-    {
-      "file": "e2e/bulk-chats.spec.ts",
-      "sha256": "16a8c557891731537c18913bcb0daf086dde14f90f1cdc6688177263883d0525"
-    },
-    {
-      "file": "e2e/claudegpt.spec.ts",
-      "sha256": "cb0da4d8d93b2a084cee82a2d7546c1335b3d3ae9fb71f2a221a5b4a64903481"
-    },
-    {
-      "file": "e2e/dialog.spec.ts",
-      "sha256": "f55a207cb1b069a45ded270087a9faab2d991872c87280d13a4b9921eab73c85"
-    },
-    {
-      "file": "e2e/helpers.ts",
-      "sha256": "52cbc8f20dc3d3f6da278a90a0be0b9c665107c0d0ad625d8c224350630f854f"
-    },
-    {
-      "file": "e2e/needs-you.spec.ts",
-      "sha256": "c434c8b3dcefc669ab08c815f0bbcfe94091495505e78d533439149869af517e"
-    },
-    {
-      "file": "e2e/real-claude.spec.ts",
-      "sha256": "4d52635069fb545b743f1301b5801b5625e9293e6dc1148c47efe1a20551b008"
-    },
-    {
-      "file": "e2e/real-fullscreen.spec.ts",
-      "sha256": "6dad3a5b9bf59ece97a37481bd17e8edef71d07cfca1053fe1abd49f68b5ec27"
-    },
-    {
-      "file": "e2e/real-wsl.spec.ts",
-      "sha256": "c78f21d4ae3af21ef52d3813f166f62ce6ea0a18c7e66db2df6d7c1ee49678ad"
-    },
-    {
-      "file": "e2e/rename.spec.ts",
-      "sha256": "04bfe3e589bb1156a2f6cdfe32042fc7979cdbd1177581398447c77ae14c15c9"
-    },
-    {
-      "file": "e2e/restore.spec.ts",
-      "sha256": "8a2b51137b09d809abe04c61d74444d11daaa9628f0849ebf6f8c12e0bba046c"
-    },
-    {
-      "file": "e2e/settings.spec.ts",
-      "sha256": "b0e14630089f179d6deb4da6fcdcae833ec9b4794749f20c8bbe1fd29731afda"
-    },
-    {
-      "file": "electron-builder.yml",
-      "sha256": "a75b3bab943bcbcfca74cab622824c31e8dfbce2cfbc3dbddba9e13df10034de"
-    },
-    {
-      "file": "maintenance/history_backend.py",
-      "sha256": "746f6f67ea655065d7f8d4ca8134fcea099550b4369f72518ad8ac463303cc9c"
-    },
-    {
-      "file": "maintenance/make-icons.py",
-      "sha256": "05f2fb4161bb05f435fa999bbfe1a5d09c524b7b258d4d0d00a6f8f0bdc2752a"
-    },
-    {
-      "file": "maintenance/test_history_backend.py",
-      "sha256": "593c0c9394603526dfa4d33dd914d386ec0d87eacc3ad472ef756cc08c731ac9"
-    },
-    {
-      "file": "maintenance/windows/deploy-managed.ps1",
-      "sha256": "e1993704b2f7352c8a3b63cd3607a0a3c2b3d4741785809e4fe274d72cf623fd"
-    },
-    {
-      "file": "maintenance/windows/release-files.ps1",
-      "sha256": "003114ae321bd94ca8fd852a0c0dd4697593b1dc99f76ddc1be2e22286a75b0f"
-    },
-    {
-      "file": "maintenance/windows/restore-managed.ps1",
-      "sha256": "67699aa9ce6e9390ec2ae48f8650f7edfdf8970666e0bb8da83319ead6832e21"
-    },
-    {
-      "file": "maintenance/windows/stop-managed.ps1",
-      "sha256": "7b09285d4b6c59b99b922ae772644a6f63096a92c2b6b9377ad334756dc795d8"
+      "file": "e2e/workspaces.spec.ts",
+      "sha256": "1e95c7466d3b4d04f4c330449253adca59012cbe31794c961a8830126927eb55"
     },
     {
       "file": "package-lock.json",
-      "sha256": "39356a5bc05bae84784f473081b4e5560910b2d866e9614f64c87b61d6518ae2"
+      "sha256": "7f656496ac9116aa0a47c8ac8f2479d78210a187ef26a79fa4b49a34faa395d7"
     },
     {
       "file": "package.json",
-      "sha256": "afbe244f2ef97640c505b34feb9448a01d40da555321d4a2c2db6b205f80e349"
-    },
-    {
-      "file": "resources/icon.png",
-      "sha256": "37322d0c6012fe294d7623ccee524e74901f6ae48d3f16894d47a773a7f85b02"
+      "sha256": "edec19f5d265eb7a1c84e1e02453e6f85105f8ec67b207f5bb28db99132ba3c4"
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "7a8d2ac136dc8288eede234c4f1ddd853206b0007932fc1d6dd3d6d07f70b589"
-    },
-    {
-      "file": "src/main/archive-root.test.ts",
-      "sha256": "e2b9444ecc0677b7a58b82cb24341e23edce5fd3268a58e6ec80db2687a11a78"
-    },
-    {
-      "file": "src/main/archive-root.ts",
-      "sha256": "a12c074654763f21f952ab69d9a1d4708be9fc54619c295e52de64558b20dcaa"
-    },
-    {
-      "file": "src/main/claude/args.ts",
-      "sha256": "b5bdf5d03b3d498b95a0a097b7868dbe2e23c94834a27dbe7db954fc511bc283"
-    },
-    {
-      "file": "src/main/claude/claude.test.ts",
-      "sha256": "ccc479bf048d541bbcec8c26e0c1c0cd8f5ce66aa0b0aec0c18dd95876da5cbf"
-    },
-    {
-      "file": "src/main/claude/settings.ts",
-      "sha256": "011211cc433cce14fb6e53f7ed88d7913fb37152025a04a614d1299e5eae3cc4"
-    },
-    {
-      "file": "src/main/claude/titles.ts",
-      "sha256": "ea9bbec06a794ee1bdaa20b5c1c664e91b766b74c666fd770b3cfc3a0046549e"
-    },
-    {
-      "file": "src/main/history.ts",
-      "sha256": "ab4e58072127f32d522b4c08b22ef4a61420c5f93a09580e9872b9cd34350140"
-    },
-    {
-      "file": "src/main/hooks/server.ts",
-      "sha256": "3271a4c776bd138378a5d407c127a715cd7866ebe9f21c53b597fa8a4fed6d89"
-    },
-    {
-      "file": "src/main/index.ts",
-      "sha256": "768ed03b345a127fb63ea4a063f184cb860311ea2cef489161377b53a6ae727e"
-    },
-    {
-      "file": "src/main/launch-config.test.ts",
-      "sha256": "3b722e60a041a64d6ed25bdc5c0a29e300050256f68819317a11de8394477f9a"
-    },
-    {
-      "file": "src/main/launch-config.ts",
-      "sha256": "b0a6a9e85179bb1ecf8f43ca0aa213435cfae937f44dd01a8b60667ac6d96de0"
-    },
-    {
-      "file": "src/main/menus.ts",
-      "sha256": "88983244914b1fb9c32369aefdeda2a639d4afc8b0388ac5e0ac61f558cbef9c"
-    },
-    {
-      "file": "src/main/quota.ts",
-      "sha256": "04bccb0bcea90db8bfd0731218ce445e7aaf089734ffb9d7e1b0fb49b7f0b6f8"
-    },
-    {
-      "file": "src/main/sessions.ts",
-      "sha256": "f05ab0c31ca9e6d3855f8ccd40aa8ef6c32b7c2844bd93aeef1b8918aded92d9"
-    },
-    {
-      "file": "src/main/stale-tiles.test.ts",
-      "sha256": "76661dbf4d7d225cb711c78c51ced9baac2a3b051906b5374a0b250642ce6c2e"
-    },
-    {
-      "file": "src/main/stale-tiles.ts",
-      "sha256": "63e3d1f66e9640ad447d521dce37b7c48f76975d3f39c4e6b331790cda66bd27"
-    },
-    {
-      "file": "src/main/state/store.test.ts",
-      "sha256": "bcd7897d29b919bcc5c4d74f0e65e794e66ac01a694589e05963ac09dc3b1dce"
-    },
-    {
-      "file": "src/main/windows.ts",
-      "sha256": "022904deafb0a9d55fa7622b8c7c10db608797d5e00aed40c23d3e2fe6a09487"
-    },
-    {
-      "file": "src/preload/index.ts",
-      "sha256": "9af333c12e0ba5937d954db6c3177e0f6ccf4bbf69ccd30202b3a90c2905f2ab"
+      "sha256": "d4e108ce8413c7acc376414b49ff623301dbd0bf05b08907044743abb79893db"
     },
     {
       "file": "src/renderer/App.tsx",
-      "sha256": "84a5bfa4cd9026faa069c92e3f470facf37f54efdd141dce3d0741ca843ea7a9"
+      "sha256": "04fb464da6075f6196a4bd42306053bef4154114bc4a168f9ad41ab3814570cf"
     },
     {
-      "file": "src/renderer/components/AboutDialog.tsx",
-      "sha256": "3a2a964a86738f0d8eeeef627e48185c2c8d4dba3dd1de644c5bcd7481bb16b8"
-    },
-    {
-      "file": "src/renderer/components/NewSessionDialog.tsx",
-      "sha256": "9cbf808e63fc02df076ab79286aee977b58c338cc10a20c63aee4a0034325cee"
-    },
-    {
-      "file": "src/renderer/components/QuotaPanel.tsx",
-      "sha256": "8fe3e66a7e0095d393edc7149416308c837e8fb739e9d98007934fae8ca7e672"
-    },
-    {
-      "file": "src/renderer/components/SessionSidebar.tsx",
-      "sha256": "bf85d13e54acc5f23939e4a34c1e09f3cb7f63fb4eaf85f8e2a6437074f19e8f"
-    },
-    {
-      "file": "src/renderer/components/SidebarResizer.tsx",
-      "sha256": "07de827abcadf76a3afcdbafc7da0e858797edc0767e781bc8c97856b192fdf0"
-    },
-    {
-      "file": "src/renderer/components/icons.tsx",
-      "sha256": "99313ac76c4bfe00775870c5d18c603e6509b094456934bf8b53a0fdcde87a86"
-    },
-    {
-      "file": "src/renderer/index.html",
-      "sha256": "40a7d32d91d607c130b892675c146ff059d3dac4b657e986cc22e7dddcfd74ec"
+      "file": "src/renderer/shortcuts.test.ts",
+      "sha256": "f64fd5be14169e0d624ce32b9b0097f776471601879fee50017fc617b9214024"
     },
     {
       "file": "src/renderer/shortcuts.ts",
-      "sha256": "47706b71fad394a091c2c70ed56906b41c7e32afeddc7cd0c5c7ef13d66bf8fa"
+      "sha256": "6ce1e72b2125c28470cb8c32c1027a246115b7a7b9c34ad0c18533c3f14dbe35"
     },
     {
       "file": "src/renderer/styles.css",
-      "sha256": "f0dfb300a35fa5d6540ef263ed65f2ae77ea24a8709140c79e61508e87e95ae7"
+      "sha256": "58897d5efc5aad6a710b4a2d5b130de03e023cb180976e884e5bb05f7bd7d7da"
+    },
+    {
+      "file": "src/renderer/view-mode.test.ts",
+      "sha256": "336bdc828cf413b5e221cba42980b3604282233c6b63b6d6a1f7b2b105495e49"
+    },
+    {
+      "file": "src/renderer/view-mode.ts",
+      "sha256": "20dfd908cdc3caa8cc9905344f7659cc1f9bf2c0d925e62573254a9482e4903e"
+    },
+    {
+      "file": "src/shared/actions.test.ts",
+      "sha256": "467fb7ee343d5c3123808f3ae57be97249c03fb5a0f643b3f26e27f64b2fa07c"
     },
     {
       "file": "src/shared/actions.ts",
-      "sha256": "0c6c3cab20244c85491b42aa47646c1210025508160eca2db2fbc08a72f1929a"
+      "sha256": "f0aca28dd943367a613d237b01b681d78f929130537eda0ba2f708d73ecf02a3"
     },
     {
       "file": "src/shared/i18n.ts",
-      "sha256": "e309f960c68360fe02ed42e1281633c9a7e24feddda7d259a7f8a06888f4bfc3"
+      "sha256": "70158e8456aaefe94ead136dd2b60a5e12368e46759b53b49d9ce914f54c584e"
     },
     {
       "file": "src/shared/ipc.ts",
-      "sha256": "d65d2a6f0da7ec539c085fcc0caeaf5e3aaa169dc8ee7ce7a98b55e92f7a628e"
-    },
-    {
-      "file": "src/shared/labels.test.ts",
-      "sha256": "09fff27a810442e740c781639900e07fda4cc06a5ad8d26f136314d4e158bb2a"
-    },
-    {
-      "file": "src/shared/labels.ts",
-      "sha256": "6af60b69daad94339d4e0f6fa66df2f2da02aa5bb4579ff394b4facc99b1b349"
-    },
-    {
-      "file": "src/shared/layout.ts",
-      "sha256": "70e43e5c2099147ab98b157b61b9266ab8c15ec7bc798422a958e8ca75ebfb0b"
-    },
-    {
-      "file": "src/shared/new-session.test.ts",
-      "sha256": "c57c3ffb9db78f02a1f4d5220953eb6a56f343dbce8e421669e802305e0f74f4"
-    },
-    {
-      "file": "src/shared/new-session.ts",
-      "sha256": "1e3b051dfb9e6160644653b11f5134d17525ac751d53c50052b0e29e6eaed04c"
-    },
-    {
-      "file": "src/shared/project-view.test.ts",
-      "sha256": "17bf5fe38d9db7f32c53f79a0206ada0ad2cccb52d56f99a4c68113d44a0771c"
-    },
-    {
-      "file": "src/shared/project-view.ts",
-      "sha256": "b7273706263a7340a10c6b676daf15e4e1b9babf3cd5060a3d2ebf0afb04f05f"
-    },
-    {
-      "file": "src/shared/quota.test.ts",
-      "sha256": "7c1fb64b6a487d1546be19ffdc1f07681a12b67c4f2478657dc56955ec401b1a"
-    },
-    {
-      "file": "src/shared/quota.ts",
-      "sha256": "f20cf29ddc8a33901290f1df32526d7250559e783c9d0337b2357a32f2ed40e5"
-    },
-    {
-      "file": "src/shared/sidebar-width.test.ts",
-      "sha256": "09e9a892036517fcdb46956450a6d505fdaeca3170774cd0ee45a0a7cad397c4"
+      "sha256": "f94c82c9f1b0b30e6902197cbcd630b8f4bce3f613d00b89c01408d9c2edab25"
     },
     {
       "file": "src/shared/state.ts",
-      "sha256": "b9b9b5cb3a1c3eedfb6ed533c8cfc134eaa86588956f11260fd3a8fb174c8d73"
+      "sha256": "028d24679475533fae9ff2e114ef72e10953f0f9b9d237474370ffa4fd49cc91"
     }
   ],
   "checksNotYetRun": [
