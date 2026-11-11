@@ -15,7 +15,7 @@ import {
 import { FONT_SIZE } from '@shared/state';
 import { translate, type Locale } from '@shared/i18n';
 import { formatPaths, imagePasteKey, pastesImageAsFile } from './paste';
-import { WEBGL_RETRY_MS, WebglRecovery } from './webgl-recovery';
+import { WEBGL_RETRY_MS, WebglRecovery, terminalRenderer } from './webgl-recovery';
 import { NEWLINE, copyPreview, dragWithoutShift, enterKey, type EnterState } from './terminal-keys';
 
 interface Entry {
@@ -63,8 +63,11 @@ export class TerminalRegistry {
   private locale: Locale = 'en';
   /** Sessions that run in WSL, which get Linux paths. */
   private wsl = new Map<string, NonNullable<SessionView['wsl']>>();
+  /** Terminals draw with WebGL only while this run uses the GPU (a setting, applied at startup). */
+  private readonly webglAllowed: boolean;
 
-  constructor() {
+  constructor(gpuAccelerated: boolean) {
+    this.webglAllowed = terminalRenderer(gpuAccelerated) === 'webgl';
     window.addEventListener('message', (event: MessageEvent) => {
       const data = event.data as { type?: string; sessionId?: string } | null;
       if (data?.type !== TERMINAL_PORT_MESSAGE || !data.sessionId || !event.ports[0]) return;
@@ -89,7 +92,7 @@ export class TerminalRegistry {
   redraw(): void {
     for (const entry of this.entries.values()) {
       if (!entry.opened) continue;
-      if (!entry.webgl && !entry.recovery.givenUp) this.loadWebgl(entry);
+      if (this.webglAllowed && !entry.webgl && !entry.recovery.givenUp) this.loadWebgl(entry);
       entry.term.refresh(0, entry.term.rows - 1);
       this.scheduleFit(entry);
     }
@@ -101,6 +104,7 @@ export class TerminalRegistry {
    */
   private loadWebgl(entry: Entry): void {
     window.clearTimeout(entry.retry);
+    if (!this.webglAllowed) return;
     try {
       const webgl = new WebglAddon();
       webgl.onContextLoss(() => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WEBGL_MAX_LOSSES, WebglRecovery } from './webgl-recovery';
+import { WEBGL_MAX_LOSSES, WebglRecovery, terminalRenderer } from './webgl-recovery';
 
 describe('WebGL recovery', () => {
   it('retries after a lost context and gives up after repeated losses', () => {
@@ -11,5 +11,12 @@ describe('WebGL recovery', () => {
 
   it('has not given up before any loss', () => {
     expect(new WebglRecovery().givenUp).toBe(false);
+  });
+});
+
+describe('terminal renderer', () => {
+  it('uses WebGL only while this run uses the GPU', () => {
+    expect(terminalRenderer(true)).toBe('webgl');
+    expect(terminalRenderer(false)).toBe('dom');
   });
 });

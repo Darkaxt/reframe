@@ -176,6 +176,10 @@ const en = {
   'settings.normal': 'Normal',
   'settings.textSizeHint':
     'Also {bigger} and {smaller} ({normal}: normal), or the mouse wheel with {ctrl} held over a tile.',
+  'settings.gpu': 'Use GPU acceleration',
+  'settings.gpuHint':
+    'Off: Reframe and its terminals draw without the graphics card. Takes effect after restarting Reframe.',
+  'settings.gpuRestart': 'Takes effect after restarting Reframe.',
   'settings.snap': 'Snap separators to a grid',
   'settings.snapHint': 'While dragging, a separator lines up with the others. Hold Alt to place it freely.',
   'settings.autostart': 'Start with the system',
@@ -424,6 +428,10 @@ const de: Record<MessageKey, string> = {
   'settings.normal': 'Normal',
   'settings.textSizeHint':
     'Auch mit {bigger} und {smaller} ({normal}: normal) oder mit dem Mausrad und gedrückter {ctrl}-Taste über einer Kachel.',
+  'settings.gpu': 'GPU-Beschleunigung verwenden',
+  'settings.gpuHint':
+    'Aus: Reframe und seine Terminals zeichnen ohne Grafikkarte. Wird nach einem Neustart von Reframe wirksam.',
+  'settings.gpuRestart': 'Wird nach einem Neustart von Reframe wirksam.',
   'settings.snap': 'Trennlinien an einem Raster einrasten',
   'settings.snapHint':
     'Beim Ziehen richtet sich eine Trennlinie an den anderen aus. Mit gedrückter Alt-Taste setzt du sie frei.',

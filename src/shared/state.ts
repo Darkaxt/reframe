@@ -151,6 +151,8 @@ export const preferencesSchema = z.object({
   /** The session list looks for Claude Code in running WSL distributions too (asking them keeps WSL running). */
   lookInWsl: z.boolean().default(false),
   closeWindow: z.enum(CLOSE_WINDOW).default('ask'),
+  /** Chromium may use the GPU (terminals then draw with WebGL); read at startup, so a change applies after a restart. */
+  gpuAcceleration: z.boolean().default(false),
   /** The claude to run, chosen in Settings; without one, the one on the PATH. */
   claudeBin: z.string().optional(),
   /** What "New session" fills in for the model and the permission mode. */
@@ -171,6 +173,7 @@ export const DEFAULT_PREFERENCES: z.infer<typeof preferencesSchema> = {
   checkForUpdates: true,
   lookInWsl: false,
   closeWindow: 'ask',
+  gpuAcceleration: false,
 };
 
 export const appStateSchema = z.object({

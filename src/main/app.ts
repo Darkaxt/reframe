@@ -128,6 +128,7 @@ import { Updates } from './updates';
 import { autostartEnabled, setAutostart } from './autostart';
 import { win32 } from './win32';
 import { WindowManager } from './windows';
+import { gpu } from './gpu';
 import { discoverable, SHARE_TIMEOUT_MS, WslDistros } from './wsl/distros';
 import { settle, withTimeout } from './wait';
 import { cleanUp, dropsDir } from './cleanup';
@@ -602,6 +603,8 @@ export class ReframeApp {
       lookInWsl: this.wsl ? this.state.preferences.lookInWsl : null,
       checkForUpdates: this.updates.checks ? this.state.preferences.checkForUpdates : null,
       closeWindow: this.state.preferences.closeWindow,
+      gpuAcceleration: this.state.preferences.gpuAcceleration,
+      gpuAccelerated: gpu.accelerated,
       claudeBin: this.state.preferences.claudeBin ?? null,
       defaultModel: this.state.preferences.defaultModel ?? null,
       defaultEffort: this.state.preferences.defaultEffort ?? null,
@@ -2921,6 +2924,7 @@ export class ReframeApp {
       if (typeof patch.snapToGrid === 'boolean') next.snapToGrid = patch.snapToGrid;
       if (typeof patch.checkForUpdates === 'boolean') next.checkForUpdates = patch.checkForUpdates;
       if (typeof patch.lookInWsl === 'boolean') next.lookInWsl = patch.lookInWsl;
+      if (typeof patch.gpuAcceleration === 'boolean') next.gpuAcceleration = patch.gpuAcceleration;
       if (CLOSE_WINDOW.includes(patch.closeWindow as CloseWindow)) next.closeWindow = patch.closeWindow as CloseWindow;
       if (typeof patch.claudeBin === 'string') next.claudeBin = patch.claudeBin.trim().slice(0, 1024) || undefined;
       if (typeof patch.defaultModel === 'string')
@@ -2945,12 +2949,19 @@ export class ReframeApp {
         next.checkForUpdates !== was.checkForUpdates ||
         next.lookInWsl !== was.lookInWsl ||
         next.closeWindow !== was.closeWindow ||
+        next.gpuAcceleration !== was.gpuAcceleration ||
         next.claudeBin !== was.claudeBin ||
         next.defaultModel !== was.defaultModel ||
         next.defaultEffort !== was.defaultEffort ||
         next.defaultPermissionMode !== was.defaultPermissionMode;
       this.state = { ...this.state, preferences: next };
       this.save();
+      if (next.gpuAcceleration !== was.gpuAcceleration) {
+        this.log('info', 'hardware acceleration setting changed', {
+          enabled: next.gpuAcceleration,
+          afterRestart: true,
+        });
+      }
       if (relabel) {
         // Every window, the tray and whatever comes next (menus, dialogs, notifications) speak it right away.
         this.applyLanguage();

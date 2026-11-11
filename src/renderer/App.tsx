@@ -633,6 +633,8 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             fontSize={view.fontSize}
             snapToGrid={view.snapToGrid}
             closeWindow={view.closeWindow}
+            gpuAcceleration={view.gpuAcceleration}
+            gpuAccelerated={view.gpuAccelerated}
             startWithSystem={view.startWithSystem}
             checkForUpdates={view.checkForUpdates}
             lookInWsl={view.lookInWsl}

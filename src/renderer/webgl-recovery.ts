@@ -19,3 +19,11 @@ export class WebglRecovery {
     return this.losses >= WEBGL_MAX_LOSSES;
   }
 }
+
+/**
+ * How terminals draw: WebGL only while this run uses the GPU. Without hardware acceleration, xterm's DOM renderer is
+ * used from the start (WebGL would only end up on a software rasterizer, or fail and fall back).
+ */
+export function terminalRenderer(gpuAccelerated: boolean): 'webgl' | 'dom' {
+  return gpuAccelerated ? 'webgl' : 'dom';
+}
