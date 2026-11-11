@@ -8,7 +8,18 @@ import { DockStrip } from './components/DockStrip';
 import { NewSessionDialog, type NewSessionPreset } from './components/NewSessionDialog';
 import { LayoutView } from './components/SplitView';
 import { Tile } from './components/Tile';
-import { ExitFullscreenIcon, GearIcon, InfoIcon, LayersIcon, ListIcon, PlusIcon, WindowIcon } from './components/icons';
+import {
+  ExitFullscreenIcon,
+  GearIcon,
+  GridIcon,
+  InfoIcon,
+  LayersIcon,
+  ListIcon,
+  PlusIcon,
+  WindowIcon,
+} from './components/icons';
+import { dockSessions } from '@shared/actions';
+import { workspaceKey } from '@shared/folder-workspaces';
 import { SaveWorkspaceDialog } from './components/SaveWorkspaceDialog';
 import { AboutDialog } from './components/AboutDialog';
 import { SettingsDialog } from './components/SettingsDialog';
@@ -99,7 +110,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
     if (!locale) return;
     const t = makeTranslate(locale);
     document.title =
-      waiting === 0 ? 'reframe' : waiting === 1 ? t('title.waitingOne') : t('title.waiting', { n: waiting });
+      waiting === 0 ? 'Reframe' : waiting === 1 ? t('title.waitingOne') : t('title.waiting', { n: waiting });
   }, [waiting, locale]);
 
   const sessionList = useSessionList(!!view?.sidebarOpen);
@@ -210,6 +221,9 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
         }
         case 'textSize':
           return changeTextSize(shortcut.change);
+        case 'tileLayout':
+          window.reframe.dispatch({ type: 'layout/tile' });
+          return;
         case 'toggleSidebar': {
           const open = !current.sidebarOpen;
           window.reframe.dispatch({ type: 'window/sidebar', open });
@@ -440,6 +454,15 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             <LayersIcon />
             {view.workspace?.name ?? t('toolbar.workspaces')}
           </button>
+          <button
+            className="button toolbar-button"
+            title={`${t('toolbar.tile')} (${keys('G')})`}
+            disabled={!view.layout}
+            onClick={() => window.reframe.dispatch({ type: 'layout/tile' })}
+          >
+            <GridIcon />
+            {t('toolbar.tile')}
+          </button>
           <span className="spacer" />
           {view.fullscreen && (
             <button
@@ -472,6 +495,8 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
           {view.sidebarOpen && (
             <SessionSidebar
               sessionList={sessionList}
+              activeProject={view.activeProject}
+              quota={view.quota}
               onNewSession={(preset) => {
                 setNewSessionPreset(preset);
                 setDialogOpen(true);
@@ -479,7 +504,19 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             />
           )}
           {view.sidebarOpen && <SidebarResizer width={view.sidebarWidth} />}
-          <DockStrip entries={view.dock} />
+          <DockStrip
+            entries={
+              // Other projects' collapsed tiles are hidden with them; the session list brings them up.
+              view.activeProject
+                ? view.dock.filter((entry) =>
+                    dockSessions(entry).some((id) => {
+                      const cwd = view.sessions[id]?.cwd;
+                      return cwd !== undefined && workspaceKey(cwd) === view.activeProject;
+                    }),
+                  )
+                : view.dock
+            }
+          />
           <main className="layout">
             {view.layout && zoomed ? (
               <Tile sessionId={zoomed} group={null} />

@@ -201,7 +201,7 @@ export async function newSession(page: Page, folder: string, name: string): Prom
   await page.getByRole('button', { name: 'New session' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByPlaceholder('Path to a project folder').fill(folder);
-  await dialog.getByPlaceholder('Shown on the tile and in notifications').fill(name);
+  await dialog.getByPlaceholder('Optional: otherwise Claude Code names it').fill(name);
   await dialog.getByRole('button', { name: 'Start' }).click();
   await expect(dialog).toBeHidden();
   await expect(tileByLabel(page, name).locator('.status-idle')).toBeVisible({ timeout: 15_000 });

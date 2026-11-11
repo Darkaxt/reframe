@@ -1,6 +1,7 @@
 // Contract between main and renderer windows.
 import type { LayoutAction } from './actions';
 import type { Provider } from './providers';
+import type { ProviderQuota } from './quota';
 import type { FolderWorkspace } from './folder-workspaces';
 import type { DropTarget, LayoutNode } from './layout';
 import type { Locale } from './i18n';
@@ -64,6 +65,10 @@ export interface WindowView {
   sidebarOpen: boolean;
   layout: LayoutNode | null;
   dock: DockEntry[];
+  /** The project whose tiles the window shows (see showProject), null before one was chosen. */
+  activeProject: string | null;
+  /** Subscription quota, for the counters below the session list. */
+  quota: ProviderQuota[];
   sessions: Record<string, SessionView>;
 }
 
@@ -342,6 +347,8 @@ export interface ReframeApi {
   onRenameGroup(listener: (groupId: string) => void): () => void;
   getSessionList(query: string, limit: number, folder?: string, provider?: Provider): Promise<SessionList>;
   setProjectExpanded(folder: string, expanded: boolean, provider?: Provider): void;
+  /** Shows only this project's tiles in the window (its key, see workspaceKey). */
+  showProject(key: string): void;
   restoreArchive(id: string): Promise<{ ok: boolean; error?: string }>;
   /** The session list's first page (no search), sent whenever it changed. */
   onSessionList(listener: (list: SessionList) => void): () => void;
@@ -413,6 +420,7 @@ export const IPC = {
   startRenameSession: 'reframe:start-rename-session',
   sessionList: 'reframe:session-list',
   setProjectExpanded: 'reframe:set-project-expanded',
+  showProject: 'reframe:show-project',
   sessionListChanged: 'reframe:session-list-changed',
   openSession: 'reframe:open-session',
   removeSession: 'reframe:remove-session',

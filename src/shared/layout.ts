@@ -418,3 +418,44 @@ export function setSplitSizes(root: LayoutNode | null, splitId: string, sizes: n
       : node,
   );
 }
+
+/** Tiles and whole groups, in layout order: what a grid arranges (a group stays together). */
+export function layoutUnits(node: LayoutNode | null): LayoutNode[] {
+  if (!node) return [];
+  if (node.kind === 'split') return node.children.flatMap(layoutUnits);
+  return [node];
+}
+
+/** Rows × columns for `count` tiles: as square as possible, wider than tall (1, 2, 2×2 for 3–4, 3×2 for 5–6, …). */
+export function gridShape(count: number): { rows: number; cols: number } {
+  if (count <= 0) return { rows: 0, cols: 0 };
+  const cols = Math.ceil(Math.sqrt(count));
+  return { rows: Math.ceil(count / cols), cols };
+}
+
+/** The units arranged in an even grid of rows; a last, shorter row shares its width among fewer tiles. */
+export function gridLayout(
+  units: LayoutNode[],
+  newId: () => string = () => globalThis.crypto.randomUUID(),
+): LayoutNode | null {
+  if (units.length === 0) return null;
+  if (units.length === 1) return units[0]!;
+  const { rows, cols } = gridShape(units.length);
+  const rowNodes: LayoutNode[] = [];
+  for (let r = 0; r < rows; r++) {
+    const cells = units.slice(r * cols, (r + 1) * cols);
+    rowNodes.push(
+      cells.length === 1
+        ? cells[0]!
+        : { kind: 'split', id: newId(), dir: 'row', children: cells, sizes: cells.map(() => 100 / cells.length) },
+    );
+  }
+  if (rowNodes.length === 1) return normalize(rowNodes[0]!);
+  return normalize({
+    kind: 'split',
+    id: newId(),
+    dir: 'col',
+    children: rowNodes,
+    sizes: rowNodes.map(() => 100 / rows),
+  });
+}

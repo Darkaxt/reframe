@@ -22,6 +22,9 @@ const DEFAULT_SIZE = { width: 1280, height: 800 };
 /** A page that crashed is loaded again, but not more often than this within a minute (it would only crash again). */
 const MAX_RELOADS = 3;
 
+/** Matches the toolbar (.toolbar in styles.css): its background, text colour and height. */
+export const TITLE_BAR_OVERLAY = { color: '#22242a', symbolColor: '#d7dae0', height: 39 };
+
 export class WindowManager extends EventEmitter<Events> {
   private windows = new Map<string, BrowserWindow>();
   /** When each window last got the focus (a running count): of our windows, the one focused last is in front. */
@@ -45,10 +48,13 @@ export class WindowManager extends EventEmitter<Events> {
       minWidth: 480,
       minHeight: 320,
       show: false,
-      title: 'reframe',
+      title: 'Reframe',
       icon: this.icon,
       backgroundColor: '#1b1c20',
       autoHideMenuBar: true,
+      // The title bar is the app's top row: Windows draws its buttons (with Snap Layouts) over its right end, in the
+      // toolbar's colours (styles.css --surface and --text); the row's empty space drags the window.
+      ...(process.platform === 'win32' ? { titleBarStyle: 'hidden' as const, titleBarOverlay: TITLE_BAR_OVERLAY } : {}),
       webPreferences: {
         preload: path.join(__dirname, '../preload/index.js'),
         contextIsolation: true,

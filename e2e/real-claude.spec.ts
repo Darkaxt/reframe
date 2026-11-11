@@ -118,7 +118,7 @@ test('real claude: hooks report a prompt and its end, and trigger notifications'
     await page.getByRole('button', { name: 'New session' }).first().click();
     const dialog = page.getByRole('dialog');
     await dialog.getByPlaceholder('Path to a project folder').fill(folder);
-    await dialog.getByPlaceholder('Shown on the tile and in notifications').fill('hooks');
+    await dialog.getByPlaceholder('Optional: otherwise Claude Code names it').fill('hooks');
     await dialog.getByText('Advanced').click();
     await dialog.getByPlaceholder('Default').fill('haiku');
     await dialog.getByRole('button', { name: 'Start' }).click();

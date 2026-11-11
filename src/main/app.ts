@@ -139,6 +139,11 @@ import { refusedProviders } from './launch-config';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
 import { expandedWorkspaceKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
+import { showProject } from '@shared/project-view';
+import { parseClaudeRateLimits, type ProviderQuota } from '@shared/quota';
+import { coordinatorExecutable, readCodexQuota, userHasStatusLine } from './quota';
+import { TranscriptTitles } from './claude/titles';
+import { sessionLabel } from '@shared/labels';
 
 export interface AppAssets {
   icon: string;
@@ -294,13 +299,26 @@ export class ReframeApp {
       resolveClaude: (provider) => this.findClaude(provider),
       log: this.log,
       wsl: this.wsl ?? undefined,
+      captureStatusLine: () => !process.env.REFRAME_E2E && !userHasStatusLine(this.claudeHome),
+    });
+    this.sessions.on('renamed', (id) => this.refreshTitle(id));
+    this.sessions.on('quota', (_id, rateLimits) => {
+      const windows = parseClaudeRateLimits(rateLimits);
+      if (windows.length) this.setQuota({ source: 'claude', windows, at: Date.now() });
     });
     this.sessions.on('changed', (id) => {
       this.pushSession(id);
       this.listChanged();
     });
-    this.sessions.on('identity', (id, patch) => this.updateIdentity(id, patch));
-    this.sessions.on('notify', (id, kind) => this.notify(id, kind));
+    this.sessions.on('identity', (id, patch) => {
+      this.updateIdentity(id, patch);
+      if (patch.claudeSessionId) this.refreshTitle(id);
+    });
+    this.sessions.on('notify', (id, kind) => {
+      // Claude Code names a session (ai-title) after a turn: Stop is when a new one may be there.
+      if (kind === 'done') this.refreshTitle(id);
+      this.notify(id, kind);
+    });
     this.sessions.on('used', (id) => this.sessionUsed(id));
     this.sessions.on('ended', (id) => this.sessionEnded(id));
     // Distributions with Claude Code are remembered, so the list can tell when one is not running.
@@ -392,6 +410,7 @@ export class ReframeApp {
     this.wsl?.release();
     this.listWatcher?.stop();
     clearInterval(this.listLook);
+    clearInterval(this.quotaLook);
     clearTimeout(this.listPush);
     this.save();
     this.log('info', 'reframe stopped');
@@ -551,8 +570,34 @@ export class ReframeApp {
       sidebarOpen: !!win.sidebarOpen,
       layout: win.layout,
       dock: win.dock,
+      activeProject: win.activeProject ?? null,
+      quota: [...this.quota.values()],
       sessions,
     };
+  }
+
+  private titles = new TranscriptTitles();
+  private titleAsked = new Set<string>();
+
+  /** The user's name for it, else Claude Code's title from its transcript (read once, then on Stop), else the folder. */
+  private labelOf(record: SessionRecord): string {
+    const title = this.titles.cached(record.claudeSessionId);
+    if (title === undefined && !this.titleAsked.has(record.claudeSessionId)) this.refreshTitle(record.id);
+    return sessionLabel(record.name, title, record.cwd);
+  }
+
+  /** Reads Claude Code's title for the session again (after Stop, or a new Claude session id), and shows a change. */
+  private refreshTitle(sessionId: string): void {
+    const record = this.state.sessions[sessionId];
+    if (!record || this.wslPath(record.cwd)) return;
+    const claudeSessionId = record.claudeSessionId;
+    this.titleAsked.add(claudeSessionId);
+    const before = this.titles.cached(claudeSessionId);
+    void this.titles.read(this.claudeHome, claudeSessionId).then((title) => {
+      if (title === (before ?? null) || !this.state.sessions[sessionId]) return;
+      this.pushSession(sessionId);
+      this.listChanged();
+    });
   }
 
   private sessionView(record: SessionRecord): SessionView {
@@ -563,7 +608,7 @@ export class ReframeApp {
     return {
       id: record.id,
       provider: record.launch.provider ?? 'chatgpt',
-      label: record.name || this.sessions.registryName(record.id) || path.basename(record.cwd) || record.cwd,
+      label: this.labelOf(record),
       cwd: record.cwd,
       // A WSL folder as "Ubuntu ~/shop" (its home is known once the distribution was asked).
       cwdLabel: where
@@ -845,6 +890,7 @@ export class ReframeApp {
       },
     };
     this.mutateWindow(windowId, (w) => addTile(w, record.id, request.target));
+    this.showProjectOf(windowId, record.id);
     this.sessions.start(record, 'new');
     return { ok: true };
   }
@@ -1145,7 +1191,7 @@ export class ReframeApp {
       for (const { item, record, key } of targets) {
         const entry: ChatBatchResult['results'][number] = {
           id: key,
-          label: record.name || path.basename(record.cwd),
+          label: this.labelOf(record),
           status: 'completed',
         };
         try {
@@ -1327,7 +1373,7 @@ export class ReframeApp {
     operation: 'archive' | 'delete',
   ): Promise<ChatBatchResult['results']> {
     const results: ChatBatchResult['results'] = [];
-    const label = (record: SessionRecord) => record.name || path.basename(record.cwd);
+    const label = (record: SessionRecord) => this.labelOf(record);
     const skip = (record: SessionRecord, key: string, detail: string, status: 'skipped' | 'failed' = 'skipped') =>
       results.push({ id: key, label: label(record), status, detail });
     const locked = targets.filter(({ record, key }) => {
@@ -1820,6 +1866,43 @@ export class ReframeApp {
   private scans: Promise<void> = Promise.resolve();
   private listWatcher: ClaudeWatcher | null = null;
   private listLook: NodeJS.Timeout | undefined;
+  private quotaLook: NodeJS.Timeout | undefined;
+  /** The latest quota per subscription, shown below the session list. */
+  private quota = new Map<ProviderQuota['source'], ProviderQuota>();
+
+  private setQuota(next: ProviderQuota): void {
+    const before = this.quota.get(next.source);
+    this.quota.set(next.source, next);
+    if (before && JSON.stringify(before.windows) === JSON.stringify(next.windows)) return;
+    for (const w of this.state.windows) this.push(w.id);
+  }
+
+  /** Codex quota from LLM Coordinator, now and every five minutes (it observes the account itself). */
+  private watchCodexQuota(): void {
+    const exe = process.env.REFRAME_E2E ? null : coordinatorExecutable();
+    if (!exe) return;
+    const read = () =>
+      void readCodexQuota(exe).then((windows) => {
+        if (windows) this.setQuota({ source: 'codex', windows, at: Date.now() });
+      });
+    read();
+    this.quotaLook = setInterval(read, 5 * 60_000);
+    this.quotaLook.unref();
+  }
+
+  /** The window shows the project of this session (other projects' tiles collapse). */
+  private showProjectOf(windowId: string, sessionId: string): void {
+    const record = this.state.sessions[sessionId];
+    if (record) this.showProjectIn(windowId, workspaceKey(record.cwd));
+  }
+
+  private showProjectIn(windowId: string, key: string): void {
+    const projectOf = (id: string) => {
+      const r = this.state.sessions[id];
+      return r ? workspaceKey(r.cwd) : undefined;
+    };
+    this.mutateWindow(windowId, (w) => showProject(w, key, projectOf));
+  }
   private listPush: NodeJS.Timeout | undefined;
   /** The list as the windows got it last, to send it only when it changed. */
   private listSent = '';
@@ -1831,6 +1914,7 @@ export class ReframeApp {
    * is watched; what runs in WSL is looked at every little while.
    */
   private watchList(): void {
+    this.watchCodexQuota();
     this.listWatcher = new ClaudeWatcher(this.claudeHome);
     this.listWatcher.on('changed', ({ projects }) => {
       this.transcripts.invalidate(projects);
@@ -2110,6 +2194,7 @@ export class ReframeApp {
     }
     for (const id of ids) void this.startOrTakeOver(id, 'resume', into);
     for (const id of left) this.closeIfEmpty(id);
+    if (ids[0]) this.showProjectOf(into, ids[0]);
     this.windows.show(into);
     this.windows.send(into, IPC.focusTile, ids[0]);
     this.refreshTray();
@@ -2161,6 +2246,7 @@ export class ReframeApp {
   private placeAndResume(windowId: string, record: SessionRecord, target: DropTarget | null): void {
     this.state = { ...this.state, sessions: { ...this.state.sessions, [record.id]: record } };
     this.mutateWindow(windowId, (w) => putNode(w, tile(record.id), target));
+    this.showProjectOf(windowId, record.id);
     this.log('info', 'session opened from the list', { session: record.id, window: windowId });
     void this.startOrTakeOver(record.id, 'resume', windowId);
     this.windows.send(windowId, IPC.focusTile, record.id);
@@ -2641,9 +2727,12 @@ export class ReframeApp {
   }
 
   private focusSession(sessionId: string): void {
-    const win = this.windowOf(sessionId);
-    if (!win) return;
-    this.windows.show(win.id);
+    const found = this.windowOf(sessionId);
+    if (!found) return;
+    this.windows.show(found.id);
+    // Its project comes up in the window (a notification may be about one that is hidden there).
+    this.showProjectOf(found.id, sessionId);
+    const win = this.windowOf(sessionId) ?? found;
     for (const entry of win.dock) {
       if (entry.kind === 'tile' && entry.sessionId === sessionId) {
         this.mutateWindow(win.id, (w) => applyLayoutAction(w, { type: 'tile/expand', sessionId }));
@@ -2889,6 +2978,9 @@ export class ReframeApp {
     });
     on(IPC.listMenu, (id, _event, items: unknown) => {
       if (isListItems(items)) this.showListMenu(id, items);
+    });
+    on(IPC.showProject, (id, _event, key: unknown) => {
+      if (typeof key === 'string') this.showProjectIn(id, key);
     });
     on(IPC.setProjectExpanded, (_id, _event, folder: unknown, expanded: unknown) => {
       if (typeof folder !== 'string' || typeof expanded !== 'boolean') return;

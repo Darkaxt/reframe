@@ -40,11 +40,12 @@ test('renaming sessions in the tile and in the list', async () => {
     ({ app, page } = await launch(env));
     await expect(tileByLabel(page, 'API work')).toBeVisible();
 
-    // Empty: back to the automatic name (here the one claude was started with).
+    // Empty: back to the automatic name: Claude Code's own title, and without one (the test claude writes none)
+    // the folder.
     await page.locator('.tile .tile-label').dblclick();
     await page.locator('.tile-label-input').fill('');
     await page.keyboard.press('Enter');
-    await expect(page.locator('.tile .tile-label')).toHaveText('alpha');
+    await expect(page.locator('.tile .tile-label')).toHaveText('project');
     expect(byName('alpha')).toBeUndefined(); // no name of its own any more
     await quit(app);
   } catch (error) {

@@ -37,7 +37,7 @@ test('providers, automatic folders and native inactive-chat actions survive rest
     await dialog.getByText('Advanced', { exact: true }).click();
     await expect(dialog.getByLabel('Model', { exact: true })).toHaveValue('');
     await dialog.getByPlaceholder('Path to a project folder').fill(anthropicProject);
-    await dialog.getByPlaceholder('Shown on the tile and in notifications').fill('Anthropic fixture');
+    await dialog.getByPlaceholder('Optional: otherwise Claude Code names it').fill('Anthropic fixture');
     await dialog.getByRole('button', { name: 'Start', exact: true }).click();
     await expect(page.locator('.tile .provider-icon[aria-label="Anthropic"]')).toBeVisible();
     await expect

@@ -168,7 +168,7 @@ test('Settings: which Claude Code runs, and what new sessions start with', async
     await expect(dialog.getByLabel('Model', { exact: true })).toHaveValue('opus');
     await expect(dialog.getByRole('combobox', { name: 'Permission mode', exact: true })).toHaveValue('plan');
     await dialog.getByPlaceholder('Path to a project folder').fill(project);
-    await dialog.getByPlaceholder('Shown on the tile and in notifications').fill('alpha');
+    await dialog.getByPlaceholder('Optional: otherwise Claude Code names it').fill('alpha');
     await dialog.getByRole('button', { name: 'Start' }).click();
     await expect(tileByLabel(page, 'alpha').locator('.status-idle')).toBeVisible({ timeout: 15_000 });
     const start = launches().find((l) => l.event === 'start')!;

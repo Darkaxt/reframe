@@ -16,7 +16,8 @@ import {
   transcriptExistsAsync,
 } from './registry';
 import { cmdCommandLine, resolveClaude } from './resolve';
-import { hookSettings } from './settings';
+import { hookSettings, statusLineSettings } from './settings';
+import { latestTitle } from './titles';
 
 const session = (patch: Partial<SessionRecord> = {}): SessionRecord => ({
   id: 'app-1',
@@ -64,6 +65,14 @@ describe('claudeEnv', () => {
 });
 
 describe('claudeArgs', () => {
+  it('passes --name only for a typed name, never the folder', () => {
+    expect(claudeArgs(session(), 'new')).not.toContain('--name');
+    expect(claudeArgs(session({ cwd: 'C:/work/Public' }), 'resume')).not.toContain('--name');
+    expect(claudeArgs(session({ name: 'Billing fix' }), 'new')).toEqual(
+      expect.arrayContaining(['--name', 'Billing fix']),
+    );
+  });
+
   it('keeps inherited effort untouched and passes an explicit effort on new and resumed chats', () => {
     expect(claudeArgs(session(), 'new')).not.toContain('--effort');
     for (const provider of ['chatgpt', 'anthropic'] as const) {
@@ -334,5 +343,38 @@ describe('hookSettings', () => {
       url: 'http://127.0.0.1:4000/hook/app%201/Stop',
       headers: { 'X-Reframe-Token': 'tok' },
     });
+  });
+});
+
+describe('statusLineSettings', () => {
+  it('posts the status line input to the hook server and prints nothing', () => {
+    const { statusLine } = statusLineSettings(4321, 'tok', 'app-1') as {
+      statusLine: { type: string; command: string };
+    };
+    expect(statusLine.type).toBe('command');
+    expect(statusLine.command).toContain('http://127.0.0.1:4321/hook/app-1/StatusLine');
+    expect(statusLine.command).toContain('-o NUL');
+    expect(statusLine.command).toContain('X-Reframe-Token: tok');
+  });
+});
+
+describe('latestTitle', () => {
+  const line = (entry: object) => JSON.stringify(entry);
+  it('takes the last custom or AI title', () => {
+    const text = [
+      line({ type: 'ai-title', aiTitle: 'First idea' }),
+      line({ type: 'user', message: { content: 'hi' } }),
+      line({ type: 'custom-title', customTitle: 'Renamed' }),
+      line({ type: 'ai-title', aiTitle: 'Latest idea' }),
+      '',
+    ].join('\n');
+    expect(latestTitle(text)).toBe('Latest idea');
+  });
+  it('skips a cut line and an empty title, and finds none in a plain transcript', () => {
+    expect(latestTitle(line({ type: 'custom-title', customTitle: 'Kept' }) + '\n{"type":"ai-title","aiTi')).toBe(
+      'Kept',
+    );
+    expect(latestTitle(line({ type: 'ai-title', aiTitle: '  ' }))).toBeNull();
+    expect(latestTitle(line({ type: 'user', message: { content: 'ai-title' } }))).toBeNull();
   });
 });

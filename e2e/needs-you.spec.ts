@@ -10,7 +10,7 @@ test('the title counts the sessions that need you, and Ctrl+Shift+Space goes to 
     const { app, page } = await launch(env);
     await newSession(page, project, 'alpha');
     await newSession(page, project, 'beta');
-    await expect(page).toHaveTitle('reframe');
+    await expect(page).toHaveTitle('Reframe');
     const ask = async (label: string) => {
       await tileByLabel(page, label).locator('.tile-body').click();
       await page.keyboard.type('/ask');
@@ -21,7 +21,7 @@ test('the title counts the sessions that need you, and Ctrl+Shift+Space goes to 
       page.evaluate(() => document.activeElement?.closest('.tile')?.querySelector('.tile-label')?.textContent ?? null);
 
     await ask('beta');
-    await expect(page).toHaveTitle('reframe – a session needs you');
+    await expect(page).toHaveTitle('Reframe – a session needs you');
     // From alpha, which needs nothing, the shortcut goes to beta; answered there, nobody needs you any more.
     await tileByLabel(page, 'alpha').locator('.tile-body').click();
     expect(await focused()).toBe('alpha');
@@ -29,12 +29,12 @@ test('the title counts the sessions that need you, and Ctrl+Shift+Space goes to 
     await expect.poll(focused).toBe('beta');
     await page.keyboard.press('Enter');
     await expect(tileByLabel(page, 'beta').locator('.status-idle')).toBeVisible();
-    await expect(page).toHaveTitle('reframe');
+    await expect(page).toHaveTitle('Reframe');
 
     // Both need you, one of them collapsed: the shortcut brings that one back, and goes round between them.
     await ask('alpha');
     await ask('beta');
-    await expect(page).toHaveTitle('reframe – 2 sessions need you');
+    await expect(page).toHaveTitle('Reframe – 2 sessions need you');
     await tileByLabel(page, 'alpha').getByRole('button', { name: 'Collapse to the side bar' }).click();
     await expect(page.locator('.dock-item', { hasText: 'alpha' })).toBeVisible();
     await tileByLabel(page, 'beta').locator('.tile-body').click();

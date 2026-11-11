@@ -16,15 +16,15 @@ test('About: version, license and links', async () => {
       shell.openExternal = async (url: string) => void opened.push(url);
     });
 
-    await page.getByRole('button', { name: 'About reframe' }).click();
-    const about = page.getByRole('dialog', { name: 'About reframe' });
+    await page.getByRole('button', { name: 'About Reframe' }).click();
+    const about = page.getByRole('dialog', { name: 'About Reframe' });
     await expect(about).toContainText(`Version ${version}`);
     await expect(about).toContainText('Made with ❤️ in Austria by reframe Team aka TheyCallMeJuzou');
     await about.getByText('License (MIT)').click();
     await expect(about.locator('pre')).toContainText('MIT License');
     await expect(about.locator('pre')).toContainText('reframe Team');
 
-    await about.getByText('reframe on GitHub').click();
+    await about.getByText('Reframe on GitHub').click();
     await about.getByText('TheyCallMeJuzou').click();
     expect(await app.evaluate(() => (globalThis as unknown as { opened: string[] }).opened)).toEqual([
       'https://github.com/Darkaxt/reframe',

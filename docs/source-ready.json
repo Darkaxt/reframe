@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "349f301538c20fc463f7c9ed8f60ff709c58eabe",
-  "scope": "0.10.0-claudegpt.9: a directly started installed reframe.exe uses reframe-config.json for its profile and exact per-provider CLI routes (on top of 0.10.0-claudegpt.8)",
+  "sourceBase": "c864b6ce31616d9ef25ddaf76999619358fbeb2c",
+  "scope": "0.10.0-claudegpt.10: \"Reframe\" display name, project isolation and Tile layout, project activity, notification project switch, quota panel, merged title bar, label from typed name or Claude Code title, deploy -KeepRunning (on top of 0.10.0-claudegpt.9)",
   "inputHashes": [
     {
       "file": ".github/workflows/ci.yml",
@@ -21,12 +21,56 @@
       "sha256": "2f85ccdbe7fbbc0f19ceeaee1723494aa5f24384708408d385a75605749b09ee"
     },
     {
-      "file": "docs/releases/v0.10.0-claudegpt.9.md",
-      "sha256": "aef966a4d33087615dec83ac52e17c5dc3e2b263d918ca9562568e9b37ed07ec"
+      "file": "docs/releases/v0.10.0-claudegpt.10.md",
+      "sha256": "be1aeca11ccf8c63a0f9039d2e49425cf7b3172a8e1d1e0fee4b90a778b4431a"
+    },
+    {
+      "file": "e2e/about.spec.ts",
+      "sha256": "94d4f8199fd202c1bdf7afdfc572ff6bbb91a83811fe6639606300679fe0b9e9"
     },
     {
       "file": "e2e/bulk-chats.spec.ts",
       "sha256": "16a8c557891731537c18913bcb0daf086dde14f90f1cdc6688177263883d0525"
+    },
+    {
+      "file": "e2e/claudegpt.spec.ts",
+      "sha256": "cb0da4d8d93b2a084cee82a2d7546c1335b3d3ae9fb71f2a221a5b4a64903481"
+    },
+    {
+      "file": "e2e/dialog.spec.ts",
+      "sha256": "f55a207cb1b069a45ded270087a9faab2d991872c87280d13a4b9921eab73c85"
+    },
+    {
+      "file": "e2e/helpers.ts",
+      "sha256": "52cbc8f20dc3d3f6da278a90a0be0b9c665107c0d0ad625d8c224350630f854f"
+    },
+    {
+      "file": "e2e/needs-you.spec.ts",
+      "sha256": "c434c8b3dcefc669ab08c815f0bbcfe94091495505e78d533439149869af517e"
+    },
+    {
+      "file": "e2e/real-claude.spec.ts",
+      "sha256": "4d52635069fb545b743f1301b5801b5625e9293e6dc1148c47efe1a20551b008"
+    },
+    {
+      "file": "e2e/real-fullscreen.spec.ts",
+      "sha256": "6dad3a5b9bf59ece97a37481bd17e8edef71d07cfca1053fe1abd49f68b5ec27"
+    },
+    {
+      "file": "e2e/real-wsl.spec.ts",
+      "sha256": "c78f21d4ae3af21ef52d3813f166f62ce6ea0a18c7e66db2df6d7c1ee49678ad"
+    },
+    {
+      "file": "e2e/rename.spec.ts",
+      "sha256": "04bfe3e589bb1156a2f6cdfe32042fc7979cdbd1177581398447c77ae14c15c9"
+    },
+    {
+      "file": "e2e/restore.spec.ts",
+      "sha256": "8a2b51137b09d809abe04c61d74444d11daaa9628f0849ebf6f8c12e0bba046c"
+    },
+    {
+      "file": "e2e/settings.spec.ts",
+      "sha256": "b0e14630089f179d6deb4da6fcdcae833ec9b4794749f20c8bbe1fd29731afda"
     },
     {
       "file": "electron-builder.yml",
@@ -46,7 +90,7 @@
     },
     {
       "file": "maintenance/windows/deploy-managed.ps1",
-      "sha256": "d0a0715dfb56d85e4a9f186f83faad0bf8781b651cdd1a258d745fd8477ede86"
+      "sha256": "e1993704b2f7352c8a3b63cd3607a0a3c2b3d4741785809e4fe274d72cf623fd"
     },
     {
       "file": "maintenance/windows/release-files.ps1",
@@ -62,11 +106,11 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "fcb411ff089a7b13177649a1cfa067db2bcebdc3e93f534cb55a0d18b5e14b12"
+      "sha256": "39356a5bc05bae84784f473081b4e5560910b2d866e9614f64c87b61d6518ae2"
     },
     {
       "file": "package.json",
-      "sha256": "cc87d6dfcf462ce9fa35d8d72f9c1d0c682a0f0b787b07a0a388a720926ac3a5"
+      "sha256": "afbe244f2ef97640c505b34feb9448a01d40da555321d4a2c2db6b205f80e349"
     },
     {
       "file": "resources/icon.png",
@@ -74,7 +118,7 @@
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "aa5b4ebc984e8a1775aa8193cdd9717c82bdb5fd26db8fef6d7de508ee1ac74c"
+      "sha256": "7a8d2ac136dc8288eede234c4f1ddd853206b0007932fc1d6dd3d6d07f70b589"
     },
     {
       "file": "src/main/archive-root.test.ts",
@@ -90,11 +134,23 @@
     },
     {
       "file": "src/main/claude/claude.test.ts",
-      "sha256": "ac642631d3f7cbd91dd2ce01e0c5ae9f63efbfcc7f2e7563adecb23775c30690"
+      "sha256": "ccc479bf048d541bbcec8c26e0c1c0cd8f5ce66aa0b0aec0c18dd95876da5cbf"
+    },
+    {
+      "file": "src/main/claude/settings.ts",
+      "sha256": "011211cc433cce14fb6e53f7ed88d7913fb37152025a04a614d1299e5eae3cc4"
+    },
+    {
+      "file": "src/main/claude/titles.ts",
+      "sha256": "ea9bbec06a794ee1bdaa20b5c1c664e91b766b74c666fd770b3cfc3a0046549e"
     },
     {
       "file": "src/main/history.ts",
       "sha256": "ab4e58072127f32d522b4c08b22ef4a61420c5f93a09580e9872b9cd34350140"
+    },
+    {
+      "file": "src/main/hooks/server.ts",
+      "sha256": "3271a4c776bd138378a5d407c127a715cd7866ebe9f21c53b597fa8a4fed6d89"
     },
     {
       "file": "src/main/index.ts",
@@ -113,8 +169,12 @@
       "sha256": "88983244914b1fb9c32369aefdeda2a639d4afc8b0388ac5e0ac61f558cbef9c"
     },
     {
+      "file": "src/main/quota.ts",
+      "sha256": "04bccb0bcea90db8bfd0731218ce445e7aaf089734ffb9d7e1b0fb49b7f0b6f8"
+    },
+    {
       "file": "src/main/sessions.ts",
-      "sha256": "d15ead91b9173c39275931e46b1b04a244e5ebb283e927e677101eaae4f9f5e2"
+      "sha256": "f05ab0c31ca9e6d3855f8ccd40aa8ef6c32b7c2844bd93aeef1b8918aded92d9"
     },
     {
       "file": "src/main/stale-tiles.test.ts",
@@ -125,28 +185,80 @@
       "sha256": "63e3d1f66e9640ad447d521dce37b7c48f76975d3f39c4e6b331790cda66bd27"
     },
     {
+      "file": "src/main/state/store.test.ts",
+      "sha256": "bcd7897d29b919bcc5c4d74f0e65e794e66ac01a694589e05963ac09dc3b1dce"
+    },
+    {
+      "file": "src/main/windows.ts",
+      "sha256": "022904deafb0a9d55fa7622b8c7c10db608797d5e00aed40c23d3e2fe6a09487"
+    },
+    {
+      "file": "src/preload/index.ts",
+      "sha256": "9af333c12e0ba5937d954db6c3177e0f6ccf4bbf69ccd30202b3a90c2905f2ab"
+    },
+    {
       "file": "src/renderer/App.tsx",
-      "sha256": "4f430379084aad1eb9d36b3d50a28d4d0b409f26fe29222fb6ea15434ea3ba19"
+      "sha256": "84a5bfa4cd9026faa069c92e3f470facf37f54efdd141dce3d0741ca843ea7a9"
+    },
+    {
+      "file": "src/renderer/components/AboutDialog.tsx",
+      "sha256": "3a2a964a86738f0d8eeeef627e48185c2c8d4dba3dd1de644c5bcd7481bb16b8"
     },
     {
       "file": "src/renderer/components/NewSessionDialog.tsx",
-      "sha256": "781457cee17f9f366218b1195db82366d732fb9693db88e6a5c853b308de3c86"
+      "sha256": "9cbf808e63fc02df076ab79286aee977b58c338cc10a20c63aee4a0034325cee"
+    },
+    {
+      "file": "src/renderer/components/QuotaPanel.tsx",
+      "sha256": "8fe3e66a7e0095d393edc7149416308c837e8fb739e9d98007934fae8ca7e672"
+    },
+    {
+      "file": "src/renderer/components/SessionSidebar.tsx",
+      "sha256": "bf85d13e54acc5f23939e4a34c1e09f3cb7f63fb4eaf85f8e2a6437074f19e8f"
     },
     {
       "file": "src/renderer/components/SidebarResizer.tsx",
       "sha256": "07de827abcadf76a3afcdbafc7da0e858797edc0767e781bc8c97856b192fdf0"
     },
     {
+      "file": "src/renderer/components/icons.tsx",
+      "sha256": "99313ac76c4bfe00775870c5d18c603e6509b094456934bf8b53a0fdcde87a86"
+    },
+    {
+      "file": "src/renderer/index.html",
+      "sha256": "40a7d32d91d607c130b892675c146ff059d3dac4b657e986cc22e7dddcfd74ec"
+    },
+    {
+      "file": "src/renderer/shortcuts.ts",
+      "sha256": "47706b71fad394a091c2c70ed56906b41c7e32afeddc7cd0c5c7ef13d66bf8fa"
+    },
+    {
       "file": "src/renderer/styles.css",
-      "sha256": "bba2c800da7b00ee206a2930589c47c05c399c1fd7eca34397f5a9c766c68b37"
+      "sha256": "f0dfb300a35fa5d6540ef263ed65f2ae77ea24a8709140c79e61508e87e95ae7"
+    },
+    {
+      "file": "src/shared/actions.ts",
+      "sha256": "0c6c3cab20244c85491b42aa47646c1210025508160eca2db2fbc08a72f1929a"
     },
     {
       "file": "src/shared/i18n.ts",
-      "sha256": "c875d62345ee7224223bf22b952dbfe672fde268c86159576255117e997ae146"
+      "sha256": "e309f960c68360fe02ed42e1281633c9a7e24feddda7d259a7f8a06888f4bfc3"
     },
     {
       "file": "src/shared/ipc.ts",
-      "sha256": "3b68a74e0fc202e94b68905655f21b5889e0b5f8c01c0a7fef0221a535a9547c"
+      "sha256": "d65d2a6f0da7ec539c085fcc0caeaf5e3aaa169dc8ee7ce7a98b55e92f7a628e"
+    },
+    {
+      "file": "src/shared/labels.test.ts",
+      "sha256": "09fff27a810442e740c781639900e07fda4cc06a5ad8d26f136314d4e158bb2a"
+    },
+    {
+      "file": "src/shared/labels.ts",
+      "sha256": "6af60b69daad94339d4e0f6fa66df2f2da02aa5bb4579ff394b4facc99b1b349"
+    },
+    {
+      "file": "src/shared/layout.ts",
+      "sha256": "70e43e5c2099147ab98b157b61b9266ab8c15ec7bc798422a958e8ca75ebfb0b"
     },
     {
       "file": "src/shared/new-session.test.ts",
@@ -157,12 +269,28 @@
       "sha256": "1e3b051dfb9e6160644653b11f5134d17525ac751d53c50052b0e29e6eaed04c"
     },
     {
+      "file": "src/shared/project-view.test.ts",
+      "sha256": "17bf5fe38d9db7f32c53f79a0206ada0ad2cccb52d56f99a4c68113d44a0771c"
+    },
+    {
+      "file": "src/shared/project-view.ts",
+      "sha256": "b7273706263a7340a10c6b676daf15e4e1b9babf3cd5060a3d2ebf0afb04f05f"
+    },
+    {
+      "file": "src/shared/quota.test.ts",
+      "sha256": "7c1fb64b6a487d1546be19ffdc1f07681a12b67c4f2478657dc56955ec401b1a"
+    },
+    {
+      "file": "src/shared/quota.ts",
+      "sha256": "f20cf29ddc8a33901290f1df32526d7250559e783c9d0337b2357a32f2ed40e5"
+    },
+    {
       "file": "src/shared/sidebar-width.test.ts",
       "sha256": "09e9a892036517fcdb46956450a6d505fdaeca3170774cd0ee45a0a7cad397c4"
     },
     {
       "file": "src/shared/state.ts",
-      "sha256": "7a00fe04e42c5bb19ace478164e1c1670e7e1ec3a38bf7679f20fe28ffad41d0"
+      "sha256": "b9b9b5cb3a1c3eedfb6ed533c8cfc134eaa86588956f11260fd3a8fb174c8d73"
     }
   ],
   "checksNotYetRun": [

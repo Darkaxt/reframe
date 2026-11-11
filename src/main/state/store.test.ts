@@ -23,7 +23,7 @@ describe('StateStore', () => {
     const s = store();
     const { preferences: _preferences, ...old } = defaultState();
     fs.writeFileSync(s.file, JSON.stringify(old));
-    expect(s.load()).toMatchObject({ source: 'file', state: { preferences: { nameFromFolder: true } } });
+    expect(s.load()).toMatchObject({ source: 'file', state: { preferences: { nameFromFolder: false } } });
   });
 
   it('starts from defaults without a file', () => {

@@ -98,7 +98,7 @@ test('a worktree session started again without a transcript runs in its worktree
     await page.getByRole('button', { name: 'New session' }).first().click();
     const dialog = page.getByRole('dialog');
     await dialog.getByPlaceholder('Path to a project folder').fill(project);
-    await dialog.getByPlaceholder('Shown on the tile and in notifications').fill('wt');
+    await dialog.getByPlaceholder('Optional: otherwise Claude Code names it').fill('wt');
     await dialog.getByText('Run in its own git worktree').click();
     await dialog.getByLabel('Worktree name (optional)').fill('feat');
     await dialog.getByRole('button', { name: 'Start' }).click();

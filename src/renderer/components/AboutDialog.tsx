@@ -24,7 +24,7 @@ export function AboutDialog({ version, onClose }: { version: string; onClose: ()
         onKeyDown={(e) => e.key === 'Escape' && onClose()}
       >
         <img className="about-logo" src={logo} alt="" width={72} height={72} />
-        <h2 className="about-name">reframe</h2>
+        <h2 className="about-name">Reframe</h2>
         <p className="about-version">{t('about.version', { version })}</p>
         <p className="about-tagline">{t('about.tagline')}</p>
 
