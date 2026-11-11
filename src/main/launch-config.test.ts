@@ -71,4 +71,38 @@ describe('applyLaunchConfig', () => {
     fs.rmSync(path.join(path.dirname(exe), 'reframe-config.json'));
     expect(applyLaunchConfig(exe, {}, opts)).toBeNull();
   });
+  it('uses a valid client adoption record instead of the fixed bindings', () => {
+    const { exe, config } = release((c) => {
+      // The fixed ChatGPT binding changed: irrelevant once the adopted clients apply.
+      (c.claudeBin as { sha256: string }).sha256 = '0'.repeat(64);
+    });
+    const dir = path.dirname(exe);
+    const adopted = path.join(dir, 'adopted.exe');
+    fs.writeFileSync(adopted, 'adopted');
+    const sha256 = crypto.createHash('sha256').update('adopted').digest('hex');
+    const record = path.join(dir, 'client-adoption.json');
+    fs.writeFileSync(
+      record,
+      JSON.stringify({
+        schema: 'reframe.client-adoption.v1',
+        version: '2.1.322',
+        clients: { chatgpt: { binary: adopted, sha256 }, anthropic: { binary: adopted, sha256 } },
+      }),
+    );
+    fs.writeFileSync(path.join(dir, 'reframe-config.json'), JSON.stringify({ ...config, clientAdoption: record }));
+    const env: NodeJS.ProcessEnv = {};
+    const applied = applyLaunchConfig(exe, env, opts);
+    expect(applied?.refused).toEqual({});
+    expect(env.REFRAME_CLIENT_ADOPTION).toBe(record);
+    expect(env.REFRAME_CLAUDE_BIN).toBe(adopted);
+    expect(env.REFRAME_ANTHROPIC_CLAUDE_BIN).toBe(adopted);
+
+    // A changed adopted client falls back to the fixed bindings (here: the changed ChatGPT one is refused).
+    fs.writeFileSync(adopted, 'tampered');
+    const fallback: NodeJS.ProcessEnv = {};
+    const second = applyLaunchConfig(exe, fallback, opts);
+    expect(fallback.REFRAME_CLIENT_ADOPTION).toBeUndefined();
+    expect(second?.refused.chatgpt).toMatch(/changed/);
+    expect(second?.problems.join(' ')).toMatch(/adopted .* changed/);
+  });
 });

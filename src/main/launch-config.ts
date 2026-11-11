@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Provider } from '@shared/providers';
+import { adoptedClient } from './client-adoption';
 
 export const LAUNCH_CONFIG = 'reframe-config.json';
 
@@ -19,6 +20,8 @@ export interface LaunchConfig {
   claudeHome: string;
   claudeBin: Binary;
   anthropicClaudeBin?: Binary;
+  /** The client adoption record (adopt-client.ps1); when it is valid its clients replace the two bindings above. */
+  clientAdoption?: string;
   history?: { python: string; helper: string; helperSha256: string };
 }
 
@@ -73,12 +76,27 @@ export function applyLaunchConfig(
   delete env.REFRAME_CLAUDE_BIN;
   delete env.REFRAME_ANTHROPIC_CLAUDE_BIN;
 
-  const chatgpt = check(config.claudeBin, 'ChatGPT CLI');
-  if (chatgpt) result.refused.chatgpt = chatgpt;
-  else env.REFRAME_CLAUDE_BIN = config.claudeBin.path;
-  const anthropic = check(config.anthropicClaudeBin, 'Anthropic CLI');
-  if (anthropic) result.refused.anthropic = anthropic;
-  else env.REFRAME_ANTHROPIC_CLAUDE_BIN = config.anthropicClaudeBin!.path;
+  delete env.REFRAME_CLIENT_ADOPTION;
+
+  // Adopted clients: the record is re-read for each new session (app.findClaude); a provider it cannot supply is
+  // refused there. Without a usable record the fixed bindings below apply.
+  const adoption =
+    typeof config.clientAdoption === 'string' && path.isAbsolute(config.clientAdoption) ? config.clientAdoption : null;
+  const chatgptAdopted = adoption ? adoptedClient(adoption, 'chatgpt') : null;
+  const anthropicAdopted = adoption ? adoptedClient(adoption, 'anthropic') : null;
+  if (chatgptAdopted?.ok && anthropicAdopted?.ok) {
+    env.REFRAME_CLIENT_ADOPTION = adoption!;
+    env.REFRAME_CLAUDE_BIN = chatgptAdopted.path;
+    env.REFRAME_ANTHROPIC_CLAUDE_BIN = anthropicAdopted.path;
+  } else {
+    for (const c of [chatgptAdopted, anthropicAdopted]) if (c && !c.ok) result.problems.push(c.reason);
+    const chatgpt = check(config.claudeBin, 'ChatGPT CLI');
+    if (chatgpt) result.refused.chatgpt = chatgpt;
+    else env.REFRAME_CLAUDE_BIN = config.claudeBin.path;
+    const anthropic = check(config.anthropicClaudeBin, 'Anthropic CLI');
+    if (anthropic) result.refused.anthropic = anthropic;
+    else env.REFRAME_ANTHROPIC_CLAUDE_BIN = config.anthropicClaudeBin!.path;
+  }
 
   const history = config.history;
   const helper = history && check({ path: history.helper, sha256: history.helperSha256 }, 'history helper');

@@ -1,88 +1,88 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "da39891860d44987e523e6dbe256cddce4a9a643",
-  "scope": "0.10.0-claudegpt.11: Single window / Tiled view switch per window (auto-regridding tiled view, Ctrl+Shift+G, Ctrl+Tab), Workspaces toolbar button removed (on top of 0.10.0-claudegpt.10)",
+  "sourceBase": "66bc11143b523aa1688f07b5ede67cc3ad11b7e6",
+  "scope": "0.10.1-claudegpt.12: Reframe owns deployment of the patched Claude client (versioned adopted copies for both providers, adoption record, garbage collection), merged with upstream 0.10.1 (faster Windows image paste)",
   "inputHashes": [
     {
-      "file": "docs/releases/v0.10.0-claudegpt.11.md",
-      "sha256": "ee9f43f14023644126be2337b9ce261d73bb939a0f20fa5a25f9e2f2f38e40dd"
+      "file": "docs/releases/v0.10.1-claudegpt.12.md",
+      "sha256": "889c49e188a04529b1daafa755c363da222c02786936b73fb9834e0a5b39d3a0"
     },
     {
-      "file": "e2e/list.spec.ts",
-      "sha256": "cfe4e52608abf16574d4ee504483479eff6d80effd395e13efd5b9afe147caf5"
+      "file": "docs/releases/v0.10.1.md",
+      "sha256": "0033d9ba2c7af9e9b8a37434b0fa7fbf53f8f8ad8fb88e1386761d0ff67cdb3a"
     },
     {
-      "file": "e2e/shortcuts.spec.ts",
-      "sha256": "93b4553d04497a57b03e66d3e2af296bb00e505cd9c041a2f8db32c731c3aa93"
+      "file": "e2e/files.spec.ts",
+      "sha256": "b8a08d91f5f6466fd8bfbc60d8e2a6d06b09c9e258f8ed7db8f8c24827775646"
     },
     {
-      "file": "e2e/terminal-window.spec.ts",
-      "sha256": "7ad1b4fc306b4dc3a5c8a3efe3aa33937d588a69166374bc00399ab5089aa4ea"
+      "file": "maintenance/windows/adopt-client.ps1",
+      "sha256": "d3671795b814a3c1807abbcc64d0ea8cc388a304d683502621bd15fcde958e08"
     },
     {
-      "file": "e2e/windows.spec.ts",
-      "sha256": "9cf24947399fefba4fdfc310b3b404b72fa66f4288217ab08fc7609de439c881"
+      "file": "maintenance/windows/client-adoption.ps1",
+      "sha256": "56ba7eb3bdc6028ba5c9be89e1366d4d10cd7dd0a8007c90123be41f0c06a30b"
     },
     {
-      "file": "e2e/workspaces.spec.ts",
-      "sha256": "1e95c7466d3b4d04f4c330449253adca59012cbe31794c961a8830126927eb55"
+      "file": "maintenance/windows/deploy-managed.ps1",
+      "sha256": "3d6215992205eac5c076c9dc2be07cc5acba546da4efa7e772f0ca8f02ea7cf8"
+    },
+    {
+      "file": "maintenance/windows/release-files.ps1",
+      "sha256": "0bf4c76d8594d4e24410f37b7f6c37f30273fb5a0fba79911716f7873f85fac8"
+    },
+    {
+      "file": "maintenance/windows/start-anthropic-session.ps1",
+      "sha256": "cb562b285e46fc882150db4738048496f38aa6414d88158cffee42190079c18f"
+    },
+    {
+      "file": "maintenance/windows/start-managed.ps1",
+      "sha256": "e99f2b614062ce2633ff095a5074d433cf35c02183c54d22363d42abb45c39e2"
+    },
+    {
+      "file": "maintenance/windows/test-client-adoption.ps1",
+      "sha256": "a2dabfe5e366083737b5a779b387666850ec2613d297249d49ce75253ac6dab6"
     },
     {
       "file": "package-lock.json",
-      "sha256": "7f656496ac9116aa0a47c8ac8f2479d78210a187ef26a79fa4b49a34faa395d7"
+      "sha256": "5ff381d4c99b0ffcf747b76128f9213ba8f00e01fcccd425996de6ea3627755b"
     },
     {
       "file": "package.json",
-      "sha256": "edec19f5d265eb7a1c84e1e02453e6f85105f8ec67b207f5bb28db99132ba3c4"
+      "sha256": "e9b8bf3d8846106d0547aee7c4b096aaa780492c38027b8af727c28d2ae5640f"
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "d4e108ce8413c7acc376414b49ff623301dbd0bf05b08907044743abb79893db"
+      "sha256": "0b77718eb897b86264a4c865e28bbe80a055d9415f90870103be98555dde5792"
     },
     {
-      "file": "src/renderer/App.tsx",
-      "sha256": "04fb464da6075f6196a4bd42306053bef4154114bc4a168f9ad41ab3814570cf"
+      "file": "src/main/client-adoption.test.ts",
+      "sha256": "2732be1ffcf0d772c03f846f51c2a4d91c30ce20c50f09398a5b819bd3c70bc0"
     },
     {
-      "file": "src/renderer/shortcuts.test.ts",
-      "sha256": "f64fd5be14169e0d624ce32b9b0097f776471601879fee50017fc617b9214024"
+      "file": "src/main/client-adoption.ts",
+      "sha256": "ff2b09a7696f7641a33d9ecb5649080010c8f26b3e3aade061a31d7d2370723a"
     },
     {
-      "file": "src/renderer/shortcuts.ts",
-      "sha256": "6ce1e72b2125c28470cb8c32c1027a246115b7a7b9c34ad0c18533c3f14dbe35"
+      "file": "src/main/launch-config.test.ts",
+      "sha256": "dfa27ffb25b0ce9448e67e40eb15781eb929c3800410c87c5a59e15b8426bb5a"
     },
     {
-      "file": "src/renderer/styles.css",
-      "sha256": "58897d5efc5aad6a710b4a2d5b130de03e023cb180976e884e5bb05f7bd7d7da"
+      "file": "src/main/launch-config.ts",
+      "sha256": "c479eac761d9e1bf76e1470a6488f9d6dbc2acc2fcc1fe2af1af84a786597435"
     },
     {
-      "file": "src/renderer/view-mode.test.ts",
-      "sha256": "336bdc828cf413b5e221cba42980b3604282233c6b63b6d6a1f7b2b105495e49"
+      "file": "src/renderer/paste.test.ts",
+      "sha256": "4b5c83bf9a59299a57c553bc35d69c21dd7df0dd80d84987de1fdc22df8984fa"
     },
     {
-      "file": "src/renderer/view-mode.ts",
-      "sha256": "20dfd908cdc3caa8cc9905344f7659cc1f9bf2c0d925e62573254a9482e4903e"
+      "file": "src/renderer/paste.ts",
+      "sha256": "225d7c66dceaca606e8993e1fd7ec000cab5f78940148010b9d5b8cdeb0f2083"
     },
     {
-      "file": "src/shared/actions.test.ts",
-      "sha256": "467fb7ee343d5c3123808f3ae57be97249c03fb5a0f643b3f26e27f64b2fa07c"
-    },
-    {
-      "file": "src/shared/actions.ts",
-      "sha256": "f0aca28dd943367a613d237b01b681d78f929130537eda0ba2f708d73ecf02a3"
-    },
-    {
-      "file": "src/shared/i18n.ts",
-      "sha256": "70158e8456aaefe94ead136dd2b60a5e12368e46759b53b49d9ce914f54c584e"
-    },
-    {
-      "file": "src/shared/ipc.ts",
-      "sha256": "f94c82c9f1b0b30e6902197cbcd630b8f4bce3f613d00b89c01408d9c2edab25"
-    },
-    {
-      "file": "src/shared/state.ts",
-      "sha256": "028d24679475533fae9ff2e114ef72e10953f0f9b9d237474370ffa4fd49cc91"
+      "file": "src/renderer/terminals.ts",
+      "sha256": "bad5d2c4db8168924f11d5ae287c7774a6494e38794f2117160160befabec55b"
     }
   ],
   "checksNotYetRun": [
