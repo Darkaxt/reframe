@@ -10,6 +10,7 @@ import {
   ensureRuntimeCopy,
   ensureToken,
   HOST_EXE,
+  principals,
   readDescriptors,
   runtimeHash,
   runtimeName,
@@ -39,9 +40,24 @@ describe('profile token', () => {
     const { spawnSync } = await import('node:child_process');
     const acl = spawnSync('icacls', [path.join(dir, 'token')], { encoding: 'utf8' }).stdout;
     const entries = acl.split('\n').filter((line) => line.includes(':('));
-    expect(entries).toHaveLength(1);
+    expect(entries, acl).toHaveLength(1);
     expect(entries[0]).toContain(os.userInfo().username);
     expect(acl).not.toMatch(/\(I\)/); // nothing inherited
+  });
+});
+
+describe('icacls output', () => {
+  it('lists the principals of every entry', () => {
+    const file = 'C:\\x\\token';
+    const output = [
+      `${file} PC\\me:(F)`,
+      '         BUILTIN\\Administrators:(I)(F)',
+      '         NT AUTHORITY\\SYSTEM:(F)',
+      '',
+      'Successfully processed 1 files; Failed processing 0 files',
+      '',
+    ].join('\r\n');
+    expect(principals(output, file)).toEqual(['PC\\me', 'BUILTIN\\Administrators', 'NT AUTHORITY\\SYSTEM']);
   });
 });
 

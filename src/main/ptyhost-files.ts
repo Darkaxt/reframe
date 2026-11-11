@@ -38,11 +38,27 @@ export function restrictToUser(file: string): void {
   const user = process.env.USERDOMAIN ? `${process.env.USERDOMAIN}\\${name}` : name;
   // By its full path: the PATH reframe was started with may not have System32 in it.
   const icacls = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'icacls.exe');
-  const result = spawnSync(icacls, [file, '/inheritance:r', '/grant:r', `${user}:F`], {
-    windowsHide: true,
-    stdio: 'ignore',
-  });
-  if (result.status !== 0) throw new Error(`could not restrict access to ${file}`);
+  const run = (...args: string[]) => {
+    const result = spawnSync(icacls, [file, ...args], { windowsHide: true, encoding: 'utf8' });
+    if (result.status !== 0) throw new Error(`could not restrict access to ${file}`);
+    return result.stdout;
+  };
+  run('/inheritance:r', '/grant:r', `${user}:F`);
+  // Removing inheritance leaves entries the file was given explicitly (some folders hand those out): those go too.
+  const self = (p: string) =>
+    p.toLowerCase() === name.toLowerCase() || p.toLowerCase().endsWith(`\\${name.toLowerCase()}`);
+  const others = () => principals(run(), file).filter((p) => !self(p));
+  for (const principal of others()) run('/remove', principal);
+  if (others().length) throw new Error(`could not restrict access to ${file}`);
+}
+
+/** The principals in `icacls <file>` output ("<file> DOMAIN\user:(F)" and then one indented entry per line). */
+export function principals(output: string, file: string): string[] {
+  return output
+    .split(/\r?\n/)
+    .map((line, i) => (i === 0 && line.startsWith(file) ? line.slice(file.length) : line).trim())
+    .map((line) => /^(.+?):\(/.exec(line)?.[1])
+    .filter((p): p is string => !!p);
 }
 
 function alive(pid: number): boolean {

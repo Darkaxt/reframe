@@ -54,11 +54,11 @@
     },
     {
       "file": "src/main/ptyhost-files.test.ts",
-      "sha256": "5938960be251357e0e4e4ee4adabe9fc3d90f14cc4d82ada4d46720a78fa64a2"
+      "sha256": "07fceaabe5dea19502875c0476b258a29dbdb52d1a447ab08820138d7ef8d1d2"
     },
     {
       "file": "src/main/ptyhost-files.ts",
-      "sha256": "6c03e1a4fd490f93c9f34bf436e8aa8d73cae58cfdb16753c2b6fdd158226e84"
+      "sha256": "edce0c2aad2c3f86222effee7aa980ac57865a5593325045f0c7c5957fe48402"
     },
     {
       "file": "src/main/ptyhost-runtime.ts",
