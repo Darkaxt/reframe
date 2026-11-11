@@ -195,8 +195,10 @@ test('Hardware acceleration is off unless chosen; the choice is saved and applie
   const { dir, project, env, state } = setup();
   try {
     let { app, page } = await launch(env);
-    const accelerated = (a: typeof app) => a.evaluate(({ app }) => app.isHardwareAccelerationEnabled());
-    expect(await accelerated(app)).toBe(false);
+    // What this run decided (a machine without a usable GPU reports no hardware acceleration either way).
+    const accelerated = (p: typeof page) => p.evaluate(() => window.reframe.gpuAccelerated);
+    expect(await accelerated(page)).toBe(false);
+    expect(await app.evaluate(({ app }) => app.isHardwareAccelerationEnabled())).toBe(false);
     await newSession(page, project, 'alpha');
     const tile = tileByLabel(page, 'alpha');
     await tile.locator('.tile-body').click();
@@ -215,11 +217,11 @@ test('Hardware acceleration is off unless chosen; the choice is saved and applie
     await expect(dialog.getByText('Takes effect after restarting Reframe.', { exact: true })).toBeVisible();
     await dialog.getByRole('button', { name: 'Close' }).click();
     // Not before a restart.
-    expect(await accelerated(app)).toBe(false);
+    expect(await accelerated(page)).toBe(false);
     await quit(app);
 
     ({ app, page } = await launch(env));
-    expect(await accelerated(app)).toBe(true);
+    expect(await accelerated(page)).toBe(true);
     await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByRole('dialog').getByRole('checkbox', { name: 'Use GPU acceleration' })).toBeChecked();
     await expect(
