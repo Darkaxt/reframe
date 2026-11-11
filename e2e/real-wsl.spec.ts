@@ -86,6 +86,17 @@ test('real claude typed into a WSL terminal tab: dropped onto reframe, taken ove
     REFRAME_E2E: '1',
     REFRAME_DISABLE_NOTIFICATIONS: '1',
   } as Record<string, string>;
+  // Claude Code in WSL is looked for only when that is turned on in Settings.
+  fs.writeFileSync(
+    path.join(userData, 'state.json'),
+    JSON.stringify({
+      version: 1,
+      sessions: {},
+      windows: [],
+      recentFolders: [],
+      preferences: { nameFromFolder: false, lookInWsl: true },
+    }),
+  );
   const sessionId = crypto.randomUUID();
   /** The wsl.exe processes (System32's and the one it starts) running this test's terminal tab, or reframe's. */
   const wslPids = () =>

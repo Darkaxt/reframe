@@ -178,6 +178,9 @@ const en = {
   'settings.autostart': 'Start with the system',
   'settings.autostartHint':
     'When you log in, Reframe starts in the tray with its windows hidden and resumes your sessions in the background.',
+  'settings.lookInWsl': 'Look for Claude Code in WSL',
+  'settings.lookInWslHint':
+    'The session list also shows sessions from running WSL distributions. Checking them regularly keeps WSL from stopping when idle.',
   'settings.updates': 'Check for updates',
   'settings.updatesHint':
     'Half a minute after starting and then every six hours, Reframe asks GitHub whether there is a newer version. Nothing else is sent.',
@@ -421,6 +424,9 @@ const de: Record<MessageKey, string> = {
   'settings.autostart': 'Mit dem System starten',
   'settings.autostartHint':
     'Wenn du dich anmeldest, startet Reframe im Tray mit verborgenen Fenstern und setzt deine Sessions im Hintergrund fort.',
+  'settings.lookInWsl': 'Claude Code in WSL suchen',
+  'settings.lookInWslHint':
+    'Die Sitzungsliste zeigt auch Sitzungen aus laufenden WSL-Distributionen. Das regelmäßige Nachsehen verhindert, dass WSL im Leerlauf beendet wird.',
   'settings.updates': 'Nach Updates suchen',
   'settings.updatesHint':
     'Eine halbe Minute nach dem Start und dann alle sechs Stunden fragt Reframe bei GitHub nach, ob es eine neuere Version gibt. Sonst wird nichts gesendet.',

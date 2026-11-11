@@ -26,6 +26,15 @@ describe('StateStore', () => {
     expect(s.load()).toMatchObject({ source: 'file', state: { preferences: { nameFromFolder: false } } });
   });
 
+  it('does not look for Claude Code in WSL for files from before that setting existed', () => {
+    const s = store();
+    const state = defaultState();
+    const { lookInWsl: _lookInWsl, ...preferences } = state.preferences;
+    fs.writeFileSync(s.file, JSON.stringify({ ...state, preferences }));
+    expect(s.load()).toMatchObject({ source: 'file', state: { preferences: { lookInWsl: false } } });
+    expect(defaultState().preferences.lookInWsl).toBe(false);
+  });
+
   it('loads files with the removed saved workspaces and drops them on the next save', () => {
     const s = store();
     const old = defaultState();

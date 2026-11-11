@@ -635,6 +635,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             closeWindow={view.closeWindow}
             startWithSystem={view.startWithSystem}
             checkForUpdates={view.checkForUpdates}
+            lookInWsl={view.lookInWsl}
             claudeBin={view.claudeBin}
             defaultModel={view.defaultModel}
             defaultEffort={view.defaultEffort}
