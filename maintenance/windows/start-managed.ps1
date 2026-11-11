@@ -46,6 +46,8 @@ $values = @{
     REFRAME_HISTORY_PYTHON = $active.helper.python; REFRAME_HISTORY_HELPER = $active.helper.helper
     REFRAME_HISTORY_HELPER_SHA256 = $active.helper.helperSha256
     REFRAME_CLIENT_ADOPTION = $null
+    # PTY hosts run from versioned copies here, so removing a release folder never removes a running host's files.
+    REFRAME_PTYHOST_ROOT = Join-Path (Split-Path -Parent $ActivePath) 'ptyhost'
     REFRAME_APP_ID = $null; REFRAME_APP_SHORTCUT = $null; REFRAME_APP_LAUNCHER = $null
 }
 # Toast clicks: a fixed app id per profile and a Start menu shortcut (kept by the app) that runs this profile's VBS

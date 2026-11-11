@@ -29,7 +29,9 @@ export interface SessionView {
     | 'spawnFailed'
     | 'folderMissing'
     | 'hostCrashed'
-    | 'runningElsewhere';
+    | 'runningElsewhere'
+    /** Still runs in the PTY host of an earlier reframe this one cannot talk to. */
+    | 'olderHost';
   /** Runs in this WSL distribution, which reaches Windows drives under `mountRoot` (e.g. /mnt/). */
   wsl?: { distro: string; mountRoot: string };
 }

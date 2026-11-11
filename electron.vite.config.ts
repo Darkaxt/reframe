@@ -9,6 +9,8 @@ export default defineConfig({
     resolve: { alias },
     build: {
       rollupOptions: {
+        // Electron's fs without its app-archive handling (the PTY host's runtime copy reads and copies app.asar).
+        external: ['original-fs'],
         input: {
           index: resolve(__dirname, 'src/main/index.ts'),
           ptyhost: resolve(__dirname, 'src/ptyhost/index.ts'),

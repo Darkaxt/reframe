@@ -4,7 +4,11 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{64}$')][string]$ManifestSha256,
     # Install and repoint the launcher while the running app keeps running from its own release folder: no idle
     # requirement, no launch. The new release starts with the next launch (status installed_pending_launch).
-    [switch]$KeepRunning
+    [switch]$KeepRunning,
+    # Hot swap: the previous app has quit with its sessions kept (stop-managed.ps1 -KeepSessions); they keep running
+    # in its PTY host, which the new release attaches to. Only the app itself must be gone; the new release is
+    # started like a regular activation and its state.json is frozen for the restore.
+    [switch]$HotSwap
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -14,6 +18,15 @@ $m = Get-Content -LiteralPath $Manifest -Raw | ConvertFrom-Json
 # The installation folder holds active.json; clients coupled to it must be idle (Get-ReframeClients).
 $installRoot = Split-Path -Parent $m.activePath
 if ($m.schema -cne 'claudegpt.reframe-deploy.v1') { throw 'Unsupported private deployment manifest' }
+if ($KeepRunning -and $HotSwap) { throw 'Choose -KeepRunning or -HotSwap' }
+function Assert-Idle {
+    if ($HotSwap) {
+        $folder = [IO.Path]::GetFullPath($installRoot).TrimEnd('\')
+        $apps = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -ieq 'reframe.exe' -and (-not $_.ExecutablePath -or
+            [IO.Path]::GetFullPath($_.ExecutablePath).StartsWith("$folder\", [StringComparison]::OrdinalIgnoreCase)) })
+        if ($apps.Count) { throw "Reframe still runs; quit it with its sessions kept first: $(@($apps.ProcessId) -join ',')" }
+    } else { Assert-ReframeIdle $installRoot }
+}
 $mutex = [Threading.Mutex]::new($false, 'Local\ClaudeGPTReframeDeployment')
 $owned = $false
 $changed = $false
@@ -59,14 +72,14 @@ try {
     Assert-Hash $candidate.helper.helper $candidate.helper.helperSha256
     Assert-Hash $m.idleReservation $m.idleReservationSha256
     $idle = Get-Content -LiteralPath $m.idleReservation -Raw | ConvertFrom-Json
-    $conditions = if ($KeepRunning) { @('keepRunning') } else { @('clientsClosed', 'backgroundAndGoalsPaused', 'keepIdleUntilVerified') }
+    $conditions = if ($KeepRunning) { @('keepRunning') } elseif ($HotSwap) { @('hotSwap') } else { @('clientsClosed', 'backgroundAndGoalsPaused', 'keepIdleUntilVerified') }
     foreach ($condition in $conditions) {
         if ($idle.PSObject.Properties.Name -notcontains $condition -or $idle.$condition -cne $true) { throw "No idle reservation for this activation: $condition" }
     }
     if ($idle.candidateSha256 -cne $m.candidateSha256) { throw 'Idle reservation belongs to another candidate' }
     $tasks = @(Get-ReframeRequestTasks)
     if ($tasks.Count) { throw "Enabled scheduled request producers need review/reservation before activation: $($tasks | ConvertTo-Json -Compress -Depth 8)" }
-    if (-not $KeepRunning) { Assert-ReframeIdle $installRoot }
+    if (-not $KeepRunning) { Assert-Idle }
     Assert-PlainPath $m.releaseDirectory
     if (Test-Path -LiteralPath $m.releaseDirectory) { throw 'Destination exists; resolve prior activation before another copy' }
     Assert-PlainPath $m.receiptDirectory
@@ -105,7 +118,7 @@ try {
         [IO.File]::Copy((Join-Path $PSScriptRoot $name), (Join-Path $m.launcherDirectory $name), $false)
         Assert-Hash (Join-Path $m.launcherDirectory $name) (Get-Sha256 (Join-Path $PSScriptRoot $name))
     }
-    if (-not $KeepRunning) { Assert-ReframeIdle $installRoot }
+    if (-not $KeepRunning) { Assert-Idle }
     foreach ($file in $m.protected) { Assert-Hash $file.path $file.sha256 }
     $active = [ordered]@{
         schema = 'claudegpt.reframe.v2'; version = $candidate.version
@@ -176,7 +189,7 @@ try {
         } else { try {
             # Never kill a child/consumer to make rollback possible. A live GUI
             # must exit through its native lifecycle before the frozen restore.
-            Assert-ReframeIdle $installRoot
+            Assert-Idle
             Restore-FrozenFiles $rollback.files
             Start-Process -FilePath "$env:SystemRoot\System32\wscript.exe" -ArgumentList @('//B', '//Nologo', ('"' + $rollback.launcher + '"')) -WindowStyle Hidden
             Write-AtomicJson (Join-Path $m.receiptDirectory 'restore-result.json') @{

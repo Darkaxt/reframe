@@ -14,6 +14,7 @@ export interface TrayLabels {
   newWindow: string;
   about: string;
   quit: string;
+  endSessionsAndQuit: string;
 }
 
 export interface TrayActions {
@@ -26,7 +27,10 @@ export interface TrayActions {
   /** "Restart to update" once an update is downloaded; in the portable copy "Download reframe X" (the release page). */
   update: () => { label: string; install: () => void } | null;
   about: () => void;
+  /** Quits; the sessions keep running and the next reframe takes them over. */
   quit: () => void;
+  /** Quits the way reframe did before its sessions outlived it: they end (and resume next time). */
+  endSessionsAndQuit: () => void;
 }
 
 export function createTray(
@@ -57,6 +61,7 @@ export function createTray(
         ...(update ? [{ label: update.label, click: update.install }] : []),
         { label: labels.about, click: actions.about },
         { label: labels.quit, click: actions.quit },
+        { label: labels.endSessionsAndQuit, click: actions.endSessionsAndQuit },
       ]),
     );
   };
