@@ -38,6 +38,7 @@ const api: ReframeApi = {
   setStartWithSystem: (enabled) => ipcRenderer.send(IPC.setStartWithSystem, enabled === true),
   folderExists: (path) => ipcRenderer.invoke(IPC.folderExists, path),
   onFocusTile: (listener) => subscribe<string>(IPC.focusTile, listener),
+  onRedrawTerminals: (listener) => subscribe<unknown>(IPC.redrawTerminals, () => listener()),
   onOpenNewSession: (listener) => subscribe<null>(IPC.openNewSession, () => listener()),
   onOpenAbout: (listener) => subscribe<null>(IPC.openAbout, () => listener()),
   openExternal: (url) => ipcRenderer.send(IPC.openExternal, url),

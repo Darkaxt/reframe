@@ -344,6 +344,13 @@ export class ReframeApp {
     this.createTray();
     this.watchUpdates();
     this.watchToastActivation();
+    // A GPU driver reset takes the GPU process (and the terminals' WebGL) down; Electron restarts it, but the
+    // terminals draw again only when told.
+    app.on('child-process-gone', (_event, details) => {
+      if (details.type !== 'GPU') return;
+      this.log('warn', 'gpu process gone', { reason: details.reason, exitCode: details.exitCode });
+      for (const w of this.state.windows) this.windows.send(w.id, IPC.redrawTerminals, null);
+    });
     this.watchList();
     this.save();
     void cleanUp(
