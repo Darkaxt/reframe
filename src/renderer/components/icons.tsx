@@ -44,13 +44,6 @@ export const GearIcon = () => (
   </svg>
 );
 
-export const LayersIcon = () => (
-  <svg {...base} aria-hidden="true">
-    <path d="M8 2.5 14 5.5 8 8.5 2 5.5z" strokeLinejoin="round" />
-    <path d="m2 8.2 6 3 6-3M2 10.9l6 3 6-3" strokeLinejoin="round" />
-  </svg>
-);
-
 export const ExitFullscreenIcon = () => (
   <svg {...base} aria-hidden="true">
     <path d="M6 2.5V6H2.5M10 2.5V6h3.5M6 13.5V10H2.5M10 13.5V10h3.5" strokeLinecap="round" strokeLinejoin="round" />

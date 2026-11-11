@@ -58,8 +58,6 @@ export const windowStateSchema = z.object({
   dock: z.array(dockEntrySchema),
   /** Whether the session list is shown in this window. */
   sidebarOpen: z.boolean().optional(),
-  /** The workspace this window was saved as or opened from. */
-  workspaceId: z.string().optional(),
   /** The project (session list workspace key) whose tiles the window shows; the others are collapsed. */
   activeProject: z.string().optional(),
   /** Single window or tiled view; absent (older files) means tiled. */
@@ -172,30 +170,15 @@ export const DEFAULT_PREFERENCES: z.infer<typeof preferencesSchema> = {
   closeWindow: 'ask',
 };
 
-/** A window saved under a name, to be opened again later as a window of its own. */
-export const workspaceSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  savedAt: z.number(),
-  window: z.object({
-    bounds: boundsSchema.nullable(),
-    maximized: z.boolean(),
-    sidebarOpen: z.boolean().optional(),
-    layout: layoutNodeSchema.nullable(),
-    dock: z.array(dockEntrySchema),
-  }),
-  /** Its sessions as they were, so they can be resumed even after they have left the session list. */
-  sessions: z.array(sessionRecordSchema),
-});
-
 export const appStateSchema = z.object({
   version: z.literal(STATE_VERSION),
   sessions: z.record(z.string(), sessionRecordSchema),
   windows: z.array(windowStateSchema),
   recentFolders: z.array(z.string()),
   // Added after the first release of the format; older files get the defaults.
+  // Saved workspaces (`workspaces`, and `workspaceId` on windows) were removed in 0.10.1-claudegpt.13: unknown keys
+  // are stripped on load, so older files still load and the next save drops them.
   preferences: preferencesSchema.default(DEFAULT_PREFERENCES),
-  workspaces: z.array(workspaceSchema).default([]),
   pinnedChats: z.array(z.string()).optional(),
   expandedProjects: z.array(z.string()).optional(),
   /** Read and dropped: older builds stored the derived project groups. */
@@ -232,7 +215,6 @@ export const appStateSchema = z.object({
 });
 
 export type DockEntry = z.infer<typeof dockEntrySchema>;
-export type Workspace = z.infer<typeof workspaceSchema>;
 export type Bounds = z.infer<typeof boundsSchema>;
 export type WindowState = z.infer<typeof windowStateSchema>;
 export type LaunchOptions = z.infer<typeof launchOptionsSchema>;
@@ -251,6 +233,5 @@ export function defaultState(): AppState {
     windows: [emptyWindow(globalThis.crypto.randomUUID())],
     recentFolders: [],
     preferences: { ...DEFAULT_PREFERENCES },
-    workspaces: [],
   };
 }

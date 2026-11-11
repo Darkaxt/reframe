@@ -26,6 +26,37 @@ describe('StateStore', () => {
     expect(s.load()).toMatchObject({ source: 'file', state: { preferences: { nameFromFolder: false } } });
   });
 
+  it('loads files with the removed saved workspaces and drops them on the next save', () => {
+    const s = store();
+    const old = defaultState();
+    const win = { ...old.windows[0]!, workspaceId: 'ws1' };
+    fs.writeFileSync(
+      s.file,
+      JSON.stringify({
+        ...old,
+        windows: [win],
+        workspaces: [
+          {
+            id: 'ws1',
+            name: 'Frontend',
+            savedAt: 1,
+            window: { bounds: null, maximized: false, layout: null, dock: [] },
+            sessions: [],
+          },
+        ],
+      }),
+    );
+    const { state, source } = s.load();
+    expect(source).toBe('file');
+    expect(state).not.toHaveProperty('workspaces');
+    expect(state.windows[0]).not.toHaveProperty('workspaceId');
+    expect(state.windows[0]!.id).toBe(win.id);
+    s.save(state);
+    const written = JSON.parse(fs.readFileSync(s.file, 'utf8'));
+    expect(written).not.toHaveProperty('workspaces');
+    expect(written.windows[0]).not.toHaveProperty('workspaceId');
+  });
+
   it('starts from defaults without a file', () => {
     const { state, source } = store().load();
     expect(source).toBe('default');

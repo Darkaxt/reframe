@@ -56,66 +56,6 @@ export function listMenu(t: Translate, o: ListMenuOptions): Menu {
   ]);
 }
 
-export interface WorkspaceMenuOptions {
-  /** The workspace this window was saved as or opened from. */
-  current: { name: string } | null;
-  workspaces: { id: string; name: string; open: boolean }[];
-  save: () => void;
-  update: () => void;
-  open: (workspaceId: string) => void;
-  manage?: (workspaceId: string) => MenuItemConstructorOptions[];
-  /** Tiles of this window whose transcript Claude Code no longer has; closing them keeps everything else. */
-  staleTiles?: { count: number; close: () => void };
-}
-
-export function workspaceMenu(t: Translate, o: WorkspaceMenuOptions): Menu {
-  return Menu.buildFromTemplate([
-    { label: t('workspace.save'), click: o.save },
-    ...(o.current ? [{ label: t('workspace.update', { name: o.current.name }), click: o.update }] : []),
-    { type: 'separator' },
-    ...workspaceItems(t, o.workspaces, o.open),
-    ...(o.manage && o.workspaces.length
-      ? [
-          { type: 'separator' as const },
-          {
-            label: 'Manage saved layouts',
-            submenu: o.workspaces.map((workspace) => ({ label: workspace.name, submenu: o.manage!(workspace.id) })),
-          },
-        ]
-      : []),
-    ...(o.staleTiles?.count
-      ? [
-          { type: 'separator' as const },
-          { label: t('workspace.closeStale', { count: o.staleTiles.count }), click: o.staleTiles.close },
-        ]
-      : []),
-  ]);
-}
-
-/** Saved workspaces to open (checked: its window is open). */
-export function workspaceItems(
-  t: Translate,
-  workspaces: { id: string; name: string; open: boolean }[],
-  open: (workspaceId: string) => void,
-): MenuItemConstructorOptions[] {
-  if (workspaces.length === 0) return [{ label: t('workspace.none'), enabled: false }];
-  return workspaces.map((w) => ({ label: workspaceLabel(t, w), click: () => open(w.id) }));
-}
-
-/** A workspace in a menu: its name, and whether its window is open. */
-export function workspaceLabel(t: Translate, w: { name: string; open: boolean }): string {
-  return w.open ? `${w.name} ${t('workspace.openMark')}` : w.name;
-}
-
-export function workspaceItemMenu(t: Translate, o: { open: () => void; rename: () => void; remove: () => void }): Menu {
-  return Menu.buildFromTemplate([
-    { label: t('workspace.open'), click: o.open },
-    { label: t('workspace.rename'), click: o.rename },
-    { type: 'separator' },
-    { label: t('workspace.delete'), click: o.remove },
-  ]);
-}
-
 export interface GroupMenuOptions {
   rename: () => void;
   recolor: (hex: string) => void;
