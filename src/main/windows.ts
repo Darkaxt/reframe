@@ -7,6 +7,8 @@ import { app, BrowserWindow, screen, type WebContents } from 'electron';
 import type { Bounds, WindowState } from '@shared/state';
 import { attentionBadge } from './images';
 import type { LogFn } from './log';
+import { gpu } from './gpu';
+import { GPU_ARGUMENT } from '@shared/ipc';
 
 type Events = {
   bounds: [windowId: string, bounds: Bounds, maximized: boolean];
@@ -60,6 +62,8 @@ export class WindowManager extends EventEmitter<Events> {
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
+        // Tells the page whether its terminals may use WebGL (only when this run uses the GPU).
+        additionalArguments: [`${GPU_ARGUMENT}=${gpu.accelerated ? 1 : 0}`],
       },
     });
     this.windows.set(state.id, win);

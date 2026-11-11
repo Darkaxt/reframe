@@ -22,6 +22,8 @@ export function SettingsDialog({
   fontSize,
   snapToGrid,
   closeWindow,
+  gpuAcceleration,
+  gpuAccelerated,
   startWithSystem,
   checkForUpdates,
   lookInWsl,
@@ -37,6 +39,8 @@ export function SettingsDialog({
   fontSize: number;
   snapToGrid: boolean;
   closeWindow: CloseWindow;
+  gpuAcceleration: boolean;
+  gpuAccelerated: boolean;
   startWithSystem: boolean;
   checkForUpdates: boolean | null;
   lookInWsl: boolean | null;
@@ -163,6 +167,19 @@ export function SettingsDialog({
           </select>
         </label>
         <p className="setting-hint">{t('settings.closeWindowHint')}</p>
+
+        <label className="checkbox">
+          <input
+            key={String(gpuAcceleration)}
+            type="checkbox"
+            defaultChecked={gpuAcceleration}
+            onChange={(e) => set({ gpuAcceleration: e.target.checked })}
+          />
+          {t('settings.gpu')}
+        </label>
+        <p className="setting-hint">
+          {gpuAcceleration === gpuAccelerated ? t('settings.gpuHint') : t('settings.gpuRestart')}
+        </p>
 
         <label className="checkbox">
           <input

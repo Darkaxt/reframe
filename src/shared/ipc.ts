@@ -53,6 +53,9 @@ export interface WindowView {
   checkForUpdates: boolean | null;
   /** The session list looks for Claude Code in WSL (a preference); null where there is no WSL. */
   lookInWsl: boolean | null;
+  /** Hardware acceleration as saved (a preference), and whether this run uses it (it applies after a restart). */
+  gpuAcceleration: boolean;
+  gpuAccelerated: boolean;
   /** What closing a window with sessions does (a preference). */
   closeWindow: CloseWindow;
   /** The claude chosen in Settings (null: the one on the PATH), and what new sessions start with (preferences). */
@@ -106,6 +109,9 @@ export interface DialogDefaults {
 }
 
 /** A change of preferences; "" takes a chosen claude, model or permission mode back. */
+/** The page's argument that says whether this run uses the GPU (its terminals then draw with WebGL). */
+export const GPU_ARGUMENT = '--reframe-gpu-acceleration';
+
 export type PreferencesPatch = Partial<Omit<Preferences, 'defaultPermissionMode' | 'defaultEffort'>> & {
   defaultPermissionMode?: PermissionMode | '';
   defaultEffort?: EffortLevel | '';
@@ -285,6 +291,8 @@ export interface ReframeApi {
   /** Recent folders and saved preferences for the "New session" dialog. */
   getDialogDefaults(): Promise<DialogDefaults>;
   setPreferences(patch: PreferencesPatch): void;
+  /** Whether this run uses the GPU, so terminals draw with WebGL (otherwise with xterm's DOM renderer). */
+  gpuAccelerated: boolean;
   /** Lets the system start reframe when the user logs in, or not. */
   setStartWithSystem(enabled: boolean): void;
   folderExists(path: string): Promise<boolean>;

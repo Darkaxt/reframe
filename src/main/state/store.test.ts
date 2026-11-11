@@ -35,6 +35,15 @@ describe('StateStore', () => {
     expect(defaultState().preferences.lookInWsl).toBe(false);
   });
 
+  it('keeps hardware acceleration off for new profiles and files from before that setting existed', () => {
+    const s = store();
+    const state = defaultState();
+    const { gpuAcceleration: _gpuAcceleration, ...preferences } = state.preferences;
+    fs.writeFileSync(s.file, JSON.stringify({ ...state, preferences }));
+    expect(s.load()).toMatchObject({ source: 'file', state: { preferences: { gpuAcceleration: false } } });
+    expect(defaultState().preferences.gpuAcceleration).toBe(false);
+  });
+
   it('loads files with the removed saved workspaces and drops them on the next save', () => {
     const s = store();
     const old = defaultState();

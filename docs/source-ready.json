@@ -1,104 +1,92 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "f89d665eb27200d8e513b51a5ea0397767f77ccf",
-  "scope": "0.10.1-claudegpt.16: Claude sessions survive Reframe's quit in a detached per-profile PTY host (Electron as Node, versioned runtime copy under <install>\\ptyhost for installed builds, GC of unused copies); named pipe per profile with user-only token file and versioned handshake; the next Reframe attaches and adopts the host's sessions (views redraw from mirrors), hosts of another protocol keep their sessions until the last ends (tiles show olderHost with Take over); hooks and statusLine run through the host to whichever Reframe is attached; quit keeps sessions by default, tray 'End sessions and quit' ends them; stop-managed -KeepSessions and deploy-managed -HotSwap for hot swaps; e2e isolate and stop their hosts",
+  "sourceBase": "4cd33ecee7f4942111e4099a0e3a59d926b8c4ae",
+  "scope": "0.10.1-claudegpt.17: \"Use GPU acceleration\" setting, off by default (also for state files without it); when off, app.disableHardwareAcceleration() before ready (read synchronously from state.json, unreadable means off) and terminals use the xterm DOM renderer without trying WebGL; when on, WebGL with the .14 GPU-loss recovery; a change applies after a restart (Settings says so); startup logs whether hardware acceleration is on",
   "inputHashes": [
     {
-      "file": "docs/releases/v0.10.1-claudegpt.16.md",
-      "sha256": "339a3e2a65991bd7bdfd082241ffd6845a3251b30e7aedbfecfe1a3e44e858d3"
+      "file": "docs/releases/v0.10.1-claudegpt.17.md",
+      "sha256": "bda7f2b688c73ad91c575e7ae19c328a7194aeb9007145d21919a1a06bb5442c"
     },
     {
       "file": "e2e/helpers.ts",
-      "sha256": "865b9d8ba865e6414e6e700f7a32b456847d5746ae64c9ee90929ffd6d3b58db"
+      "sha256": "b0b1a8dc27dc48d98967b073ff1bcc12766cd3f2039515990a83263a6363af26"
     },
     {
-      "file": "e2e/hot-swap.spec.ts",
-      "sha256": "e840eaee0824cb01661b89b95d4e352dff16768e9d8e0189fab6262879f64863"
-    },
-    {
-      "file": "electron.vite.config.ts",
-      "sha256": "b1c119a9c5d0805a48c38eaf4d8636e89a8a06e1b798e7cd4701bc751e635ace"
-    },
-    {
-      "file": "maintenance/windows/deploy-managed.ps1",
-      "sha256": "bacee6d3d9c275f0958de14afcc418a302194ed4f199dbba801e0cc0f6eccd9d"
-    },
-    {
-      "file": "maintenance/windows/start-managed.ps1",
-      "sha256": "e821d763ca8ec4937f915a28358b8d1aede1410785463e5ee86b42bbb988ee6c"
-    },
-    {
-      "file": "maintenance/windows/stop-managed.ps1",
-      "sha256": "6e38832a5b79037fb4a0f8b27e5e845ff9119897808cd8f207297ecb1191345e"
+      "file": "e2e/settings.spec.ts",
+      "sha256": "fc521afe563c4d35798d018903cf71738575b4bf653fc8e04a6f907e998fb044"
     },
     {
       "file": "package-lock.json",
-      "sha256": "b4e6dfc269d52722453a32b7161414f1d3560135758009a3a413dd51c6274bb2"
+      "sha256": "bf9d6a7ce9408ad01ff21c7e0a91041d7a7a7e92b7cca5b8573496c4be6f5472"
     },
     {
       "file": "package.json",
-      "sha256": "1d718fbee44ac2d17be88adcf3fefb74e5758c3b9138f756e895315c6d7fa5f6"
+      "sha256": "26465477c37b1f9f4c1bc18464e252632081789181f1f2de988941dc297e07a2"
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "791a3304f035b83aab7f1b35d1496fb14d1e6ea1879f1fd085893d7b42967a06"
+      "sha256": "6b6821bdce4f4cee909f6cb2725275d9015be31b7e7a0ac345d6f25b04c5f0d1"
     },
     {
-      "file": "src/main/ptyhost-client.test.ts",
-      "sha256": "7d1c2fd05c9b0b841f1383953bf0b94e7859f5e739cab1f8062ff7d9ba0eb956"
+      "file": "src/main/gpu.test.ts",
+      "sha256": "8d99fabe41dac0c19825665f5a3ab7dd25f15ff5907e568989645e1a85f3816f"
     },
     {
-      "file": "src/main/ptyhost-client.ts",
-      "sha256": "ac2bafbf1f992d64cf267fcddf44fbc897391a89901ae5722687f8878e7b886a"
+      "file": "src/main/gpu.ts",
+      "sha256": "48b03ba262b8b47e33a63c9e2b11fdc74ae99a0e1486d53caf230d3327f91490"
     },
     {
-      "file": "src/main/ptyhost-files.test.ts",
-      "sha256": "07fceaabe5dea19502875c0476b258a29dbdb52d1a447ab08820138d7ef8d1d2"
+      "file": "src/main/index.ts",
+      "sha256": "8fb7c2a34205c73db683b939b3ea776f995066f227bdd3d3efbaf233c81b38a5"
     },
     {
-      "file": "src/main/ptyhost-files.ts",
-      "sha256": "edce0c2aad2c3f86222effee7aa980ac57865a5593325045f0c7c5957fe48402"
+      "file": "src/main/state/store.test.ts",
+      "sha256": "b3c77ba58b271f100a82f654a6bcecd821dec538350d03f15143869e443c517d"
     },
     {
-      "file": "src/main/ptyhost-runtime.ts",
-      "sha256": "7de5dd35fa3ce7ae94698fdb013b5a3905c11358e52698b6e10fe3c73eb2e1a8"
+      "file": "src/main/windows.ts",
+      "sha256": "c3c94dbf0610c6209627df0d578a1e986ab8798d15aed716e91bf6db0c5e320d"
     },
     {
-      "file": "src/main/sessions.ts",
-      "sha256": "116128d201213f770395d9cc55832e00a257c535fd53da3bd57c6d61a5af25ec"
+      "file": "src/preload/index.ts",
+      "sha256": "6c1ed3702d09859bc50dc9d143ef046c5d6d53fe2ba1a1bd9541f2693335d723"
     },
     {
-      "file": "src/main/tray.ts",
-      "sha256": "97e85ef32e3cb5113e599975169b2532f3bf652c89fc7b9f1e3a0b6287b570d3"
+      "file": "src/renderer/App.tsx",
+      "sha256": "4350b081096b2dd931dea6aedd9d272525486663b21742bdeed9c3fa6d627721"
     },
     {
-      "file": "src/main/win32.ts",
-      "sha256": "5977d3e672cccc4df183d1053b09fef80adfe106f668fdcda47b1ee48ecb9e0d"
+      "file": "src/renderer/components/SettingsDialog.tsx",
+      "sha256": "874a3384d9f22da814822b337b0711d14f26f5979e6f5b770b55d94880457ca7"
     },
     {
-      "file": "src/ptyhost/index.ts",
-      "sha256": "d6a1a80ec32e6368a5bcf119be3f802b18eaed6ece707a93102e9097ac9e73f5"
+      "file": "src/renderer/main.tsx",
+      "sha256": "ebdab0f59397c3e602d16e4e1bec8ecfa9fc697a00e3dc334901f105397fc396"
     },
     {
-      "file": "src/ptyhost/protocol.test.ts",
-      "sha256": "45cd9e65f593bd428c759540bdddb6fad2739409c60b905c234598f401bf915e"
+      "file": "src/renderer/terminals.ts",
+      "sha256": "2aae1c2c2792f175960c54b62d9a65c24f19030b6ef0b3b92f7aca62792e8bff"
     },
     {
-      "file": "src/ptyhost/protocol.ts",
-      "sha256": "1bc56f2950ca5b14314a0bc1deb4de0fa965488ef4305dfd80a8a2f796c31f0e"
+      "file": "src/renderer/webgl-recovery.test.ts",
+      "sha256": "aee5a32ccfe4722a01bfdec4d1d778e5749ee0d31378918b4b6a8626eeab4d7e"
     },
     {
-      "file": "src/renderer/components/Tile.tsx",
-      "sha256": "7734b639a681d134fe470874e13070abd9ce48bf54887777f381acdacb97255a"
+      "file": "src/renderer/webgl-recovery.ts",
+      "sha256": "02db3c8190f1c234f14e77149527a065fc16d1c8c67eb79dce0ff73bd0270389"
     },
     {
       "file": "src/shared/i18n.ts",
-      "sha256": "0aaec217bf2e12a4f3095bc8c809909be677d9f6c49b04d255e3eaa733af4bab"
+      "sha256": "3855c9909c78f3aad6df7844490e5169baf35313251329bb9f4f9669242c3786"
     },
     {
       "file": "src/shared/ipc.ts",
-      "sha256": "94023aa5a6a515b608608af27350097ab40833add6c1dd90cfeae9a2186495ac"
+      "sha256": "1ff8b80474943dcf6b962a2bf621c39fab8f44f5f4ce12dd2fdbd793fd64aa01"
+    },
+    {
+      "file": "src/shared/state.ts",
+      "sha256": "6524e1dbde08c63d5c167b83ae8b9252ff1b4aea65fb262c3671a4adb10e8e38"
     }
   ],
   "checksNotYetRun": [

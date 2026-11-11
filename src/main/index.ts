@@ -6,6 +6,7 @@ import trayIcon2x from '../../resources/tray@2x.png?asset';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ReframeApp } from './app';
+import { gpu, savedGpuAcceleration } from './gpu';
 import { createLogger } from './log';
 import { startedBySystem } from './autostart';
 import { portableDataDir } from './portable';
@@ -39,6 +40,10 @@ if (!app.requestSingleInstanceLock({ build, quit: quitCommand })) {
   app.quit();
 } else {
   const log = createLogger(path.join(app.getPath('userData'), 'logs'));
+  // Before the app is ready, or Chromium has already chosen: the GPU is used only when Settings asks for it.
+  gpu.accelerated = savedGpuAcceleration(path.join(app.getPath('userData'), 'state.json'));
+  if (!gpu.accelerated) app.disableHardwareAcceleration();
+  log('info', 'hardware acceleration', { enabled: gpu.accelerated });
   // Windows shows toasts, and routes their clicks, only for an app id with a Start menu shortcut. The installer
   // creates one for dev.reframe.app; the managed launcher sets a fixed id (REFRAME_APP_ID) whose shortcut is kept
   // here; otherwise (npm run dev, portable) the executable's path is the id that works.

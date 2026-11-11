@@ -48,6 +48,7 @@ export interface SavedState {
     checkForUpdates: boolean;
     lookInWsl?: boolean;
     closeWindow: 'ask' | 'end' | 'keep';
+    gpuAcceleration?: boolean;
     claudeBin?: string;
     defaultModel?: string;
     defaultEffort?: string;

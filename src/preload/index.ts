@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'ele
 import {
   IPC,
   TERMINAL_PORT_MESSAGE,
+  GPU_ARGUMENT,
   type ForeignDropRequest,
   type ReframeApi,
   type SessionList,
@@ -34,6 +35,7 @@ const api: ReframeApi = {
   pickFolder: () => ipcRenderer.invoke(IPC.pickFolder),
   pickClaude: () => ipcRenderer.invoke(IPC.pickClaude),
   getDialogDefaults: () => ipcRenderer.invoke(IPC.dialogDefaults),
+  gpuAccelerated: process.argv.includes(`${GPU_ARGUMENT}=1`),
   setPreferences: (patch) => ipcRenderer.send(IPC.setPreferences, patch),
   setStartWithSystem: (enabled) => ipcRenderer.send(IPC.setStartWithSystem, enabled === true),
   folderExists: (path) => ipcRenderer.invoke(IPC.folderExists, path),

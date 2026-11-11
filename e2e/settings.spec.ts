@@ -190,3 +190,46 @@ test('Settings: which Claude Code runs, and what new sessions start with', async
     await cleanup(dir);
   }
 });
+
+test('Hardware acceleration is off unless chosen; the choice is saved and applies after a restart', async () => {
+  const { dir, project, env, state } = setup();
+  try {
+    let { app, page } = await launch(env);
+    const accelerated = (a: typeof app) => a.evaluate(({ app }) => app.isHardwareAccelerationEnabled());
+    expect(await accelerated(app)).toBe(false);
+    await newSession(page, project, 'alpha');
+    const tile = tileByLabel(page, 'alpha');
+    await tile.locator('.tile-body').click();
+    await page.keyboard.type('zebra crossing');
+    await page.keyboard.press('Enter');
+    // xterm's DOM renderer draws the text as rows in the page (WebGL would draw it on a canvas instead).
+    await expect(tile.locator('.xterm-rows')).toContainText('zebra crossing');
+    await expect(tile.locator('.xterm-screen canvas')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Settings' }).click();
+    const dialog = page.getByRole('dialog');
+    const box = dialog.getByRole('checkbox', { name: 'Use GPU acceleration' });
+    await expect(box).not.toBeChecked();
+    await box.check();
+    await expect.poll(() => state().preferences.gpuAcceleration).toBe(true);
+    await expect(dialog.getByText('Takes effect after restarting Reframe.', { exact: true })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    // Not before a restart.
+    expect(await accelerated(app)).toBe(false);
+    await quit(app);
+
+    ({ app, page } = await launch(env));
+    expect(await accelerated(app)).toBe(true);
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByRole('dialog').getByRole('checkbox', { name: 'Use GPU acceleration' })).toBeChecked();
+    await expect(
+      page.getByRole('dialog').getByText('Takes effect after restarting Reframe.', { exact: true }),
+    ).toHaveCount(0);
+    await quit(app);
+  } catch (error) {
+    await captureWindows('gpu');
+    throw error;
+  } finally {
+    await cleanup(dir);
+  }
+});
