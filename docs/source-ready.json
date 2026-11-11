@@ -1,84 +1,68 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "6357dcf39698a843b747ae4e84bc6a651d8274f2",
-  "scope": "0.10.1-claudegpt.14: notification clicks focus their thread (notifications held until click/close/replace; Windows toasts carry the session id and are handled by Notification.handleActivation, also from Action Center); managed build has a fixed AppUserModelID and toast activator CLSID carried by the Start menu shortcut and Reframe.lnk; deploy adds Reframe.lnk and removes a stray release-pointing reframe.lnk; terminals: Shift+Enter newline (ESC CR), Enter copies a selection, copy notice and fullscreen select hint; WebGL context-loss recovery and GPU-process-gone redraw",
+  "sourceBase": "4c4d3be7bfec6a0b7bf156f8f7d14a5ad305e423",
+  "scope": "0.10.1-claudegpt.15: new 'Look for Claude Code in WSL' preference (default off, also for older state files); when off the session list watcher, scanOutside, claudeSources and terminal takeover discovery make no wsl.exe calls and list no WSL sources or stopped distributions, while opening/resuming a \\wsl$ session still asks its distribution on demand; when on, a running distribution without claude is probed once until seen not running (was every 30 s); toggling on scans at once, off drops WSL sources",
   "inputHashes": [
     {
-      "file": "docs/releases/v0.10.1-claudegpt.14.md",
-      "sha256": "87ae6dbabde949592e7e61aebff90de252a4b97b7b64b33cbbaf088cc3de6d0e"
+      "file": "docs/releases/v0.10.1-claudegpt.15.md",
+      "sha256": "14545f0cc8c20213a1b049cf90ed9e14fc8374f1615a1fe314ad501d91deec97"
     },
     {
-      "file": "maintenance/windows/deploy-managed.ps1",
-      "sha256": "7faa306611069eed5426e0b71d868bd800109ef5df1882c71312acf1355bb542"
+      "file": "e2e/helpers.ts",
+      "sha256": "bbdc9950ab84d47959e61601664e9c95bcd407f6bc2188220b5d88f5901e19cc"
     },
     {
-      "file": "maintenance/windows/start-managed.ps1",
-      "sha256": "f7b5cdc942c5152b2aa184879325643c04c46b58cc4affbdffc1a53081987c38"
+      "file": "e2e/real-wsl.spec.ts",
+      "sha256": "ab85aea3a5bc287e7a135df2392f00c30f4e127d50dec68354b908c36901b9cc"
+    },
+    {
+      "file": "e2e/wsl.spec.ts",
+      "sha256": "55235f63ff9ff7a9811794b143399f9c78fb11ed63ffc7761d4786403d6c3f41"
     },
     {
       "file": "package-lock.json",
-      "sha256": "50e26c3ef0e64e2ce094e3a8ae34c287747e8366e44f6b5c5b996c448afdbfb1"
+      "sha256": "ab56dd6a8ede85b9caa1eb8be21d9b86cd1314c3e3002b48d4eb41ea9332dec4"
     },
     {
       "file": "package.json",
-      "sha256": "7dfadc3bf8a551a1ddbaea6424e3356131c6501fa511d969bd01d5175552cdb8"
+      "sha256": "a88c7810e99038303f50210c73305f7160fdc5fd7819dc631410253667badd68"
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "3c13fcbb075c3c10e0f06f8c71bc41f5b7c4f6b3b19d9e0dd48b348a3fec6ac8"
+      "sha256": "cfffb2b6a435bce1064d53dfaae441b788467ae63d2ee01ef01816eccb424bb7"
     },
     {
-      "file": "src/main/index.ts",
-      "sha256": "96a5ff1f9febd1f00062f04d9080e0bfecde18a92ed3722da2dc0387c399d47e"
+      "file": "src/main/state/store.test.ts",
+      "sha256": "8b37614ab0381dea74d0b7d7075af68316b74d64d13b6d899979a599acc68e2a"
     },
     {
-      "file": "src/main/toast.test.ts",
-      "sha256": "aa7fcf39825d6ee7d6f921a9d2c09b9f643bf64c9379ef2651dc352d35ddb2c2"
+      "file": "src/main/wsl/distros.test.ts",
+      "sha256": "e87c94c9ddd787a574ddeb4419c6fc8552051d7ce36b2283700b5ae2484c3b37"
     },
     {
-      "file": "src/main/toast.ts",
-      "sha256": "ef1bb96b37a16e9e8396bfcdb226a3c743ecca567a43f69ed59ce0b54ef79732"
-    },
-    {
-      "file": "src/preload/index.ts",
-      "sha256": "a59d0d7176612f5d856e7274afbd5ee45eb1c37f6acd07df937441f1ed848f83"
+      "file": "src/main/wsl/distros.ts",
+      "sha256": "891a67d2a4910b0cb449f8e9abde1e94ceb70d564e279e081a8c04eff12a74a8"
     },
     {
       "file": "src/renderer/App.tsx",
-      "sha256": "0662c81f479f0640542eadfb12f2eba4c04036388914f5ab4f399a2c0970cb60"
+      "sha256": "163efd5eec9c2400ac99db5406dc0ce44f5f24a34f4f55307a5572f2aa9a8ca3"
     },
     {
-      "file": "src/renderer/styles.css",
-      "sha256": "39330e0bbbc1a34117afb83103a2c4911c92ba3b907a9aaabc82734f0ca0e8d5"
-    },
-    {
-      "file": "src/renderer/terminal-keys.test.ts",
-      "sha256": "ba5d1e4b2cb8562975b3e66f2dce736ffde2e2c4c17ae67a1a01ca3942d49b25"
-    },
-    {
-      "file": "src/renderer/terminal-keys.ts",
-      "sha256": "d11a21582356767922f3bc2320ff6d2c2e0e8af23a4a00a822797d3f755873c8"
-    },
-    {
-      "file": "src/renderer/terminals.ts",
-      "sha256": "7ed60f2a0f23158f844235c6f1c59f4715c85f83069e062fed7a15a2d0908e9e"
-    },
-    {
-      "file": "src/renderer/webgl-recovery.test.ts",
-      "sha256": "6d035cf4981bd9cb4797d7193a4eddde522fd2ec168ce7d48f03271351a34b2b"
-    },
-    {
-      "file": "src/renderer/webgl-recovery.ts",
-      "sha256": "53c7dc24338be449d41ed850857676feacb09e262da9b5c27e91cdaba45ef9a1"
+      "file": "src/renderer/components/SettingsDialog.tsx",
+      "sha256": "287f5510fdf4662149fb69b420e68db10162c09b4fae8c840b4b746e8f9b10b0"
     },
     {
       "file": "src/shared/i18n.ts",
-      "sha256": "b4b1754e4aae864eddb5782aa2177f9426ab9fd8886b60af5489f9e1e49e87f3"
+      "sha256": "f172d62ed7c8c671f002711bde816f2e7f3bbe308ee3bf428b5ea293400f9a5f"
     },
     {
       "file": "src/shared/ipc.ts",
-      "sha256": "e70087a649eb7a1e3bacd6f0dd7fa8534d959fdda63308af7fb735f0e5d6eab4"
+      "sha256": "f3d50d3cb3e32e8f596982572585d5f4684d8c964c5f7a9e520fe27f143ab33d"
+    },
+    {
+      "file": "src/shared/state.ts",
+      "sha256": "29c4ec5b296d966e451b73fc73521693e81bbbfe4f439cc40db8cdf0c23b01a1"
     }
   ],
   "checksNotYetRun": [

@@ -165,12 +165,18 @@ type Events = {
  */
 export const SHARE_TIMEOUT_MS = 3_000;
 
-/** How long a distribution without claude is taken at its word before it is asked again. */
-const NO_CLAUDE_MS = 30_000;
 /** How long the list of running distributions holds (the session list asks every few seconds). */
 const RUNNING_MS = 3_000;
 /** How long a claude whose terminal could not be told is left alone before it is asked again. */
 const NO_TERMINAL_MS = 5_000;
+
+/**
+ * The running distributions to look in for Claude Code in the background (the session list): none, without asking
+ * wsl.exe at all, unless that is turned on in Settings. Asking keeps WSL from stopping when it is idle.
+ */
+export function discoverable(wsl: WslDistros | null, enabled: boolean, maxAgeMs?: number): Promise<string[]> {
+  return wsl && enabled ? wsl.running(maxAgeMs) : Promise.resolve([]);
+}
 
 export class WslDistros extends EventEmitter<Events> {
   readonly command = wslCommand();
@@ -185,7 +191,10 @@ export class WslDistros extends EventEmitter<Events> {
     super();
   }
 
-  /** What it takes to run claude in `distro`; starts the distribution. Asked again a while later when it has none. */
+  /**
+   * What it takes to run claude in `distro`; starts the distribution. One without claude is taken at its word until
+   * it is seen not running (asking it again every look kept WSL from ever stopping).
+   */
   info(distro: string): Promise<WslInfo | null> {
     const key = distro.toLowerCase();
     let pending = this.infos.get(key);
@@ -196,8 +205,6 @@ export class WslDistros extends EventEmitter<Events> {
         if (info?.claude) {
           this.known.set(key, info);
           this.emit('found', distro);
-        } else {
-          setTimeout(() => this.infos.delete(key), NO_CLAUDE_MS).unref();
         }
       });
     }
@@ -222,7 +229,13 @@ export class WslDistros extends EventEmitter<Events> {
     if (!this.runningNow || Date.now() - this.runningNow.at > maxAgeMs) {
       const names = this.run(['-l', '--running', '-q'], 10_000)
         .then(parseDistroList, () => [])
-        .then((list) => list.filter((name) => !/^docker-desktop/i.test(name)));
+        .then((list) => list.filter((name) => !/^docker-desktop/i.test(name)))
+        .then((list) => {
+          // A distribution that stopped is asked again when it runs again (claude may have been installed since).
+          const now = new Set(list.map((name) => name.toLowerCase()));
+          for (const key of this.infos.keys()) if (!now.has(key) && !this.known.has(key)) this.infos.delete(key);
+          return list;
+        });
       this.runningNow = { at: Date.now(), names };
     }
     return this.runningNow.names;

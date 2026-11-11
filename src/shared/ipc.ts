@@ -49,6 +49,8 @@ export interface WindowView {
   snapToGrid: boolean;
   /** Update checks are on (a preference); null where this copy does not check (macOS, a deb, development). */
   checkForUpdates: boolean | null;
+  /** The session list looks for Claude Code in WSL (a preference); null where there is no WSL. */
+  lookInWsl: boolean | null;
   /** What closing a window with sessions does (a preference). */
   closeWindow: CloseWindow;
   /** The claude chosen in Settings (null: the one on the PATH), and what new sessions start with (preferences). */

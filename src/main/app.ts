@@ -128,7 +128,7 @@ import { Updates } from './updates';
 import { autostartEnabled, setAutostart } from './autostart';
 import { win32 } from './win32';
 import { WindowManager } from './windows';
-import { SHARE_TIMEOUT_MS, WslDistros } from './wsl/distros';
+import { discoverable, SHARE_TIMEOUT_MS, WslDistros } from './wsl/distros';
 import { settle, withTimeout } from './wait';
 import { cleanUp, dropsDir } from './cleanup';
 import { History, type PreparedHistory, type RetireJob } from './history';
@@ -564,6 +564,7 @@ export class ReframeApp {
       fontSize: this.state.preferences.fontSize,
       sidebarWidth: clampSidebarWidth(this.state.preferences.sidebarWidth ?? SIDEBAR_WIDTH.normal),
       snapToGrid: this.state.preferences.snapToGrid,
+      lookInWsl: this.wsl ? this.state.preferences.lookInWsl : null,
       checkForUpdates: this.updates.checks ? this.state.preferences.checkForUpdates : null,
       closeWindow: this.state.preferences.closeWindow,
       claudeBin: this.state.preferences.claudeBin ?? null,
@@ -1825,9 +1826,8 @@ export class ReframeApp {
    */
   private async claudeSources(maxAgeMs?: number): Promise<{ sources: ClaudeSource[]; stopped: string[] }> {
     const windows = this.ownSource();
-    const wsl = this.wsl;
-    if (!wsl) return { sources: [windows], stopped: [] };
-    const running = await wsl.running(maxAgeMs);
+    if (!this.wsl || !this.state.preferences.lookInWsl) return { sources: [windows], stopped: [] };
+    const running = await discoverable(this.wsl, this.state.preferences.lookInWsl, maxAgeMs);
     const inWsl = await Promise.all(running.map((distro) => this.wslSource(distro)));
     const stopped = (this.state.wslDistros ?? []).filter(
       (d) => !running.some((r) => r.toLowerCase() === d.toLowerCase()),
@@ -1941,9 +1941,11 @@ export class ReframeApp {
       .then(async () => {
         const own = this.ownSource();
         const here = { source: own, running: await this.externalRunning(own) };
-        let inWsl = this.outside?.sources.slice(1) ?? [];
-        let stopped = this.outside?.stopped ?? [];
-        if (this.wsl && wslMaxAgeMs !== null && Date.now() - this.wslLookedAt >= wslMaxAgeMs) {
+        // Turned off in Settings: nothing is asked of WSL and nothing from it is listed.
+        const lookInWsl = !!this.wsl && this.state.preferences.lookInWsl;
+        let inWsl = lookInWsl ? (this.outside?.sources.slice(1) ?? []) : [];
+        let stopped = lookInWsl ? (this.outside?.stopped ?? []) : [];
+        if (lookInWsl && wslMaxAgeMs !== null && Date.now() - this.wslLookedAt >= wslMaxAgeMs) {
           this.wslLookedAt = Date.now();
           const found = await this.claudeSources(wslMaxAgeMs);
           inWsl = await Promise.all(
@@ -2003,7 +2005,7 @@ export class ReframeApp {
       .filter((entry) => entry.cwd)
       .map((entry): OutsideClaude => ({ entry, consolePid: entry.pid }));
     const wsl = this.wsl;
-    if (!wsl) return here;
+    if (!wsl || !this.state.preferences.lookInWsl) return here;
     const { sources } = await this.claudeSources();
     const inWsl = await Promise.all(
       sources
@@ -2874,6 +2876,7 @@ export class ReframeApp {
       if (typeof patch.sidebarWidth === 'number') next.sidebarWidth = clampSidebarWidth(patch.sidebarWidth);
       if (typeof patch.snapToGrid === 'boolean') next.snapToGrid = patch.snapToGrid;
       if (typeof patch.checkForUpdates === 'boolean') next.checkForUpdates = patch.checkForUpdates;
+      if (typeof patch.lookInWsl === 'boolean') next.lookInWsl = patch.lookInWsl;
       if (CLOSE_WINDOW.includes(patch.closeWindow as CloseWindow)) next.closeWindow = patch.closeWindow as CloseWindow;
       if (typeof patch.claudeBin === 'string') next.claudeBin = patch.claudeBin.trim().slice(0, 1024) || undefined;
       if (typeof patch.defaultModel === 'string')
@@ -2896,6 +2899,7 @@ export class ReframeApp {
         next.sidebarWidth !== was.sidebarWidth ||
         next.snapToGrid !== was.snapToGrid ||
         next.checkForUpdates !== was.checkForUpdates ||
+        next.lookInWsl !== was.lookInWsl ||
         next.closeWindow !== was.closeWindow ||
         next.claudeBin !== was.claudeBin ||
         next.defaultModel !== was.defaultModel ||
@@ -2910,6 +2914,11 @@ export class ReframeApp {
         this.refreshTray();
       }
       if (relabel || shown) for (const w of this.state.windows) this.push(w.id);
+      if (next.lookInWsl !== was.lookInWsl) {
+        // On: looked in now; off: what was found there leaves the list.
+        this.log('info', 'looking for Claude Code in WSL', { on: next.lookInWsl });
+        void this.scanOutside(next.lookInWsl ? 0 : null).then(() => this.listChanged());
+      }
     });
     on(IPC.setStartWithSystem, (_id, _event, enabled: unknown) => {
       if (typeof enabled === 'boolean') this.setStartWithSystem(enabled);

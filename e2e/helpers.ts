@@ -46,6 +46,7 @@ export interface SavedState {
     fontSize: number;
     snapToGrid: boolean;
     checkForUpdates: boolean;
+    lookInWsl?: boolean;
     closeWindow: 'ask' | 'end' | 'keep';
     claudeBin?: string;
     defaultModel?: string;

@@ -24,6 +24,7 @@ export function SettingsDialog({
   closeWindow,
   startWithSystem,
   checkForUpdates,
+  lookInWsl,
   claudeBin,
   defaultModel,
   defaultEffort,
@@ -38,6 +39,7 @@ export function SettingsDialog({
   closeWindow: CloseWindow;
   startWithSystem: boolean;
   checkForUpdates: boolean | null;
+  lookInWsl: boolean | null;
   claudeBin: string | null;
   defaultModel: string | null;
   defaultEffort: EffortLevel | null;
@@ -248,6 +250,21 @@ export function SettingsDialog({
           </select>
         </label>
         <p className="setting-hint">{t('settings.launchHint')}</p>
+
+        {lookInWsl !== null && (
+          <>
+            <label className="checkbox">
+              <input
+                key={String(lookInWsl)}
+                type="checkbox"
+                defaultChecked={lookInWsl}
+                onChange={(e) => set({ lookInWsl: e.target.checked })}
+              />
+              {t('settings.lookInWsl')}
+            </label>
+            <p className="setting-hint">{t('settings.lookInWslHint')}</p>
+          </>
+        )}
 
         {checkForUpdates !== null && (
           <>

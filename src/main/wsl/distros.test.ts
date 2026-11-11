@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   decodeWslOutput,
+  discoverable,
   interopOf,
   isShellCommand,
   looksLikeClaude,
@@ -122,6 +123,69 @@ describe('what a terminal tab in WSL holds', () => {
       '-e',
       'process.stdout.write(String(process.ppid))',
     ]);
+  });
+});
+
+/** A WslDistros whose wsl.exe answers `-l --running` with `running` and whose probes find claude in `withClaude`. */
+function fakeWsl(running: string[], withClaude: string[] = []) {
+  const wsl = new WslDistros(() => {});
+  const internals = wsl as unknown as {
+    run: (args: string[]) => Promise<string>;
+    probe: (distro: string) => Promise<unknown>;
+  };
+  const run = vi.spyOn(internals, 'run').mockImplementation(async () => running.join('\r\n'));
+  const probe = vi
+    .spyOn(internals, 'probe')
+    .mockImplementation(async (distro) => (withClaude.includes(distro) ? { claude: '/usr/bin/claude' } : null));
+  return { wsl, run, probe, setRunning: (names: string[]) => (running = names) };
+}
+
+describe('looking for Claude Code in WSL in the background', () => {
+  it('asks wsl.exe nothing while it is turned off', async () => {
+    const { wsl, run, probe } = fakeWsl(['Ubuntu']);
+    expect(await discoverable(wsl, false, 0)).toEqual([]);
+    expect(await discoverable(null, true, 0)).toEqual([]);
+    expect(run).not.toHaveBeenCalled();
+    expect(probe).not.toHaveBeenCalled();
+  });
+
+  it('lists the running distributions when turned on', async () => {
+    const { wsl, run } = fakeWsl(['Ubuntu', 'docker-desktop']);
+    expect(await discoverable(wsl, true, -1)).toEqual(['Ubuntu']);
+    expect(run).toHaveBeenCalledWith(['-l', '--running', '-q'], 10_000);
+  });
+
+  it('asks a distribution without claude once while it runs, and again after it stopped', async () => {
+    vi.useFakeTimers();
+    try {
+      const { wsl, probe, setRunning } = fakeWsl(['Ubuntu']);
+      await wsl.running(-1);
+      expect(await wsl.info('Ubuntu')).toBeNull();
+      // Long past the 30 s it used to be asked again after.
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      await wsl.running(-1);
+      expect(await wsl.info('ubuntu')).toBeNull();
+      expect(probe).toHaveBeenCalledTimes(1);
+
+      setRunning([]);
+      await wsl.running(-1);
+      setRunning(['Ubuntu']);
+      await wsl.running(-1);
+      await wsl.info('Ubuntu');
+      expect(probe).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps what it knows about a distribution with claude when it stops', async () => {
+    const { wsl, probe, setRunning } = fakeWsl(['Fake'], ['Fake']);
+    expect((await wsl.info('Fake'))?.claude).toBeTruthy();
+    setRunning([]);
+    await wsl.running(-1);
+    await wsl.info('Fake');
+    expect(probe).toHaveBeenCalledTimes(1);
+    expect(wsl.cached('Fake')).toBeTruthy();
   });
 });
 

@@ -148,6 +148,8 @@ export const preferencesSchema = z.object({
   snapToGrid: z.boolean().default(true),
   /** Asks GitHub for a newer version now and then (where this copy updates at all). */
   checkForUpdates: z.boolean().default(true),
+  /** The session list looks for Claude Code in running WSL distributions too (asking them keeps WSL running). */
+  lookInWsl: z.boolean().default(false),
   closeWindow: z.enum(CLOSE_WINDOW).default('ask'),
   /** The claude to run, chosen in Settings; without one, the one on the PATH. */
   claudeBin: z.string().optional(),
@@ -167,6 +169,7 @@ export const DEFAULT_PREFERENCES: z.infer<typeof preferencesSchema> = {
   fontSize: FONT_SIZE.normal,
   snapToGrid: true,
   checkForUpdates: true,
+  lookInWsl: false,
   closeWindow: 'ask',
 };
 

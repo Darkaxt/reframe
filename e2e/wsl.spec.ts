@@ -141,7 +141,7 @@ test('the session list: WSL sessions, taking over one, starting a distribution',
         sessions: {},
         windows: [],
         recentFolders: [],
-        preferences: { nameFromFolder: true, language: 'en', fontSize: 13 },
+        preferences: { nameFromFolder: true, language: 'en', fontSize: 13, lookInWsl: true },
         wslDistros: ['Stopped'],
       }),
     );
