@@ -2,11 +2,11 @@
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
   "sourceBase": "4c4d3be7bfec6a0b7bf156f8f7d14a5ad305e423",
-  "scope": "0.10.1-claudegpt.15: new 'Look for Claude Code in WSL' preference (default off, also for older state files); when off the session list watcher, scanOutside, claudeSources and terminal takeover discovery make no wsl.exe calls and list no WSL sources or stopped distributions, while opening/resuming a \\wsl$ session still asks its distribution on demand; when on, a running distribution without claude is probed once until seen not running (was every 30 s); toggling on scans at once, off drops WSL sources",
+  "scope": "0.10.1-claudegpt.15: new 'Look for Claude Code in WSL' preference (default off, also for older state files); when off the session list watcher, scanOutside, and claudeSources make no wsl.exe calls and list no WSL sources or stopped distributions, while opening/resuming a \\wsl$ session still asks its distribution on demand; when on, a running distribution without claude is probed once until seen not running (was every 30 s); toggling on scans at once, off drops WSL sources; dragging a WSL terminal window onto reframe still asks WSL on demand",
   "inputHashes": [
     {
       "file": "docs/releases/v0.10.1-claudegpt.15.md",
-      "sha256": "14545f0cc8c20213a1b049cf90ed9e14fc8374f1615a1fe314ad501d91deec97"
+      "sha256": "e18868d8faf0f72c1aee6698c8ee78adb0f5f096d26260a45111cede6ba6e695"
     },
     {
       "file": "e2e/helpers.ts",
@@ -30,7 +30,7 @@
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "cfffb2b6a435bce1064d53dfaae441b788467ae63d2ee01ef01816eccb424bb7"
+      "sha256": "b036e5a63377d9175249a4ca7b737c77af8528f730045a3e4ff0073f8ea8f2aa"
     },
     {
       "file": "src/main/state/store.test.ts",

@@ -1824,10 +1824,15 @@ export class ReframeApp {
    * Where Claude Code keeps sessions and transcripts: on Windows, and in each running WSL distribution that has it
    * (a stopped one is not started for this; `stopped` names those Claude Code was found in before).
    */
-  private async claudeSources(maxAgeMs?: number): Promise<{ sources: ClaudeSource[]; stopped: string[] }> {
+  private async claudeSources(
+    maxAgeMs?: number,
+    asked = false,
+  ): Promise<{ sources: ClaudeSource[]; stopped: string[] }> {
+    // In the background WSL is asked only when that is turned on in Settings; `asked`: for something the user did.
+    const lookInWsl = asked || this.state.preferences.lookInWsl;
     const windows = this.ownSource();
-    if (!this.wsl || !this.state.preferences.lookInWsl) return { sources: [windows], stopped: [] };
-    const running = await discoverable(this.wsl, this.state.preferences.lookInWsl, maxAgeMs);
+    if (!this.wsl || !lookInWsl) return { sources: [windows], stopped: [] };
+    const running = await discoverable(this.wsl, lookInWsl, maxAgeMs);
     const inWsl = await Promise.all(running.map((distro) => this.wslSource(distro)));
     const stopped = (this.state.wslDistros ?? []).filter(
       (d) => !running.some((r) => r.toLowerCase() === d.toLowerCase()),
@@ -2005,8 +2010,9 @@ export class ReframeApp {
       .filter((entry) => entry.cwd)
       .map((entry): OutsideClaude => ({ entry, consolePid: entry.pid }));
     const wsl = this.wsl;
-    if (!wsl || !this.state.preferences.lookInWsl) return here;
-    const { sources } = await this.claudeSources();
+    if (!wsl) return here;
+    // Asked for a terminal window that appeared or is dragged over reframe (a handover), not in the background.
+    const { sources } = await this.claudeSources(undefined, true);
     const inWsl = await Promise.all(
       sources
         .filter((source) => source.distro)
