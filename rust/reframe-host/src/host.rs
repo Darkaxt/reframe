@@ -18,12 +18,13 @@ use crate::protocol::{
 use crate::services::{self, Services};
 use crate::transcripts::{self, SvcError, Transcripts, WatchEvent};
 use reframe_sessions::registry::Entry;
-use reframe_sessions::{update_json, Lookup, Tracker, Update};
+use reframe_sessions::{filetime_ms, has_tool_shells, update_json, Lookup, Tracker, Update, BACKGROUND_RECHECK_MS};
 use reframe_transcripts::Changes;
 
 /// The session status service (docs/ptyhost-protocol.md, "Services").
 const SESSIONS: &str = "sessions";
-const SESSIONS_VERSION: u32 = 1;
+/// Version 2 (0.10.1-claudegpt.28): `background` in a status (idle, with background work still running).
+const SESSIONS_VERSION: u32 = 2;
 /// Read-only clients beside the primary (docs/ptyhost-protocol.md, "Observers").
 const OBSERVER: &str = "observer";
 pub const OBSERVER_VERSION: u32 = 1;
@@ -41,6 +42,30 @@ fn now_ms() -> f64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0.0, |d| d.as_millis() as f64)
+}
+
+/// Whether claude (process `pid`) has tool shells running (reframe_sessions::has_tool_shells): one toolhelp
+/// snapshot of the system's processes and the creation time of claude's children, a few milliseconds.
+fn tool_shells(pid: u32) -> bool {
+    let parent = reframe_conpty::process_start(pid)
+        .and_then(|s| s.parse().ok())
+        .map(filetime_ms);
+    let children = reframe_conpty::child_processes(pid);
+    has_tool_shells(
+        children.iter().map(|c| (c.exe.as_str(), c.start.map(filetime_ms))),
+        parent,
+        now_ms(),
+    )
+}
+
+/// How often sessions idle with background work are looked at again: REFRAME_PTYHOST_BACKGROUND_MS (for tests),
+/// else BACKGROUND_RECHECK_MS.
+fn background_recheck() -> Duration {
+    let ms = std::env::var("REFRAME_PTYHOST_BACKGROUND_MS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(BACKGROUND_RECHECK_MS);
+    Duration::from_millis(ms)
 }
 
 /// Without a reframe and a running session for this long, the host goes.
@@ -198,6 +223,9 @@ pub struct Host {
     flush_scheduled: bool,
     /// Bumped by every change of a session's status data (`sessions`): one counter for every session.
     status_revision: u64,
+    /// When sessions idle with background work were last looked at, and how often that is done.
+    background_checked: Instant,
+    background_every: Duration,
 }
 
 impl Host {
@@ -218,6 +246,8 @@ impl Host {
             changes: Vec::new(),
             flush_scheduled: false,
             status_revision: 0,
+            background_checked: Instant::now(),
+            background_every: background_recheck(),
         }
     }
 
@@ -881,7 +911,11 @@ impl Host {
                 if let Some(id) = claude_id {
                     s.hook_claude_id = Some(id.to_string());
                 }
-                Some((s.serial, s.tracker.as_mut()?.hook(&message.event, &message.payload)?))
+                let tracker = s.tracker.as_mut()?;
+                Some((
+                    s.serial,
+                    tracker.hook_with(&message.event, &message.payload, tool_shells)?,
+                ))
             });
         if let Some((serial, update)) = tracked {
             self.status_changed(serial, update);
@@ -960,8 +994,32 @@ impl Host {
         }
     }
 
+    /// Looks again at the sessions idle with background work (only those): one whose tool shells are all gone is
+    /// done.
+    fn recheck_background(&mut self, now: Instant) {
+        if now.duration_since(self.background_checked) < self.background_every {
+            return;
+        }
+        self.background_checked = now;
+        let mut updates = Vec::new();
+        for session in &mut self.sessions {
+            let Some(tracker) = session.tracker.as_mut() else {
+                continue;
+            };
+            if let Some(pid) = tracker.background_pid() {
+                if let Some(update) = tracker.recheck(tool_shells(pid)) {
+                    updates.push((session.serial, update));
+                }
+            }
+        }
+        for (serial, update) in updates {
+            self.status_changed(serial, update);
+        }
+    }
+
     pub fn tick(&mut self, now: Instant) -> Flow {
         self.read_registries();
+        self.recheck_background(now);
         let running = self.sessions.iter().any(|s| s.running().is_some());
         if self.client.is_some() || running {
             self.idle_since = now;

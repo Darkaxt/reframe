@@ -16,7 +16,7 @@ export const SERVICES: Required<HostServices> = {
   quota: 1,
   clients: 1,
   launch: 1,
-  sessions: 1,
+  sessions: 2,
   state: 1,
   observer: 1,
 };

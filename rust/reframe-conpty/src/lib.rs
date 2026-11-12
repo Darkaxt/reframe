@@ -24,6 +24,9 @@ use windows_sys::Win32::System::Console::{
     ClosePseudoConsole, CreatePseudoConsole, GetStdHandle, ResizePseudoConsole, SetStdHandle, COORD, HPCON,
     STD_OUTPUT_HANDLE,
 };
+use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+};
 use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryExW, LOAD_WITH_ALTERED_SEARCH_PATH};
 use windows_sys::Win32::System::Pipes::CreatePipe;
 use windows_sys::Win32::System::Threading::{
@@ -404,6 +407,55 @@ pub fn process_start(pid: u32) -> Option<String> {
         return None;
     }
     Some(((u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime)).to_string())
+}
+
+/// A direct child of a process, as a toolhelp snapshot lists it.
+#[derive(Clone, Debug)]
+pub struct ChildProcess {
+    pub pid: u32,
+    /// Its executable's file name, e.g. "bash.exe".
+    pub exe: String,
+    /// Its creation time (FILETIME, 100 ns since 1601), if it could be opened.
+    pub start: Option<u64>,
+}
+
+/// The direct children of process `pid`: one toolhelp snapshot of the system's processes (a few milliseconds),
+/// and each child's creation time. A child whose parent id was reused by another process may be listed too; the
+/// caller tells them apart by their start (a child cannot have started before its parent).
+pub fn child_processes(pid: u32) -> Vec<ChildProcess> {
+    // SAFETY: no preconditions; an INVALID_HANDLE_VALUE result is an error.
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+    if snapshot == INVALID_HANDLE_VALUE || snapshot.is_null() {
+        return Vec::new();
+    }
+    let mut children = Vec::new();
+    // SAFETY: PROCESSENTRY32W is plain data; all zeroes is a valid value.
+    let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
+    entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+    // SAFETY: the snapshot is open; `entry` is a valid out pointer with its dwSize set.
+    let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
+    while more {
+        if entry.th32ParentProcessID == pid && entry.th32ProcessID != pid {
+            let len = entry
+                .szExeFile
+                .iter()
+                .position(|&c| c == 0)
+                .unwrap_or(entry.szExeFile.len());
+            children.push(ChildProcess {
+                pid: entry.th32ProcessID,
+                exe: String::from_utf16_lossy(&entry.szExeFile[..len]),
+                start: None,
+            });
+        }
+        // SAFETY: as for Process32FirstW.
+        more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
+    }
+    // SAFETY: the snapshot was opened above and is closed once, here.
+    unsafe { CloseHandle(snapshot) };
+    for child in &mut children {
+        child.start = process_start(child.pid).and_then(|s| s.parse().ok());
+    }
+    children
 }
 
 /// Closes this process's standard output (its reader sees the end while the process goes on). For test stand-ins.

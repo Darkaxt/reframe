@@ -14,6 +14,7 @@ import {
   type RegistryEntry,
 } from '../main/claude/registry';
 import { processStart } from '../main/process';
+import { backgroundRecheckMs, toolShells } from '../main/claude/tool-shells';
 import { looksLikeClaude } from '../main/wsl/distros';
 import type { SessionMeta } from './protocol';
 
@@ -31,6 +32,11 @@ export interface SessionStatusData {
   claudeSessionId?: string;
   /** The host's status revision when this changed (since .25): higher than any before, one counter for every session. */
   revision: number;
+  /**
+   * Idle, with background work (tool shells) still running in claude (since `sessions` version 2, .28): `done` is
+   * announced once they are gone. Absent otherwise; an older reframe sees plain idle.
+   */
+  background?: true;
 }
 
 /** `sessions.list`: every followed session, and the revision of the newest change in it. */
@@ -76,9 +82,16 @@ interface Tracked {
   claudeSessionId?: string;
   /** The revision of its last change. */
   revision: number;
+  /** Idle after a Stop while claude had tool shells running (see SessionStatusData.background). */
+  background: boolean;
 }
 
 const POLL_MS = 1000;
+
+/** Claude's own Windows process, whose children are its tool shells: none in WSL, or before a launched one's entry was found. */
+function claudePid(t: Tracked): number | undefined {
+  return t.lookup.kind === 'direct' ? t.pid : t.lookup.kind === 'launched' ? t.found : undefined;
+}
 const same = (a: RegistryEntry | undefined, b: RegistryEntry) => JSON.stringify(a) === JSON.stringify(b);
 
 function start(pid: number): string | null {
@@ -94,11 +107,17 @@ export class SessionStatusService {
   /** Bumped by every change of any session's status data (docs/ptyhost-protocol.md, "sessions"). */
   private revision = 0;
   private poller: NodeJS.Timeout;
+  private backgroundCheckedAt = Date.now();
+  private backgroundEvery = backgroundRecheckMs();
 
-  /** `emit`: a status for the attached reframe; `attached`: whether one is. */
+  /**
+   * `emit`: a status for the attached reframe; `attached`: whether one is; `shells`: whether claude (that process id)
+   * has tool shells running.
+   */
   constructor(
     private emit: (data: SessionStatusData) => void,
     private attached: () => boolean,
+    private shells: (pid: number) => boolean = toolShells,
   ) {
     this.poller = setInterval(() => this.poll(), POLL_MS);
     this.poller.unref();
@@ -119,6 +138,7 @@ export class SessionStatusService {
       reading: false,
       claudeSessionId: lookup.kind === 'direct' ? undefined : lookup.claudeSessionId,
       revision: ++this.revision,
+      background: false,
     });
   }
 
@@ -131,6 +151,7 @@ export class SessionStatusService {
     const t = this.tracked.get(sessionId);
     if (!t || t.instance !== instance || t.status === 'ended') return;
     t.status = 'ended';
+    t.background = false;
     this.tell(t);
   }
 
@@ -165,7 +186,10 @@ export class SessionStatusService {
     }
     if (event === 'Stop') {
       this.set(t, 'idle');
-      this.tell(t, 'done');
+      // Background work (a shell or a monitor left running) can start a turn of its own: not done yet.
+      const pid = claudePid(t);
+      t.background = pid !== undefined && this.shells(pid);
+      this.tell(t, t.background ? undefined : 'done');
       told = true;
     }
     // idle_prompt repeats "waiting for input" a minute after Stop; that was already announced.
@@ -186,6 +210,7 @@ export class SessionStatusService {
       ...(notify ? { notify } : {}),
       ...(t.claudeSessionId ? { claudeSessionId: t.claudeSessionId } : {}),
       revision: t.revision,
+      ...(t.background ? { background: true as const } : {}),
     };
   }
 
@@ -196,13 +221,29 @@ export class SessionStatusService {
     this.emit(this.data(t, notify));
   }
 
+  /** Any status but idle ends background work's wait (a new turn, a question). */
   private set(t: Tracked, status: HostStatus): boolean {
-    if (t.status === status) return false;
+    const ended = t.background && status !== 'idle';
+    if (ended) t.background = false;
+    if (t.status === status) return ended;
     t.status = status;
     return true;
   }
 
+  /** Looks again at the sessions idle with background work (only those): one with no tool shell left is done. */
+  private recheck(): void {
+    if (Date.now() - this.backgroundCheckedAt < this.backgroundEvery) return;
+    this.backgroundCheckedAt = Date.now();
+    for (const t of this.tracked.values()) {
+      const pid = claudePid(t);
+      if (!t.background || t.status !== 'idle' || pid === undefined || this.shells(pid)) continue;
+      t.background = false;
+      this.tell(t, 'done');
+    }
+  }
+
   private poll(): void {
+    this.recheck();
     for (const t of this.tracked.values()) {
       if (t.reading || t.status === 'ended') continue;
       t.reading = true;

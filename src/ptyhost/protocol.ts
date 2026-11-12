@@ -64,7 +64,7 @@ export interface HostServices {
   clients?: number;
   /** A direct start's reframe-config.json, verified by hash. */
   launch?: number;
-  /** Each session's status from its hooks and registry entry (src/ptyhost/sessions.ts). */
+  /** Each session's status from its hooks and registry entry (src/ptyhost/sessions.ts); 2 (.28): `background`. */
   sessions?: number;
   /** Reframe's state.json, read and written with revisions (src/main/state/files.ts). */
   state?: number;

@@ -17,6 +17,7 @@ import type { SessionRecord } from '@shared/state';
 import { parseWslPath, wslWindowsPath, type WslPath } from '@shared/wsl';
 import { claudeArgs, type LaunchMode } from './claude/args';
 import { claudeEnv } from './claude/env';
+import { backgroundRecheckMs, toolShells } from './claude/tool-shells';
 import { providerEnv, providerSettings, type Provider } from '@shared/providers';
 import {
   findRegistryEntry,
@@ -94,6 +95,8 @@ interface HostStatus {
   status: SessionStatus;
   registry?: RegistryEntry;
   notify?: NotifyKind;
+  /** Idle with background work (hosts with `sessions` version 2). */
+  background?: boolean;
 }
 
 export interface SessionManagerDeps {
@@ -109,6 +112,8 @@ export interface SessionManagerDeps {
   wsl?: WslLauncher;
   /** Whether an Anthropic session's status line input may be captured (for its quota): no status line of the user's. */
   captureStatusLine?: () => boolean | Promise<boolean>;
+  /** Whether claude (that Windows process id) has tool shells running (tests give their own). */
+  toolShells?: (pid: number) => boolean;
 }
 
 export type IdentityPatch = Partial<Pick<SessionRecord, 'claudeSessionId' | 'cwd' | 'pid' | 'linuxPid' | 'used'>>;
@@ -142,6 +147,8 @@ export class SessionManager extends EventEmitter<Events> {
   private polling = false;
   private slowShareLoggedAt = 0;
   private viaCmdLogged = false;
+  private backgroundCheckedAt = Date.now();
+  private backgroundEvery = backgroundRecheckMs();
 
   private log: LogFn;
 
@@ -175,7 +182,9 @@ export class SessionManager extends EventEmitter<Events> {
 
   isRunning(sessionId: string): boolean {
     const status = this.runtimes.get(sessionId)?.status;
-    return status === 'starting' || status === 'idle' || status === 'busy' || status === 'waiting';
+    return (
+      status === 'starting' || status === 'idle' || status === 'background' || status === 'busy' || status === 'waiting'
+    );
   }
 
   /** Running and staying so: not on its way out after it was ended (then it needs to be started again). */
@@ -363,7 +372,7 @@ export class SessionManager extends EventEmitter<Events> {
   }
 
   /** A status the host worked out (for a session it follows), applied as the hooks and the registry are here. */
-  private onHostStatus({ sessionId, instance, status, registry, notify }: HostStatus): void {
+  private onHostStatus({ sessionId, instance, status, registry, notify, background }: HostStatus): void {
     const runtime = this.runtimes.get(sessionId);
     if (!runtime || runtime.instance !== instance || !this.hostTracks(runtime) || !this.isRunning(sessionId)) return;
     if (registry) {
@@ -372,7 +381,7 @@ export class SessionManager extends EventEmitter<Events> {
       this.followEntry(sessionId, runtime, registry);
     }
     // The end is told by the exit, where how it counts is known.
-    if (status !== 'ended') this.setStatus(sessionId, runtime, status);
+    if (status !== 'ended') this.setStatus(sessionId, runtime, status === 'idle' && background ? 'background' : status);
     if (notify) this.emit('notify', sessionId, notify);
   }
 
@@ -649,8 +658,10 @@ export class SessionManager extends EventEmitter<Events> {
     if (this.hostTracks(runtime)) return;
     if (event === 'UserPromptSubmit') this.setStatus(sessionId, runtime, 'busy');
     if (event === 'Stop') {
-      this.setStatus(sessionId, runtime, 'idle');
-      this.emit('notify', sessionId, 'done');
+      // Background work (a shell or a monitor left running) can start a turn of its own: not done yet.
+      const background = this.hasToolShells(runtime);
+      this.setStatus(sessionId, runtime, background ? 'background' : 'idle');
+      if (!background) this.emit('notify', sessionId, 'done');
     }
     // idle_prompt repeats "waiting for input" a minute after Stop; that was already announced.
     if (event === 'Notification' && payload.notification_type !== 'idle_prompt') {
@@ -659,10 +670,28 @@ export class SessionManager extends EventEmitter<Events> {
     }
   }
 
+  /** Claude's own Windows process (whose children are its tool shells): none in WSL, or before it is known. */
+  private hasToolShells(runtime: Runtime): boolean {
+    const pid = runtime.wsl ? undefined : runtime.launched ? runtime.launched.pid : runtime.pid;
+    return pid !== undefined && (this.deps.toolShells ?? toolShells)(pid);
+  }
+
+  /** Looks again at the sessions idle with background work that are followed here: one with no tool shell is done. */
+  private recheckBackground(): void {
+    if (Date.now() - this.backgroundCheckedAt < this.backgroundEvery) return;
+    this.backgroundCheckedAt = Date.now();
+    for (const [sessionId, runtime] of this.runtimes) {
+      if (runtime.status !== 'background' || this.hostTracks(runtime) || this.hasToolShells(runtime)) continue;
+      this.setStatus(sessionId, runtime, 'idle');
+      this.emit('notify', sessionId, 'done');
+    }
+  }
+
   private async pollRegistry(): Promise<void> {
     if (this.polling) return;
     this.polling = true;
     try {
+      this.recheckBackground();
       for (const [sessionId, runtime] of [...this.runtimes]) {
         if (!runtime.pid || !this.isRunning(sessionId) || this.hostTracks(runtime)) continue;
         const entry = runtime.wsl
@@ -686,7 +715,9 @@ export class SessionManager extends EventEmitter<Events> {
     if (entry.status && entry.status !== runtime.registryStatus) {
       const before = runtime.registryStatus;
       runtime.registryStatus = entry.status;
-      this.setStatus(sessionId, runtime, entry.status);
+      // Idle in the registry too does not end background work's wait.
+      if (!(entry.status === 'idle' && runtime.status === 'background'))
+        this.setStatus(sessionId, runtime, entry.status);
       // Without hooks (WSL), the registry is also what tells that Claude is done or needs the user.
       if (runtime.wsl && entry.status === 'waiting') this.emit('notify', sessionId, 'waiting');
       if (runtime.wsl && entry.status === 'idle' && before === 'busy') this.emit('notify', sessionId, 'done');

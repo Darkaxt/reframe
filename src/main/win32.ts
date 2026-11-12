@@ -16,6 +16,11 @@ export interface Win32 {
   imageName(pid: number): string | null;
   /** When a process was created (a FILETIME as a decimal string, as Claude Code's registry has it). */
   processStart(pid: number): string | null;
+  /**
+   * The direct children of a process (one toolhelp snapshot of the system's processes), with their executable's
+   * file name and creation time (as processStart tells it; null if it cannot be opened).
+   */
+  childProcesses(pid: number): { pid: number; exe: string; start: string | null }[];
   title(hwnd: string): string;
   /** Whether the window still exists. */
   isWindow(hwnd: string): boolean;
@@ -72,6 +77,29 @@ function load(): Win32 {
   const GetProcessTimes = kernel32.func(
     'bool __stdcall GetProcessTimes(void* process, _Out_ FILETIME* creation, _Out_ FILETIME* exit, _Out_ FILETIME* kernel, _Out_ FILETIME* user)',
   );
+  // Toolhelp snapshots as integers (INVALID_HANDLE_VALUE is -1).
+  const CreateToolhelp32Snapshot = kernel32.func(
+    'intptr_t __stdcall CreateToolhelp32Snapshot(uint32_t flags, uint32_t pid)',
+  );
+  koffi.struct('PROCESSENTRY32W', {
+    dwSize: 'uint32_t',
+    cntUsage: 'uint32_t',
+    th32ProcessID: 'uint32_t',
+    th32DefaultHeapID: 'uintptr_t',
+    th32ModuleID: 'uint32_t',
+    cntThreads: 'uint32_t',
+    th32ParentProcessID: 'uint32_t',
+    pcPriClassBase: 'int32_t',
+    dwFlags: 'uint32_t',
+    szExeFile: koffi.array('char16_t', 260, 'String'),
+  });
+  const Process32FirstW = kernel32.func(
+    'bool __stdcall Process32FirstW(intptr_t snapshot, _Inout_ PROCESSENTRY32W* entry)',
+  );
+  const Process32NextW = kernel32.func(
+    'bool __stdcall Process32NextW(intptr_t snapshot, _Inout_ PROCESSENTRY32W* entry)',
+  );
+  const CloseSnapshot = kernel32.func('bool __stdcall CloseHandle(intptr_t handle)');
   const SetProcessShutdownParameters = kernel32.func(
     'bool __stdcall SetProcessShutdownParameters(uint32_t level, uint32_t flags)',
   );
@@ -210,6 +238,33 @@ function load(): Win32 {
       } finally {
         CloseHandle(target);
       }
+    },
+    childProcesses(pid) {
+      const TH32CS_SNAPPROCESS = 0x2;
+      const snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+      if (snapshot === -1 || snapshot === 0) return [];
+      const children: { pid: number; exe: string }[] = [];
+      try {
+        const entry = {
+          dwSize: koffi.sizeof('PROCESSENTRY32W'),
+          cntUsage: 0,
+          th32ProcessID: 0,
+          th32DefaultHeapID: 0,
+          th32ModuleID: 0,
+          cntThreads: 0,
+          th32ParentProcessID: 0,
+          pcPriClassBase: 0,
+          dwFlags: 0,
+          szExeFile: '',
+        };
+        for (let more = Process32FirstW(snapshot, entry); more; more = Process32NextW(snapshot, entry)) {
+          if (entry.th32ParentProcessID === pid && entry.th32ProcessID !== pid)
+            children.push({ pid: entry.th32ProcessID, exe: entry.szExeFile });
+        }
+      } finally {
+        CloseSnapshot(snapshot);
+      }
+      return children.map((c) => ({ ...c, start: this.processStart(c.pid) }));
     },
     isWindow(hwnd) {
       return IsWindow(toHandle(hwnd));

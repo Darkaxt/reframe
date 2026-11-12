@@ -576,6 +576,12 @@ button {
   animation: pulse 1.2s ease-in-out infinite;
 }
 
+/* Idle with background work still running: the busy colour, dimmed and still. */
+.status-background {
+  background: var(--accent);
+  opacity: 0.45;
+}
+
 .status-waiting {
   background: var(--warn);
   animation: pulse 0.9s ease-in-out infinite;
@@ -1413,12 +1419,18 @@ textarea {
   color: var(--orange);
 }
 
+.project-background .project-active-count {
+  color: var(--orange);
+  opacity: 0.6;
+}
+
 .project-waiting .project-active-count,
 .project-error .project-active-count {
   color: var(--danger);
 }
 
-/* A shape per state as well as a colour: idle a dot, busy a diamond, waiting a square, error a "!" badge. */
+/* A shape per state as well as a colour: idle a dot, busy a diamond (dimmed: background work), waiting a square,
+   error a "!" badge. */
 .project-state {
   flex: none;
   display: inline-flex;
@@ -1438,6 +1450,14 @@ textarea {
   height: 7px;
   transform: rotate(45deg);
   background: var(--orange);
+}
+
+.project-state-background {
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--orange);
+  opacity: 0.45;
 }
 
 .project-state-waiting {

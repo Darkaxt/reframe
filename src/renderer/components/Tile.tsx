@@ -30,7 +30,7 @@ export function Tile({ sessionId, group }: { sessionId: string; group: GroupNode
   const dragSize = useRef({ width: 0, height: 0 });
   const [dropSide, setDropSide] = useState<Side | null>(null);
   const [filesOver, setFilesOver] = useState(false);
-  const running = session && ['starting', 'idle', 'busy', 'waiting'].includes(session.status);
+  const running = session && ['starting', 'idle', 'background', 'busy', 'waiting'].includes(session.status);
   const key = tileKey(sessionId);
   const isDragged = dragging?.key === key || (!!group && dragging?.key === group.id);
   // A dragged group never lands inside another group; the group's edge bands take that drop instead.

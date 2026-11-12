@@ -6,7 +6,7 @@ import { useApp } from '../context';
 import { StatusDot } from './StatusDot';
 
 // What a collapsed group shows: the status that most needs attention among its sessions.
-const URGENCY: SessionStatus[] = ['waiting', 'error', 'busy', 'starting', 'idle', 'ended'];
+const URGENCY: SessionStatus[] = ['waiting', 'error', 'busy', 'starting', 'background', 'idle', 'ended'];
 
 /** Collapsed tiles and groups; a click puts them back where they were. */
 export function DockStrip({ entries }: { entries: DockEntry[] }) {
