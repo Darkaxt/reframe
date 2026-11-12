@@ -20,8 +20,11 @@ export function coordinatorExecutable(localAppData = process.env.LOCALAPPDATA): 
   }
 }
 
-/** The Codex quota windows the running Coordinator observed; null without a Coordinator or an answer. */
-export function readCodexQuota(exe: string, timeoutMs = 20_000): Promise<QuotaWindow[] | null> {
+/**
+ * The running Coordinator's answer to `usage.snapshot` (its JSON), or null when it cannot be started, fails, writes no
+ * JSON or does not answer in time (it is killed then).
+ */
+export function readCodexUsage(exe: string, timeoutMs = 20_000): Promise<unknown> {
   return new Promise((resolve) => {
     const child = execFile(
       exe,
@@ -30,8 +33,7 @@ export function readCodexQuota(exe: string, timeoutMs = 20_000): Promise<QuotaWi
       (error, stdout) => {
         if (error) return resolve(null);
         try {
-          const windows = parseCoordinatorUsage(JSON.parse(stdout));
-          resolve(windows.length ? windows : null);
+          resolve(JSON.parse(stdout));
         } catch {
           resolve(null);
         }
@@ -39,6 +41,21 @@ export function readCodexQuota(exe: string, timeoutMs = 20_000): Promise<QuotaWi
     );
     child.stdin?.end(JSON.stringify({ method: 'usage.snapshot', hours: 24 }));
   });
+}
+
+/** The quota windows of a Coordinator answer; null without any. */
+export function codexWindows(usage: unknown): QuotaWindow[] | null {
+  try {
+    const windows = parseCoordinatorUsage(usage);
+    return windows.length ? windows : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The Codex quota windows the running Coordinator observed; null without a Coordinator or an answer. */
+export async function readCodexQuota(exe: string, timeoutMs = 20_000): Promise<QuotaWindow[] | null> {
+  return codexWindows(await readCodexUsage(exe, timeoutMs));
 }
 
 /** Whether the user's Claude Code settings set a status line (reframe's capture would replace it, so it is not done). */

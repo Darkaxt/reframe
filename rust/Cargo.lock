@@ -361,12 +361,21 @@ dependencies = [
  "notify",
  "proptest",
  "reframe-conpty",
+ "reframe-services",
  "reframe-transcripts",
  "serde",
  "serde_json",
  "sha2",
  "tokio",
  "vt100",
+]
+
+[[package]]
+name = "reframe-services"
+version = "0.10.1"
+dependencies = [
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]

@@ -13,6 +13,9 @@ import { Terminal } from '@xterm/headless';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { TranscriptIndex } from '../main/claude/discovery';
 import { TranscriptTitles } from '../main/claude/titles';
+import { adoptedClient, CLIENT_ADOPTION_SCHEMA } from '../main/client-adoption';
+import { evaluateLaunchConfig } from '../main/launch-config';
+import { userHasStatusLine } from '../main/quota';
 import {
   encode,
   LineDecoder,
@@ -112,12 +115,17 @@ class Connection {
 const hosts: Host[] = [];
 let scratch = '';
 let rustExe = '';
+let fakeCoordinatorExe = '';
 
 beforeAll(() => {
   scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'reframe-conformance-'));
   const built = process.env.REFRAME_RUST_HOST_EXE;
   if (!built || !fs.existsSync(built)) throw new Error('REFRAME_RUST_HOST_EXE must name the built reframe-host.exe');
   if (!fs.existsSync(path.join(root, 'out', 'main', 'ptyhost.js'))) throw new Error('build first: npm run build');
+  // Never the installed Coordinator: rust/reframe-services/examples/fake-coordinator.rs, built.
+  fakeCoordinatorExe = process.env.REFRAME_FAKE_COORDINATOR_EXE ?? '';
+  if (!fakeCoordinatorExe || !fs.existsSync(fakeCoordinatorExe))
+    throw new Error('REFRAME_FAKE_COORDINATOR_EXE must name the built fake-coordinator.exe');
   const runtime = path.join(scratch, 'rust-runtime');
   fs.mkdirSync(runtime);
   rustExe = path.join(runtime, 'reframe-host.exe');
@@ -283,6 +291,102 @@ function transcriptHome(kind: string): string {
   );
   fs.writeFileSync(path.join(home, 'projects', 'not-a-folder.txt'), '');
   return home;
+}
+
+// Fixtures of the quota, clients and launch services: adoption records (with and without a byte order mark, missing,
+// corrupt, of another schema, with a changed binary), launch configs and Claude Code folders' settings.
+const BOM = String.fromCharCode(0xfeff);
+function readFixtures(kind: string) {
+  const dir = fs.mkdtempSync(path.join(scratch, `reads-${kind}-`));
+  const write = (name: string, content: string) => {
+    const file = path.join(dir, name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, content);
+    return file;
+  };
+  const sha = (content: string) => crypto.createHash('sha256').update(content).digest('hex');
+  const chatgpt = write('bin/chatgpt.exe', 'chatgpt client');
+  const anthropic = write('bin/anthropic.exe', 'anthropic client');
+  const helper = write('bin/helper.py', 'helper');
+  const record = JSON.stringify({
+    schema: CLIENT_ADOPTION_SCHEMA,
+    version: '2.1.330',
+    clients: {
+      chatgpt: { binary: chatgpt, sha256: sha('chatgpt client').toUpperCase() },
+      anthropic: { binary: anthropic, sha256: sha('anthropic client') },
+    },
+  });
+  const plainRecord = write('adoption/plain.json', record);
+  const bomRecord = write('adoption/bom.json', BOM + record);
+  const corrupt = write('adoption/corrupt.json', '{"schema":"reframe.client-adoption.v1",');
+  const other = write('adoption/other.json', JSON.stringify({ schema: 'something.else', clients: {} }));
+  const changed = write(
+    'adoption/changed.json',
+    JSON.stringify({ schema: CLIENT_ADOPTION_SCHEMA, clients: { chatgpt: { binary: chatgpt, sha256: sha('x') } } }),
+  );
+  const relative = write(
+    'adoption/relative.json',
+    JSON.stringify({ schema: CLIENT_ADOPTION_SCHEMA, clients: { anthropic: { binary: 'bin\\a.exe', sha256: 'a' } } }),
+  );
+  const adoptions: [string, 'chatgpt' | 'anthropic'][] = [
+    [plainRecord, 'chatgpt'],
+    [bomRecord, 'anthropic'],
+    [bomRecord, 'nobody' as 'chatgpt'],
+    [path.join(dir, 'adoption', 'missing.json'), 'chatgpt'],
+    [corrupt, 'chatgpt'],
+    [other, 'chatgpt'],
+    [changed, 'chatgpt'],
+    [relative, 'anthropic'],
+  ];
+  const base = { userData: path.join(dir, 'profile'), runtime: path.join(dir, 'runtime'), claudeHome: dir };
+  const history = { python: path.join(dir, 'python.exe'), helper, helperSha256: sha('helper') };
+  const launchConfigs = [
+    write(
+      'launch/fixed.json',
+      JSON.stringify({
+        ...base,
+        claudeBin: { path: chatgpt, sha256: sha('chatgpt client') },
+        anthropicClaudeBin: { path: anthropic, sha256: '0'.repeat(64) },
+        history,
+      }),
+    ),
+    write(
+      'launch/adopted.json',
+      JSON.stringify({ ...base, clientAdoption: bomRecord, history: { ...history, python: 'py' } }),
+    ),
+    write(
+      'launch/broken-adoption.json',
+      JSON.stringify({ ...base, clientAdoption: changed, claudeBin: { path: 'rel' } }),
+    ),
+    write('launch/relative.json', JSON.stringify({ ...base, runtime: 'runtime' })),
+    write('launch/bom.json', BOM + JSON.stringify(base)),
+  ];
+  const home = (name: string, settings?: string) => {
+    const folder = path.join(dir, 'homes', name);
+    fs.mkdirSync(folder, { recursive: true });
+    if (settings !== undefined) fs.writeFileSync(path.join(folder, 'settings.json'), settings);
+    return folder;
+  };
+  const claudeHomes = [
+    home('none'),
+    home('status-line', JSON.stringify({ statusLine: { type: 'command', command: 'x' } })),
+    home('empty-status-line', JSON.stringify({ statusLine: '', theme: 'dark' })),
+    home('corrupt', '{ "statusLine": '),
+    home('null', 'null'),
+  ];
+  return { adoptions, launchConfigs, claudeHomes };
+}
+
+/** A fake LOCALAPPDATA with the fake Coordinator as its active release, told how to behave. */
+function fakeCoordinator(behaviour: Record<string, unknown>): { localAppData: string; release: string } {
+  const localAppData = fs.mkdtempSync(path.join(scratch, 'coordinator-'));
+  const coordinator = path.join(localAppData, 'Tools', 'llm-coordinator');
+  const release = path.join(coordinator, 'releases', 'fake-1.0');
+  fs.mkdirSync(release, { recursive: true });
+  fs.writeFileSync(path.join(coordinator, 'active.json'), JSON.stringify({ release: 'fake-1.0' }));
+  fs.copyFileSync(fakeCoordinatorExe, path.join(release, 'LLMCoordinator.exe'));
+  fs.writeFileSync(path.join(release, 'fake.json'), JSON.stringify(behaviour));
+  return { localAppData, release };
 }
 
 describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
@@ -534,7 +638,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       const home = transcriptHome(kind);
       const host = await startHost(kind);
       const { connection, welcome } = await attach(host);
-      expect(welcome.services).toEqual({ transcripts: 1 });
+      expect(welcome.services).toEqual({ transcripts: 1, quota: 1, clients: 1, launch: 1 });
       const index = new TranscriptIndex(home);
       let id = 0;
       const lists = [
@@ -611,6 +715,116 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       });
       const after = await svc(connection, 3, 'list', { home, limit: 50, exclude: [] });
       expect(after.result.items[0]).toMatchObject({ sessionId: 'a9', title: 'a new one' });
+    });
+  });
+
+  describe('the quota, clients and launch services', () => {
+    async function svc(connection: Connection, id: number, service: string, method: string, params: unknown) {
+      connection.send({ type: 'svc', id, service, method, params });
+      return connection.next(`svc-result ${id}`, (m) => m.type === 'svc-result' && m.id === id);
+    }
+    const plain = (value: unknown) => JSON.parse(JSON.stringify(value ?? null)) as unknown;
+
+    it('verifies adopted clients and launch configs as reframe does', async () => {
+      const dir = readFixtures(kind);
+      const host = await startHost(kind);
+      const { connection } = await attach(host);
+      let id = 0;
+      for (const [record, provider] of dir.adoptions) {
+        const answer = await svc(connection, ++id, 'clients', 'adopted', { record, provider });
+        expect(answer.result, `${path.basename(record)} ${provider}`).toEqual(plain(adoptedClient(record, provider)));
+      }
+      for (const file of dir.launchConfigs) {
+        const answer = await svc(connection, ++id, 'launch', 'evaluate', { file });
+        expect(answer.result, path.basename(file)).toEqual(plain(evaluateLaunchConfig(file)));
+      }
+      for (const claudeHome of dir.claudeHomes) {
+        const answer = await svc(connection, ++id, 'quota', 'statusLine', { claudeHome });
+        expect(answer.result, path.basename(claudeHome)).toBe(userHasStatusLine(claudeHome));
+      }
+      // What the fixtures are there for.
+      const kinds = dir.adoptions.map(([record, provider]) => {
+        const r = adoptedClient(record, provider);
+        return r.ok ? 'ok' : r.reason.replace(/.*(cannot be read|not a client|no adopted|changed).*/, '$1');
+      });
+      expect(kinds).toEqual([
+        'ok',
+        'ok',
+        'no adopted',
+        'cannot be read',
+        'cannot be read',
+        'not a client',
+        'changed',
+        'no adopted',
+      ]);
+      const plans = dir.launchConfigs.map(evaluateLaunchConfig);
+      expect(plans.map((p) => p !== null)).toEqual([true, true, true, false, false]);
+      expect(Object.keys(plans[0]!.refused)).toEqual(['anthropic']);
+      expect(plans[1]!.env.REFRAME_CLIENT_ADOPTION).toBeTruthy();
+      expect(plans[2]!.problems.length).toBeGreaterThan(1);
+      expect(dir.claudeHomes.map(userHasStatusLine)).toEqual([false, true, false, true, true]);
+
+      // A client that changed after it was verified (the hash is kept by size and modification time).
+      const [record] = dir.adoptions[0]!;
+      const before = await svc(connection, ++id, 'clients', 'adopted', { record, provider: 'chatgpt' });
+      expect(before.result.ok).toBe(true);
+      fs.writeFileSync(before.result.path, 'changed client');
+      fs.utimesSync(before.result.path, new Date(), new Date(Date.now() + 5000));
+      const after = await svc(connection, id + 1, 'clients', 'adopted', { record, provider: 'chatgpt' });
+      expect(after.result).toEqual(plain(adoptedClient(record, 'chatgpt')));
+      expect(after.result.reason).toMatch(/changed \(sha256 /);
+    });
+
+    it('asks a Coordinator for the Codex quota, and kills one that does not answer in time', async () => {
+      const host = await startHost(kind);
+      const { connection } = await attach(host);
+      const none = fs.mkdtempSync(path.join(scratch, 'no-coordinator-'));
+      for (const [n, localAppData] of [none, '', null].entries()) {
+        const answer = await svc(connection, n + 1, 'quota', 'codex', { localAppData });
+        expect(answer.result).toEqual({ coordinator: false, usage: null });
+      }
+      const usage = { usage: { buckets: [{ id: 'codex', windowMinutes: 300, points: [{ t: 5, remaining: 70 }] }] } };
+      const cases: [Record<string, unknown>, unknown][] = [
+        [{ stdout: JSON.stringify(usage) }, usage],
+        [{ stdout: ` ${JSON.stringify(usage)}\n` }, usage],
+        [{ stdout: JSON.stringify(usage), exitCode: 3 }, null],
+        [{ stdout: 'not json' }, null],
+        [{}, null],
+      ];
+      let id = 10;
+      for (const [behaviour, expected] of cases) {
+        const { localAppData, release } = fakeCoordinator(behaviour);
+        const answer = await svc(connection, ++id, 'quota', 'codex', { localAppData });
+        expect(answer.result, JSON.stringify(behaviour)).toEqual({ coordinator: true, usage: expected });
+        const asked = JSON.parse(fs.readFileSync(path.join(release, 'asked.json'), 'utf8'));
+        expect(asked).toMatchObject({
+          args: ['--native-client-stdin-active'],
+          stdin: JSON.stringify({ method: 'usage.snapshot', hours: 24 }),
+        });
+      }
+      const slow = fakeCoordinator({ sleepMs: 30_000, stdout: JSON.stringify(usage) });
+      const started = Date.now();
+      const answer = await svc(connection, id + 1, 'quota', 'codex', {
+        localAppData: slow.localAppData,
+        timeoutMs: 700,
+      });
+      expect(answer.result).toEqual({ coordinator: true, usage: null });
+      expect(Date.now() - started).toBeLessThan(10_000);
+      const { pid } = JSON.parse(fs.readFileSync(path.join(slow.release, 'asked.json'), 'utf8'));
+      await until('the slow Coordinator to be killed', () => !alive(pid), 5000);
+    });
+
+    it('refuses what it does not know', async () => {
+      const host = await startHost(kind);
+      const { connection } = await attach(host);
+      const error = async (id: number, service: string, method: string, params: unknown) =>
+        (await svc(connection, id, service, method, params)).error?.code;
+      expect(await error(1, 'quota', 'nope', {})).toBe('unknown-method');
+      expect(await error(2, 'quota', 'statusLine', {})).toBe('bad-params');
+      expect(await error(3, 'quota', 'codex', { localAppData: 5 })).toBe('bad-params');
+      expect(await error(4, 'clients', 'adopted', { record: 'C:\\r.json' })).toBe('bad-params');
+      expect(await error(5, 'launch', 'evaluate', {})).toBe('bad-params');
+      expect(alive(host.pid)).toBe(true);
     });
   });
 });
