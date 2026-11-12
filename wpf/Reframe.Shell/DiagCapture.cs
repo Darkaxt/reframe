@@ -51,6 +51,21 @@ static class DiagCapture
             return IntPtr.Zero;
         });
 
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
+    /// <summary>Sizes the native window so that its client area is Width x Height device pixels (set directly: WPF's own
+    /// sizing stops at the screen size it read at start).</summary>
+    public static void SizeClient(Window window)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        GetWindowRect(hwnd, out var outer);
+        GetClientRect(hwnd, out var inner);
+        int dx = (outer.Right - outer.Left) - (inner.Right - inner.Left), dy = (outer.Bottom - outer.Top) - (inner.Bottom - inner.Top);
+        const uint SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10;
+        SetWindowPos(hwnd, IntPtr.Zero, 0, 0, Width + dx, Height + dy, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+
     static readonly List<object> Captured = [];
 
     /// <summary>Lets layout and rendering settle (and the terminal draw what the host replays).</summary>

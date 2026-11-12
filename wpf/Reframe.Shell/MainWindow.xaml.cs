@@ -74,12 +74,12 @@ public partial class MainWindow : Window
             // The client area at the Electron reference's page size, wherever the window is.
             Root.Width = DiagCapture.Width;
             Root.Height = DiagCapture.Height;
-            SizeToContent = SizeToContent.WidthAndHeight;
             DiagCapture.AllowLargerThanScreen(this);
             WindowStartupLocation = WindowStartupLocation.Manual;
             Left = Top = 0;
             Loaded += async (_, _) =>
             {
+                DiagCapture.SizeClient(this);
                 await AttachAsync();
                 await CaptureAsync(captureDir);
             };
