@@ -1,0 +1,29 @@
+<Window x:Class="Reframe.Shell.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Reframe Shell (experimental)" Width="1200" Height="760">
+  <DockPanel>
+    <StatusBar DockPanel.Dock="Bottom">
+      <TextBlock x:Name="StatusText" />
+    </StatusBar>
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="270" MinWidth="160" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <ListBox x:Name="SessionList" Grid.Column="0" MouseDoubleClick="SessionList_Open" KeyDown="SessionList_KeyDown">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Margin="2">
+              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding Status}" Foreground="Gray" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" />
+      <TabControl x:Name="Tabs" Grid.Column="2" />
+    </Grid>
+  </DockPanel>
+</Window>
