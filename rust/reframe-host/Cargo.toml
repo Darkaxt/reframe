@@ -10,6 +10,7 @@ description = "Reframe's PTY host: owns the claude sessions (ConPTY) and their t
 reframe-conpty = { path = "../reframe-conpty" }
 reframe-transcripts = { path = "../reframe-transcripts" }
 reframe-services = { path = "../reframe-services" }
+reframe-sessions = { path = "../reframe-sessions" }
 notify = { version = "8", default-features = false }
 vt100 = "0.18"
 tokio = { version = "1", features = ["rt", "net", "io-util", "sync", "time", "macros"] }

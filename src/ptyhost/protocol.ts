@@ -21,8 +21,11 @@ export function hostKind(host: { kind?: HostKind }): HostKind {
 
 /** What a reframe puts with a session for itself, and gets back when it takes the session over. */
 export interface SessionMeta {
-  wsl?: { distro: string; home: string; claudeSessionId: string };
+  /** `share` (since 0.10.1-claudegpt.22): the WSL share the host reads the distribution's registry over. */
+  wsl?: { distro: string; home: string; claudeSessionId: string; share?: string };
   launched?: { claudeSessionId: string };
+  /** Claude Code's folder (since 0.10.1-claudegpt.22): a host with `sessions` follows the session's status there. */
+  claudeHome?: string;
 }
 
 export type HostRequest =
@@ -61,6 +64,8 @@ export interface HostServices {
   clients?: number;
   /** A direct start's reframe-config.json, verified by hash. */
   launch?: number;
+  /** Each session's status from its hooks and registry entry (src/ptyhost/sessions.ts). */
+  sessions?: number;
 }
 
 export interface SvcRequest {

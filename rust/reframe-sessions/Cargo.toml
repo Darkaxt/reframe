@@ -1,0 +1,10 @@
+[package]
+name = "reframe-sessions"
+version = "0.10.1"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Reframe's session status engine, as its TypeScript runs it (src/main/sessions.ts, src/main/claude/registry.ts): status from Claude Code's hooks and session registry."
+
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }

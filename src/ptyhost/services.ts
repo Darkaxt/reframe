@@ -10,7 +10,7 @@ import { evaluateLaunchConfig } from '../main/launch-config';
 import { coordinatorExecutable, readCodexUsage, userHasStatusLine } from '../main/quota';
 import type { HostServices, SvcErrorCode, SvcEvent } from './protocol';
 
-export const SERVICES: Required<HostServices> = { transcripts: 1, quota: 1, clients: 1, launch: 1 };
+export const SERVICES: Required<HostServices> = { transcripts: 1, quota: 1, clients: 1, launch: 1, sessions: 1 };
 /** Requests being worked on at once; more are answered `busy`. */
 const MAX_IN_FLIGHT = 8;
 

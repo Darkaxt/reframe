@@ -362,6 +362,7 @@ dependencies = [
  "proptest",
  "reframe-conpty",
  "reframe-services",
+ "reframe-sessions",
  "reframe-transcripts",
  "serde",
  "serde_json",
@@ -374,8 +375,16 @@ dependencies = [
 name = "reframe-services"
 version = "0.10.1"
 dependencies = [
+ "reframe-conpty",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "reframe-sessions"
+version = "0.10.1"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]

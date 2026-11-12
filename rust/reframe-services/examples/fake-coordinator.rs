@@ -1,6 +1,7 @@
 //! A stand-in for LLM Coordinator's native client in the PTY host conformance tests, copied in as a fake
 //! `<LOCALAPPDATA>/Tools/llm-coordinator/releases/<release>/LLMCoordinator.exe`. It does what `fake.json` next to it
-//! says (`{ "stdout": "...", "exitCode": 0, "sleepMs": 0 }`) and writes what it was asked to `asked.json`
+//! says (`{ "stdout": "...", "exitCode": 0, "sleepMs": 0, "closeStdout": false }`; with closeStdout it
+//! writes, closes its output, then sleeps) and writes what it was asked to `asked.json`
 //! (`{ "pid", "args", "stdin" }`) before doing it.
 #![forbid(unsafe_code)]
 
@@ -16,11 +17,24 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let asked = serde_json::json!({ "pid": std::process::id(), "args": args, "stdin": stdin });
     let _ = std::fs::write(dir.join("asked.json"), asked.to_string());
-    if let Some(ms) = behaviour.get("sleepMs").and_then(serde_json::Value::as_u64) {
-        std::thread::sleep(std::time::Duration::from_millis(ms));
+    let sleep = || {
+        if let Some(ms) = behaviour.get("sleepMs").and_then(serde_json::Value::as_u64) {
+            std::thread::sleep(std::time::Duration::from_millis(ms));
+        }
+    };
+    let close_first = behaviour.get("closeStdout").and_then(serde_json::Value::as_bool) == Some(true);
+    if !close_first {
+        sleep();
     }
     if let Some(out) = behaviour.get("stdout").and_then(serde_json::Value::as_str) {
-        let _ = std::io::stdout().write_all(out.as_bytes());
+        let mut stdout = std::io::stdout();
+        let _ = stdout.write_all(out.as_bytes());
+        let _ = stdout.flush();
+    }
+    if close_first {
+        // The output ends while the process goes on.
+        reframe_conpty::close_stdout();
+        sleep();
     }
     let code = behaviour
         .get("exitCode")
