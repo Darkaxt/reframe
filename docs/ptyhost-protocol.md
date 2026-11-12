@@ -171,12 +171,12 @@ taken one at a time, in order (a queue of their own, so a slow quota read never 
 | `state.read { file }` | `{ revision, content }`: the file's text (UTF-8), or null when it is not there. The revision is the host's for the file as read: unchanged (same size and modification time) since it was last read or written here, the same number; else a new one, higher than any before. |
 | `state.write { file, content, revision, backup }` | `{ revision }`, the new one. Refused with `conflict` (nothing written) unless `revision` is the file's current one here and the file has not changed on disk since: a file never read here, a stale writer, or one written meanwhile by someone else (reframe itself included). The content goes to `<file>.<host pid>.tmp`, is flushed to disk (fsync) and renamed over the file (retried a few times while something holds it); with `backup` and a file there, that file is first copied to `<file>.bak`. A failed write removes the temporary file and leaves the file; it must be read again before the next write. |
 
-Revisions live as long as the host: a new host (after an update) knows no file, so reframe's first write reads it
-first. Reframe loads `state.json` itself (it does that before a host is started: the state says which host), and
-writes it itself without the service. With it, it writes through the host, one write at a time, always the newest
-state; it asks for the backup when the file there is the one it last wrote, or one it read again and found good, as
-the in-process store does. On `conflict` it reads the file again and writes once more (its state is the newest);
-when the host fails or goes, it writes in-process.
+Revisions live as long as the host: a new host (after an update) knows no file, so a writer reads it first.
+Reframe 0.10.1-claudegpt.23 does not use the service yet: it loads `state.json` itself (before a host is started:
+the state says which host) and saves it in-process and synchronously, because its callers expect the file written
+when a save returns. `StateStore.useHost` (one write at a time, always the newest state, the backup asked for when
+the file there is the one last written or read again and found good, one retry after reading again on `conflict`,
+in-process when the host fails) is there for when the saves can be awaited.
 
 ## Hooks
 

@@ -320,8 +320,9 @@ export class ReframeApp {
       runtime: () => hostRuntime(app.getPath('userData'), this.log, hostKind),
       log: this.log,
     });
-    // From here, saves go through the host when it serves `state` (src/main/state/store.ts).
-    this.store.useHost(() => this.host, this.log);
+    // Saves stay in-process and synchronous: the rest of reframe (and its end-to-end tests) relies on state.json
+    // being written when save() returns, which a write over the pipe cannot give. StateStore.useHost is there for
+    // when the saves can be awaited; until then the host's `state` service is served but not used here.
     await this.host.start();
     this.sessions = new SessionManager({
       host: this.host,

@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "3f6dbde3ddbce97dbfeb7d649100fd3b8c9cefa2",
-  "scope": "0.10.1-claudegpt.23: stage 2 slice 4 of the Rust migration. Additive PTY host protocol service state=1 (no protocol bump): state.read { file } -> { revision, content|null } and state.write { file, content, revision, backup } -> { revision } or conflict; temp file + fsync + rename with retry, .bak copied only when reframe vouches for the file there, compare-and-set on a per-host revision that also detects changes on disk; content opaque (zod schema and migrations stay in TypeScript); rust/reframe-services state.rs and the Node host's src/main/state/files.ts; StateStore writes through the host when the welcome advertises state (serialized, newest-state-wins, re-read on conflict, in-process fallback, settle before letting the host go and before exit), loads in-process as before; byte-compatible file. Host service requests queue (8 running, 64 waiting) instead of answering busy at 8. Tray: Terminate all sessions + Quit replace Quit (sessions keep running) and End sessions and quit. Claude quota from LLM Coordinator usage.snapshot providers[] when the user's own status line prevents capture; capture preferred unless the Coordinator observed later; codex from providers with buckets fallback",
+  "sourceBase": "fac026a1e301adb72599730afc0cd857f3854993",
+  "scope": "0.10.1-claudegpt.23: stage 2 slice 4 of the Rust migration. Additive PTY host protocol service state=1 (no protocol bump): state.read { file } -> { revision, content|null } and state.write { file, content, revision, backup } -> { revision } or conflict; temp file + fsync + rename with retry, .bak copied only when reframe vouches for the file there, compare-and-set on a per-host revision that also detects changes on disk; content opaque (zod schema and migrations stay in TypeScript); rust/reframe-services state.rs and the Node host's src/main/state/files.ts; StateStore.useHost implements writing through the host (serialized, newest-state-wins, re-read on conflict, in-process fallback, settle) but app.ts does not enable it yet: saves stay synchronous in-process because callers and e2e rely on the file being written when save() returns; byte-compatible file. Host service requests queue (8 running, 64 waiting) instead of answering busy at 8. Tray: Terminate all sessions + Quit replace Quit (sessions keep running) and End sessions and quit. Claude quota from LLM Coordinator usage.snapshot providers[] when the user's own status line prevents capture; capture preferred unless the Coordinator observed later; codex from providers with buckets fallback. New session dialog rebases the folder onto the new provider root when switching provider (rebaseFolder)",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
-      "sha256": "b72a5e9c1952b83ab4287b045485a484f763fa7441b0447599b2a70d9476b67e"
+      "sha256": "ffcf7637e2f1d9e0b3d487a3e541cd736d44315e080d6c7ab7a3b94484745f59"
     },
     {
       "file": "docs/releases/v0.10.1-claudegpt.23.md",
-      "sha256": "8a0bbedf9121be8fd08fa275489ef1871df810ff4e3d220360b225efde9bace9"
+      "sha256": "29eb41fa4d80864b3973c1f99ead030a4bdeb9dd7b1236d4b20039d64a1ac5de"
     },
     {
       "file": "package-lock.json",
@@ -46,7 +46,7 @@
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "6767e9571d76a3b300a6390d3b16b16389a5345907a73aefeae40577717d9d48"
+      "sha256": "ec061537df00e96507da855d1b9e1452739d122932245a9b9e47148a2181f99e"
     },
     {
       "file": "src/main/host-reads.ts",
