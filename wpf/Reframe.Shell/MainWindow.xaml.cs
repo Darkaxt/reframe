@@ -75,6 +75,9 @@ public partial class MainWindow : Window
             Root.Width = DiagCapture.Width;
             Root.Height = DiagCapture.Height;
             SizeToContent = SizeToContent.WidthAndHeight;
+            DiagCapture.AllowLargerThanScreen(this);
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = Top = 0;
             Loaded += async (_, _) =>
             {
                 await AttachAsync();

@@ -34,6 +34,23 @@ static class DiagCapture
     [StructLayout(LayoutKind.Sequential)]
     struct Rect { public int Left, Top, Right, Bottom; }
 
+    [StructLayout(LayoutKind.Sequential)]
+    struct MinMaxInfo { public int ReservedX, ReservedY, MaxSizeX, MaxSizeY, MaxPositionX, MaxPositionY, MinTrackX, MinTrackY, MaxTrackX, MaxTrackY; }
+
+    /// <summary>Lets the window grow past the screen (a CI runner's is 1024x768), so the client area really is
+    /// Width x Height: Windows otherwise caps the window at the screen size (WM_GETMINMAXINFO), and WPF with it.</summary>
+    public static void AllowLargerThanScreen(Window window) => window.SourceInitialized += (_, _) =>
+        HwndSource.FromHwnd(new WindowInteropHelper(window).Handle)!.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+        {
+            const int WM_GETMINMAXINFO = 0x0024;
+            if (msg != WM_GETMINMAXINFO) return IntPtr.Zero;
+            var info = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+            info.MaxTrackX = info.MaxTrackY = 8192;
+            Marshal.StructureToPtr(info, lParam, false);
+            handled = true;
+            return IntPtr.Zero;
+        });
+
     static readonly List<object> Captured = [];
 
     /// <summary>Lets layout and rendering settle (and the terminal draw what the host replays).</summary>
