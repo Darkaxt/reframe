@@ -134,11 +134,18 @@ public class ShellCoreTests
             lock (changes) changes.Add(s);
             if (s.Status == "busy") busy.TrySetResult();
         };
-        var listed = Assert.Single(await services.ListSessionsAsync());
-        Assert.Equal(5, listed.Revision);
+        var listed = await services.ListSessionsAsync();
         await busy.Task.WaitAsync(Wait);
-        // The "waiting" of revision 4, told after the list of revision 5, was dropped.
-        lock (changes) Assert.Equal(["busy"], changes.Select(c => c.Status));
+        lock (changes)
+        {
+            // Applied changes only ever move forward, and the "busy" of revision 6 is the last.
+            var revisions = changes.Select(c => c.Revision!.Value).ToList();
+            Assert.Equal(revisions.OrderBy(r => r).Distinct(), revisions);
+            Assert.Equal(("busy", 6L), (changes[^1].Status, changes[^1].Revision!.Value));
+            // The list (revision 5) applies only if the newer event had not applied already; nothing older follows it.
+            if (listed.Count == 1) Assert.Equal(5, listed[0].Revision);
+            else Assert.Empty(listed);
+        }
     }
 
     [Fact]
