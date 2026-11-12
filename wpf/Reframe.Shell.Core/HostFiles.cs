@@ -4,7 +4,9 @@ using System.Text.Json;
 namespace Reframe.Shell.Core;
 
 /// <summary>A running host's descriptor, <c>hosts/&lt;pid&gt;.json</c> in the profile's host folder.</summary>
-public sealed record HostDescriptor(int Pid, string Pipe, int Protocol, string Version, string Kind);
+/// <param name="Observer">The host's observer version (0: none), so a client knows before its hello that it can attach
+/// without replacing the attached one (docs/ptyhost-protocol.md, "Observers").</param>
+public sealed record HostDescriptor(int Pid, string Pipe, int Protocol, string Version, string Kind, int Observer = 0);
 
 /// <summary>Reads a profile's host folder (<c>&lt;userData&gt;/ptyhost</c>) as src/main/ptyhost-files.ts does.</summary>
 public static class HostFiles
@@ -43,7 +45,8 @@ public static class HostFiles
                     root.GetProperty("pipe").GetString() ?? "",
                     root.GetProperty("protocol").GetInt32(),
                     root.TryGetProperty("version", out var v) ? v.GetString() ?? "" : "",
-                    root.TryGetProperty("kind", out var k) ? k.GetString() ?? "node" : "node");
+                    root.TryGetProperty("kind", out var k) ? k.GetString() ?? "node" : "node",
+                    root.TryGetProperty("observer", out var o) && o.ValueKind == JsonValueKind.Number && o.TryGetInt32(out var ov) ? ov : 0);
                 if (d.Pid == pid && isAlive(pid)) found.Add(d);
             }
             catch (Exception e) when (e is IOException or JsonException or KeyNotFoundException or InvalidOperationException) { }

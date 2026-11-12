@@ -2,15 +2,17 @@ using System.Text.Json.Nodes;
 
 namespace Reframe.Shell.Core;
 
-/// <summary>A session's status from the host's <c>sessions</c> service (<c>sessions.status</c> / <c>list</c>).</summary>
+/// <summary>A session's status from the host's <c>sessions</c> service (<c>sessions.status</c> / <c>list</c>).
+/// <c>Revision</c> is the host's status revision of the change (null from hosts before 0.10.1-claudegpt.25).</summary>
 public sealed record SessionStatus(string SessionId, int Instance, string Status, string? Name, string? ClaudeSessionId,
-    string? Cwd, string? Notify)
+    string? Cwd, string? Notify, long? Revision = null)
 {
     public static SessionStatus From(JsonNode node)
     {
         var registry = node["registry"];
         return new SessionStatus((string)node["sessionId"]!, (int?)node["instance"] ?? 0, (string?)node["status"] ?? "starting",
-            (string?)registry?["name"], (string?)registry?["sessionId"], (string?)registry?["cwd"], (string?)node["notify"]);
+            (string?)registry?["name"], (string?)node["claudeSessionId"] ?? (string?)registry?["sessionId"],
+            (string?)registry?["cwd"], (string?)node["notify"], (long?)node["revision"]);
     }
 }
 
@@ -20,26 +22,53 @@ public sealed record TranscriptItem(string SessionId, double ModifiedAt, string?
 public sealed class HostServices
 {
     readonly HostConnection connection;
+    readonly object gate = new();
+    /// <summary>The newest revision applied per session, and the revision of the last list.</summary>
+    readonly Dictionary<string, long> applied = [];
+    long snapshot = -1;
 
     public HostServices(HostConnection connection)
     {
         this.connection = connection;
         connection.ServiceEvent += (service, name, data) =>
         {
-            if (service == "sessions" && name == "status" && data is not null) StatusChanged?.Invoke(SessionStatus.From(data));
+            if (service == "sessions" && name == "status" && data is not null)
+            {
+                var status = SessionStatus.From(data);
+                if (Accept(status, fromList: false)) StatusChanged?.Invoke(status);
+            }
         };
     }
 
-    /// <summary>Raised on the connection's reading thread.</summary>
+    /// <summary>Raised on the connection's reading thread, only for a change newer than what was applied (an event
+    /// the host told before the list it answered is older than that list, and dropped).</summary>
     public event Action<SessionStatus>? StatusChanged;
 
     public bool Offers(string service) => connection.Welcome.Services.ContainsKey(service);
 
+    /// <summary>The revision rule (docs/ptyhost-protocol.md, "sessions"): an event applies only when its revision is
+    /// newer than the list's and than the session's last applied change. Without revisions (an older host), all apply.</summary>
+    bool Accept(SessionStatus status, bool fromList)
+    {
+        if (status.Revision is not { } revision) return true;
+        lock (gate)
+        {
+            if (!fromList && revision <= snapshot) return false;
+            if (applied.TryGetValue(status.SessionId, out var last) && revision <= last) return false;
+            applied[status.SessionId] = revision;
+            return true;
+        }
+    }
+
+    /// <summary>The statuses as listed, without those already overtaken by a newer event.</summary>
     public async Task<IReadOnlyList<SessionStatus>> ListSessionsAsync()
     {
         if (!Offers("sessions")) return [];
         var result = await connection.CallAsync("sessions", "list");
-        return (result?["sessions"]?.AsArray() ?? []).Where(n => n is not null).Select(n => SessionStatus.From(n!)).ToList();
+        if ((long?)result?["revision"] is { } revision)
+            lock (gate) snapshot = Math.Max(snapshot, revision);
+        return (result?["sessions"]?.AsArray() ?? []).Where(n => n is not null).Select(n => SessionStatus.From(n!))
+            .Where(s => Accept(s, fromList: true)).ToList();
     }
 
     public async Task<(IReadOnlyList<TranscriptItem> Items, bool HasMore)> ListTranscriptsAsync(string home, int limit, string? query = null)

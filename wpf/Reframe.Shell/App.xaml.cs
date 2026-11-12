@@ -7,7 +7,8 @@ public partial class App : Application
 {
     /// <summary>reframe's user-data folder to attach to; by default a test profile of the shell's own.</summary>
     public static string ProfileDir { get; private set; } = "";
-    /// <summary>Attach even while another client is attached (it is replaced: the protocol has one client per profile).</summary>
+    /// <summary>Attach as the primary client even while another client is attached (it is replaced: one primary per
+    /// profile). Without it, the shell watches read-only beside that client when the host offers observers.</summary>
     public static bool TakeOver { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)

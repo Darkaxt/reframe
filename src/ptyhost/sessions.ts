@@ -27,6 +27,16 @@ export interface SessionStatusData {
   status: HostStatus;
   registry?: RegistryEntry;
   notify?: NotifyKind;
+  /** Claude Code's session id as last known: the registry entry's, a hook's, or the spawn's meta (since .25). */
+  claudeSessionId?: string;
+  /** The host's status revision when this changed (since .25): higher than any before, one counter for every session. */
+  revision: number;
+}
+
+/** `sessions.list`: every followed session, and the revision of the newest change in it. */
+export interface SessionStatusList {
+  sessions: SessionStatusData[];
+  revision: number;
 }
 
 type Lookup =
@@ -63,6 +73,9 @@ interface Tracked {
   reading: boolean;
   /** Announced while no reframe was attached: the next one gets it with the statuses. */
   held?: NotifyKind;
+  claudeSessionId?: string;
+  /** The revision of its last change. */
+  revision: number;
 }
 
 const POLL_MS = 1000;
@@ -78,6 +91,8 @@ function start(pid: number): string | null {
 
 export class SessionStatusService {
   private tracked = new Map<string, Tracked>();
+  /** Bumped by every change of any session's status data (docs/ptyhost-protocol.md, "sessions"). */
+  private revision = 0;
   private poller: NodeJS.Timeout;
 
   /** `emit`: a status for the attached reframe; `attached`: whether one is. */
@@ -102,7 +117,14 @@ export class SessionStatusService {
       startedAt: Date.now(),
       procStart: start(pid),
       reading: false,
+      claudeSessionId: lookup.kind === 'direct' ? undefined : lookup.claudeSessionId,
+      revision: ++this.revision,
     });
+  }
+
+  /** Claude Code's session id of a followed session, as last known. */
+  claudeSessionId(sessionId: string): string | undefined {
+    return this.tracked.get(sessionId)?.claudeSessionId;
   }
 
   exited(sessionId: string, instance: number): void {
@@ -117,27 +139,42 @@ export class SessionStatusService {
     if (t && (instance === null || t.instance === instance)) this.tracked.delete(sessionId);
   }
 
-  list(): SessionStatusData[] {
-    return [...this.tracked.values()].map((t) => {
-      const notify = t.held;
-      t.held = undefined;
+  /** `take`: the primary asks, and gets what was announced while none was attached (an observer does not). */
+  list(take = true): SessionStatusList {
+    const sessions = [...this.tracked.values()].map((t) => {
+      const notify = take ? t.held : undefined;
+      if (take) t.held = undefined;
       return this.data(t, notify);
     });
+    return { sessions, revision: this.revision };
   }
 
   hook({ sessionId, event, payload }: HookMessage): void {
     const t = this.tracked.get(sessionId);
     if (!t || t.status === 'ended') return;
-    if (event === 'UserPromptSubmit' && this.set(t, 'busy')) this.tell(t);
+    const claudeId = payload?.session_id;
+    let idChanged = false;
+    if (typeof claudeId === 'string' && claudeId && claudeId !== t.claudeSessionId) {
+      t.claudeSessionId = claudeId;
+      idChanged = true;
+    }
+    let told = false;
+    if (event === 'UserPromptSubmit' && this.set(t, 'busy')) {
+      this.tell(t);
+      told = true;
+    }
     if (event === 'Stop') {
       this.set(t, 'idle');
       this.tell(t, 'done');
+      told = true;
     }
     // idle_prompt repeats "waiting for input" a minute after Stop; that was already announced.
     if (event === 'Notification' && payload.notification_type !== 'idle_prompt') {
       this.set(t, 'waiting');
       this.tell(t, 'waiting');
+      told = true;
     }
+    if (idChanged && !told) this.tell(t);
   }
 
   private data(t: Tracked, notify?: NotifyKind): SessionStatusData {
@@ -147,12 +184,16 @@ export class SessionStatusService {
       status: t.status,
       ...(t.last ? { registry: t.last } : {}),
       ...(notify ? { notify } : {}),
+      ...(t.claudeSessionId ? { claudeSessionId: t.claudeSessionId } : {}),
+      revision: t.revision,
     };
   }
 
+  /** A change: a new revision, told to whoever is attached (observers too); an announcement waits for the primary. */
   private tell(t: Tracked, notify?: NotifyKind): void {
-    if (this.attached()) this.emit(this.data(t, notify));
-    else if (notify) t.held = notify;
+    t.revision = ++this.revision;
+    if (notify && !this.attached()) t.held = notify;
+    this.emit(this.data(t, notify));
   }
 
   private set(t: Tracked, status: HostStatus): boolean {
@@ -206,6 +247,7 @@ export class SessionStatusService {
     if (this.stale(t, entry)) return;
     const entryChanged = !same(t.last, entry);
     t.last = entry;
+    if (entry.sessionId) t.claudeSessionId = entry.sessionId;
     let changed = false;
     let notify: NotifyKind | undefined;
     // Follow the registry only when it changes, so it does not undo a fresher hook-based status.

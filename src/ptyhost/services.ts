@@ -18,6 +18,7 @@ export const SERVICES: Required<HostServices> = {
   launch: 1,
   sessions: 1,
   state: 1,
+  observer: 1,
 };
 /** Requests being worked on at once; up to MAX_WAITING more wait their turn (a burst on reframe's start, say), and
  * beyond that they are answered `busy`. */

@@ -90,6 +90,7 @@ public partial class MainWindow : Window
         shellLock = result.Lock;
         connection.Closed += replaced => Dispatcher.InvokeAsync(() =>
             StatusText.Text = replaced ? "Another client took the profile over: detached." : "The pty host connection closed.");
+        if (connection.IsObserver) StatusText.Text += " Terminals are read-only (start with --take-over to type in them).";
         services = new HostServices(connection);
         services.StatusChanged += status => Dispatcher.InvokeAsync(() => Apply(status));
         foreach (var session in connection.Welcome.Sessions) sessions.Add(new SessionItem(session));

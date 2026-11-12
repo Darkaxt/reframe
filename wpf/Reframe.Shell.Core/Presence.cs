@@ -1,9 +1,9 @@
 namespace Reframe.Shell.Core;
 
 /// <summary>
-/// Whether another client may be attached to a profile's host. The protocol has no observer mode and does not say
-/// whether a client is attached: a welcomed connection simply replaces the attached one. So the shell looks for the
-/// clients it knows: reframe (Electron/Chromium holds <c>&lt;userData&gt;/lockfile</c> open, unshared, while it runs)
+/// Whether another client may be attached to a profile's host, looked for before the hello (a primary hello replaces
+/// the attached client; hosts from 0.10.1-claudegpt.25 also take read-only observers, and tell an observer whether a
+/// primary is attached, but an older host tells nothing). So the shell looks for the clients it knows: reframe (Electron/Chromium holds <c>&lt;userData&gt;/lockfile</c> open, unshared, while it runs)
 /// and another shell (which holds <c>ptyhost/reframe-shell.lock</c>).
 /// </summary>
 public static class Presence

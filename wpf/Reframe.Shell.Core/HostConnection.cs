@@ -8,8 +8,10 @@ namespace Reframe.Shell.Core;
 /// <summary>A session the host ran when the shell attached (from the welcome).</summary>
 public sealed record HostSession(string SessionId, int Instance, int Pid, int? ExitCode, string? ClaudeHome, string? ClaudeSessionId);
 
+/// <param name="Observer">This connection is a read-only observer (the host said <c>role: "observer"</c>).</param>
+/// <param name="PrimaryAttached">Whether a primary client (reframe) is attached; null from hosts before observers.</param>
 public sealed record Welcome(int Protocol, string Version, int Pid, string Kind, IReadOnlyList<HostSession> Sessions,
-    IReadOnlyDictionary<string, int> Services);
+    IReadOnlyDictionary<string, int> Services, bool Observer = false, bool? PrimaryAttached = null);
 
 /// <summary>A failed service request (<c>code</c> as the host gives it), or <c>unavailable</c>: not asked or not answered.</summary>
 public sealed class HostServiceException(string code, string message) : Exception(message)
@@ -50,8 +52,10 @@ public sealed class HostConnection : IAsyncDisposable
 
     HostConnection(Stream stream) => this.stream = stream;
 
-    /// <summary>Connects to a host's pipe (<c>\\.\pipe\...</c> as its descriptor gives it) and shakes hands.</summary>
-    public static async Task<HostConnection> ConnectAsync(string pipe, string token, CancellationToken cancel = default)
+    /// <summary>Connects to a host's pipe (<c>\\.\pipe\...</c> as its descriptor gives it) and shakes hands.
+    /// <paramref name="observer"/>: as a read-only observer, which replaces nobody (only for a host that offers it:
+    /// an older host takes the hello as a primary's).</summary>
+    public static async Task<HostConnection> ConnectAsync(string pipe, string token, bool observer = false, CancellationToken cancel = default)
     {
         const string prefix = @"\\.\pipe\";
         var name = pipe.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? pipe[prefix.Length..] : pipe;
@@ -61,7 +65,7 @@ public sealed class HostConnection : IAsyncDisposable
         try
         {
             await client.ConnectAsync(timeout.Token);
-            return await HandshakeAsync(client, token, timeout.Token);
+            return await HandshakeAsync(client, token, observer, timeout.Token);
         }
         catch
         {
@@ -71,10 +75,12 @@ public sealed class HostConnection : IAsyncDisposable
     }
 
     /// <summary>Shakes hands over a connected stream.</summary>
-    public static async Task<HostConnection> HandshakeAsync(Stream stream, string token, CancellationToken cancel = default)
+    public static async Task<HostConnection> HandshakeAsync(Stream stream, string token, bool observer = false, CancellationToken cancel = default)
     {
         var connection = new HostConnection(stream);
-        await connection.SendAsync(new JsonObject { ["type"] = "hello", ["token"] = token, ["protocol"] = ProtocolVersion });
+        var hello = new JsonObject { ["type"] = "hello", ["token"] = token, ["protocol"] = ProtocolVersion };
+        if (observer) hello["role"] = "observer";
+        await connection.SendAsync(hello);
         var reader = new LineReader(stream);
         while (true)
         {
@@ -97,15 +103,17 @@ public sealed class HostConnection : IAsyncDisposable
         {
             if (s is null) continue;
             var meta = s["meta"];
+            // claudeSessionId (since 0.10.1-claudegpt.25) is what the host knows, also of a session started directly.
             sessions.Add(new HostSession((string)s["sessionId"]!, (int)s["instance"]!, (int?)s["pid"] ?? 0,
-                (int?)s["exitCode"], (string?)meta?["claudeHome"], (string?)meta?["launched"]?["claudeSessionId"]));
+                (int?)s["exitCode"], (string?)meta?["claudeHome"],
+                (string?)s["claudeSessionId"] ?? (string?)meta?["launched"]?["claudeSessionId"] ?? (string?)meta?["wsl"]?["claudeSessionId"]));
         }
         var services = new Dictionary<string, int>();
         if (w["services"] is JsonObject offered)
             foreach (var (name, version) in offered)
                 if (version is JsonValue v && v.TryGetValue<int>(out var n)) services[name] = n;
         return new Welcome((int?)w["protocol"] ?? 0, (string?)w["version"] ?? "", (int?)w["pid"] ?? 0,
-            (string?)w["kind"] ?? "node", sessions, services);
+            (string?)w["kind"] ?? "node", sessions, services, (string?)w["role"] == "observer", (bool?)w["primary"]);
     }
 
     async Task ReadLoopAsync(LineReader reader)
@@ -163,6 +171,9 @@ public sealed class HostConnection : IAsyncDisposable
     }
 
     public bool IsOpen => Volatile.Read(ref closed) == 0;
+
+    /// <summary>A read-only observer: its views send no input or resizes (the host would ignore them).</summary>
+    public bool IsObserver => Welcome.Observer;
 
     /// <summary>Opens a view of a session's terminal: it gets a snapshot, then live output. Wire its events first.</summary>
     public HostView CreateView(string sessionId)
@@ -296,11 +307,14 @@ public sealed class HostView
         if (Interlocked.Exchange(ref ended, 1) == 0) Closed?.Invoke();
     }
 
-    public Task InputAsync(string data) =>
+    /// <summary>The view of an observer: it shows the session, but takes no input and does not resize it.</summary>
+    public bool ReadOnly => connection.IsObserver;
+
+    public Task InputAsync(string data) => ReadOnly ? Task.CompletedTask :
         connection.ViewMessageAsync(ViewId, new JsonObject { ["type"] = "input", ["data"] = data });
 
     /// <summary>Resizes the session's ConPTY and mirror; the host takes it only if both are more than 1.</summary>
-    public Task ResizeAsync(int cols, int rows) => cols > 1 && rows > 1
+    public Task ResizeAsync(int cols, int rows) => !ReadOnly && cols > 1 && rows > 1
         ? connection.ViewMessageAsync(ViewId, new JsonObject { ["type"] = "resize", ["cols"] = cols, ["rows"] = rows })
         : Task.CompletedTask;
 

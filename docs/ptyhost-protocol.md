@@ -18,8 +18,10 @@ The profile's host folder (`<userData>/ptyhost`, `REFRAME_PTYHOST_DIR`) holds:
 - `token`: 64 hex digits made by reframe on first use (`ensureToken`), readable by the current user only
   (`icacls /inheritance:r /grant:r <user>:F`, then every other entry removed). The host reads it at start.
 - `hosts/<pid>.json`: the descriptor of each running host, written whole (temporary file, then rename):
-  `{ pid, pipe, protocol, version, startedAt, sessionPids, kind }`. `sessionPids` lists the running sessions'
-  processes; `kind` is `"node"` or `"rust"` (absent from hosts before 0.10.1-claudegpt.18: those are Node hosts).
+  `{ pid, pipe, protocol, version, startedAt, sessionPids, kind, observer? }`. `sessionPids` lists the running sessions'
+  processes; `kind` is `"node"` or `"rust"` (absent from hosts before 0.10.1-claudegpt.18: those are Node hosts);
+  `observer` (since 0.10.1-claudegpt.25) is the version of the host's observer mode (see Observers), so that a client
+  knows before its hello that it can attach without replacing the attached reframe.
   A host removes its descriptor when it exits; reframe removes those of hosts that are gone.
 - `host.log`: one JSON object per line, `{ at, pid, message, ...details }`.
 
@@ -43,18 +45,42 @@ Copies whose host executable can be deleted (no host runs from them) are removed
 
 One JSON object per line (UTF-8, `\n`), both ways. A line that is not JSON is dropped.
 
-**Handshake.** The first line of a connection must be `{ type: "hello", token, protocol }`. The host answers:
+**Handshake.** The first line of a connection must be `{ type: "hello", token, protocol, role? }` (`role`:
+`"observer"` for a read-only client, see Observers; anything else, or none, is the primary). The host answers:
 
 - `{ type: "welcome", protocol, version, pid, hooks: { port, token }, sessions: [{ sessionId, instance, pid,
-  exitCode, meta? }], kind, services? }` when the token is the profile's and `protocol` equals the host's (1). `exitCode` is
-  null while the session runs. `hooks` is where the sessions' hook settings point, whichever reframe is attached.
+  exitCode, meta?, claudeSessionId? }], kind, services?, role?, primary? }` when the token is the profile's and `protocol`
+  equals the host's (1). `exitCode` is null while the session runs. `claudeSessionId` (since 0.10.1-claudegpt.25) is
+  Claude Code's session id where the host knows it: the session's registry entry as `sessions` last read it, else the
+  `session_id` of its latest hook, else `meta.launched` or `meta.wsl`; so a session started directly (without
+  `meta.launched`) has it once its entry was read or a hook came. `role` (`"primary"` or `"observer"`) and `primary`
+  (whether a primary client is attached, after this hello) come from hosts with observers. `hooks` is where the sessions' hook settings point, whichever reframe is attached.
   Hook messages held while no reframe was attached follow the welcome. `services` (since 0.10.1-claudegpt.20) names
   the services the host offers with each one's version, `{ transcripts: 1 }`; a host without it offers none.
 - `{ type: "refused", reason: "token" | "protocol", protocol }`, and the connection is closed. A first line that
   is not a hello, or has another token, is `token`; the right token with another version is `protocol`.
 
-One reframe per profile: a newly welcomed connection takes over. The previous one gets `{ type: "replaced" }` and is
-closed, and every view is closed. Messages of a connection that is not the attached one are ignored.
+One reframe per profile: a newly welcomed primary connection takes over. The previous one gets `{ type: "replaced" }`
+and is closed, and its views are closed (observers' views stay). Messages of a primary connection that is not the
+attached one are ignored.
+
+**Observers** (`services.observer: 1`, and `observer: 1` in the descriptor, since 0.10.1-claudegpt.25). A connection
+whose hello says `role: "observer"` is welcomed beside the attached reframe and never replaces it, nor is it replaced;
+any number may be attached. Without a primary attached the host still exits when idle: observers do not keep it.
+A client must check the descriptor before such a hello: an older host ignores `role` and takes it as a primary.
+
+- It is told `spawned`, `spawn-failed`, `exit` and `sessions.status` events, and `svc-event { service: "observer",
+  event: "primary", data: { primary } }` when a primary attaches or goes. Not hooks (they stay held for the next
+  reframe), transcript changes or errors.
+- It may open and close views of its own (its view ids are its own: the same id as the primary's is another view).
+  They get the snapshot, live output, `exit` and `view-closed` as the primary's do. **They are read-only**: its
+  `view-message`s (input and resizes) are ignored, so it never types into a session or changes its size under the
+  primary's terminal. Input would have been simple, but two writers into one prompt are not safe; an observer that
+  needs to type takes over as the primary instead.
+- Its other requests (`spawn`, `write`, `dispose`, `shutdown`) are ignored. Of the services it may ask only reads:
+  `sessions.list`, `observer.primary`, `transcripts.list`, `info`, `times` and `title`; anything else is answered
+  with `forbidden`. Its `sessions.list` leaves the announcements held for the primary where they are.
+- `observer.primary {}` → `{ primary }`: whether a primary client is attached (any client may ask).
 
 **Requests** (reframe → host):
 
@@ -93,9 +119,9 @@ service only of a host whose welcome advertises it, and reads for itself otherwi
 - `svc { id, service, method, params }` → `svc-result { id, ok: true, result }` or
   `svc-result { id, ok: false, error: { code, message } }`, where `code` is `unknown-method` (also for an unknown
   service), `bad-params`, `io` or `busy` (8 requests being worked on and 64 more waiting their turn; before 0.10.1-claudegpt.23, more than 8 at once),
-  `conflict` (`state` only). Answers go only to the
-  connection that asked, if it is still the attached one; they can come in any order.
-- `svc-event { service, event, data }`: told to the attached reframe. Events while no reframe is attached are not
+  `conflict` (`state` only), `forbidden` (an observer's request it may not make). Answers go only to the
+  connection that asked, if it is still the attached one (or still attached, for an observer); they can come in any order.
+- `svc-event { service, event, data }`: told to the attached reframe (and the `sessions` and `observer` events to observers). Events while no reframe is attached are not
   held: the next reframe lists afresh when it attaches.
 
 **`transcripts` (version 1).** The past sessions of a Claude Code folder `home` (as Windows reaches it): its
@@ -148,13 +174,21 @@ own entry found by its session id once and then by its process id, while that pr
   `busy` announces `done`); otherwise a `starting` session becomes the entry's status or `idle`. The exit makes it
   `ended`, and nothing changes it after that. How an exit counts (ended, or failed to start), who ended a session,
   and whether an announcement is shown are reframe's.
-- Event `sessions.status { sessionId, instance, status, registry?, notify? }`, told when the status, the entry or
-  an announcement changed: `status` is `starting`, `idle`, `busy`, `waiting` or `ended`; `registry` the entry as
+- Event `sessions.status { sessionId, instance, status, registry?, notify?, claudeSessionId?, revision }`, told when
+  the status, the entry, Claude Code's session id or an announcement changed: `status` is `starting`, `idle`, `busy`, `waiting` or `ended`; `registry` the entry as
   last read, as `parseRegistryEntry` gives it (`{ pid, sessionId, cwd?, name?, nameSource?, status?, startedAt?,
   procStart? }`; `sessionId` changes on `/clear`, `name` on a rename, `cwd` is the distribution's path in WSL);
   `notify` is `done` or `waiting`, an intent (reframe words it, and decides whether to show it).
-- `list {}` → `{ sessions: [ same as the event ] }` for every session followed, for a reframe that attaches (events
-  are not held). An announcement made while no reframe was attached comes with it, once (the latest per session).
+  `claudeSessionId` is as in the welcome (the entry's `sessionId`, else the latest hook's `session_id`, else the
+  spawn's). `revision` (since 0.10.1-claudegpt.25) is the host's status revision: one counter for every session,
+  bumped by each change (told or not), so it only grows while the host runs.
+- `list {}` → `{ sessions: [ same as the event ], revision }` for every session followed, for a reframe that attaches
+  (events are not held); each item has the revision of its last change, and `revision` is the newest of all (every
+  change up to it is in the list). An announcement made while no reframe was attached comes with it, once (the latest
+  per session). **Ordering:** a list's answer and status events can arrive in either order (the answer is sent when
+  the request is done). A client keeps the revision of what it applied per session and applies an event only when its
+  revision is newer than the list's `revision` and than that session's; a list item only when newer than that
+  session's. Without `revision` (hosts before .25) it applies everything as it comes.
 
 Reframe takes the status of a session the host follows from these alone (it does not follow its hooks or registry
 for it then); identity (`claudeSessionId`, folder, pids, first use) it takes from the forwarded hooks and the
