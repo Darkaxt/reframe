@@ -134,6 +134,9 @@ const providerDefaultsSchema = z.object({
   addDirs: z.array(z.string()).optional(),
 });
 
+/** The PTY hosts a profile's new sessions can go to (the Rust host is experimental). */
+export const PTY_HOSTS = ['node', 'rust'] as const;
+
 export const preferencesSchema = z.object({
   archiveRoot: z.string().optional(),
   /** "New session" fills the name with the folder's name. */
@@ -153,6 +156,8 @@ export const preferencesSchema = z.object({
   closeWindow: z.enum(CLOSE_WINDOW).default('ask'),
   /** Chromium may use the GPU (terminals then draw with WebGL); read at startup, so a change applies after a restart. */
   gpuAcceleration: z.boolean().default(false),
+  /** The PTY host new sessions go to (Windows only; REFRAME_PTYHOST overrides it); read at startup. */
+  ptyHost: z.enum(PTY_HOSTS).default('node'),
   /** The claude to run, chosen in Settings; without one, the one on the PATH. */
   claudeBin: z.string().optional(),
   /** What "New session" fills in for the model and the permission mode. */
@@ -165,6 +170,8 @@ export const preferencesSchema = z.object({
     .optional(),
 });
 
+export type PtyHostPreference = (typeof PTY_HOSTS)[number];
+
 export const DEFAULT_PREFERENCES: z.infer<typeof preferencesSchema> = {
   nameFromFolder: false,
   language: 'system',
@@ -174,6 +181,7 @@ export const DEFAULT_PREFERENCES: z.infer<typeof preferencesSchema> = {
   lookInWsl: false,
   closeWindow: 'ask',
   gpuAcceleration: false,
+  ptyHost: 'node',
 };
 
 export const appStateSchema = z.object({

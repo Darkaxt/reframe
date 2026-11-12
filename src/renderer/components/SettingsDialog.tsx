@@ -7,7 +7,7 @@ import {
   type EffortLevel,
   type PermissionMode,
 } from '@shared/launch';
-import { FONT_SIZE, type CloseWindow, type Language } from '@shared/state';
+import { FONT_SIZE, type CloseWindow, type Language, type PtyHostPreference } from '@shared/state';
 import { useApp } from '../context';
 import { fontSizeAfter } from '../shortcuts';
 
@@ -24,6 +24,7 @@ export function SettingsDialog({
   closeWindow,
   gpuAcceleration,
   gpuAccelerated,
+  ptyHost,
   startWithSystem,
   checkForUpdates,
   lookInWsl,
@@ -41,6 +42,7 @@ export function SettingsDialog({
   closeWindow: CloseWindow;
   gpuAcceleration: boolean;
   gpuAccelerated: boolean;
+  ptyHost: PtyHostPreference | null;
   startWithSystem: boolean;
   checkForUpdates: boolean | null;
   lookInWsl: boolean | null;
@@ -180,6 +182,19 @@ export function SettingsDialog({
         <p className="setting-hint">
           {gpuAcceleration === gpuAccelerated ? t('settings.gpuHint') : t('settings.gpuRestart')}
         </p>
+
+        {ptyHost !== null && (
+          <>
+            <label className="setting">
+              <span>{t('settings.ptyHost')}</span>
+              <select value={ptyHost} onChange={(e) => set({ ptyHost: e.target.value as PtyHostPreference })}>
+                <option value="node">{t('settings.ptyHostNode')}</option>
+                <option value="rust">{t('settings.ptyHostRust')}</option>
+              </select>
+            </label>
+            <p className="setting-hint">{t('settings.ptyHostHint')}</p>
+          </>
+        )}
 
         <label className="checkbox">
           <input

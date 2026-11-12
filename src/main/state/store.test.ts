@@ -44,6 +44,15 @@ describe('StateStore', () => {
     expect(defaultState().preferences.gpuAcceleration).toBe(false);
   });
 
+  it('keeps new sessions on the Node host for new profiles and files from before the ptyHost setting existed', () => {
+    const s = store();
+    const state = defaultState();
+    const { ptyHost: _ptyHost, ...preferences } = state.preferences;
+    fs.writeFileSync(s.file, JSON.stringify({ ...state, preferences }));
+    expect(s.load()).toMatchObject({ source: 'file', state: { preferences: { ptyHost: 'node' } } });
+    expect(defaultState().preferences.ptyHost).toBe('node');
+  });
+
   it('loads files with the removed saved workspaces and drops them on the next save', () => {
     const s = store();
     const old = defaultState();

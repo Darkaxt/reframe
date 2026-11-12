@@ -6,7 +6,7 @@ import type { FolderWorkspace } from './folder-workspaces';
 import type { DropTarget, LayoutNode } from './layout';
 import type { Locale } from './i18n';
 import type { EffortLevel, PermissionMode } from './launch';
-import type { CloseWindow, DockEntry, Preferences, SessionRecord, Language } from './state';
+import type { CloseWindow, DockEntry, Preferences, PtyHostPreference, SessionRecord, Language } from './state';
 
 /** starting → idle/busy/waiting while running; ended once the process is gone; error if it could not run. */
 export type SessionStatus = 'starting' | 'idle' | 'busy' | 'waiting' | 'ended' | 'error';
@@ -56,6 +56,8 @@ export interface WindowView {
   /** Hardware acceleration as saved (a preference), and whether this run uses it (it applies after a restart). */
   gpuAcceleration: boolean;
   gpuAccelerated: boolean;
+  /** The PTY host for new sessions as saved (a preference; applies after a restart); null off Windows. */
+  ptyHost: PtyHostPreference | null;
   /** What closing a window with sessions does (a preference). */
   closeWindow: CloseWindow;
   /** The claude chosen in Settings (null: the one on the PATH), and what new sessions start with (preferences). */
