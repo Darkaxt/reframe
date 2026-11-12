@@ -24,6 +24,18 @@ use reframe_transcripts::Changes;
 /// The session status service (docs/ptyhost-protocol.md, "Services").
 const SESSIONS: &str = "sessions";
 const SESSIONS_VERSION: u32 = 1;
+/// Read-only clients beside the primary (docs/ptyhost-protocol.md, "Observers").
+const OBSERVER: &str = "observer";
+pub const OBSERVER_VERSION: u32 = 1;
+/// What an observer may ask: reads only.
+const OBSERVER_METHODS: &[&str] = &[
+    "sessions.list",
+    "observer.primary",
+    "transcripts.list",
+    "transcripts.info",
+    "transcripts.times",
+    "transcripts.title",
+];
 
 fn now_ms() -> f64 {
     std::time::SystemTime::now()
@@ -99,9 +111,11 @@ struct Session {
     pid: u32,
     lifecycle: Lifecycle,
     mirror: Mirror,
-    /// Views attached, in the order they came.
-    views: Vec<u64>,
+    /// Views attached (by connection and view id), in the order they came.
+    views: Vec<ViewKey>,
     meta: Option<Value>,
+    /// Claude Code's session id as its hooks last gave it (also for a session not followed by `sessions`).
+    hook_claude_id: Option<String>,
     /// Its status, for the `sessions` service (none for a session reframe follows itself).
     tracker: Option<Tracker>,
     /// Its registry entry is being read; no second read starts meanwhile.
@@ -131,6 +145,9 @@ enum ViewState {
     Live,
 }
 
+/// A view is its connection's: each numbers its own.
+type ViewKey = (u64, u64);
+
 struct View {
     session_id: String,
     state: ViewState,
@@ -147,6 +164,8 @@ enum ConnectionState {
 struct Connection {
     out: UnboundedSender<Outgoing>,
     state: ConnectionState,
+    /// Welcomed with `role: "observer"`: reads only, replaces nobody.
+    observer: bool,
 }
 
 pub struct Config {
@@ -164,7 +183,7 @@ pub struct Host {
     /// Starts processes; their events come back through `inputs`.
     inputs: UnboundedSender<Input>,
     sessions: Vec<Session>,
-    views: BTreeMap<u64, View>,
+    views: BTreeMap<ViewKey, View>,
     connections: HashMap<u64, Connection>,
     /// The connection of the attached reframe.
     client: Option<u64>,
@@ -177,6 +196,8 @@ pub struct Host {
     /// while no reframe is attached: the next one lists afresh.
     changes: Vec<(String, Changes)>,
     flush_scheduled: bool,
+    /// Bumped by every change of a session's status data (`sessions`): one counter for every session.
+    status_revision: u64,
 }
 
 impl Host {
@@ -196,6 +217,7 @@ impl Host {
             services: Services::new(),
             changes: Vec::new(),
             flush_scheduled: false,
+            status_revision: 0,
         }
     }
 
@@ -225,6 +247,7 @@ impl Host {
                     Connection {
                         out,
                         state: ConnectionState::Greeting,
+                        observer: false,
                     },
                 );
             }
@@ -271,8 +294,29 @@ impl Host {
         self.send(event);
     }
 
-    fn send_view(&self, view_id: u64, message: Value) {
-        self.send(json!({ "type": "view", "viewId": view_id, "message": message }));
+    fn send_to(&self, conn: u64, message: &Value) {
+        if let Some(connection) = self.connections.get(&conn) {
+            let _ = connection.out.send(Outgoing::Line(encode(message)));
+        }
+    }
+
+    fn observers(&self) -> impl Iterator<Item = u64> + '_ {
+        self.connections
+            .iter()
+            .filter(|(_, c)| c.observer && matches!(c.state, ConnectionState::Welcomed))
+            .map(|(&id, _)| id)
+    }
+
+    /// To the primary and every observer.
+    fn broadcast(&self, message: Value) {
+        for conn in self.observers() {
+            self.send_to(conn, &message);
+        }
+        self.send(message);
+    }
+
+    fn send_view(&self, (conn, view_id): ViewKey, message: Value) {
+        self.send_to(conn, &json!({ "type": "view", "viewId": view_id, "message": message }));
     }
 
     // Connections.
@@ -283,6 +327,13 @@ impl Host {
         };
         match connection.state {
             ConnectionState::Done => Flow::Continue,
+            ConnectionState::Welcomed if connection.observer => {
+                match serde_json::from_value::<Request>(message) {
+                    Ok(request) => self.observer_request(conn, request),
+                    Err(error) => self.log("request not understood", json!({ "error": error.to_string() })),
+                }
+                Flow::Continue
+            }
             ConnectionState::Welcomed if self.client == Some(conn) => {
                 match serde_json::from_value::<Request>(message) {
                     Ok(request) => self.request(request),
@@ -311,21 +362,28 @@ impl Host {
             }
             return;
         }
+        let observer = message.get("role").and_then(Value::as_str) == Some("observer");
         if let Some(connection) = self.connections.get_mut(&conn) {
             connection.state = ConnectionState::Welcomed;
+            connection.observer = observer;
         }
-        // One reframe per profile: a new connection is the reframe now (the old one quit or is about to).
-        if let Some(old) = self.client.filter(|&c| c != conn) {
-            if let Some(connection) = self.connections.get_mut(&old) {
-                connection.state = ConnectionState::Done;
-                let _ = connection
-                    .out
-                    .send(Outgoing::End(encode(&json!({ "type": "replaced" }))));
+        if observer {
+            // An observer replaces nobody and is told no hooks: it reads.
+            self.log("observer attached", json!({ "sessions": self.sessions.len() }));
+        } else {
+            // One reframe per profile: a new connection is the reframe now (the old one quit or is about to).
+            if let Some(old) = self.client.filter(|&c| c != conn) {
+                if let Some(connection) = self.connections.get_mut(&old) {
+                    connection.state = ConnectionState::Done;
+                    let _ = connection
+                        .out
+                        .send(Outgoing::End(encode(&json!({ "type": "replaced" }))));
+                }
+                self.close_views_of(old);
             }
-            self.close_all_views();
+            self.client = Some(conn);
+            self.log("reframe attached", json!({ "sessions": self.sessions.len() }));
         }
-        self.client = Some(conn);
-        self.log("reframe attached", json!({ "sessions": self.sessions.len() }));
         let sessions: Vec<Value> = self
             .sessions
             .iter()
@@ -334,6 +392,23 @@ impl Host {
                     json!({ "sessionId": s.id, "instance": s.instance, "pid": s.pid, "exitCode": s.exit_code() });
                 if let Some(meta) = &s.meta {
                     entry["meta"] = meta.clone();
+                }
+                let meta_id = |path: &[&str]| {
+                    let mut v = s.meta.as_ref()?;
+                    for key in path {
+                        v = v.get(key)?;
+                    }
+                    v.as_str().filter(|id| !id.is_empty()).map(str::to_string)
+                };
+                let claude_id = s
+                    .tracker
+                    .as_ref()
+                    .and_then(|t| t.claude_session_id().map(str::to_string))
+                    .or_else(|| s.hook_claude_id.clone())
+                    .or_else(|| meta_id(&["launched", "claudeSessionId"]))
+                    .or_else(|| meta_id(&["wsl", "claudeSessionId"]));
+                if let Some(id) = claude_id {
+                    entry["claudeSessionId"] = json!(id);
                 }
                 entry
             })
@@ -344,16 +419,26 @@ impl Host {
             services.insert(name.into(), json!(version));
         }
         services.insert(SESSIONS.into(), json!(SESSIONS_VERSION));
-        self.send(json!({
-            "type": "welcome",
-            "protocol": PROTOCOL_VERSION,
-            "version": self.config.version,
-            "pid": std::process::id(),
-            "hooks": { "port": self.config.hooks_port, "token": self.config.hooks_token },
-            "sessions": sessions,
-            "kind": HOST_KIND,
-            "services": services,
-        }));
+        services.insert(OBSERVER.into(), json!(OBSERVER_VERSION));
+        self.send_to(
+            conn,
+            &json!({
+                "type": "welcome",
+                "protocol": PROTOCOL_VERSION,
+                "version": self.config.version,
+                "pid": std::process::id(),
+                "hooks": { "port": self.config.hooks_port, "token": self.config.hooks_token },
+                "sessions": sessions,
+                "kind": HOST_KIND,
+                "services": services,
+                "role": if observer { "observer" } else { "primary" },
+                "primary": self.client.is_some(),
+            }),
+        );
+        if observer {
+            return;
+        }
+        self.primary_changed();
         // What changed before is in what the new reframe lists now.
         self.changes.clear();
         for message in std::mem::take(&mut self.held) {
@@ -362,15 +447,45 @@ impl Host {
     }
 
     fn closed(&mut self, conn: u64) {
-        self.connections.remove(&conn);
+        let observer = self.connections.remove(&conn).is_some_and(|c| c.observer);
+        // Views belong to the connection that opened them.
+        self.close_views_of(conn);
+        if observer {
+            self.log("observer detached", json!({ "sessions": self.sessions.len() }));
+            return;
+        }
         if self.client != Some(conn) {
             return;
         }
         self.client = None;
-        // Views belong to the reframe that opened them.
-        self.close_all_views();
         self.idle_since = Instant::now();
         self.log("reframe detached", json!({ "sessions": self.sessions.len() }));
+        self.primary_changed();
+    }
+
+    /// Tells the observers whether a primary is attached (after it changed).
+    fn primary_changed(&self) {
+        let event = json!({
+            "type": "svc-event", "service": OBSERVER, "event": "primary", "data": { "primary": self.client.is_some() },
+        });
+        for conn in self.observers() {
+            self.send_to(conn, &event);
+        }
+    }
+
+    /// An observer's request: views (read-only) and the services it may ask; anything else is ignored.
+    fn observer_request(&mut self, conn: u64, request: Request) {
+        match request {
+            Request::ViewOpen { view_id, session_id } => self.open_view((conn, view_id), session_id),
+            Request::ViewClose { view_id } => self.close_view((conn, view_id)),
+            Request::Svc {
+                id,
+                service,
+                method,
+                params,
+            } => self.svc(conn, id, &service, &method, &params),
+            _ => {}
+        }
     }
 
     // Requests.
@@ -384,9 +499,17 @@ impl Host {
                 }
             }
             Request::Dispose { session_id, instance } => self.dispose(&session_id, Some(instance)),
-            Request::ViewOpen { view_id, session_id } => self.open_view(view_id, session_id),
+            Request::ViewOpen { view_id, session_id } => {
+                if let Some(conn) = self.client {
+                    self.open_view((conn, view_id), session_id);
+                }
+            }
             Request::ViewMessage { view_id, message } => self.view_message(view_id, message),
-            Request::ViewClose { view_id } => self.close_view(view_id),
+            Request::ViewClose { view_id } => {
+                if let Some(conn) = self.client {
+                    self.close_view((conn, view_id));
+                }
+            }
             Request::Shutdown => {
                 self.log("shutdown requested", json!({ "sessions": self.sessions.len() }));
                 let ids: Vec<String> = self.sessions.iter().map(|s| s.id.clone()).collect();
@@ -400,7 +523,11 @@ impl Host {
                 service,
                 method,
                 params,
-            } => self.svc(id, &service, &method, &params),
+            } => {
+                if let Some(conn) = self.client {
+                    self.svc(conn, id, &service, &method, &params);
+                }
+            }
             Request::Unknown => {}
         }
         Flow::Continue
@@ -408,13 +535,28 @@ impl Host {
 
     // Services.
 
-    fn svc(&mut self, id: Value, service: &str, method: &str, params: &Value) {
-        let Some(conn) = self.client else {
-            return;
-        };
+    fn svc(&mut self, conn: u64, id: Value, service: &str, method: &str, params: &Value) {
+        let observer = self.client != Some(conn);
+        if observer && !OBSERVER_METHODS.contains(&format!("{service}.{method}").as_str()) {
+            let error = SvcError {
+                code: "forbidden",
+                message: format!("{service}.{method} is not for an observer"),
+            };
+            return self.svc_answer(conn, id, Err(error));
+        }
+        if service == OBSERVER {
+            let outcome = match method {
+                "primary" => Ok(json!({ "primary": self.client.is_some() })),
+                _ => Err(SvcError {
+                    code: "unknown-method",
+                    message: format!("{service}.{method}"),
+                }),
+            };
+            return self.svc_answer(conn, id, outcome);
+        }
         if service == SESSIONS {
             let outcome = match method {
-                "list" => Ok(json!({ "sessions": self.statuses() })),
+                "list" => Ok(json!({ "sessions": self.statuses(!observer), "revision": self.status_revision })),
                 _ => Err(SvcError {
                     code: "unknown-method",
                     message: format!("{service}.{method}"),
@@ -460,15 +602,19 @@ impl Host {
         }
     }
 
-    /// An answer goes to the connection that asked, if it is still the attached one.
+    /// An answer goes to the connection that asked, if it is still the attached one (or that observer).
     fn svc_answer(&self, conn: u64, id: Value, outcome: Result<Value, SvcError>) {
-        if self.client != Some(conn) {
+        let observer = self.observers().any(|c| c == conn);
+        if self.client != Some(conn) && !observer {
             return;
         }
-        self.send(match outcome {
-            Ok(result) => json!({ "type": "svc-result", "id": id, "ok": true, "result": result }),
-            Err(error) => json!({ "type": "svc-result", "id": id, "ok": false, "error": error.to_json() }),
-        });
+        self.send_to(
+            conn,
+            &match outcome {
+                Ok(result) => json!({ "type": "svc-result", "id": id, "ok": true, "result": result }),
+                Err(error) => json!({ "type": "svc-result", "id": id, "ok": false, "error": error.to_json() }),
+            },
+        );
     }
 
     fn watched(&mut self, event: WatchEvent) {
@@ -516,13 +662,17 @@ impl Host {
         let process = match started {
             Ok(process) => process,
             Err(message) => {
-                self.emit(json!({ "type": "spawn-failed", "sessionId": session_id, "instance": instance, "message": message }));
+                self.broadcast(json!({ "type": "spawn-failed", "sessionId": session_id, "instance": instance, "message": message }));
                 return;
             }
         };
         let pid = process.pid();
-        let tracker = Lookup::from_meta(request.meta.as_ref())
+        let mut tracker = Lookup::from_meta(request.meta.as_ref())
             .map(|lookup| Tracker::new(lookup, pid, now_ms(), reframe_conpty::process_start(pid)));
+        if let Some(tracker) = tracker.as_mut() {
+            self.status_revision += 1;
+            tracker.revision = self.status_revision;
+        }
         self.sessions.push(Session {
             id: session_id.clone(),
             instance,
@@ -532,12 +682,13 @@ impl Host {
             mirror: Mirror::new(request.cols, request.rows),
             views: Vec::new(),
             meta: request.meta,
+            hook_claude_id: None,
             tracker,
             reading: false,
         });
         self.write_descriptor();
-        self.emit(json!({ "type": "spawned", "sessionId": session_id, "instance": instance, "pid": pid }));
-        let waiting: Vec<u64> = self
+        self.broadcast(json!({ "type": "spawned", "sessionId": session_id, "instance": instance, "pid": pid }));
+        let waiting: Vec<ViewKey> = self
             .views
             .iter()
             .filter(|(_, v)| v.session_id == session_id && matches!(v.state, ViewState::Waiting))
@@ -577,15 +728,15 @@ impl Host {
         if self.with_mirror(index, |mirror| mirror.write(data)).is_none() {
             return;
         }
-        for &view_id in &self.sessions[index].views {
+        for &key in &self.sessions[index].views {
             if matches!(
-                self.views.get(&view_id),
+                self.views.get(&key),
                 Some(View {
                     state: ViewState::Live,
                     ..
                 })
             ) {
-                self.send_view(view_id, json!({ "type": "data", "data": data }));
+                self.send_view(key, json!({ "type": "data", "data": data }));
             }
         }
     }
@@ -597,10 +748,10 @@ impl Host {
         session.lifecycle = Lifecycle::Exited { code };
         let update = session.tracker.as_mut().and_then(Tracker::exited);
         let (id, instance, pid, views) = (session.id.clone(), session.instance, session.pid, session.views.clone());
-        for view_id in views {
-            self.send_view(view_id, json!({ "type": "exit", "exitCode": code }));
+        for key in views {
+            self.send_view(key, json!({ "type": "exit", "exitCode": code }));
         }
-        self.emit(json!({ "type": "exit", "sessionId": id, "instance": instance, "pid": pid, "exitCode": code }));
+        self.broadcast(json!({ "type": "exit", "sessionId": id, "instance": instance, "pid": pid, "exitCode": code }));
         if let Some(update) = update {
             self.status_changed(serial, update);
         }
@@ -609,22 +760,23 @@ impl Host {
 
     // Views.
 
-    fn open_view(&mut self, view_id: u64, session_id: String) {
+    fn open_view(&mut self, key: ViewKey, session_id: String) {
+        self.close_view(key);
         let exists = self.session(&session_id).is_some();
         self.views.insert(
-            view_id,
+            key,
             View {
                 session_id,
                 state: ViewState::Waiting,
             },
         );
         if exists {
-            self.attach(view_id);
+            self.attach(key);
         }
     }
 
     /// Gives a view its session's snapshot; from then on it gets live output (and the exit, if that came).
-    fn attach(&mut self, view_id: u64) {
+    fn attach(&mut self, view_id: ViewKey) {
         let Some(session_id) = self.views.get(&view_id).map(|v| v.session_id.clone()) else {
             return;
         };
@@ -647,7 +799,12 @@ impl Host {
         }
     }
 
+    /// Input and resizes: only the primary's views (an observer's are read-only).
     fn view_message(&mut self, view_id: u64, message: ViewMessage) {
+        let Some(conn) = self.client else {
+            return;
+        };
+        let view_id = (conn, view_id);
         let Some(session_id) = self.views.get(&view_id).map(|v| v.session_id.clone()) else {
             return;
         };
@@ -672,7 +829,7 @@ impl Host {
         }
     }
 
-    fn close_view(&mut self, view_id: u64) {
+    fn close_view(&mut self, view_id: ViewKey) {
         let Some(view) = self.views.remove(&view_id) else {
             return;
         };
@@ -681,10 +838,10 @@ impl Host {
         }
     }
 
-    fn close_all_views(&mut self) {
-        let ids: Vec<u64> = self.views.keys().copied().collect();
-        for view_id in ids {
-            self.close_view(view_id);
+    fn close_views_of(&mut self, conn: u64) {
+        let ids: Vec<ViewKey> = self.views.keys().copied().filter(|&(c, _)| c == conn).collect();
+        for key in ids {
+            self.close_view(key);
         }
     }
 
@@ -698,9 +855,9 @@ impl Host {
             return;
         };
         let session = self.sessions.remove(index);
-        for view_id in &session.views {
-            self.send(json!({ "type": "view-closed", "viewId": view_id }));
-            self.views.remove(view_id);
+        for &(conn, view_id) in &session.views {
+            self.send_to(conn, &json!({ "type": "view-closed", "viewId": view_id }));
+            self.views.remove(&(conn, view_id));
         }
         if let Some(process) = session.running() {
             process.kill();
@@ -711,11 +868,21 @@ impl Host {
     // Hooks and time.
 
     fn hook(&mut self, message: HookMessage) {
+        let claude_id = message
+            .payload
+            .get("session_id")
+            .and_then(Value::as_str)
+            .filter(|id| !id.is_empty());
         let tracked = self
             .sessions
             .iter_mut()
             .find(|s| s.id == message.session_id)
-            .and_then(|s| Some((s.serial, s.tracker.as_mut()?.hook(&message.event, &message.payload)?)));
+            .and_then(|s| {
+                if let Some(id) = claude_id {
+                    s.hook_claude_id = Some(id.to_string());
+                }
+                Some((s.serial, s.tracker.as_mut()?.hook(&message.event, &message.payload)?))
+            });
         if let Some((serial, update)) = tracked {
             self.status_changed(serial, update);
         }
@@ -731,26 +898,30 @@ impl Host {
 
     // The `sessions` service: each session's status, from its hooks and its registry entry.
 
-    /// Tells the attached reframe a session's status; without one, what it announced waits for the next.
+    /// A change of a session's status data: a new revision, told to the attached reframe and the observers; without
+    /// a reframe, what it announced waits for the next.
     fn status_changed(&mut self, serial: u64, update: Update) {
         let attached = self.client.is_some();
         let Some(session) = self.sessions.iter_mut().find(|s| s.serial == serial) else {
             return;
         };
-        if !attached {
-            if let (Some(notify), Some(tracker)) = (update.notify, session.tracker.as_mut()) {
+        self.status_revision += 1;
+        let revision = self.status_revision;
+        if let Some(tracker) = session.tracker.as_mut() {
+            tracker.revision = revision;
+            if let (false, Some(notify)) = (attached, update.notify) {
                 tracker.held = Some(notify);
             }
-            return;
         }
-        let data = update_json(&session.id, session.instance, &update);
-        self.send(json!({ "type": "svc-event", "service": SESSIONS, "event": "status", "data": data }));
+        let data = update_json(&session.id, session.instance, &update, revision);
+        self.broadcast(json!({ "type": "svc-event", "service": SESSIONS, "event": "status", "data": data }));
     }
 
-    fn statuses(&mut self) -> Vec<Value> {
+    /// `take`: the primary asks, and gets what was announced while none was attached (an observer does not).
+    fn statuses(&mut self, take: bool) -> Vec<Value> {
         self.sessions
             .iter_mut()
-            .filter_map(|s| Some(s.tracker.as_mut()?.snapshot(&s.id, s.instance)))
+            .filter_map(|s| Some(s.tracker.as_mut()?.snapshot_with(&s.id, s.instance, take)))
             .collect()
     }
 

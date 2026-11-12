@@ -783,6 +783,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         pid: spawned.pid,
         exitCode: null,
         meta: { launched: { claudeSessionId: 'claude-kept' } },
+        claudeSessionId: 'claude-kept',
       },
     ]);
     second.connection.request({ type: 'view-open', viewId: 5, sessionId: 'kept' });
@@ -848,6 +849,152 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
     await until('the host to exit', () => !alive(host.pid));
   });
 
+  async function observe(host: Host): Promise<{ connection: Connection; welcome: Message }> {
+    const connection = await connect(host);
+    open.push(connection);
+    connection.send({ type: 'hello', token: host.token, protocol: PROTOCOL_VERSION, role: 'observer' });
+    const welcome = await connection.next('welcome', (m) => m.type === 'welcome' || m.type === 'refused');
+    expect(welcome.type).toBe('welcome');
+    return { connection, welcome };
+  }
+
+  it('lets a read-only observer watch beside the attached reframe, which it never replaces', async () => {
+    const host = await startHost(kind);
+    const descriptor = JSON.parse(fs.readFileSync(path.join(host.dir, 'hosts', `${host.pid}.json`), 'utf8'));
+    expect(descriptor.observer).toBe(1);
+    const primary = await attach(host);
+    expect(primary.welcome).toMatchObject({ role: 'primary', primary: true, services: { observer: 1 } });
+    primary.connection.request({ type: 'view-open', viewId: 1, sessionId: 'o' });
+    spawnChild(primary.connection, 'o');
+    const spawned = await primary.connection.next('spawned', (m) => m.type === 'spawned');
+    await until('READY', () => primary.connection.viewData(1).includes('READY'));
+
+    const watcher = await observe(host);
+    expect(watcher.welcome).toMatchObject({ role: 'observer', primary: true, services: { observer: 1 } });
+    expect(watcher.welcome.sessions).toEqual([
+      expect.objectContaining({ sessionId: 'o', instance: 1, pid: spawned.pid, claudeSessionId: 'claude-o' }),
+    ]);
+    // The same view id as the primary's: each connection numbers its own views.
+    watcher.connection.request({ type: 'view-open', viewId: 1, sessionId: 'o' });
+    const snapshot = await watcher.connection.next('the snapshot', (m) => m.type === 'view' && m.viewId === 1);
+    expect(snapshot.message.data).toContain('READY');
+    type(primary.connection, 1, 'from the primary');
+    await until('the echo to the observer', () => watcher.connection.viewData(1).includes('ECHO: from the primary'));
+    await until('the echo to the primary', () => primary.connection.viewData(1).includes('ECHO: from the primary'));
+
+    // Read-only: its input, resizes, spawns, disposes and shutdown are ignored.
+    type(watcher.connection, 1, 'exit 3');
+    watcher.connection.request({ type: 'view-message', viewId: 1, message: { type: 'resize', cols: 50, rows: 10 } });
+    watcher.connection.request({ type: 'write', sessionId: 'o', data: 'exit 4\r' });
+    spawnChild(watcher.connection, 'from-observer');
+    watcher.connection.request({ type: 'dispose', sessionId: 'o', instance: 1 });
+    watcher.connection.request({ type: 'shutdown' });
+    await pause(800);
+    expect(alive(host.pid)).toBe(true);
+    expect(alive(spawned.pid)).toBe(true);
+    expect(primary.connection.messages.some((m) => m.type === 'replaced')).toBe(false);
+    expect(primary.connection.messages.filter((m) => m.type === 'spawned')).toHaveLength(1);
+    type(primary.connection, 1, 'size');
+    await until('the size, unchanged', () => primary.connection.viewData(1).includes('SIZE 80x24'));
+    expect(primary.connection.viewData(1)).not.toContain('ECHO: exit');
+
+    // Reads only.
+    const ask = async (id: number, service: string, method: string, params: Record<string, unknown> = {}) => {
+      watcher.connection.send({ type: 'svc', id, service, method, params });
+      return watcher.connection.next(`answer ${id}`, (m) => m.type === 'svc-result' && m.id === id);
+    };
+    expect(await ask(1, 'observer', 'primary')).toMatchObject({ ok: true, result: { primary: true } });
+    expect(await ask(2, 'sessions', 'list')).toMatchObject({ ok: true, result: { sessions: [] } });
+    expect(await ask(3, 'state', 'read', { file: path.join(host.dir, 'state.json') })).toMatchObject({
+      ok: false,
+      error: { code: 'forbidden' },
+    });
+    expect(await ask(4, 'transcripts', 'watch', { home: host.dir })).toMatchObject({
+      ok: false,
+      error: { code: 'forbidden' },
+    });
+
+    // The primary goes and comes back: the observer is told, and stays.
+    primary.connection.close();
+    expect(
+      await watcher.connection.next('primary gone', (m) => m.type === 'svc-event' && m.service === 'observer'),
+    ).toMatchObject({ event: 'primary', data: { primary: false } });
+    expect(await ask(5, 'observer', 'primary')).toMatchObject({ result: { primary: false } });
+    const next = await attach(host);
+    expect(
+      await watcher.connection.next('primary back', (m) => m.type === 'svc-event' && m.service === 'observer'),
+    ).toMatchObject({ data: { primary: true } });
+    next.connection.request({ type: 'write', sessionId: 'o', data: 'after\r' });
+    await until('the observer to see it', () => watcher.connection.viewData(1).includes('ECHO: after'));
+    expect(watcher.connection.messages.some((m) => m.type === 'replaced')).toBe(false);
+    expect(watcher.connection.closed).toBe(false);
+
+    next.connection.request({ type: 'dispose', sessionId: 'o', instance: 1 });
+    expect(await watcher.connection.next('view-closed', (m) => m.type === 'view-closed')).toEqual({
+      type: 'view-closed',
+      viewId: 1,
+    });
+    next.connection.request({ type: 'shutdown' });
+    await until('the host to exit', () => !alive(host.pid));
+  });
+
+  it('orders status events by revision and tells the Claude Code session id', async () => {
+    const host = await startHost(kind);
+    const first = await attach(host);
+    const { connection } = first;
+    const { port, token } = first.welcome.hooks;
+    const home = fs.mkdtempSync(path.join(scratch, `revision-${kind}-`));
+    connection.request({
+      type: 'spawn',
+      sessionId: 'r',
+      instance: 1,
+      file: process.execPath,
+      args: [child],
+      cwd: root,
+      env: { ...(process.env as Record<string, string>) },
+      cols: 80,
+      rows: 24,
+      meta: { claudeHome: home },
+    });
+    const spawned = await connection.next('spawned', (m) => m.type === 'spawned');
+    const watcher = await observe(host);
+    const status = (c: Connection, what: string) =>
+      c.next(what, (m) => m.type === 'svc-event' && m.service === 'sessions' && m.event === 'status');
+
+    connection.send({ type: 'svc', id: 1, service: 'sessions', method: 'list', params: {} });
+    const before = (await connection.next('list', (m) => m.type === 'svc-result' && m.id === 1)).result;
+    expect(before.sessions).toEqual([expect.objectContaining({ sessionId: 'r', status: 'starting' })]);
+    expect(before.sessions[0].revision).toBeLessThanOrEqual(before.revision);
+
+    // A session started directly: its Claude Code id comes from its hooks (or its registry entry).
+    await post(port, '/hook/r/UserPromptSubmit', token, JSON.stringify({ session_id: 'claude-direct' }));
+    const busy = (await status(connection, 'busy')).data;
+    expect(busy).toMatchObject({ sessionId: 'r', status: 'busy', claudeSessionId: 'claude-direct' });
+    expect(busy.revision).toBeGreaterThan(before.revision);
+    expect((await status(watcher.connection, 'busy, observed')).data).toEqual(busy);
+
+    connection.send({ type: 'svc', id: 2, service: 'sessions', method: 'list', params: {} });
+    const listed = (await connection.next('list', (m) => m.type === 'svc-result' && m.id === 2)).result;
+    expect(listed.revision).toBe(busy.revision);
+    expect(listed.sessions[0]).toMatchObject({
+      status: 'busy',
+      claudeSessionId: 'claude-direct',
+      revision: busy.revision,
+    });
+
+    await post(port, '/hook/r/Stop', token, JSON.stringify({ session_id: 'claude-direct' }));
+    const done = (await status(connection, 'done')).data;
+    expect(done).toMatchObject({ status: 'idle', notify: 'done' });
+    expect(done.revision).toBeGreaterThan(listed.revision);
+
+    const later = await observe(host);
+    expect(later.welcome.sessions).toEqual([
+      expect.objectContaining({ sessionId: 'r', pid: spawned.pid, claudeSessionId: 'claude-direct' }),
+    ]);
+    connection.request({ type: 'shutdown' });
+    await until('the host to exit', () => !alive(host.pid));
+  });
+
   it('exits when idle with no reframe attached', async () => {
     const host = await startHost(kind);
     const { connection } = await attach(host);
@@ -869,7 +1016,15 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       const home = transcriptHome(kind);
       const host = await startHost(kind);
       const { connection, welcome } = await attach(host);
-      expect(welcome.services).toEqual({ transcripts: 1, quota: 1, clients: 1, launch: 1, sessions: 1, state: 1 });
+      expect(welcome.services).toEqual({
+        transcripts: 1,
+        quota: 1,
+        clients: 1,
+        launch: 1,
+        sessions: 1,
+        state: 1,
+        observer: 1,
+      });
       const index = new TranscriptIndex(home);
       let id = 0;
       const lists = [
@@ -1174,7 +1329,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         type: 'svc-result',
         id: 1,
         ok: true,
-        result: { sessions: [] },
+        result: { sessions: [], revision: expect.any(Number) },
       });
       connection.send({ type: 'svc', id: 2, service: 'sessions', method: 'nope', params: {} });
       expect(await connection.next('nope', (m) => m.type === 'svc-result' && m.id === 2)).toMatchObject({
@@ -1185,7 +1340,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       spawnChild(connection, 'old');
       const { pid } = await connection.next('spawned', (m) => m.type === 'spawned');
       connection.send({ type: 'svc', id: 3, service: 'sessions', method: 'list', params: {} });
-      expect((await connection.next('list', (m) => m.type === 'svc-result' && m.id === 3)).result).toEqual({
+      expect((await connection.next('list', (m) => m.type === 'svc-result' && m.id === 3)).result).toMatchObject({
         sessions: [],
       });
       connection.request({ type: 'dispose', sessionId: 'old', instance: 1 });

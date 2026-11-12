@@ -68,6 +68,8 @@ export interface HostServices {
   sessions?: number;
   /** Reframe's state.json, read and written with revisions (src/main/state/files.ts). */
   state?: number;
+  /** Read-only clients beside the primary (`role: "observer"` in the hello) and `observer.primary` (since .25). */
+  observer?: number;
 }
 
 export interface SvcRequest {
@@ -78,7 +80,8 @@ export interface SvcRequest {
   params: Record<string, unknown>;
 }
 
-export type SvcErrorCode = 'unknown-method' | 'bad-params' | 'io' | 'busy' | 'conflict';
+/** `forbidden` (since 0.10.1-claudegpt.25): a request an observer may not make. */
+export type SvcErrorCode = 'unknown-method' | 'bad-params' | 'io' | 'busy' | 'conflict' | 'forbidden';
 
 export type SvcResult =
   | { type: 'svc-result'; id: number; ok: true; result: unknown }
@@ -108,12 +111,16 @@ export interface HostSession {
   /** Null while it runs. */
   exitCode: number | null;
   meta?: SessionMeta;
+  /** Claude Code's session id where the host knows it (since 0.10.1-claudegpt.25): from the registry, hooks or meta. */
+  claudeSessionId?: string;
 }
 
 export interface Hello {
   type: 'hello';
   token: string;
   protocol: number;
+  /** `observer` (hosts with `services.observer`): a read-only client that replaces nobody. Older hosts ignore it. */
+  role?: 'primary' | 'observer';
 }
 
 export type Welcome =
@@ -128,6 +135,9 @@ export type Welcome =
       kind?: HostKind;
       /** Absent from hosts before 0.10.1-claudegpt.20: they offer none. */
       services?: HostServices;
+      /** Since 0.10.1-claudegpt.25: what this connection is, and whether a primary client is attached. */
+      role?: 'primary' | 'observer';
+      primary?: boolean;
     }
   | { type: 'refused'; reason: 'token' | 'protocol'; protocol: number };
 
@@ -153,6 +163,8 @@ export interface HostDescriptor {
   /** Process ids of its running sessions. */
   sessionPids: number[];
   kind?: HostKind;
+  /** The observer version (since 0.10.1-claudegpt.25), so a client knows before its hello that it will not replace. */
+  observer?: number;
 }
 
 /** The host's answer to a hello: welcome only with the profile's token and the same protocol version. */

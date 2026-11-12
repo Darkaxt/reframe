@@ -1,40 +1,97 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "1c6e8f3402157bb85d81d1b67fa797242429ca27",
-  "scope": "0.10.1-claudegpt.24: stage 2 slice 5 of the Rust migration. StateStore saves through the PTY host's state=1 service whenever the attached host advertises it (checked per save; a hot-swapped older host without it, e.g. .22, saves synchronously in-process). One write in flight, newer snapshots replace queued ones, conflict re-reads the revision and retries once with the newest snapshot, non-conflict failures fall back to the in-process write with a warning. flush(deadline?) resolves when the newest snapshot (debounced too) is on disk; with a deadline (5 s) an unanswering host is abandoned and the newest snapshot written in-process, later saves too, and a late host answer cannot write an older snapshot. Awaited in shutdown() before sessions end and the host is let go, after the host stops, and at the end of bulk chat batches; flushState() test hook; e2e helpers' state()/byName() are async and flush the running app before reading state.json. No protocol bump, no Rust changes",
+  "sourceBase": "16cf403c49c708f130bdb9bf75e854bfab78c4e4",
+  "scope": "0.10.1-claudegpt.25: PTY host protocol gaps for the native WPF shell, no protocol bump. (1) Observer attach: hello role 'observer' is welcomed beside the primary and never replaces it; advertised as services.observer=1 in the welcome and observer=1 in the host descriptor (checked before the hello, since older hosts treat any hello as a primary); welcome role/primary; observers get spawned/spawn-failed/exit, sessions.status and observer.primary events, views of their own keyed per connection, read-only (view-message ignored), spawn/write/dispose/shutdown ignored, services limited to sessions.list, observer.primary and transcripts list/info/times/title (else svc error 'forbidden'); replacing the primary closes only its views. (2) sessions.status events and sessions.list items carry a host-wide monotonically increasing revision; list returns { sessions, revision }. (3) claudeSessionId in welcome sessions, status events and list items, from the registry entry, else the latest hook session_id, else meta.launched/wsl. Node host (src/ptyhost) and Rust host (reframe-host, reframe-sessions); conformance tests for both. WPF Shell.Core attaches as an observer beside Electron when the descriptor advertises it, otherwise keeps the --take-over behaviour; applies the revision rule; uses claudeSessionId. Electron unchanged beyond tolerating the new fields.",
   "inputHashes": [
     {
-      "file": "docs/releases/v0.10.1-claudegpt.24.md",
-      "sha256": "d1a8a3cd753de52b2f632d16b94aa2200078172e2684b591ba84df99005eed67"
+      "file": "docs/ptyhost-protocol.md",
+      "sha256": "79b401895e4d1a92c59925d2684d5b68c71757cdb03dad6bfd98bb7e83dffab4"
     },
     {
-      "file": "e2e/helpers.ts",
-      "sha256": "f7a6f3eb56510ed2653559a77b61e9cec7ef8d228ec471a70af06cde3de99995"
+      "file": "docs/releases/v0.10.1-claudegpt.25.md",
+      "sha256": "83fa21472bf63040aa04056d6ae54547981b9c32f3140455834583a1907849bc"
     },
     {
       "file": "package-lock.json",
-      "sha256": "4472810bde91eeefa0ca19ff746a7c869174e8bed6a70cdf4961f29696c0414a"
+      "sha256": "46fefb802861b3bdc20393fda02ce2deacc90be74bdb3aff5f7f993e0fd1e893"
     },
     {
       "file": "package.json",
-      "sha256": "640f254cfa764c29c3f00d01b7001f8bbc31fc4d07f8e738dc2f69cdfdeaf4bf"
+      "sha256": "9c0cf26ea630a17b1dff5304c6e90a8c9464a7363558e7eb50fe41e8e959a5ab"
     },
     {
-      "file": "src/main/app.ts",
-      "sha256": "321c7b17d595fefacd78a52972b4675dc5fc8664b4f635e4389171289c586005"
+      "file": "rust/reframe-host/src/files.rs",
+      "sha256": "9b7871fc69d6d366dddb64cb7e7fe38d2db1557fb2afeba87e09c744e5ea6a6a"
     },
     {
-      "file": "src/main/state/store.test.ts",
-      "sha256": "92321ecd110d0e3164eabee3447ee0f75636267dec391dbc065e015b8fa64645"
+      "file": "rust/reframe-host/src/host.rs",
+      "sha256": "4e9ecf43ff2137195fac760ccebea5c319a7c2dfe396242d3fcec55477549028"
     },
     {
-      "file": "src/main/state/store.ts",
-      "sha256": "f748b1a43e0a543b81d06423f02a80c00e2b5dfbb722d616a92b2dc5027540de"
+      "file": "rust/reframe-sessions/src/lib.rs",
+      "sha256": "878144f2337db36a96e0377a018fb65c57144796ef6b330b234c06ce62e38857"
+    },
+    {
+      "file": "src/ptyhost/host.conformance.ts",
+      "sha256": "34bf5045a878bcbdbda693dd0f05489a62f7c82fc924820ed812ed83fdffe3f7"
+    },
+    {
+      "file": "src/ptyhost/index.ts",
+      "sha256": "1557b02ebedd7cede2e03b22e40a841a92dcb99627a298f9408dc47a5bd32b0e"
+    },
+    {
+      "file": "src/ptyhost/protocol.ts",
+      "sha256": "64eef0165aa202d92442496981cee931de0cecd7a7f7b5a0c40de01e8c136feb"
+    },
+    {
+      "file": "src/ptyhost/services.ts",
+      "sha256": "10285e04675c64ff6cdf154163073f57a6b70f98bd234c89491c25bd24447fb1"
+    },
+    {
+      "file": "src/ptyhost/sessions.ts",
+      "sha256": "66397896fd4549e7ae91814f2d23f4a92ecf03f296acdcd6444d3816e50b5d32"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/Attach.cs",
+      "sha256": "402fa50c98ef7cef488aedfa81ae2e7579b963152829ada544fb7070a28fce1a"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/HostConnection.cs",
+      "sha256": "492b47fecc3452964ee46c3286bc316c2d3f924c45dbaa78211ac96146de7935"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/HostFiles.cs",
+      "sha256": "74df8f155a62021b78ddd70141ee8f5474c636254e2bf33676eefd425be9ab3e"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/Presence.cs",
+      "sha256": "cc133f1fbcd94b814a82c774d40ec2fccae1c7fc5fab494a1346ba373a565ce3"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/Services.cs",
+      "sha256": "40bda6c6e80ed76b4b11c6ad0adf190fdc8cb7bb5acbcea2b35e794d44773b29"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/FakeHost.cs",
+      "sha256": "519bd61b0904d2e8a9638031a99431c3de53685fb29f6e7b50065977d47a8264"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/ShellCoreTests.cs",
+      "sha256": "40c0b2e280809fc94687ee1e516e452b8e2a46a317659e29617d25fa66b6a442"
+    },
+    {
+      "file": "wpf/Reframe.Shell/App.xaml.cs",
+      "sha256": "0cd9f0e933da77483ef126f4f346fe05958ec893c657a0654efb6b2b40aa57fa"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
+      "sha256": "89731af9e6f20d3b3af63fb4cef9f9f5c9ae36968f4fb5bb0f7e3ef0b894589b"
     }
   ],
   "checksNotYetRun": [
     "Packaged native e2e for this candidate",
+    "WPF shell build and xUnit tests (CI wpf job; not run locally)",
     "Windows release delivery and installed activation"
   ]
 }

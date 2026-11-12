@@ -8,6 +8,8 @@ namespace Reframe.Shell.Tests;
 /// <summary>
 /// An in-process stand-in for the PTY host: a profile folder with a token and a descriptor, and a named pipe that
 /// speaks the protocol's handshake, one session's view (snapshot, then data), the sessions and transcripts services.
+/// With <c>observers</c> it is a host from 0.10.1-claudegpt.25: it advertises observers (descriptor and welcome), an
+/// observer's hello replaces nobody, and the sessions service gives revisions.
 /// </summary>
 sealed class FakeHost : IAsyncDisposable
 {
@@ -20,9 +22,13 @@ sealed class FakeHost : IAsyncDisposable
     public string PipeName { get; } = $"reframe-ptyhost-test-{Guid.NewGuid():N}";
     /// <summary>Every request the host got after a hello, in order.</summary>
     public ConcurrentQueue<JsonObject> Requests { get; } = new();
+    /// <summary>Every hello, in order.</summary>
+    public ConcurrentQueue<JsonObject> Hellos { get; } = new();
+    readonly bool observers;
 
-    public FakeHost()
+    public FakeHost(bool observers = false)
     {
+        this.observers = observers;
         ProfileDir = Path.Combine(Path.GetTempPath(), "reframe-shell-tests", Guid.NewGuid().ToString("N"));
         var hostDir = Path.Combine(ProfileDir, "ptyhost");
         Directory.CreateDirectory(Path.Combine(hostDir, "hosts"));
@@ -32,6 +38,7 @@ sealed class FakeHost : IAsyncDisposable
         {
             ["pid"] = pid, ["pipe"] = $@"\\.\pipe\{PipeName}", ["protocol"] = 1, ["version"] = "test",
             ["startedAt"] = 0, ["sessionPids"] = new JsonArray(), ["kind"] = "rust",
+            ["observer"] = observers ? 1 : null,
         }.ToJsonString());
         serving = Task.Run(ServeAsync);
     }
@@ -65,12 +72,19 @@ sealed class FakeHost : IAsyncDisposable
                         return;
                     }
                     welcomed = true;
-                    var previous = Interlocked.Exchange(ref current, pipe);
-                    if (previous is not null)
+                    Hellos.Enqueue(message);
+                    var observer = observers && (string?)message["role"] == "observer";
+                    if (!observer)
                     {
-                        await SendAsync(previous, new JsonObject { ["type"] = "replaced" });
-                        previous.Dispose();
+                        var previous = Interlocked.Exchange(ref current, pipe);
+                        if (previous is not null)
+                        {
+                            await SendAsync(previous, new JsonObject { ["type"] = "replaced" });
+                            previous.Dispose();
+                        }
                     }
+                    var services = new JsonObject { ["transcripts"] = 1, ["sessions"] = 1 };
+                    if (observers) services["observer"] = 1;
                     await SendAsync(pipe, new JsonObject
                     {
                         ["type"] = "welcome", ["protocol"] = 1, ["version"] = "test", ["pid"] = Environment.ProcessId,
@@ -78,20 +92,22 @@ sealed class FakeHost : IAsyncDisposable
                         ["sessions"] = new JsonArray(new JsonObject
                         {
                             ["sessionId"] = "s1", ["instance"] = 3, ["pid"] = 42, ["exitCode"] = null,
-                            ["meta"] = new JsonObject { ["claudeHome"] = @"C:\claude", ["launched"] = new JsonObject { ["claudeSessionId"] = "c1" } },
+                            // Started directly (no meta.launched): the host tells Claude Code's id itself.
+                            ["meta"] = new JsonObject { ["claudeHome"] = @"C:\claude" }, ["claudeSessionId"] = "c1",
                         }),
-                        ["services"] = new JsonObject { ["transcripts"] = 1, ["sessions"] = 1 },
+                        ["services"] = services,
+                        ["role"] = observer ? "observer" : "primary", ["primary"] = true,
                     });
                     continue;
                 }
                 Requests.Enqueue(message);
-                await AnswerAsync(pipe, message);
+                await AnswerAsync(pipe, message, observers);
             }
         }
         catch (Exception e) when (e is IOException or ObjectDisposedException or OperationCanceledException) { }
     }
 
-    static async Task AnswerAsync(Stream pipe, JsonObject request)
+    static async Task AnswerAsync(Stream pipe, JsonObject request, bool revisions)
     {
         switch ((string?)request["type"])
         {
@@ -118,7 +134,9 @@ sealed class FakeHost : IAsyncDisposable
                         {
                             ["sessionId"] = "s1", ["instance"] = 3, ["status"] = "idle",
                             ["registry"] = new JsonObject { ["pid"] = 42, ["sessionId"] = "c1", ["name"] = "fix the build" },
+                            ["revision"] = revisions ? 5 : null,
                         }),
+                        ["revision"] = revisions ? 5 : null,
                     }),
                     "transcripts.title" => Ok(id, JsonValue.Create("A title")),
                     _ => new JsonObject
@@ -129,11 +147,20 @@ sealed class FakeHost : IAsyncDisposable
                 };
                 await SendAsync(pipe, answer);
                 if (key == "sessions.list")
+                {
+                    // With revisions: one the list already holds (told late, so dropped), then a newer one.
+                    if (revisions)
+                        await SendAsync(pipe, new JsonObject
+                        {
+                            ["type"] = "svc-event", ["service"] = "sessions", ["event"] = "status",
+                            ["data"] = new JsonObject { ["sessionId"] = "s1", ["instance"] = 3, ["status"] = "waiting", ["revision"] = 4 },
+                        });
                     await SendAsync(pipe, new JsonObject
                     {
                         ["type"] = "svc-event", ["service"] = "sessions", ["event"] = "status",
-                        ["data"] = new JsonObject { ["sessionId"] = "s1", ["instance"] = 3, ["status"] = "busy" },
+                        ["data"] = new JsonObject { ["sessionId"] = "s1", ["instance"] = 3, ["status"] = "busy", ["revision"] = revisions ? 6 : null },
                     });
+                }
                 break;
         }
     }

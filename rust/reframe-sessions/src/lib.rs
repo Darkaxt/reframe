@@ -76,6 +76,16 @@ pub enum Lookup {
 }
 
 impl Lookup {
+    /// Claude Code's session id the spawn gave (through cmd.exe and in WSL); a direct start's comes from its entry.
+    pub fn claude_session_id(&self) -> Option<&str> {
+        match self {
+            Lookup::Direct { .. } => None,
+            Lookup::Launched { claude_session_id, .. } | Lookup::Wsl { claude_session_id, .. } => {
+                Some(claude_session_id)
+            }
+        }
+    }
+
     /// `meta.wsl` with its `share`, or `meta.claudeHome` (with `meta.launched` through cmd.exe); else the session is
     /// not followed here (reframe before 0.10.1-claudegpt.22 started it, and follows it itself).
     pub fn from_meta(meta: Option<&Value>) -> Option<Self> {
@@ -159,6 +169,8 @@ pub struct Update {
     pub status: Status,
     pub registry: Option<Entry>,
     pub notify: Option<Notify>,
+    /// Claude Code's session id as last known: the registry entry's, a hook's, or the spawn's.
+    pub claude_session_id: Option<String>,
 }
 
 /// The status of one session (one start of it), as SessionManager keeps it in its Runtime.
@@ -176,21 +188,30 @@ pub struct Tracker {
     proc_start: Option<String>,
     /// An announcement made while no reframe was attached: the next one gets it with the statuses.
     pub held: Option<Notify>,
+    claude_session_id: Option<String>,
+    /// The host's status revision of its last change (the host keeps the counter, one for every session).
+    pub revision: u64,
 }
 
 impl Tracker {
     pub fn new(lookup: Lookup, pid: u32, started_at: f64, proc_start: Option<String>) -> Self {
         Self {
-            lookup,
             pid,
             found: None,
             status: Status::Starting,
             registry_status: None,
             last: None,
             started_at,
+            claude_session_id: lookup.claude_session_id().map(str::to_string),
+            lookup,
             proc_start,
             held: None,
+            revision: 0,
         }
+    }
+
+    pub fn claude_session_id(&self) -> Option<&str> {
+        self.claude_session_id.as_deref()
     }
 
     pub fn status(&self) -> Status {
@@ -207,6 +228,7 @@ impl Tracker {
             status: self.status,
             registry: self.last.clone(),
             notify,
+            claude_session_id: self.claude_session_id.clone(),
         }
     }
 
@@ -221,7 +243,16 @@ impl Tracker {
         if !self.running() {
             return None;
         }
-        match event {
+        // Every hook says which Claude Code session it is (it changes on /clear).
+        let id = payload
+            .get("session_id")
+            .and_then(Value::as_str)
+            .filter(|id| !id.is_empty());
+        let id_changed = id.is_some_and(|id| self.claude_session_id.as_deref() != Some(id));
+        if id_changed {
+            self.claude_session_id = id.map(str::to_string);
+        }
+        let update = match event {
             "UserPromptSubmit" => self.set(Status::Busy).then(|| self.update(None)),
             "Stop" => {
                 self.set(Status::Idle);
@@ -233,7 +264,8 @@ impl Tracker {
                 Some(self.update(Some(Notify::Waiting)))
             }
             _ => None,
-        }
+        };
+        update.or_else(|| id_changed.then(|| self.update(None)))
     }
 
     /// The next read of the registry, unless the session is over.
@@ -258,6 +290,9 @@ impl Tracker {
             return None;
         }
         let entry_changed = self.last.as_ref() != Some(&entry);
+        if !entry.session_id.is_empty() {
+            self.claude_session_id = Some(entry.session_id.clone());
+        }
         self.last = Some(entry.clone());
         let wsl = matches!(self.lookup, Lookup::Wsl { .. });
         let mut notify = None;
@@ -298,14 +333,25 @@ impl Tracker {
 
     /// The session as `sessions.list` gives it; an announcement held for the next reframe goes with it (once).
     pub fn snapshot(&mut self, session_id: &str, instance: u64) -> Value {
-        let notify = self.held.take();
-        update_json(session_id, instance, &self.update(notify))
+        self.snapshot_with(session_id, instance, true)
+    }
+
+    /// As `snapshot`; `take`: false for an observer, which leaves what is held for the primary.
+    pub fn snapshot_with(&mut self, session_id: &str, instance: u64, take: bool) -> Value {
+        let notify = if take { self.held.take() } else { None };
+        update_json(session_id, instance, &self.update(notify), self.revision)
     }
 }
 
-/// `{ sessionId, instance, status, registry?, notify? }`: a `sessions.status` event's data, and a `list` item.
-pub fn update_json(session_id: &str, instance: u64, update: &Update) -> Value {
-    let mut value = json!({ "sessionId": session_id, "instance": instance, "status": update.status.as_str() });
+/// `{ sessionId, instance, status, registry?, notify?, claudeSessionId?, revision }`: a `sessions.status` event's
+/// data, and a `list` item.
+pub fn update_json(session_id: &str, instance: u64, update: &Update, revision: u64) -> Value {
+    let mut value = json!({
+        "sessionId": session_id, "instance": instance, "status": update.status.as_str(), "revision": revision,
+    });
+    if let Some(id) = &update.claude_session_id {
+        value["claudeSessionId"] = json!(id);
+    }
     if let Some(entry) = &update.registry {
         value["registry"] = entry.to_json();
     }
@@ -405,6 +451,22 @@ mod tests {
         let mut other = entry(Some("busy"), "a");
         other.proc_start = Some("6".into());
         assert_eq!(t.registry(Some(other), None), None);
+    }
+
+    #[test]
+    fn knows_the_claude_session_id() {
+        let mut t = direct();
+        assert_eq!(t.claude_session_id(), None);
+        let u = t.hook("SessionStart", &json!({ "session_id": "c1" })).unwrap();
+        assert_eq!(u.claude_session_id.as_deref(), Some("c1"));
+        assert_eq!(t.hook("SessionStart", &json!({ "session_id": "c1" })), None);
+        t.registry(Some(entry(Some("idle"), "c2")), None);
+        assert_eq!(t.claude_session_id(), Some("c2"));
+        let json = t.snapshot_with("s", 1, false);
+        assert_eq!(
+            (json["claudeSessionId"].as_str(), json["revision"].as_u64()),
+            (Some("c2"), Some(0))
+        );
     }
 
     #[test]

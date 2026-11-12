@@ -64,6 +64,7 @@ impl Files {
             "startedAt": started_at,
             "sessionPids": session_pids,
             "kind": HOST_KIND,
+            "observer": crate::host::OBSERVER_VERSION,
         });
         fs::create_dir_all(self.descriptor.parent().unwrap_or(&self.dir))?;
         let temp = self.descriptor.with_extension("json.tmp");
@@ -136,7 +137,7 @@ mod tests {
             serde_json::from_str(&fs::read_to_string(dir.join("hosts").join("77.json")).unwrap()).unwrap();
         assert_eq!(
             written,
-            json!({"pid":77,"pipe":r"\\.\pipe\x","protocol":1,"version":"1.2.3","startedAt":5,"sessionPids":[9,10],"kind":"rust"})
+            json!({"pid":77,"pipe":r"\\.\pipe\x","protocol":1,"version":"1.2.3","startedAt":5,"sessionPids":[9,10],"kind":"rust","observer":1})
         );
         files.log("hello", json!({"n": 1}));
         let log: Value = serde_json::from_str(fs::read_to_string(dir.join("host.log")).unwrap().trim()).unwrap();

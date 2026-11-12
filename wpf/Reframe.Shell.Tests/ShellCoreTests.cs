@@ -89,6 +89,59 @@ public class ShellCoreTests
     }
 
     [Fact]
+    public async Task Watches_read_only_beside_reframe_when_the_host_offers_observers()
+    {
+        await using var host = new FakeHost(observers: true);
+        using (new FileStream(Path.Combine(host.ProfileDir, "lockfile"), FileMode.Create, FileAccess.Write, FileShare.Read))
+        {
+            var result = await ShellAttach.AttachAsync(host.ProfileDir, takeOver: false);
+            Assert.Equal(AttachOutcome.Attached, result.Outcome);
+            await using var connection = result.Connection!;
+            Assert.True(connection.IsObserver);
+            Assert.True(connection.Welcome.PrimaryAttached);
+            Assert.Equal("observer", (string?)Assert.Single(host.Hellos)["role"]);
+
+            var view = connection.CreateView("s1");
+            var snapshot = new TaskCompletionSource();
+            view.Snapshot += (_, _, _) => snapshot.TrySetResult();
+            await view.OpenAsync();
+            await snapshot.Task.WaitAsync(Wait);
+            Assert.True(view.ReadOnly);
+            await view.InputAsync("x"); // not sent: an observer's views are read-only
+            await view.ResizeAsync(120, 40);
+            view.Close();
+            var requests = await RequestsAsync(host, 2);
+            Assert.Equal(["view-open", "view-close"], requests.Select(r => (string?)r["type"]));
+            result.Lock?.Dispose();
+        }
+
+        // Without reframe there, the shell is the primary as before; --take-over is always a primary attach.
+        await using var primary = await AttachAsync(host, takeOver: true);
+        Assert.False(primary.IsObserver);
+        Assert.Null(host.Hellos.Last()["role"]);
+    }
+
+    [Fact]
+    public async Task Applies_a_status_only_when_newer_than_the_list()
+    {
+        await using var host = new FakeHost(observers: true);
+        await using var connection = await AttachAsync(host);
+        var services = new HostServices(connection);
+        var changes = new List<SessionStatus>();
+        var busy = new TaskCompletionSource();
+        services.StatusChanged += s =>
+        {
+            lock (changes) changes.Add(s);
+            if (s.Status == "busy") busy.TrySetResult();
+        };
+        var listed = Assert.Single(await services.ListSessionsAsync());
+        Assert.Equal(5, listed.Revision);
+        await busy.Task.WaitAsync(Wait);
+        // The "waiting" of revision 4, told after the list of revision 5, was dropped.
+        lock (changes) Assert.Equal(["busy"], changes.Select(c => c.Status));
+    }
+
+    [Fact]
     public async Task Refuses_a_second_shell_on_the_profile()
     {
         await using var host = new FakeHost();

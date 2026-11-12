@@ -29,7 +29,10 @@ import {
 import { ReadService, SERVICES, StateService, SvcError, TranscriptService } from './services';
 import { SessionStatusService } from './sessions';
 
+/** A view of a session's terminal, opened by one connection (the primary or an observer) under its own id. */
 interface View {
+  owner: net.Socket;
+  viewId: number;
   sessionId: string;
   live: boolean;
   pending: string[];
@@ -40,9 +43,12 @@ interface Session {
   proc: pty.IPty;
   mirror: Terminal;
   serializer: SerializeAddon;
-  views: Set<number>;
+  /** Keys of `views`. */
+  views: Set<string>;
   exitCode: number | null;
   meta?: SessionMeta;
+  /** Claude Code's session id as its hooks last gave it (also for a session the `sessions` service does not follow). */
+  hookClaudeId?: string;
 }
 
 /** Without a reframe and a running session for this long, the host goes. */
@@ -57,8 +63,15 @@ const descriptorFile = path.join(dir, 'hosts', `${process.pid}.json`);
 const pipe = pipeName(dir, process.pid);
 
 const sessions = new Map<string, Session>();
-const views = new Map<number, View>();
+/** Every open view, by `viewKey` (each connection numbers its own views). */
+const views = new Map<string, View>();
+/** The attached reframe (the primary client): the one whose requests change anything. */
 let client: net.Socket | null = null;
+/** Read-only clients (`role: "observer"` in the hello): they never replace the primary (docs/ptyhost-protocol.md). */
+const observers = new Set<net.Socket>();
+const socketIds = new WeakMap<net.Socket, number>();
+let nextSocketId = 0;
+const viewKey = (owner: net.Socket, viewId: number) => `${socketIds.get(owner)}:${viewId}`;
 const held: HookMessage[] = [];
 let idleSince = Date.now();
 
@@ -82,6 +95,20 @@ function send(message: ServerMessage): void {
   if (client && !client.destroyed) client.write(encode(message));
 }
 
+function sendTo(socket: net.Socket, message: ServerMessage): void {
+  if (!socket.destroyed) socket.write(encode(message));
+}
+
+/** To the primary and every observer. */
+function broadcast(message: ServerMessage): void {
+  send(message);
+  for (const observer of observers) sendTo(observer, message);
+}
+
+function sendView(view: View, message: Extract<ServerMessage, { type: 'view' }>['message']): void {
+  sendTo(view.owner, { type: 'view', viewId: view.viewId, message });
+}
+
 function emit(event: HostEvent): void {
   send(event);
 }
@@ -95,6 +122,7 @@ function writeDescriptor(): void {
     startedAt: startedAt,
     sessionPids: [...sessions.values()].filter((s) => s.exitCode === null).map((s) => s.proc.pid),
     kind: 'node',
+    observer: 1,
   };
   const temp = `${descriptorFile}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(descriptor));
@@ -125,7 +153,7 @@ function spawn(request: Extract<HostRequest, { type: 'spawn' }>): void {
     });
   } catch (error) {
     mirror.dispose();
-    emit({ type: 'spawn-failed', sessionId, instance, message: String(error) });
+    broadcast({ type: 'spawn-failed', sessionId, instance, message: String(error) });
     return;
   }
 
@@ -133,63 +161,65 @@ function spawn(request: Extract<HostRequest, { type: 'spawn' }>): void {
   sessions.set(sessionId, session);
   writeDescriptor();
   statuses.spawned(sessionId, instance, proc.pid, request.meta);
-  emit({ type: 'spawned', sessionId, instance, pid: proc.pid });
+  broadcast({ type: 'spawned', sessionId, instance, pid: proc.pid });
   // Views that came before their session's process (one in WSL starts once its distribution answered).
-  for (const [viewId, view] of views) if (view.sessionId === sessionId) attach(viewId, view);
+  for (const [key, view] of views) if (view.sessionId === sessionId) attach(key, view);
 
   proc.onData((data) => {
     mirror.write(data);
-    for (const viewId of session.views) {
-      const view = views.get(viewId);
+    for (const key of session.views) {
+      const view = views.get(key);
       if (!view) continue;
-      if (view.live) send({ type: 'view', viewId, message: { type: 'data', data } });
+      if (view.live) sendView(view, { type: 'data', data });
       else view.pending.push(data);
     }
   });
   proc.onExit(({ exitCode }) => {
     session.exitCode = exitCode;
-    for (const viewId of session.views) send({ type: 'view', viewId, message: { type: 'exit', exitCode } });
-    emit({ type: 'exit', sessionId, instance, pid: proc.pid, exitCode });
+    for (const key of session.views) {
+      const view = views.get(key);
+      if (view) sendView(view, { type: 'exit', exitCode });
+    }
+    broadcast({ type: 'exit', sessionId, instance, pid: proc.pid, exitCode });
     statuses.exited(sessionId, instance);
     if (sessions.get(sessionId) === session) writeDescriptor();
   });
 }
 
-function openView(viewId: number, sessionId: string): void {
-  const view: View = { sessionId, live: false, pending: [] };
-  views.set(viewId, view);
-  if (sessions.has(sessionId)) attach(viewId, view);
+function openView(owner: net.Socket, viewId: number, sessionId: string): void {
+  const key = viewKey(owner, viewId);
+  closeView(key);
+  const view: View = { owner, viewId, sessionId, live: false, pending: [] };
+  views.set(key, view);
+  if (sessions.has(sessionId)) attach(key, view);
 }
 
-function attach(viewId: number, view: View): void {
+function attach(key: string, view: View): void {
   const session = sessions.get(view.sessionId)!;
-  session.views.add(viewId);
+  session.views.add(key);
   // The empty write is a marker: its callback runs once everything received so far is parsed, so the
   // snapshot is consistent and everything after it is in view.pending.
   session.mirror.write('', () => {
-    if (views.get(viewId) !== view || !session.views.has(viewId)) return;
-    send({
-      type: 'view',
-      viewId,
-      message: {
-        type: 'snapshot',
-        data: session.serializer.serialize(),
-        cols: session.mirror.cols,
-        rows: session.mirror.rows,
-      },
+    if (views.get(key) !== view || !session.views.has(key)) return;
+    sendView(view, {
+      type: 'snapshot',
+      data: session.serializer.serialize(),
+      cols: session.mirror.cols,
+      rows: session.mirror.rows,
     });
-    for (const data of view.pending) send({ type: 'view', viewId, message: { type: 'data', data } });
+    for (const data of view.pending) sendView(view, { type: 'data', data });
     view.pending = [];
     view.live = true;
-    if (session.exitCode !== null)
-      send({ type: 'view', viewId, message: { type: 'exit', exitCode: session.exitCode } });
+    if (session.exitCode !== null) sendView(view, { type: 'exit', exitCode: session.exitCode });
   });
 }
 
+/** Input and resizes: only the primary's views (an observer's are read-only). */
 function viewMessage(viewId: number, message: TerminalViewMessage): void {
-  const view = views.get(viewId);
+  const key = client ? viewKey(client, viewId) : '';
+  const view = views.get(key);
   const session = view && sessions.get(view.sessionId);
-  if (!session || !session.views.has(viewId) || session.exitCode !== null) return;
+  if (!session || !session.views.has(key) || session.exitCode !== null) return;
   if (message.type === 'input') session.proc.write(message.data);
   if (message.type === 'resize' && message.cols > 1 && message.rows > 1) {
     session.proc.resize(message.cols, message.rows);
@@ -197,11 +227,16 @@ function viewMessage(viewId: number, message: TerminalViewMessage): void {
   }
 }
 
-function closeView(viewId: number): void {
-  const view = views.get(viewId);
+function closeView(key: string): void {
+  const view = views.get(key);
   if (!view) return;
-  views.delete(viewId);
-  sessions.get(view.sessionId)?.views.delete(viewId);
+  views.delete(key);
+  sessions.get(view.sessionId)?.views.delete(key);
+}
+
+/** Views belong to the connection that opened them. */
+function closeViewsOf(owner: net.Socket): void {
+  for (const [key, view] of [...views]) if (view.owner === owner) closeView(key);
 }
 
 /** Forgets a session; with an instance, only if it is still that one (a newer start must survive). */
@@ -210,9 +245,10 @@ function dispose(sessionId: string, instance: number | null): void {
   if (!session || (instance !== null && session.instance !== instance)) return;
   sessions.delete(sessionId);
   statuses.disposed(sessionId, instance);
-  for (const viewId of session.views) {
-    send({ type: 'view-closed', viewId });
-    views.delete(viewId);
+  for (const key of session.views) {
+    const view = views.get(key);
+    if (view) sendTo(view.owner, { type: 'view-closed', viewId: view.viewId });
+    views.delete(key);
   }
   if (session.exitCode === null) {
     try {
@@ -229,29 +265,46 @@ const transcripts = new TranscriptService((event) => send({ type: 'svc-event', .
 const reads = new ReadService();
 const state = new StateService();
 const statuses = new SessionStatusService(
-  (data) => send({ type: 'svc-event', service: 'sessions', event: 'status', data }),
+  (data) => broadcast({ type: 'svc-event', service: 'sessions', event: 'status', data }),
   () => client !== null,
 );
 
-/** A service request: answered to the reframe that asked, if it is still the attached one. */
-function svc(request: Extract<HostRequest, { type: 'svc' }>): void {
-  const asker = client;
+/** What an observer may ask: reads only. */
+const OBSERVER_METHODS = new Set([
+  'sessions.list',
+  'observer.primary',
+  'transcripts.list',
+  'transcripts.info',
+  'transcripts.times',
+  'transcripts.title',
+]);
+
+/** A service request: answered to the connection that asked, while it is still the primary (or that observer). */
+function svc(asker: net.Socket, request: Extract<HostRequest, { type: 'svc' }>): void {
+  const observer = asker !== client;
   const answer = (message: ServerMessage) => {
-    if (client === asker) send(message);
+    if (observer ? observers.has(asker) : client === asker) sendTo(asker, message);
   };
   const { id } = request;
+  const name = `${request.service}.${request.method}`;
   const call =
-    request.service === 'sessions'
-      ? request.method === 'list'
-        ? Promise.resolve({ sessions: statuses.list() })
-        : Promise.reject(new SvcError('unknown-method', `sessions.${request.method}`))
-      : request.service === 'transcripts'
-        ? transcripts.call(request.method, request.params ?? {})
-        : request.service === 'state'
-          ? state.call(request.method, request.params ?? {})
-          : Object.hasOwn(SERVICES, request.service)
-            ? reads.call(request.service, request.method, request.params ?? {})
-            : Promise.reject(new SvcError('unknown-method', `${request.service}.${request.method}`));
+    observer && !OBSERVER_METHODS.has(name)
+      ? Promise.reject(new SvcError('forbidden', `${name} is not for an observer`))
+      : request.service === 'observer'
+        ? request.method === 'primary'
+          ? Promise.resolve({ primary: client !== null })
+          : Promise.reject(new SvcError('unknown-method', name))
+        : request.service === 'sessions'
+          ? request.method === 'list'
+            ? Promise.resolve(statuses.list(!observer))
+            : Promise.reject(new SvcError('unknown-method', `sessions.${request.method}`))
+          : request.service === 'transcripts'
+            ? transcripts.call(request.method, request.params ?? {})
+            : request.service === 'state'
+              ? state.call(request.method, request.params ?? {})
+              : Object.hasOwn(SERVICES, request.service)
+                ? reads.call(request.service, request.method, request.params ?? {})
+                : Promise.reject(new SvcError('unknown-method', `${request.service}.${request.method}`));
   call.then(
     (result) => answer({ type: 'svc-result', id, ok: true, result: result ?? null }),
     (error: unknown) =>
@@ -267,10 +320,17 @@ function svc(request: Extract<HostRequest, { type: 'svc' }>): void {
   );
 }
 
+/** An observer's request: views (read-only) and the services it may ask; anything else is ignored. */
+function handleObserver(socket: net.Socket, request: HostRequest): void {
+  if (request.type === 'svc') svc(socket, request);
+  else if (request.type === 'view-open') openView(socket, request.viewId, request.sessionId);
+  else if (request.type === 'view-close') closeView(viewKey(socket, request.viewId));
+}
+
 function handle(request: HostRequest): void {
   switch (request.type) {
     case 'svc':
-      svc(request);
+      svc(client!, request);
       break;
     case 'spawn':
       spawn(request);
@@ -284,13 +344,13 @@ function handle(request: HostRequest): void {
       dispose(request.sessionId, request.instance);
       break;
     case 'view-open':
-      openView(request.viewId, request.sessionId);
+      openView(client!, request.viewId, request.sessionId);
       break;
     case 'view-message':
       viewMessage(request.viewId, request.message);
       break;
     case 'view-close':
-      closeView(request.viewId);
+      closeView(viewKey(client!, request.viewId));
       break;
     case 'shutdown':
       log('shutdown requested', { sessions: sessions.size });
@@ -300,9 +360,36 @@ function handle(request: HostRequest): void {
   }
 }
 
+/** The welcome's sessions, with Claude Code's session id where the host knows it. */
+function welcomeSessions(): HostSession[] {
+  return [...sessions].map(([sessionId, s]): HostSession => {
+    const claudeSessionId =
+      statuses.claudeSessionId(sessionId) ??
+      s.hookClaudeId ??
+      s.meta?.launched?.claudeSessionId ??
+      s.meta?.wsl?.claudeSessionId;
+    return {
+      sessionId,
+      instance: s.instance,
+      pid: s.proc.pid,
+      exitCode: s.exitCode,
+      meta: s.meta,
+      ...(claudeSessionId ? { claudeSessionId } : {}),
+    };
+  });
+}
+
+/** Tells the observers whether a primary is attached (after it changed). */
+function primaryChanged(): void {
+  for (const observer of observers)
+    sendTo(observer, { type: 'svc-event', service: 'observer', event: 'primary', data: { primary: client !== null } });
+}
+
 function connected(socket: net.Socket): void {
   const decoder = new LineDecoder();
   let welcomed = false;
+  let observer = false;
+  socketIds.set(socket, ++nextSocketId);
   socket.setEncoding('utf8');
   socket.on('error', () => {});
   socket.on('data', (chunk: string) => {
@@ -315,13 +402,20 @@ function connected(socket: net.Socket): void {
           return;
         }
         welcomed = true;
-        // One reframe per profile: a new connection is the reframe now (the old one quit or is about to).
-        if (client && client !== socket) {
-          client.end(encode({ type: 'replaced' }));
-          for (const viewId of [...views.keys()]) closeView(viewId);
+        observer = (message as { role?: unknown }).role === 'observer';
+        if (observer) {
+          // An observer replaces nobody and is told no hooks: it reads (docs/ptyhost-protocol.md, "Observers").
+          observers.add(socket);
+          log('observer attached', { sessions: sessions.size });
+        } else {
+          // One reframe per profile: a new connection is the reframe now (the old one quit or is about to).
+          if (client && client !== socket) {
+            client.end(encode({ type: 'replaced' }));
+            closeViewsOf(client);
+          }
+          client = socket;
+          log('reframe attached', { sessions: sessions.size });
         }
-        client = socket;
-        log('reframe attached', { sessions: sessions.size });
         socket.write(
           encode({
             type: 'welcome',
@@ -329,18 +423,21 @@ function connected(socket: net.Socket): void {
             version,
             pid: process.pid,
             hooks: { port: hooks.port, token: hooks.token },
-            sessions: [...sessions].map(([sessionId, s]): HostSession => ({
-              sessionId,
-              instance: s.instance,
-              pid: s.proc.pid,
-              exitCode: s.exitCode,
-              meta: s.meta,
-            })),
+            sessions: welcomeSessions(),
             kind: 'node',
             services: SERVICES,
+            role: observer ? 'observer' : 'primary',
+            primary: client !== null,
           }),
         );
-        for (const message of held.splice(0)) send({ type: 'hook', message });
+        if (!observer) {
+          for (const message of held.splice(0)) send({ type: 'hook', message });
+          primaryChanged();
+        }
+        continue;
+      }
+      if (observer) {
+        if (observers.has(socket)) handleObserver(socket, message as HostRequest);
         continue;
       }
       if (client !== socket) return;
@@ -348,12 +445,17 @@ function connected(socket: net.Socket): void {
     }
   });
   socket.on('close', () => {
+    if (observers.delete(socket)) {
+      closeViewsOf(socket);
+      log('observer detached', { sessions: sessions.size });
+      return;
+    }
+    closeViewsOf(socket);
     if (client !== socket) return;
     client = null;
-    // Views belong to the reframe that opened them.
-    for (const viewId of [...views.keys()]) closeView(viewId);
     idleSince = Date.now();
     log('reframe detached', { sessions: sessions.size });
+    primaryChanged();
   });
 }
 
@@ -369,6 +471,9 @@ function exit(): void {
 
 const hooks = new HookServer();
 hooks.on('hook', (message) => {
+  const claudeId = (message.payload as { session_id?: unknown } | undefined)?.session_id;
+  const session = sessions.get(message.sessionId);
+  if (session && typeof claudeId === 'string' && claudeId) session.hookClaudeId = claudeId;
   statuses.hook(message);
   if (client) send({ type: 'hook', message });
   else if (message.event !== 'StatusLine') {
