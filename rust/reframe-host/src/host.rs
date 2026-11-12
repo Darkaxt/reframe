@@ -15,20 +15,42 @@ use crate::process::{self, Process, ProcessEvent};
 use crate::protocol::{
     check_hello, encode, HelloCheck, Request, SpawnRequest, ViewMessage, HOST_KIND, PROTOCOL_VERSION,
 };
+use crate::transcripts::{self, SvcError, Transcripts, WatchEvent};
+use reframe_transcripts::Changes;
 
 /// Without a reframe and a running session for this long, the host goes.
 pub const IDLE_EXIT: Duration = Duration::from_secs(10);
 /// Hook events kept while no reframe is attached (the next one gets them).
 const MAX_HELD_HOOKS: usize = 200;
+/// How long transcript changes are collected before they are told (a busy session writes all the time).
+const CHANGES_BATCH: Duration = Duration::from_secs(1);
 
 /// Something that happened, for the host to handle.
 pub enum Input {
-    Connected { conn: u64, out: UnboundedSender<Outgoing> },
-    Line { conn: u64, message: Value },
-    Closed { conn: u64 },
+    Connected {
+        conn: u64,
+        out: UnboundedSender<Outgoing>,
+    },
+    Line {
+        conn: u64,
+        message: Value,
+    },
+    Closed {
+        conn: u64,
+    },
     Process(ProcessEvent),
     Hook(HookMessage),
     Tick,
+    /// A service request's work finished (see transcripts.rs).
+    SvcDone {
+        conn: u64,
+        id: Value,
+        outcome: Result<Value, SvcError>,
+    },
+    /// What a folder watch saw.
+    Watch(WatchEvent),
+    /// Transcript changes collected for a moment are told.
+    FlushChanges,
 }
 
 /// What a connection's task writes.
@@ -126,6 +148,11 @@ pub struct Host {
     held: VecDeque<HookMessage>,
     idle_since: Instant,
     next_serial: u64,
+    transcripts: Transcripts,
+    /// Transcript changes not told yet, per Claude Code folder; told once a batch is over, dropped (not queued)
+    /// while no reframe is attached: the next one lists afresh.
+    changes: Vec<(String, Changes)>,
+    flush_scheduled: bool,
 }
 
 impl Host {
@@ -141,6 +168,9 @@ impl Host {
             held: VecDeque::new(),
             idle_since: Instant::now(),
             next_serial: 0,
+            transcripts: Transcripts::new(),
+            changes: Vec::new(),
+            flush_scheduled: false,
         }
     }
 
@@ -179,6 +209,9 @@ impl Host {
             Input::Process(ProcessEvent::Exited { serial, code }) => self.exited(serial, code),
             Input::Hook(message) => self.hook(message),
             Input::Tick => return self.tick(Instant::now()),
+            Input::SvcDone { conn, id, outcome } => self.svc_answer(conn, id, outcome),
+            Input::Watch(event) => self.watched(event),
+            Input::FlushChanges => self.flush_changes(),
         }
         Flow::Continue
     }
@@ -287,7 +320,10 @@ impl Host {
             "hooks": { "port": self.config.hooks_port, "token": self.config.hooks_token },
             "sessions": sessions,
             "kind": HOST_KIND,
+            "services": { transcripts::SERVICE: transcripts::VERSION },
         }));
+        // What changed before is in what the new reframe lists now.
+        self.changes.clear();
         for message in std::mem::take(&mut self.held) {
             self.send(json!({ "type": "hook", "message": message.to_json() }));
         }
@@ -327,9 +363,84 @@ impl Host {
                 }
                 return Flow::Exit;
             }
+            Request::Svc {
+                id,
+                service,
+                method,
+                params,
+            } => self.svc(id, &service, &method, &params),
             Request::Unknown => {}
         }
         Flow::Continue
+    }
+
+    // Services.
+
+    fn svc(&mut self, id: Value, service: &str, method: &str, params: &Value) {
+        let Some(conn) = self.client else {
+            return;
+        };
+        if service != transcripts::SERVICE {
+            let error = SvcError {
+                code: "unknown-method",
+                message: format!("{service}.{method}"),
+            };
+            return self.svc_answer(conn, id, Err(error));
+        }
+        let inputs = self.inputs.clone();
+        let answer_id = id.clone();
+        let answer = move |outcome| {
+            let _ = inputs.send(Input::SvcDone {
+                conn,
+                id: answer_id,
+                outcome,
+            });
+        };
+        match self.transcripts.request(method, params, &self.inputs, answer) {
+            Ok(Some(result)) => self.svc_answer(conn, id, Ok(result)),
+            Ok(None) => {}
+            Err(error) => self.svc_answer(conn, id, Err(error)),
+        }
+    }
+
+    /// An answer goes to the connection that asked, if it is still the attached one.
+    fn svc_answer(&self, conn: u64, id: Value, outcome: Result<Value, SvcError>) {
+        if self.client != Some(conn) {
+            return;
+        }
+        self.send(match outcome {
+            Ok(result) => json!({ "type": "svc-result", "id": id, "ok": true, "result": result }),
+            Err(error) => json!({ "type": "svc-result", "id": id, "ok": false, "error": error.to_json() }),
+        });
+    }
+
+    fn watched(&mut self, event: WatchEvent) {
+        let Some((home, changes)) = self.transcripts.watched(event, &self.inputs) else {
+            return;
+        };
+        if self.client.is_none() {
+            return;
+        }
+        match self.changes.iter_mut().find(|(h, _)| *h == home) {
+            Some((_, pending)) => pending.add(changes),
+            None => self.changes.push((home, changes)),
+        }
+        // Told a moment after the first change, however many follow.
+        if !self.flush_scheduled {
+            self.flush_scheduled = true;
+            let inputs = self.inputs.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(CHANGES_BATCH).await;
+                let _ = inputs.send(Input::FlushChanges);
+            });
+        }
+    }
+
+    fn flush_changes(&mut self) {
+        self.flush_scheduled = false;
+        for (home, changes) in std::mem::take(&mut self.changes) {
+            self.send(transcripts::changed_event(&home, &changes));
+        }
     }
 
     fn session(&self, id: &str) -> Option<&Session> {

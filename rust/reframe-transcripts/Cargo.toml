@@ -1,0 +1,11 @@
+[package]
+name = "reframe-transcripts"
+version = "0.10.1"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Reads Claude Code transcripts as reframe's TypeScript does (src/main/claude/discovery.ts, titles.ts): past sessions, their titles, with a modification-time cache."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }

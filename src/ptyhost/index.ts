@@ -26,6 +26,7 @@ import {
   type ServerMessage,
   type SessionMeta,
 } from './protocol';
+import { SERVICES, SvcError, TranscriptService } from './services';
 
 interface View {
   sessionId: string;
@@ -220,8 +221,39 @@ function dispose(sessionId: string, instance: number | null): void {
   writeDescriptor();
 }
 
+const transcripts = new TranscriptService((event) => send({ type: 'svc-event', ...event }));
+
+/** A service request: answered to the reframe that asked, if it is still the attached one. */
+function svc(request: Extract<HostRequest, { type: 'svc' }>): void {
+  const asker = client;
+  const answer = (message: ServerMessage) => {
+    if (client === asker) send(message);
+  };
+  const { id } = request;
+  const call =
+    request.service === 'transcripts'
+      ? transcripts.call(request.method, request.params ?? {})
+      : Promise.reject(new SvcError('unknown-method', `${request.service}.${request.method}`));
+  call.then(
+    (result) => answer({ type: 'svc-result', id, ok: true, result: result ?? null }),
+    (error: unknown) =>
+      answer({
+        type: 'svc-result',
+        id,
+        ok: false,
+        error:
+          error instanceof SvcError
+            ? { code: error.code, message: error.message }
+            : { code: 'io', message: String(error) },
+      }),
+  );
+}
+
 function handle(request: HostRequest): void {
   switch (request.type) {
+    case 'svc':
+      svc(request);
+      break;
     case 'spawn':
       spawn(request);
       break;
@@ -287,6 +319,7 @@ function connected(socket: net.Socket): void {
               meta: s.meta,
             })),
             kind: 'node',
+            services: SERVICES,
           }),
         );
         for (const message of held.splice(0)) send({ type: 'hook', message });

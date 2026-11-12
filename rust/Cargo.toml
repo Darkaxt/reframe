@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["reframe-conpty", "reframe-host"]
+members = ["reframe-conpty", "reframe-host", "reframe-transcripts"]
 
 [workspace.package]
 edition = "2021"

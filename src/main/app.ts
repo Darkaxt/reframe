@@ -145,7 +145,7 @@ import { chatKey, parseChatKey } from '@shared/sidebar-chats';
 import { showProject } from '@shared/project-view';
 import { parseClaudeRateLimits, type ProviderQuota } from '@shared/quota';
 import { coordinatorExecutable, readCodexQuota, userHasStatusLine } from './quota';
-import { TranscriptTitles } from './claude/titles';
+import { Transcripts, type TranscriptLister } from './claude/transcripts';
 import { sessionLabel } from '@shared/labels';
 
 export interface AppAssets {
@@ -166,7 +166,7 @@ interface ClaudeSource {
   distro?: string;
   /** Claude Code's folder, as Windows reaches it. */
   home: string;
-  transcripts: TranscriptIndex;
+  transcripts: TranscriptLister;
   /** Whether the claude of a registry entry runs; in WSL asked over the share, so without blocking. */
   alive: (entry: RegistryEntry) => Promise<boolean>;
   /** A folder it names, as Windows reaches it (WSL names Linux paths). */
@@ -227,7 +227,8 @@ export class ReframeApp {
   /** Shown session notifications, held so their 'click' listener lives until it can fire. */
   private readonly notifications = new NotificationKeeper<Notification>();
   private claudeHome = claudeHome();
-  private transcripts = new TranscriptIndex(this.claudeHome);
+  /** Windows' own past sessions and titles: from the PTY host when it serves them, else read here. */
+  private transcripts = new Transcripts(this.claudeHome, () => this.host, this.log);
   private updates: Updates;
   /** Sessions in WSL folders (Windows only). */
   private wsl = process.platform === 'win32' ? new WslDistros(this.log) : null;
@@ -465,6 +466,7 @@ export class ReframeApp {
     await this.host?.stop(mode);
     this.wsl?.release();
     this.listWatcher?.stop();
+    this.transcripts.stop();
     clearInterval(this.listLook);
     clearInterval(this.quotaLook);
     clearTimeout(this.listPush);
@@ -633,12 +635,11 @@ export class ReframeApp {
     };
   }
 
-  private titles = new TranscriptTitles();
   private titleAsked = new Set<string>();
 
   /** The user's name for it, else Claude Code's title from its transcript (read once, then on Stop), else the folder. */
   private labelOf(record: SessionRecord): string {
-    const title = this.titles.cached(record.claudeSessionId);
+    const title = this.transcripts.cachedTitle(record.claudeSessionId);
     if (title === undefined && !this.titleAsked.has(record.claudeSessionId)) this.refreshTitle(record.id);
     return sessionLabel(record.name, title, record.cwd);
   }
@@ -649,8 +650,8 @@ export class ReframeApp {
     if (!record || this.wslPath(record.cwd)) return;
     const claudeSessionId = record.claudeSessionId;
     this.titleAsked.add(claudeSessionId);
-    const before = this.titles.cached(claudeSessionId);
-    void this.titles.read(this.claudeHome, claudeSessionId).then((title) => {
+    const before = this.transcripts.cachedTitle(claudeSessionId);
+    void this.transcripts.readTitle(claudeSessionId).then((title) => {
       if (title === (before ?? null) || !this.state.sessions[sessionId]) return;
       this.pushSession(sessionId);
       this.listChanged();
@@ -1974,12 +1975,12 @@ export class ReframeApp {
    */
   private watchList(): void {
     this.watchCodexQuota();
-    this.listWatcher = new ClaudeWatcher(this.claudeHome);
-    this.listWatcher.on('changed', ({ projects }) => {
-      this.transcripts.invalidate(projects);
-      void this.scanOutside(null).then(() => this.listChanged());
-    });
+    // The session registry is watched here; the transcripts by the PTY host when it serves them (else here, too).
+    const rescan = () => void this.scanOutside(null).then(() => this.listChanged());
+    this.listWatcher = new ClaudeWatcher(this.claudeHome, { folders: ['sessions'] });
+    this.listWatcher.on('changed', rescan);
     this.listWatcher.start();
+    this.transcripts.watch(rescan);
     this.listLook = setInterval(() => {
       const shown = this.state.windows.some((w) => w.sidebarOpen && !w.hidden);
       void this.scanOutside(shown ? WSL_LOOK_MS.shown : WSL_LOOK_MS.hidden).then(() => this.listChanged());

@@ -47,7 +47,37 @@ export type HostRequest =
   | { type: 'view-message'; viewId: number; message: TerminalViewMessage }
   | { type: 'view-close'; viewId: number }
   /** "End sessions and quit": the host ends whatever still runs and exits. */
-  | { type: 'shutdown' };
+  | { type: 'shutdown' }
+  /** A request of a service the welcome advertises; answered by `svc-result` with the same id. */
+  | SvcRequest;
+
+/** Services a host can offer (`services` in its welcome, with each one's version); added without a protocol bump. */
+export interface HostServices {
+  /** Past sessions, titles and transcript watching (docs/ptyhost-protocol.md, "Services"). */
+  transcripts?: number;
+}
+
+export interface SvcRequest {
+  type: 'svc';
+  id: number;
+  service: string;
+  method: string;
+  params: Record<string, unknown>;
+}
+
+export type SvcErrorCode = 'unknown-method' | 'bad-params' | 'io' | 'busy';
+
+export type SvcResult =
+  | { type: 'svc-result'; id: number; ok: true; result: unknown }
+  | { type: 'svc-result'; id: number; ok: false; error: { code: SvcErrorCode; message: string } };
+
+/** Something a service tells unasked, while a reframe is attached (not held for the next one). */
+export interface SvcEvent {
+  type: 'svc-event';
+  service: string;
+  event: string;
+  data: unknown;
+}
 
 export type HostEvent =
   | { type: 'spawned'; sessionId: string; instance: number; pid: number }
@@ -83,6 +113,8 @@ export type Welcome =
       hooks: { port: number; token: string };
       sessions: HostSession[];
       kind?: HostKind;
+      /** Absent from hosts before 0.10.1-claudegpt.20: they offer none. */
+      services?: HostServices;
     }
   | { type: 'refused'; reason: 'token' | 'protocol'; protocol: number };
 
@@ -94,7 +126,9 @@ export type ServerMessage =
   /** The view's session is gone (disposed): the view is closed. */
   | { type: 'view-closed'; viewId: number }
   /** Another reframe of the profile connected; this connection is closed. */
-  | { type: 'replaced' };
+  | { type: 'replaced' }
+  | SvcResult
+  | SvcEvent;
 
 /** What a host writes next to itself, so a reframe finds it (and knows its sessions even if it cannot talk to it). */
 export interface HostDescriptor {

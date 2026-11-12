@@ -36,6 +36,14 @@ pub enum Request {
         view_id: u64,
     },
     Shutdown,
+    /// A request of a service (docs/ptyhost-protocol.md, "Services"), answered by `svc-result` with its id.
+    Svc {
+        id: Value,
+        service: String,
+        method: String,
+        #[serde(default)]
+        params: Value,
+    },
     /// A request this host does not know: ignored, as the Node host ignores it.
     #[serde(other)]
     Unknown,
