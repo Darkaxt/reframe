@@ -267,4 +267,36 @@ describe('SessionManager.start', () => {
     expect(pty.spawn).not.toHaveBeenCalled();
     manager.dispose();
   });
+
+  it('holds back done itself while tool shells run when the host (sessions version 1) does not', async () => {
+    const pty = Object.assign(host(), { services: { sessions: 1 } });
+    let shells = true;
+    process.env.REFRAME_PTYHOST_BACKGROUND_MS = '1';
+    const manager = new SessionManager({
+      host: pty as never,
+      claudeHome: dir,
+      settingsDir: dir,
+      resolveClaude: () => claude as never,
+      env: {},
+      toolShells: () => shells,
+    });
+    delete process.env.REFRAME_PTYHOST_BACKGROUND_MS;
+    const notified: string[] = [];
+    manager.on('notify', (_id, kind) => notified.push(kind));
+    manager.start(session('c'), 'new');
+    await vi.waitFor(() => expect(pty.spawn).toHaveBeenCalledTimes(1));
+    const instance = manager.status('c')!.instance;
+    pty.emit('event', { type: 'spawned', sessionId: 'c', instance, pid: 4242 });
+    pty.emit('svc-event', {
+      service: 'sessions',
+      event: 'status',
+      data: { sessionId: 'c', instance, status: 'idle', notify: 'done' },
+    });
+    expect(manager.status('c')!.status).toBe('background');
+    expect(notified).toEqual([]);
+    shells = false;
+    await vi.waitFor(() => expect(notified).toEqual(['done']), { timeout: 3000 });
+    expect(manager.status('c')!.status).toBe('idle');
+    manager.dispose();
+  });
 });

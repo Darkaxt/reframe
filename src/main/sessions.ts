@@ -315,6 +315,14 @@ export class SessionManager extends EventEmitter<Events> {
   }
 
   /**
+   * Whether the host also holds "done" back while tool shells run (`sessions` version 2). With an older host
+   * reframe applies that rule itself to the statuses the host reports.
+   */
+  private hostHoldsBackground(): boolean {
+    return (this.deps.host.services?.sessions ?? 0) >= 2;
+  }
+
+  /**
    * Takes over the sessions the host already ran when reframe attached to it (a reframe before this one started
    * them, and quit keeping them). Those of records that are gone, or not shown anywhere, are ended. Returns the ids
    * of the sessions taken over (still running).
@@ -379,6 +387,11 @@ export class SessionManager extends EventEmitter<Events> {
       if (runtime.wsl) runtime.wsl.linuxPid = registry.pid;
       if (runtime.launched) runtime.launched.pid = registry.pid;
       this.followEntry(sessionId, runtime, registry);
+    }
+    // An older host announces done at Stop even with tool shells left running: held back here, as by a newer host.
+    if (status === 'idle' && notify === 'done' && !this.hostHoldsBackground() && this.hasToolShells(runtime)) {
+      background = true;
+      notify = undefined;
     }
     // The end is told by the exit, where how it counts is known.
     if (status !== 'ended') this.setStatus(sessionId, runtime, status === 'idle' && background ? 'background' : status);
@@ -681,7 +694,8 @@ export class SessionManager extends EventEmitter<Events> {
     if (Date.now() - this.backgroundCheckedAt < this.backgroundEvery) return;
     this.backgroundCheckedAt = Date.now();
     for (const [sessionId, runtime] of this.runtimes) {
-      if (runtime.status !== 'background' || this.hostTracks(runtime) || this.hasToolShells(runtime)) continue;
+      if (runtime.status !== 'background' || (this.hostTracks(runtime) && this.hostHoldsBackground())) continue;
+      if (this.hasToolShells(runtime)) continue;
       this.setStatus(sessionId, runtime, 'idle');
       this.emit('notify', sessionId, 'done');
     }
