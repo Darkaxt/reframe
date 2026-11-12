@@ -8,6 +8,8 @@ description = "Reframe's PTY host: owns the claude sessions (ConPTY) and their t
 
 [dependencies]
 reframe-conpty = { path = "../reframe-conpty" }
+reframe-transcripts = { path = "../reframe-transcripts" }
+notify = { version = "8", default-features = false }
 vt100 = "0.18"
 tokio = { version = "1", features = ["rt", "net", "io-util", "sync", "time", "macros"] }
 serde = { version = "1", features = ["derive"] }

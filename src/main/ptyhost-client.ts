@@ -19,7 +19,10 @@ import {
   type HostEvent,
   type HostKind,
   type HostRequest,
+  type HostServices,
   type HostSession,
+  type SvcErrorCode,
+  type SvcEvent,
   type ServerMessage,
   type Welcome,
 } from '../ptyhost/protocol';
@@ -41,7 +44,21 @@ type Events = {
   event: [HostEvent];
   /** The host died; `restarting`: a new one is being started (false once it died too often). */
   crashed: [code: number, restarting: boolean];
+  /** A host welcomed this reframe (at start, and after a restart): what it serves may have changed. */
+  attached: [];
+  /** A service event of the attached host. */
+  'svc-event': [Omit<SvcEvent, 'type'>];
 };
+
+/** A service request the host failed, or could not be asked (no host attached, or it went before answering). */
+export class HostServiceError extends Error {
+  constructor(
+    readonly code: SvcErrorCode | 'unavailable',
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 /** How the host is started: an executable run as Node with the host's script (Node host), or on its own (Rust). */
 export interface HostRuntime {
@@ -90,6 +107,10 @@ export class PtyHostClient extends EventEmitter<Events> {
    * configured one. Left alone, they end with their last session.
    */
   foreign: HostDescriptor[] = [];
+  /** What the attached host serves; none from hosts before 0.10.1-claudegpt.20. */
+  services: HostServices = {};
+  private calls = new Map<number, { resolve: (result: unknown) => void; reject: (error: Error) => void }>();
+  private nextCall = 0;
 
   constructor(private options: PtyHostOptions) {
     super();
@@ -191,10 +212,12 @@ export class PtyHostClient extends EventEmitter<Events> {
           this.socket = socket;
           this.hostPid = message.pid;
           this.hooks = message.hooks;
+          this.services = message.services ?? {};
           this.connecting = false;
           socket.on('close', () => this.closed(socket));
           for (const request of this.queue.splice(0)) socket.write(encode(request));
           resolve(message);
+          this.emit('attached');
         }
       });
       socket.on('close', () => {
@@ -218,6 +241,18 @@ export class PtyHostClient extends EventEmitter<Events> {
       this.views.delete(message.viewId);
       return;
     }
+    if (message.type === 'svc-result') {
+      const call = this.calls.get(message.id);
+      this.calls.delete(message.id);
+      if (message.ok) call?.resolve(message.result);
+      else call?.reject(new HostServiceError(message.error.code, message.error.message));
+      return;
+    }
+    if (message.type === 'svc-event') {
+      const { service, event, data } = message;
+      this.emit('svc-event', { service, event, data });
+      return;
+    }
     if (message.type === 'replaced' || message.type === 'welcome' || message.type === 'refused') return;
     this.emit('event', message);
   }
@@ -226,6 +261,7 @@ export class PtyHostClient extends EventEmitter<Events> {
   private closed(socket: net.Socket): void {
     if (this.socket !== socket) return;
     this.socket = null;
+    this.dropCalls();
     for (const port of this.views.values()) port.close();
     this.views.clear();
     if (this.stopped) return;
@@ -256,6 +292,7 @@ export class PtyHostClient extends EventEmitter<Events> {
     this.stopped = true;
     const socket = this.socket;
     this.socket = null;
+    this.dropCalls();
     for (const port of this.views.values()) port.close();
     this.views.clear();
     if (!socket || socket.destroyed) return Promise.resolve();
@@ -310,6 +347,25 @@ export class PtyHostClient extends EventEmitter<Events> {
     port1.start();
     this.send({ type: 'view-open', viewId, sessionId });
     contents.postMessage(IPC.terminalPort, { sessionId }, [port2]);
+  }
+
+  /** Asks a service of the attached host (one its welcome advertises). */
+  call(service: string, method: string, params: Record<string, unknown>): Promise<unknown> {
+    const socket = this.socket;
+    if (!socket) return Promise.reject(new HostServiceError('unavailable', 'no pty host attached'));
+    const id = ++this.nextCall;
+    return new Promise((resolve, reject) => {
+      this.calls.set(id, { resolve, reject });
+      socket.write(encode({ type: 'svc', id, service, method, params }));
+    });
+  }
+
+  /** The connection went: what it was asked is not answered. */
+  private dropCalls(): void {
+    const calls = [...this.calls.values()];
+    this.calls.clear();
+    this.services = {};
+    for (const call of calls) call.reject(new HostServiceError('unavailable', 'the pty host connection closed'));
   }
 
   private send(request: HostRequest): void {

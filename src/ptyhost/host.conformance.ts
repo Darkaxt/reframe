@@ -11,6 +11,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { Terminal } from '@xterm/headless';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { TranscriptIndex } from '../main/claude/discovery';
+import { TranscriptTitles } from '../main/claude/titles';
 import {
   encode,
   LineDecoder,
@@ -211,6 +213,76 @@ function post(port: number, url: string, token: string, body: string): Promise<{
     req.on('error', reject);
     req.end(body);
   });
+}
+
+// Transcript fixtures: a Claude Code folder of past sessions in three project folders, for the transcripts service.
+const user = (content: string, cwd: string) => JSON.stringify({ type: 'user', cwd, message: { content } });
+
+function writeTranscript(home: string, project: string, id: string, lines: string[], modifiedAt: number): void {
+  const dir = path.join(home, 'projects', project);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${id}.jsonl`);
+  fs.writeFileSync(file, lines.join('\n'));
+  fs.utimesSync(file, modifiedAt / 1000, modifiedAt / 1000);
+}
+
+function transcriptHome(kind: string): string {
+  const home = fs.mkdtempSync(path.join(scratch, `claude-${kind}-`));
+  const at = Date.now() - 60_000;
+  const filler = JSON.stringify({ type: 'assistant', message: { content: 'x'.repeat(200) } });
+  writeTranscript(
+    home,
+    'C--work-Alpha',
+    'a1',
+    [
+      user('<command-name>/clear</command-name>', 'C:\\work\\Alpha'),
+      user('first alpha prompt,\n  with   spaces', 'C:\\work\\Alpha'),
+      JSON.stringify({ type: 'custom-title', customTitle: 'Alpha custom' }),
+      JSON.stringify({ type: 'ai-title', aiTitle: 'Alpha AI' }),
+      JSON.stringify({ type: 'custom-title', customTitle: ' Alpha renamed ' }),
+      '{"type":"ai-title","aiTitle":"cut off whi',
+    ],
+    at + 1000,
+  );
+  writeTranscript(
+    home,
+    'C--work-Alpha',
+    'a2',
+    [`\uFEFF${user('the BOM line', 'C:\\bom')}`, user('after the BOM', 'C:\\work\\Alpha'), ''],
+    at + 2000,
+  );
+  // Larger than both ends together: the middle is not read.
+  const big = [user('the first big prompt', 'D:\\other\\Beta')];
+  for (let i = 0; i < 2000; i++) big.push(filler);
+  big.push(JSON.stringify({ type: 'ai-title', aiTitle: 'Big in the middle' }));
+  for (let i = 0; i < 2000; i++) big.push(filler);
+  big.push(JSON.stringify({ type: 'custom-title', customTitle: 'Big custom' }));
+  big.push(JSON.stringify({ type: 'ai-title', aiTitle: 'Big at the end' }));
+  big.push(JSON.stringify({ type: 'last-prompt', lastPrompt: 'the last big prompt' }));
+  writeTranscript(home, 'D--other-Beta', 'b1', big, at + 3000);
+  writeTranscript(
+    home,
+    'D--other-Beta',
+    'b2',
+    [
+      user(
+        'Привет ŞEHİR Straße and a title long enough to be cut at ninety characters, which this one is',
+        'D:\\other\\Beta',
+      ),
+    ],
+    at + 4000,
+  );
+  writeTranscript(home, 'D--other-Beta', 'b3', [user('<only a command>', 'D:\\other\\Beta')], at + 4500);
+  writeTranscript(home, 'E--x-gamma', 'g1', [user('gamma one', '/home/me/gamma')], at + 5000);
+  writeTranscript(
+    home,
+    'E--x-gamma',
+    'g2',
+    [user('gamma two', '/home/me/gamma'), JSON.stringify({ type: 'agent-name', agentName: 'Agent G' })],
+    at + 6000,
+  );
+  fs.writeFileSync(path.join(home, 'projects', 'not-a-folder.txt'), '');
+  return home;
 }
 
 describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
@@ -447,5 +519,98 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
     connection.close();
     await until('the idle host to exit', () => !alive(host.pid), 25_000);
     expect(fs.existsSync(path.join(host.dir, 'hosts', `${host.pid}.json`))).toBe(false);
+  });
+
+  describe('the transcripts service', () => {
+    /** A request of the service, and its answer. */
+    async function svc(connection: Connection, id: number, method: string, params: Record<string, unknown>) {
+      connection.send({ type: 'svc', id, service: 'transcripts', method, params });
+      return connection.next(`svc-result ${id}`, (m) => m.type === 'svc-result' && m.id === id);
+    }
+    /** What reframe's own TypeScript answers, as it comes over the pipe. */
+    const plain = (value: unknown) => JSON.parse(JSON.stringify(value ?? null)) as unknown;
+
+    it('lists, finds and titles past sessions as reframe reads them', async () => {
+      const home = transcriptHome(kind);
+      const host = await startHost(kind);
+      const { connection, welcome } = await attach(host);
+      expect(welcome.services).toEqual({ transcripts: 1 });
+      const index = new TranscriptIndex(home);
+      let id = 0;
+      const lists = [
+        { limit: 50, exclude: [] },
+        { limit: 2, exclude: [] },
+        { limit: 3, exclude: ['a1'], folder: 'c:\\WORK\\alpha\\' },
+        { limit: 50, exclude: [], folder: 'D:\\elsewhere\\Beta' },
+        { limit: 50, exclude: [], query: '  ŞEHİR ' },
+        { limit: 50, exclude: [], query: 'straße' },
+        { limit: 50, exclude: [], query: 'STRASSE' },
+        { limit: 50, exclude: [], query: 'привет' },
+        { limit: 50, exclude: [], query: 'work\\alpha' },
+      ];
+      for (const options of lists) {
+        const expected = await index.list({ ...options, exclude: new Set(options.exclude) });
+        const answer = await svc(connection, ++id, 'list', { home, ...options });
+        expect(answer, JSON.stringify(options)).toEqual({ type: 'svc-result', id, ok: true, result: plain(expected) });
+      }
+      // What the fixtures are there for.
+      const all = (await index.list({ limit: 50, exclude: new Set() })).items.map((i) => i.sessionId);
+      expect(all).toEqual(['g2', 'g1', 'b2', 'b1', 'a2', 'a1']);
+      expect((await index.list({ limit: 2, exclude: new Set() })).hasMore).toBe(true);
+
+      for (const sessionId of ['a1', 'a2', 'b1', 'b3', 'missing']) {
+        const info = await svc(connection, ++id, 'info', { home, sessionId });
+        expect(info.result, sessionId).toEqual(plain(await index.find(sessionId)));
+        const title = await svc(connection, ++id, 'title', { home, sessionId });
+        expect(title.result, sessionId).toEqual(await new TranscriptTitles().read(home, sessionId));
+      }
+      expect((await svc(connection, ++id, 'title', { home, sessionId: 'a1' })).result).toBe('Alpha renamed');
+      expect((await svc(connection, ++id, 'title', { home, sessionId: 'b1' })).result).toBe('Big at the end');
+      expect((await svc(connection, ++id, 'info', { home, sessionId: 'b1' })).result.title).toBe('Big at the end');
+      const times = await svc(connection, id + 1, 'times', { home });
+      expect(times.result).toEqual(Object.fromEntries(await index.modifiedTimes()));
+    });
+
+    it('refuses what it does not know', async () => {
+      const host = await startHost(kind);
+      const { connection } = await attach(host);
+      const error = async (id: number, message: Record<string, unknown>) =>
+        (await svc(connection, id, message.method as string, message.params as Record<string, unknown>)).error?.code;
+      expect(await error(1, { method: 'nope', params: { home: scratch } })).toBe('unknown-method');
+      expect(await error(2, { method: 'list', params: { home: scratch } })).toBe('bad-params');
+      expect(await error(3, { method: 'title', params: { home: scratch } })).toBe('bad-params');
+      expect(await error(4, { method: 'info', params: {} })).toBe('bad-params');
+      expect(await error(5, { method: 'watch', params: { home: path.join(scratch, 'not-there') } })).toBe('io');
+      connection.send({ type: 'svc', id: 6, service: 'overview', method: 'list', params: {} });
+      expect(await connection.next('svc-result 6', (m) => m.type === 'svc-result' && m.id === 6)).toMatchObject({
+        ok: false,
+        error: { code: 'unknown-method' },
+      });
+      expect(alive(host.pid)).toBe(true);
+    });
+
+    it('watches transcripts and tells the project folders that changed', async () => {
+      const home = transcriptHome(kind);
+      const host = await startHost(kind);
+      const { connection } = await attach(host);
+      const before = await svc(connection, 1, 'list', { home, limit: 50, exclude: [] });
+      expect(before.result.items).toHaveLength(6);
+      expect(await svc(connection, 2, 'watch', { home })).toMatchObject({ ok: true });
+      await pause(1500);
+      const project = 'C--work-Alpha';
+      writeTranscript(home, project, 'a9', [user('a new one', 'C:\\work\\Alpha')], Date.now());
+      const changed = await connection.next(
+        'transcripts.changed',
+        (m) => m.type === 'svc-event' && Array.isArray(m.data.projects) && m.data.projects.includes(project),
+      );
+      expect(changed).toEqual({
+        type: 'svc-event',
+        service: 'transcripts',
+        event: 'changed',
+        data: { home, projects: [project] },
+      });
+      const after = await svc(connection, 3, 'list', { home, limit: 50, exclude: [] });
+      expect(after.result.items[0]).toMatchObject({ sessionId: 'a9', title: 'a new one' });
+    });
   });
 });

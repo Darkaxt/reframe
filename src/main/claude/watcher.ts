@@ -27,9 +27,11 @@ export interface WatcherOptions {
   lookMs?: number;
   /** How often a folder that cannot be watched counts as changed. */
   fallbackMs?: number;
+  /** The folders watched (both by default): the session registry and the transcripts. */
+  folders?: Folder[];
 }
 
-type Folder = 'sessions' | 'projects';
+export type Folder = 'sessions' | 'projects';
 const FOLDERS: { name: Folder; recursive: boolean }[] = [
   { name: 'sessions', recursive: false },
   { name: 'projects', recursive: true },
@@ -66,7 +68,7 @@ export class ClaudeWatcher extends EventEmitter<{ changed: [Changes] }> {
   /** Starts watching the folders that are there and not watched yet. */
   private attach(): void {
     for (const { name, recursive } of FOLDERS) {
-      if (this.watchers.has(name)) continue;
+      if (this.watchers.has(name) || (this.options.folders && !this.options.folders.includes(name))) continue;
       const dir = path.join(this.home, name);
       if (!fs.existsSync(dir)) continue;
       const failedAt = this.unwatchable.get(name);
