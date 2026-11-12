@@ -1,10 +1,11 @@
 // Where the quota counters come from. Codex: LLM Coordinator's installed native client asks the running Coordinator
 // for its usage snapshot (read only; its state stays its own). Claude: the status line input of reframe's own
-// Anthropic sessions (see statusLineSettings), captured only when the user has no status line of their own.
+// Anthropic sessions (see statusLineSettings), captured only when the user has no status line of their own, and else
+// what the Coordinator observed of it (newer Coordinators).
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseCoordinatorUsage, type QuotaWindow } from '@shared/quota';
+import { parseCoordinatorProviders, parseCoordinatorUsage, type ObservedQuota, type QuotaWindow } from '@shared/quota';
 
 /** The installed Coordinator's executable, from its active.json (`releases/<release>/LLMCoordinator.exe`). */
 export function coordinatorExecutable(localAppData = process.env.LOCALAPPDATA): string | null {
@@ -48,6 +49,15 @@ export function codexWindows(usage: unknown): QuotaWindow[] | null {
   try {
     const windows = parseCoordinatorUsage(usage);
     return windows.length ? windows : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The Claude quota a Coordinator answer has (newer Coordinators observe it too); null without it. */
+export function claudeObserved(usage: unknown): ObservedQuota | null {
+  try {
+    return parseCoordinatorProviders(usage).claude ?? null;
   } catch {
     return null;
   }

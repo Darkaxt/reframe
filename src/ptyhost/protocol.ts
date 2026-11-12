@@ -66,6 +66,8 @@ export interface HostServices {
   launch?: number;
   /** Each session's status from its hooks and registry entry (src/ptyhost/sessions.ts). */
   sessions?: number;
+  /** Reframe's state.json, read and written with revisions (src/main/state/files.ts). */
+  state?: number;
 }
 
 export interface SvcRequest {
@@ -76,7 +78,7 @@ export interface SvcRequest {
   params: Record<string, unknown>;
 }
 
-export type SvcErrorCode = 'unknown-method' | 'bad-params' | 'io' | 'busy';
+export type SvcErrorCode = 'unknown-method' | 'bad-params' | 'io' | 'busy' | 'conflict';
 
 export type SvcResult =
   | { type: 'svc-result'; id: number; ok: true; result: unknown }

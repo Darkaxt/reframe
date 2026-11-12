@@ -2,9 +2,22 @@
 // kept as state.json.bak, so a crash mid-write or a corrupt file never loses the layout.
 // A file that cannot be used is never written over: one from a newer reframe is left alone (nothing is written at
 // all, so going back to that version keeps everything), any other is set aside as state.json.rejected-<time>.
+// Once a PTY host that serves `state` (since 0.10.1-claudegpt.23) is attached, saves are written by it, the same way
+// and to the same file (src/main/state/files.ts, rust/reframe-services/src/state.rs), one at a time and always the
+// newest state; a save it cannot make (no host any more, or it failed) is made here. Loading stays here: it comes
+// before the host is started (the state says which host). The schema stays here too: the host never reads it.
 import fs from 'node:fs';
 import path from 'node:path';
 import { appStateSchema, defaultState, STATE_VERSION, type AppState } from '@shared/state';
+import type { HostServices } from '../../ptyhost/protocol';
+import type { LogFn } from '../log';
+import { renameWithRetry } from './files';
+
+/** The part of PtyHostClient used here. */
+export interface StateHost {
+  services: HostServices;
+  call(service: string, method: string, params: Record<string, unknown>): Promise<unknown>;
+}
 
 export type LoadSource = 'file' | 'backup' | 'default' | 'newer';
 
@@ -25,8 +38,32 @@ export class StateStore {
   private known: { size: number; mtimeMs: number } | null = null;
   /** The file belongs to a newer reframe: nothing is written. */
   private readOnly = false;
+  private host: () => StateHost | undefined = () => undefined;
+  private log: LogFn | undefined;
+  /** The host's revision of the file as last read or written there, and whether that content is a good one. */
+  private remote: { revision: number; good: boolean } | null = null;
+  /** The newest state not yet written, while host writes are going on. */
+  private unsaved: AppState | null = null;
+  private writing = false;
+  private written: Promise<void> = Promise.resolve();
 
   constructor(readonly file: string) {}
+
+  /** Saves through this host whenever it serves `state`. */
+  useHost(host: () => StateHost | undefined, log?: LogFn): void {
+    this.host = host;
+    this.log = log;
+  }
+
+  private served(): StateHost | null {
+    const host = this.host();
+    return host && (host.services.state ?? 0) >= 1 ? host : null;
+  }
+
+  /** Once the saves given so far are written (by the host or here). */
+  settle(): Promise<void> {
+    return this.written;
+  }
 
   get backupFile(): string {
     return `${this.file}.bak`;
@@ -53,10 +90,83 @@ export class StateStore {
     return { state: defaultState(), source: 'default', ...(rejected ? { rejected } : {}) };
   }
 
-  /** Writes immediately (and cancels a pending debounced write). */
+  /**
+   * Writes immediately (and cancels a pending debounced write); through the host, if it serves `state`, or after
+   * the host writes going on, in a moment (see settle). Without them it is written here before this returns.
+   */
   save(state: AppState): void {
     this.cancel();
     if (this.readOnly) return;
+    if (!this.writing && !this.served()) {
+      this.saveHere(state);
+      return;
+    }
+    this.unsaved = state;
+    if (this.writing) return;
+    this.writing = true;
+    this.written = this.drain();
+  }
+
+  /** Writes the newest state until none is left: through the host while it serves `state`, else here. */
+  private async drain(): Promise<void> {
+    for (;;) {
+      const state = this.unsaved;
+      if (!state) {
+        this.writing = false;
+        return;
+      }
+      this.unsaved = null;
+      const host = this.served();
+      try {
+        if (host) {
+          try {
+            await this.saveThere(host, state);
+            continue;
+          } catch (error) {
+            this.log?.('warn', 'the pty host could not save the state; saving here', { error: String(error) });
+          }
+        }
+        // A newer one given meanwhile is written next.
+        if (!this.unsaved) this.saveHere(state);
+      } catch (error) {
+        this.log?.('error', 'could not save the state', { error: String(error) });
+      }
+    }
+  }
+
+  /** Writes through the host: read there first when its revision is not known, or was not the file's any more. */
+  private async saveThere(host: StateHost, state: AppState): Promise<void> {
+    const content = JSON.stringify(state, null, 2);
+    for (let attempt = 0; ; attempt++) {
+      if (!this.remote) {
+        const read = (await host.call('state', 'read', { file: this.file })) as {
+          revision: number;
+          content: string | null;
+        };
+        this.remote = { revision: read.revision, good: read.content !== null && !!parse(read.content).state };
+      }
+      try {
+        const { revision } = (await host.call('state', 'write', {
+          file: this.file,
+          content,
+          revision: this.remote.revision,
+          backup: this.remote.good,
+        })) as { revision: number };
+        this.remote = { revision, good: true };
+        this.known = null;
+        return;
+      } catch (error) {
+        this.remote = null;
+        // Changed since (written here meanwhile, say, or by another reframe): read again, and write the newest.
+        if (attempt > 0 || (error as { code?: unknown }).code !== 'conflict') throw error;
+        this.log?.('info', 'the state file changed since the pty host last wrote it; reading it again', {
+          error: String(error),
+        });
+      }
+    }
+  }
+
+  private saveHere(state: AppState): void {
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     const temp = `${this.file}.${process.pid}.tmp`;
     const fd = fs.openSync(temp, 'w');
@@ -69,6 +179,7 @@ export class StateStore {
     if (this.isGood()) fs.copyFileSync(this.file, this.backupFile);
     renameWithRetry(temp, this.file);
     this.known = stat(this.file);
+    this.remote = null;
   }
 
   /** Coalesces frequent saves (window moves, resizes) into one write. */
@@ -136,6 +247,11 @@ function readFile(file: string): { state?: AppState; newer?: boolean; reason?: s
   } catch {
     return {};
   }
+  return parse(text);
+}
+
+/** The state in a file's text, or why there is none. */
+function parse(text: string): { state?: AppState; newer?: boolean; reason?: string } {
   let json: unknown;
   try {
     json = JSON.parse(text);
@@ -156,22 +272,5 @@ function stat(file: string): { size: number; mtimeMs: number } | null {
     return { size, mtimeMs };
   } catch {
     return null;
-  }
-}
-
-// On Windows a scanner or indexer can hold the target open for a moment.
-function renameWithRetry(from: string, to: string): void {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      fs.renameSync(from, to);
-      return;
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (attempt >= 4 || (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES')) throw error;
-      const until = Date.now() + 20 * (attempt + 1);
-      while (Date.now() < until) {
-        // short synchronous back-off; saves must not interleave
-      }
-    }
   }
 }

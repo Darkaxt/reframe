@@ -3,7 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaultState, type AppState } from '@shared/state';
-import { StateStore } from './store';
+import { StateConflict, StateFiles } from './files';
+import { StateStore, type StateHost } from './store';
 
 const temps: string[] = [];
 function store(): StateStore {
@@ -181,5 +182,114 @@ describe('StateStore', () => {
     s.saveSoon(withFolder('c'));
     s.flush();
     expect(s.load().state.recentFolders).toEqual(['c']);
+  });
+
+  describe('through a pty host that serves state', () => {
+    /** A host answering as the Node host does (src/ptyhost/services.ts), counting its writes. */
+    function host(files = new StateFiles()) {
+      const calls: string[] = [];
+      let serves = true;
+      const h: StateHost & { calls: string[]; stop(): void } = {
+        get services() {
+          return serves ? { state: 1 } : {};
+        },
+        calls,
+        stop: () => (serves = false),
+        async call(service, method, params) {
+          await Promise.resolve();
+          calls.push(`${service}.${method}`);
+          const p = params as { file: string; content: string; revision: number; backup: boolean };
+          if (method === 'read') return files.read(p.file);
+          try {
+            return { revision: files.write(p.file, p.content, p.revision, p.backup) };
+          } catch (error) {
+            throw Object.assign(new Error(String(error)), { code: error instanceof StateConflict ? 'conflict' : 'io' });
+          }
+        },
+      };
+      return h;
+    }
+
+    it('writes the same bytes and backup as the in-process store', async () => {
+      const [one, two] = [withFolder('one'), withFolder('two')];
+      const here = store();
+      here.save(one);
+      here.save(two);
+      const there = store();
+      const h = host();
+      there.useHost(() => h);
+      there.save(one);
+      await there.settle();
+      there.save(two);
+      await there.settle();
+      expect(fs.readFileSync(there.file)).toEqual(fs.readFileSync(here.file));
+      expect(fs.readFileSync(there.backupFile)).toEqual(fs.readFileSync(here.backupFile));
+      expect(h.calls).toEqual(['state.read', 'state.write', 'state.write']);
+    });
+
+    it('round-trips a file the in-process store wrote, and the in-process store reads what the host wrote', async () => {
+      const s = store();
+      s.save(withFolder('old'));
+      const before = fs.readFileSync(s.file, 'utf8');
+      const files = new StateFiles();
+      expect(files.read(s.file).content).toBe(before);
+      const h = host(files);
+      s.useHost(() => h);
+      s.save(withFolder('new'));
+      await s.settle();
+      expect(fs.readFileSync(s.backupFile, 'utf8')).toBe(before);
+      expect(new StateStore(s.file).load()).toMatchObject({ source: 'file', state: { recentFolders: ['new'] } });
+    });
+
+    it('writes only the newest of saves made while one is being written', async () => {
+      const s = store();
+      const h = host();
+      s.useHost(() => h);
+      for (const f of ['a', 'b', 'c', 'd']) s.save(withFolder(f));
+      await s.settle();
+      expect(s.load().state.recentFolders).toEqual(['d']);
+      expect(h.calls.filter((c) => c === 'state.write')).toHaveLength(2);
+    });
+
+    it('reads again after a write elsewhere, and keeps a bad file out of the backup', async () => {
+      const s = store();
+      const h = host();
+      s.useHost(() => h);
+      s.save(withFolder('one'));
+      await s.settle();
+      fs.writeFileSync(s.file, 'garbage, from somebody else');
+      s.save(withFolder('two'));
+      await s.settle();
+      expect(s.load().state.recentFolders).toEqual(['two']);
+      expect(fs.existsSync(s.backupFile)).toBe(false);
+      expect(h.calls).toEqual(['state.read', 'state.write', 'state.write', 'state.read', 'state.write']);
+    });
+
+    it('saves here once the host is gone, after what it was writing', async () => {
+      const s = store();
+      const h = host();
+      s.useHost(() => h);
+      s.save(withFolder('one'));
+      h.stop();
+      s.save(withFolder('two'));
+      await s.settle();
+      expect(s.load().state.recentFolders).toEqual(['two']);
+      // With nothing going on, here and at once.
+      s.save(withFolder('three'));
+      expect(s.load().state.recentFolders).toEqual(['three']);
+    });
+
+    it('saves here when the host fails', async () => {
+      const s = store();
+      const log = vi.fn();
+      s.useHost(
+        () => ({ services: { state: 1 }, call: () => Promise.reject(new Error('the pty host connection closed')) }),
+        log,
+      );
+      s.save(withFolder('one'));
+      await s.settle();
+      expect(s.load().state.recentFolders).toEqual(['one']);
+      expect(log).toHaveBeenCalledWith('warn', 'the pty host could not save the state; saving here', expect.anything());
+    });
   });
 });

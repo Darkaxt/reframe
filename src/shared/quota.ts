@@ -1,5 +1,6 @@
 // Subscription quota windows as their sources report them: Claude Code's status line input (rate_limits) for
-// Anthropic, LLM Coordinator's usage snapshot for Codex (the ChatGPT route). Whatever windows a source reports are
+// Anthropic, LLM Coordinator's usage snapshot for Codex (the ChatGPT route) and, from Coordinators that observe it
+// too (`providers`), for Claude when reframe's own status line is not there to tell it. Whatever windows a source reports are
 // shown, so a window the plan drops simply disappears.
 
 export interface QuotaWindow {
@@ -55,11 +56,65 @@ export function parseClaudeRateLimits(raw: unknown): QuotaWindow[] {
   return windows.sort((a, b) => (a.minutes ?? Infinity) - (b.minutes ?? Infinity));
 }
 
+/** A source's quota windows from LLM Coordinator, and when it observed them last (ms). */
+export interface ObservedQuota {
+  windows: QuotaWindow[];
+  at: number;
+}
+
 /**
- * LLM Coordinator's `usage.snapshot` response (`{ ok, usage: { buckets: [{ id, windowMinutes, resetAt, points:
- * [{ t, remaining }] }] } }`). Of buckets for the same window, the one observed last counts.
+ * The quota per provider (`codex`, `claude`) of LLM Coordinator's `usage.snapshot` response, from its `providers:
+ * [{ id, observedAt, windows: [{ id, windowMinutes, resetAt, remaining, points: [{ t, remaining }] }] }]` (newer
+ * Coordinators). A window's last point says how much is left, and when.
+ */
+export function parseCoordinatorProviders(raw: unknown): Partial<Record<ProviderQuota['source'], ObservedQuota>> {
+  const usage = (raw as { usage?: unknown } | null)?.usage ?? raw;
+  const providers = (usage as { providers?: unknown } | null)?.providers;
+  const quotas: Partial<Record<ProviderQuota['source'], ObservedQuota>> = {};
+  if (!Array.isArray(providers)) return quotas;
+  for (const provider of providers as Record<string, unknown>[]) {
+    const source = provider?.id;
+    if ((source !== 'codex' && source !== 'claude') || !Array.isArray(provider.windows)) continue;
+    let at = finite(provider.observedAt);
+    const windows: QuotaWindow[] = [];
+    for (const window of provider.windows as Record<string, unknown>[]) {
+      if (!window || typeof window !== 'object') continue;
+      const last = (Array.isArray(window.points) ? (window.points as Record<string, unknown>[]) : []).at(-1);
+      const remaining = finite(last?.remaining) ?? finite(window.remaining);
+      if (remaining === null) continue;
+      const t = finite(last?.t);
+      if (t !== null && (at === null || t > at)) at = t;
+      const minutes = finite(window.windowMinutes);
+      windows.push({
+        id: `${source}:${minutes ?? (typeof window.id === 'string' ? window.id : '')}`,
+        minutes,
+        usedPercent: clampPercent(100 - remaining),
+        resetsAt: time(window.resetAt),
+      });
+    }
+    if (windows.length && at !== null) {
+      quotas[source] = { windows: windows.sort((a, b) => (a.minutes ?? Infinity) - (b.minutes ?? Infinity)), at };
+    }
+  }
+  return quotas;
+}
+
+/**
+ * Whether the Claude quota LLM Coordinator observed replaces the one shown: reframe's own status line (each answer
+ * of a session it started) is preferred, so the Coordinator's counts only when it is newer.
+ */
+export function coordinatorQuotaIsNewer(shown: ProviderQuota | undefined, observed: ObservedQuota): boolean {
+  return !shown || observed.at > shown.at;
+}
+
+/**
+ * The Codex windows of LLM Coordinator's `usage.snapshot` response: its `codex` provider (see
+ * parseCoordinatorProviders), or from older Coordinators its `buckets: [{ id, windowMinutes, resetAt, points:
+ * [{ t, remaining }] }]`. Of buckets for the same window, the one observed last counts.
  */
 export function parseCoordinatorUsage(raw: unknown): QuotaWindow[] {
+  const codex = parseCoordinatorProviders(raw).codex;
+  if (codex) return codex.windows;
   const usage = (raw as { usage?: unknown } | null)?.usage ?? raw;
   const buckets = (usage as { buckets?: unknown } | null)?.buckets;
   if (!Array.isArray(buckets)) return [];

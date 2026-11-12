@@ -4,11 +4,11 @@
 // the host runs the same code (Node host) or its port (Rust host, rust/reframe-services), and the conformance tests
 // hold them to it. What is not asked of a host stays synchronous, as it was.
 import { adoptedClient, type AdoptedClient } from './client-adoption';
-import { codexWindows, coordinatorExecutable, readCodexUsage, userHasStatusLine } from './quota';
+import { claudeObserved, codexWindows, coordinatorExecutable, readCodexUsage, userHasStatusLine } from './quota';
 import type { PtyHostClient } from './ptyhost-client';
 import type { HostServices } from '../ptyhost/protocol';
 import type { Provider } from '@shared/providers';
-import type { QuotaWindow } from '@shared/quota';
+import type { ObservedQuota, QuotaWindow } from '@shared/quota';
 import type { LogFn } from './log';
 
 /** The part of PtyHostClient used here. */
@@ -18,6 +18,14 @@ export interface CodexQuota {
   /** Whether LLM Coordinator is installed (without it, there is nothing to ask again). */
   coordinator: boolean;
   windows: QuotaWindow[] | null;
+  /** The Claude quota, when the Coordinator observes it too. */
+  claude?: ObservedQuota;
+}
+
+/** The quotas of a Coordinator answer. */
+function fromUsage(coordinator: boolean, usage: unknown): CodexQuota {
+  const claude = claudeObserved(usage);
+  return { coordinator, windows: codexWindows(usage), ...(claude ? { claude } : {}) };
 }
 
 export class HostReads {
@@ -50,11 +58,12 @@ export class HostReads {
     }
   }
 
-  /** The Codex quota windows LLM Coordinator observed (a Coordinator that does not answer gives none). */
+  /** The Codex quota windows LLM Coordinator observed, and its Claude quota (a Coordinator that does not answer
+   * gives none). */
   async codexQuota(localAppData = process.env.LOCALAPPDATA ?? null): Promise<CodexQuota> {
     const local = async (): Promise<CodexQuota> => {
       const exe = coordinatorExecutable(localAppData ?? undefined);
-      return { coordinator: !!exe, windows: exe ? codexWindows(await readCodexUsage(exe)) : null };
+      return exe ? fromUsage(true, await readCodexUsage(exe)) : { coordinator: false, windows: null };
     };
     const host = this.served('quota');
     if (!host) return local();
@@ -65,7 +74,7 @@ export class HostReads {
       { localAppData },
       local,
     );
-    return 'usage' in answer ? { coordinator: answer.coordinator, windows: codexWindows(answer.usage) } : answer;
+    return 'usage' in answer ? fromUsage(answer.coordinator, answer.usage) : answer;
   }
 
   /** Whether the user's Claude Code settings set a status line. */

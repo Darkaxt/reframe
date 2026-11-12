@@ -1,20 +1,26 @@
-//! The `quota`, `clients` and `launch` services (docs/ptyhost-protocol.md, "Services"): what reframe-services reads,
-//! asked by reframe when it needs it (the host keeps no timers for them). Each request runs on a thread of its own,
-//! at most MAX_IN_FLIGHT at a time (more are answered `busy`): the Coordinator can take seconds, a client's hash too.
+//! The `quota`, `clients`, `launch` and `state` services (docs/ptyhost-protocol.md, "Services"): what
+//! reframe-services reads (and, for `state`, writes), asked by reframe when it needs it (the host keeps no timers for
+//! them). Each request runs on a thread of its own, at most MAX_IN_FLIGHT at a time and MAX_WAITING more queued
+//! (beyond, `busy`): the Coordinator can take seconds, a client's hash too. `state` has a queue of its own, so that
+//! saving never waits for those.
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
 use reframe_services::adoption::{adopted_client, Hashes};
+use reframe_services::state::{StateError, StateFiles};
 use reframe_services::{launch, quota};
 use serde_json::{json, Value};
 
+use crate::limit::Limit;
 use crate::transcripts::{SvcError, Work};
 
 /// The services and the version of each the welcome advertises.
-pub const SERVICES: [(&str, u32); 3] = [("quota", 1), ("clients", 1), ("launch", 1)];
+pub const SERVICES: [(&str, u32); 4] = [("quota", 1), ("clients", 1), ("launch", 1), ("state", 1)];
 const MAX_IN_FLIGHT: usize = 8;
+const MAX_WAITING: usize = 64;
 
 pub fn serves(service: &str) -> bool {
     SERVICES.iter().any(|(name, _)| *name == service)
@@ -22,7 +28,9 @@ pub fn serves(service: &str) -> bool {
 
 pub struct Services {
     hashes: Arc<Hashes>,
-    in_flight: Arc<Mutex<usize>>,
+    state: Arc<StateFiles>,
+    reads: Limit,
+    saves: Limit,
 }
 
 fn bad(message: impl Into<String>) -> SvcError {
@@ -43,7 +51,10 @@ impl Services {
     pub fn new() -> Self {
         Self {
             hashes: Arc::new(Hashes::default()),
-            in_flight: Arc::new(Mutex::new(0)),
+            state: Arc::new(StateFiles::default()),
+            reads: Limit::new("services", MAX_IN_FLIGHT, MAX_WAITING),
+            // One at a time, in the order asked (StateFiles takes them one at a time anyway).
+            saves: Limit::new("state", 1, MAX_WAITING),
         }
     }
 
@@ -87,6 +98,36 @@ impl Services {
                 let file = text(params, "file")?;
                 Box::new(move || Ok(launch::evaluate(&hashes, &file)))
             }
+            ("state", "read") => {
+                let file = text(params, "file")?;
+                let state = self.state.clone();
+                Box::new(move || {
+                    let (revision, content) = state.read(Path::new(&file)).map_err(state_error)?;
+                    Ok(json!({ "revision": revision, "content": content }))
+                })
+            }
+            ("state", "write") => {
+                let file = text(params, "file")?;
+                let content = match params.get("content") {
+                    Some(Value::String(s)) => s.clone(),
+                    _ => return Err(bad("content must be a string")),
+                };
+                let revision = params
+                    .get("revision")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(|| bad("revision must be a number"))?;
+                let backup = match params.get("backup") {
+                    Some(Value::Bool(b)) => *b,
+                    _ => return Err(bad("backup must be true or false")),
+                };
+                let state = self.state.clone();
+                Box::new(move || {
+                    let revision = state
+                        .write(Path::new(&file), &content, revision, backup)
+                        .map_err(state_error)?;
+                    Ok(json!({ "revision": revision }))
+                })
+            }
             _ => {
                 return Err(SvcError {
                     code: "unknown-method",
@@ -94,34 +135,26 @@ impl Services {
                 })
             }
         };
-        {
-            let mut in_flight = self.in_flight.lock().unwrap_or_else(PoisonError::into_inner);
-            if *in_flight >= MAX_IN_FLIGHT {
-                return Err(SvcError {
-                    code: "busy",
-                    message: format!("too many {service} requests at once"),
-                });
-            }
-            *in_flight += 1;
-        }
-        let in_flight = self.in_flight.clone();
-        let started = std::thread::Builder::new().name(service.into()).spawn(move || {
+        let limit = if service == "state" { &self.saves } else { &self.reads };
+        limit.run(service, move || {
             let outcome = catch_unwind(AssertUnwindSafe(work)).unwrap_or_else(|panic| {
                 Err(SvcError {
                     code: "io",
                     message: crate::host::panic_text(&panic),
                 })
             });
-            *in_flight.lock().unwrap_or_else(PoisonError::into_inner) -= 1;
             answer(outcome);
-        });
-        if let Err(error) = started {
-            *self.in_flight.lock().unwrap_or_else(PoisonError::into_inner) -= 1;
-            return Err(SvcError {
-                code: "io",
-                message: error.to_string(),
-            });
-        }
+        })?;
         Ok(())
+    }
+}
+
+fn state_error(error: StateError) -> SvcError {
+    match error {
+        StateError::Conflict(message) => SvcError {
+            code: "conflict",
+            message,
+        },
+        StateError::Io(message) => SvcError { code: "io", message },
     }
 }

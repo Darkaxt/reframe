@@ -19,8 +19,9 @@ import { evaluateLaunchConfig } from '../main/launch-config';
 import { userHasStatusLine } from '../main/quota';
 import type { PtyHostClient } from '../main/ptyhost-client';
 import { SessionManager, type WslLauncher } from '../main/sessions';
+import { StateStore } from '../main/state/store';
 import { looksLikeClaude } from '../main/wsl/distros';
-import type { SessionRecord } from '@shared/state';
+import { defaultState, type SessionRecord } from '@shared/state';
 import {
   encode,
   LineDecoder,
@@ -868,7 +869,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       const home = transcriptHome(kind);
       const host = await startHost(kind);
       const { connection, welcome } = await attach(host);
-      expect(welcome.services).toEqual({ transcripts: 1, quota: 1, clients: 1, launch: 1, sessions: 1 });
+      expect(welcome.services).toEqual({ transcripts: 1, quota: 1, clients: 1, launch: 1, sessions: 1, state: 1 });
       const index = new TranscriptIndex(home);
       let id = 0;
       const lists = [
@@ -1067,6 +1068,85 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       expect(await error(4, 'clients', 'adopted', { record: 'C:\\r.json' })).toBe('bad-params');
       expect(await error(5, 'launch', 'evaluate', {})).toBe('bad-params');
       expect(alive(host.pid)).toBe(true);
+    });
+  });
+
+  describe('the state service', () => {
+    async function svc(connection: Connection, id: number, method: string, params: Record<string, unknown>) {
+      connection.send({ type: 'svc', id, service: 'state', method, params });
+      return connection.next(`svc-result ${id}`, (m) => m.type === 'svc-result' && m.id === id);
+    }
+
+    it('reads and writes state.json as StateStore does, with revisions', async () => {
+      const dir = fs.mkdtempSync(path.join(scratch, `state-${kind}-`));
+      const file = path.join(dir, 'state.json');
+      // Written by the in-process store, as every reframe before 0.10.1-claudegpt.23 wrote it.
+      const here = new StateStore(file);
+      here.save({ ...defaultState(), recentFolders: ['C:\\work\\Straße ✓'] });
+      const old = fs.readFileSync(file, 'utf8');
+      const host = await startHost(kind);
+      const { connection } = await attach(host);
+      let id = 0;
+      const read = await svc(connection, ++id, 'read', { file });
+      expect(read).toMatchObject({ ok: true, result: { content: old } });
+      const r1 = read.result.revision as number;
+      // Unchanged: the same revision.
+      expect((await svc(connection, ++id, 'read', { file })).result.revision).toBe(r1);
+      const next = JSON.stringify({ ...defaultState(), recentFolders: ['next'] }, null, 2);
+      const written = await svc(connection, ++id, 'write', { file, content: next, revision: r1, backup: true });
+      expect(written.ok).toBe(true);
+      const r2 = written.result.revision as number;
+      expect(r2).toBeGreaterThan(r1);
+      expect(fs.readFileSync(file, 'utf8')).toBe(next);
+      expect(fs.readFileSync(`${file}.bak`, 'utf8')).toBe(old);
+      expect(fs.readdirSync(dir).sort()).toEqual(['state.json', 'state.json.bak']);
+      // The in-process store reads what the host wrote.
+      expect(new StateStore(file).load()).toMatchObject({ source: 'file', state: { recentFolders: ['next'] } });
+      // A writer holding the old revision, or one that has not seen the file change, is refused; nothing is written.
+      expect(
+        (await svc(connection, ++id, 'write', { file, content: '{}', revision: r1, backup: false })).error,
+      ).toMatchObject({ code: 'conflict' });
+      fs.writeFileSync(
+        file,
+        `${next}
+`,
+      );
+      expect(
+        (await svc(connection, ++id, 'write', { file, content: '{}', revision: r2, backup: false })).error,
+      ).toMatchObject({ code: 'conflict' });
+      expect(fs.readFileSync(file, 'utf8')).toBe(`${next}
+`);
+      // A file not there: null, and written without a backup.
+      const other = path.join(dir, 'sub', 'state.json');
+      const missing = await svc(connection, ++id, 'read', { file: other });
+      expect(missing.result.content).toBeNull();
+      expect(
+        (
+          await svc(connection, id + 1, 'write', {
+            file: other,
+            content: '{}',
+            revision: missing.result.revision,
+            backup: true,
+          })
+        ).ok,
+      ).toBe(true);
+      expect(fs.readdirSync(path.dirname(other))).toEqual(['state.json']);
+    });
+
+    it('refuses what it does not know', async () => {
+      const host = await startHost(kind);
+      const { connection } = await attach(host);
+      const file = path.join(scratch, 'state-refused.json');
+      const code = async (id: number, method: string, params: Record<string, unknown>) =>
+        (await svc(connection, id, method, params)).error?.code;
+      expect(await code(1, 'nope', { file })).toBe('unknown-method');
+      expect(await code(2, 'read', {})).toBe('bad-params');
+      expect(await code(3, 'write', { file, content: 1, revision: 1, backup: false })).toBe('bad-params');
+      expect(await code(4, 'write', { file, content: '{}', revision: 'x', backup: false })).toBe('bad-params');
+      expect(await code(5, 'write', { file, content: '{}', revision: 1 })).toBe('bad-params');
+      // Never read by this host.
+      expect(await code(6, 'write', { file, content: '{}', revision: 1, backup: false })).toBe('conflict');
+      expect(fs.existsSync(file)).toBe(false);
     });
   });
 
