@@ -4,7 +4,8 @@
 // host still runs. Copies no host runs from any more are removed.
 //
 // Two hosts speak the same protocol (docs/ptyhost-protocol.md): the Node host (reframe's executable run as Node with
-// ptyhost.js) and the Rust host (resources/reframe-host/reframe-host.exe), chosen with REFRAME_PTYHOST=rust.
+// ptyhost.js) and the Rust host (resources/reframe-host/reframe-host.exe), chosen with the ptyHost
+// preference or REFRAME_PTYHOST=rust (which overrides it).
 import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
@@ -22,9 +23,19 @@ import {
 } from './ptyhost-files';
 import type { LogFn } from './log';
 
-/** The host the profile's new sessions go to: `REFRAME_PTYHOST=rust` opts into the Rust host (Windows only). */
-export function configuredHostKind(env: NodeJS.ProcessEnv = process.env, platform = process.platform): HostKind {
-  return platform === 'win32' && env.REFRAME_PTYHOST?.trim().toLowerCase() === 'rust' ? 'rust' : 'node';
+/**
+ * The host the profile's new sessions go to (Windows only; elsewhere the Node host): REFRAME_PTYHOST when set
+ * (`rust` opts into the Rust host), otherwise the ptyHost preference.
+ */
+export function configuredHostKind(
+  env: NodeJS.ProcessEnv = process.env,
+  platform = process.platform,
+  preference: HostKind = 'node',
+): HostKind {
+  if (platform !== 'win32') return 'node';
+  const forced = env.REFRAME_PTYHOST?.trim().toLowerCase();
+  if (forced) return forced === 'rust' ? 'rust' : 'node';
+  return preference === 'rust' ? 'rust' : 'node';
 }
 
 /** The folder the Rust host's files come from: the release's resources, or (development) REFRAME_RUST_HOST_DIR. */

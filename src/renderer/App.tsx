@@ -635,6 +635,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             closeWindow={view.closeWindow}
             gpuAcceleration={view.gpuAcceleration}
             gpuAccelerated={view.gpuAccelerated}
+            ptyHost={view.ptyHost}
             startWithSystem={view.startWithSystem}
             checkForUpdates={view.checkForUpdates}
             lookInWsl={view.lookInWsl}

@@ -90,6 +90,8 @@ import {
   SIDEBAR_WIDTH,
   clampSidebarWidth,
   LANGUAGES,
+  PTY_HOSTS,
+  type PtyHostPreference,
   type CloseWindow,
   type Language,
   type AppState,
@@ -300,8 +302,9 @@ export class ReframeApp {
     // Fail before any side effect: a state that cannot be written ends the start here, before a token is written or a
     // detached PTY host (which would outlive this failed start) is spawned.
     this.store.save(this.state);
-    // REFRAME_PTYHOST=rust: new sessions go to the Rust host (opt-in); without its files, to the Node host.
-    let hostKind = configuredHostKind();
+    // The ptyHost preference (or REFRAME_PTYHOST, which overrides it) picks the host new sessions go to; without the
+    // Rust host's files, the Node host. Read once here: the client talks to one host kind for this run.
+    let hostKind = configuredHostKind(process.env, process.platform, this.state.preferences.ptyHost);
     if (hostKind === 'rust' && !rustHostAvailable()) {
       this.log('warn', 'the rust pty host is not in this build; using the node host', { source: rustHostSource() });
       hostKind = 'node';
@@ -612,6 +615,7 @@ export class ReframeApp {
       closeWindow: this.state.preferences.closeWindow,
       gpuAcceleration: this.state.preferences.gpuAcceleration,
       gpuAccelerated: gpu.accelerated,
+      ptyHost: process.platform === 'win32' ? this.state.preferences.ptyHost : null,
       claudeBin: this.state.preferences.claudeBin ?? null,
       defaultModel: this.state.preferences.defaultModel ?? null,
       defaultEffort: this.state.preferences.defaultEffort ?? null,
@@ -2932,6 +2936,7 @@ export class ReframeApp {
       if (typeof patch.checkForUpdates === 'boolean') next.checkForUpdates = patch.checkForUpdates;
       if (typeof patch.lookInWsl === 'boolean') next.lookInWsl = patch.lookInWsl;
       if (typeof patch.gpuAcceleration === 'boolean') next.gpuAcceleration = patch.gpuAcceleration;
+      if (PTY_HOSTS.includes(patch.ptyHost as PtyHostPreference)) next.ptyHost = patch.ptyHost as PtyHostPreference;
       if (CLOSE_WINDOW.includes(patch.closeWindow as CloseWindow)) next.closeWindow = patch.closeWindow as CloseWindow;
       if (typeof patch.claudeBin === 'string') next.claudeBin = patch.claudeBin.trim().slice(0, 1024) || undefined;
       if (typeof patch.defaultModel === 'string')
@@ -2957,6 +2962,7 @@ export class ReframeApp {
         next.lookInWsl !== was.lookInWsl ||
         next.closeWindow !== was.closeWindow ||
         next.gpuAcceleration !== was.gpuAcceleration ||
+        next.ptyHost !== was.ptyHost ||
         next.claudeBin !== was.claudeBin ||
         next.defaultModel !== was.defaultModel ||
         next.defaultEffort !== was.defaultEffort ||
@@ -2968,6 +2974,9 @@ export class ReframeApp {
           enabled: next.gpuAcceleration,
           afterRestart: true,
         });
+      }
+      if (next.ptyHost !== was.ptyHost) {
+        this.log('info', 'pty host setting changed', { ptyHost: next.ptyHost, afterRestart: true });
       }
       if (relabel) {
         // Every window, the tray and whatever comes next (menus, dialogs, notifications) speak it right away.

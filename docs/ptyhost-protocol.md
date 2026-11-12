@@ -7,7 +7,7 @@ since 0.10.1-claudegpt.16). There are two implementations of the same contract:
 | Host | Source | Executable | Selected by |
 | --- | --- | --- | --- |
 | Node | `src/ptyhost/index.ts` | `reframe-ptyhost.exe` (reframe's Electron run as Node) | default |
-| Rust | `rust/reframe-host` | `reframe-host.exe` | `REFRAME_PTYHOST=rust` |
+| Rust | `rust/reframe-host` | `reframe-host.exe` | Settings > Terminal host, or `REFRAME_PTYHOST=rust` (overrides it) |
 
 The contract below is what both implement; `src/ptyhost/host.conformance.ts` (`npm run test:conformance`) runs the same tests against both.
 

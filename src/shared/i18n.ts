@@ -180,6 +180,11 @@ const en = {
   'settings.gpuHint':
     'Off: Reframe and its terminals draw without the graphics card. Takes effect after restarting Reframe.',
   'settings.gpuRestart': 'Takes effect after restarting Reframe.',
+  'settings.ptyHost': 'Terminal host',
+  'settings.ptyHostNode': 'Node (default)',
+  'settings.ptyHostRust': 'Rust (experimental)',
+  'settings.ptyHostHint':
+    'Applies to new sessions after restarting Reframe; running sessions stay on their host. Experimental. REFRAME_PTYHOST overrides it.',
   'settings.snap': 'Snap separators to a grid',
   'settings.snapHint': 'While dragging, a separator lines up with the others. Hold Alt to place it freely.',
   'settings.autostart': 'Start with the system',
@@ -432,6 +437,11 @@ const de: Record<MessageKey, string> = {
   'settings.gpuHint':
     'Aus: Reframe und seine Terminals zeichnen ohne Grafikkarte. Wird nach einem Neustart von Reframe wirksam.',
   'settings.gpuRestart': 'Wird nach einem Neustart von Reframe wirksam.',
+  'settings.ptyHost': 'Terminal-Host',
+  'settings.ptyHostNode': 'Node (Standard)',
+  'settings.ptyHostRust': 'Rust (experimentell)',
+  'settings.ptyHostHint':
+    'Gilt nach einem Neustart von Reframe für neue Sitzungen; laufende Sitzungen bleiben auf ihrem Host. Experimentell. REFRAME_PTYHOST hat Vorrang.',
   'settings.snap': 'Trennlinien an einem Raster einrasten',
   'settings.snapHint':
     'Beim Ziehen richtet sich eine Trennlinie an den anderen aus. Mit gedrückter Alt-Taste setzt du sie frei.',
