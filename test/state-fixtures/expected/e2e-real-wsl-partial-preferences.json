@@ -1,0 +1,21 @@
+{
+  "result": "state",
+  "state": {
+    "version": 1,
+    "sessions": {},
+    "windows": [],
+    "recentFolders": [],
+    "preferences": {
+      "nameFromFolder": false,
+      "language": "system",
+      "fontSize": 13,
+      "snapToGrid": true,
+      "checkForUpdates": true,
+      "lookInWsl": true,
+      "closeWindow": "ask",
+      "gpuAcceleration": false,
+      "ptyHost": "node"
+    },
+    "hiddenThreads": []
+  }
+}

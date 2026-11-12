@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "sessions": {},
+  "windows": [
+    {
+      "id": "w1",
+      "workspaceId": "ws1",
+      "bounds": null,
+      "maximized": false,
+      "hidden": false,
+      "layout": null,
+      "dock": []
+    }
+  ],
+  "recentFolders": [],
+  "preferences": {
+    "nameFromFolder": true
+  },
+  "workspaces": [
+    {
+      "id": "ws1",
+      "name": "Frontend",
+      "savedAt": 1,
+      "window": {
+        "bounds": null,
+        "maximized": false,
+        "layout": null,
+        "dock": []
+      },
+      "sessions": []
+    }
+  ]
+}

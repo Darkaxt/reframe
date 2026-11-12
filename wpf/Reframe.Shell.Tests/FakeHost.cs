@@ -7,7 +7,7 @@ namespace Reframe.Shell.Tests;
 
 /// <summary>
 /// An in-process stand-in for the PTY host: a profile folder with a token and a descriptor, and a named pipe that
-/// speaks the protocol's handshake, one session's view (snapshot, then data), the sessions and transcripts services.
+/// speaks the protocol's handshake, one session's view (snapshot, then data), the sessions, transcripts and state (read) services.
 /// With <c>observers</c> it is a host from 0.10.1-claudegpt.25: it advertises observers (descriptor and welcome), an
 /// observer's hello replaces nobody, and the sessions service gives revisions.
 /// </summary>
@@ -25,6 +25,8 @@ sealed class FakeHost : IAsyncDisposable
     /// <summary>Every hello, in order.</summary>
     public ConcurrentQueue<JsonObject> Hellos { get; } = new();
     readonly bool observers;
+    /// <summary>What <c>state.read</c> serves, by file name (the text, or none there).</summary>
+    public ConcurrentDictionary<string, string> StateFiles { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public FakeHost(bool observers = false)
     {
@@ -83,7 +85,7 @@ sealed class FakeHost : IAsyncDisposable
                             previous.Dispose();
                         }
                     }
-                    var services = new JsonObject { ["transcripts"] = 1, ["sessions"] = 1 };
+                    var services = new JsonObject { ["transcripts"] = 1, ["sessions"] = 1, ["state"] = 1 };
                     if (observers) services["observer"] = 1;
                     await SendAsync(pipe, new JsonObject
                     {
@@ -107,7 +109,7 @@ sealed class FakeHost : IAsyncDisposable
         catch (Exception e) when (e is IOException or ObjectDisposedException or OperationCanceledException) { }
     }
 
-    static async Task AnswerAsync(Stream pipe, JsonObject request, bool revisions)
+    async Task AnswerAsync(Stream pipe, JsonObject request, bool revisions)
     {
         switch ((string?)request["type"])
         {
@@ -139,6 +141,11 @@ sealed class FakeHost : IAsyncDisposable
                         ["revision"] = revisions ? 5 : null,
                     }),
                     "transcripts.title" => Ok(id, JsonValue.Create("A title")),
+                    "state.read" => Ok(id, new JsonObject
+                    {
+                        ["revision"] = 7,
+                        ["content"] = StateFiles.TryGetValue((string)request["params"]!["file"]!, out var text) ? text : null,
+                    }),
                     _ => new JsonObject
                     {
                         ["type"] = "svc-result", ["id"] = id, ["ok"] = false,

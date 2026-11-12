@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "windows": [],
+  "recentFolders": [],
+  "sessions": {
+    "a": {
+      "id": "a",
+      "claudeSessionId": "c",
+      "cwd": "x",
+      "launch": {},
+      "lifecycle": "paused",
+      "createdAt": 1,
+      "lastActiveAt": 1
+    }
+  }
+}
