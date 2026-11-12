@@ -14,3 +14,7 @@ sha2 = "0.10"
 # A stand-in for LLM Coordinator's native client in the conformance tests (never the real Coordinator).
 name = "fake-coordinator"
 path = "examples/fake-coordinator.rs"
+
+[target.'cfg(windows)'.dev-dependencies]
+# The fake Coordinator closes its output (the only unsafe code stays in reframe-conpty).
+reframe-conpty = { path = "../reframe-conpty" }

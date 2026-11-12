@@ -3,6 +3,11 @@
 // session registry file for the process (undocumented; immediate session id changes on /clear).
 // A session in a WSL folder runs its claude in that distribution, through wsl.exe; the hooks cannot reach reframe
 // from there, so its status (and what it announces) comes from the registry alone.
+// A PTY host that serves `sessions` (since 0.10.1-claudegpt.22) works the status out itself, for the sessions it
+// started with a `claudeHome` (or a WSL `share`) in their meta: for those it is taken from the host's events, and
+// neither hooks nor registry are followed here for it. Everything else (an older host taken over in a hot swap, a
+// request that failed) is followed here as before. Who ended a session, how its exit counts, and whether an
+// announcement is shown stay here.
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -29,6 +34,7 @@ import type { HookMessage } from './hooks/server';
 import type { LogFn } from './log';
 import { isAlive, killTree, processStart } from './process';
 import type { PtyHostClient } from './ptyhost-client';
+import type { SessionMeta } from '../ptyhost/protocol';
 import { settle, withTimeout } from './wait';
 import { SHARE_TIMEOUT_MS, type WslCommand, type WslInfo } from './wsl/distros';
 
@@ -77,6 +83,17 @@ interface Runtime {
   wsl?: WslRuntime;
   /** Run through cmd.exe (a launcher reframe does not know): claude's registry entry is under its own process id. */
   launched?: { claudeSessionId: string; pid?: number };
+  /** The PTY host works its status out (its `sessions` service): it is not followed here. */
+  hosted?: boolean;
+}
+
+/** A `sessions.status` event's data, and an item of `sessions.list` (docs/ptyhost-protocol.md, "Services"). */
+interface HostStatus {
+  sessionId: string;
+  instance: number;
+  status: SessionStatus;
+  registry?: RegistryEntry;
+  notify?: NotifyKind;
 }
 
 export interface SessionManagerDeps {
@@ -140,6 +157,9 @@ export class SessionManager extends EventEmitter<Events> {
       if (event.type === 'spawned') this.onSpawned(event.sessionId, event.pid);
       if (event.type === 'spawn-failed') this.fail(event.sessionId, 'spawnFailed');
       if (event.type === 'exit') this.onExit(event.sessionId, event.exitCode);
+    });
+    deps.host.on('svc-event', ({ service, event, data }) => {
+      if (service === 'sessions' && event === 'status') this.onHostStatus(data as HostStatus);
     });
     deps.host.on('crashed', (code, restarting) => {
       this.log('error', 'pty host stopped unexpectedly, all its sessions are gone', { code, restarting });
@@ -266,9 +286,23 @@ export class SessionManager extends EventEmitter<Events> {
       ),
       cols: 120,
       rows: 32,
-      ...(runtime.launched ? { meta: { launched: { claudeSessionId: session.claudeSessionId } } } : {}),
+      meta: {
+        claudeHome: this.deps.claudeHome,
+        ...(runtime.launched ? { launched: { claudeSessionId: session.claudeSessionId } } : {}),
+      },
     });
+    runtime.hosted = this.servesSessions();
     this.emit('changed', session.id);
+  }
+
+  /** Whether the attached host works out the status of the sessions it starts with the meta reframe gives them. */
+  private servesSessions(): boolean {
+    return (this.deps.host.services?.sessions ?? 0) >= 1;
+  }
+
+  /** Whether the host works this session's status out: it serves that, and the session was started for it. */
+  private hostTracks(runtime: Runtime): boolean {
+    return !!runtime.hosted && this.servesSessions();
   }
 
   /**
@@ -290,6 +324,7 @@ export class SessionManager extends EventEmitter<Events> {
         procStart: processStart(hosted.pid),
         ...(hosted.meta?.launched ? { launched: { ...hosted.meta.launched } } : {}),
         ...(hosted.meta?.wsl ? { wsl: { ...hosted.meta.wsl } } : {}),
+        hosted: this.servesSessions() && startedForHost(hosted.meta),
       };
       runtime.exited = new Promise((resolve) => (runtime.markExited = resolve));
       if (hosted.exitCode !== null) runtime.markExited?.();
@@ -307,7 +342,38 @@ export class SessionManager extends EventEmitter<Events> {
       this.log('info', 'session taken over from the pty host', { session: hosted.sessionId, pid: hosted.pid });
       this.emit('changed', hosted.sessionId);
     }
+    if (this.servesSessions()) void this.fetchHostStatuses();
     return taken;
+  }
+
+  /**
+   * The statuses the host worked out while no reframe was attached (its events are not held), with what it
+   * announced meanwhile. Without an answer, the sessions are followed here.
+   */
+  private async fetchHostStatuses(): Promise<void> {
+    try {
+      const { sessions } = (await this.deps.host.call('sessions', 'list', {})) as { sessions: HostStatus[] };
+      for (const status of sessions) this.onHostStatus(status);
+    } catch (error) {
+      this.log('warn', 'the pty host did not tell the session statuses; following them here', {
+        error: String(error),
+      });
+      for (const runtime of this.runtimes.values()) runtime.hosted = false;
+    }
+  }
+
+  /** A status the host worked out (for a session it follows), applied as the hooks and the registry are here. */
+  private onHostStatus({ sessionId, instance, status, registry, notify }: HostStatus): void {
+    const runtime = this.runtimes.get(sessionId);
+    if (!runtime || runtime.instance !== instance || !this.hostTracks(runtime) || !this.isRunning(sessionId)) return;
+    if (registry) {
+      if (runtime.wsl) runtime.wsl.linuxPid = registry.pid;
+      if (runtime.launched) runtime.launched.pid = registry.pid;
+      this.followEntry(sessionId, runtime, registry);
+    }
+    // The end is told by the exit, where how it counts is known.
+    if (status !== 'ended') this.setStatus(sessionId, runtime, status);
+    if (notify) this.emit('notify', sessionId, notify);
   }
 
   /**
@@ -372,8 +438,9 @@ export class SessionManager extends EventEmitter<Events> {
       env: claudeEnv(this.deps.env, env),
       cols: 120,
       rows: 32,
-      meta: { wsl: { distro: where.distro, home, claudeSessionId: session.claudeSessionId } },
+      meta: { wsl: { distro: where.distro, home, claudeSessionId: session.claudeSessionId, share: wsl.share } },
     });
+    runtime.hosted = this.servesSessions();
     this.emit('changed', session.id);
   }
 
@@ -578,6 +645,8 @@ export class SessionManager extends EventEmitter<Events> {
         ...(event === 'UserPromptSubmit' ? { used: true } : {}),
       });
     }
+    // The host works the status out (and what to announce) from the same hook.
+    if (this.hostTracks(runtime)) return;
     if (event === 'UserPromptSubmit') this.setStatus(sessionId, runtime, 'busy');
     if (event === 'Stop') {
       this.setStatus(sessionId, runtime, 'idle');
@@ -595,7 +664,7 @@ export class SessionManager extends EventEmitter<Events> {
     this.polling = true;
     try {
       for (const [sessionId, runtime] of [...this.runtimes]) {
-        if (!runtime.pid || !this.isRunning(sessionId)) continue;
+        if (!runtime.pid || !this.isRunning(sessionId) || this.hostTracks(runtime)) continue;
         const entry = runtime.wsl
           ? await this.wslRegistryEntry(runtime.wsl)
           : runtime.launched
@@ -612,6 +681,22 @@ export class SessionManager extends EventEmitter<Events> {
   }
 
   private followRegistry(sessionId: string, runtime: Runtime, entry: RegistryEntry): void {
+    this.followEntry(sessionId, runtime, entry);
+    // Follow the registry only when it changes, so it does not undo a fresher hook-based status.
+    if (entry.status && entry.status !== runtime.registryStatus) {
+      const before = runtime.registryStatus;
+      runtime.registryStatus = entry.status;
+      this.setStatus(sessionId, runtime, entry.status);
+      // Without hooks (WSL), the registry is also what tells that Claude is done or needs the user.
+      if (runtime.wsl && entry.status === 'waiting') this.emit('notify', sessionId, 'waiting');
+      if (runtime.wsl && entry.status === 'idle' && before === 'busy') this.emit('notify', sessionId, 'done');
+    } else if (runtime.status === 'starting') {
+      this.setStatus(sessionId, runtime, entry.status ?? 'idle');
+    }
+  }
+
+  /** What a registry entry tells besides the status: the session's identity, and Claude's name for it. */
+  private followEntry(sessionId: string, runtime: Runtime, entry: RegistryEntry): void {
     // In WSL the folder is a Linux path; reframe keeps it as Windows reaches it.
     const cwd =
       entry.cwd && runtime.wsl ? wslWindowsPath(runtime.wsl.distro, entry.cwd, this.deps.wsl!.share) : entry.cwd;
@@ -627,17 +712,6 @@ export class SessionManager extends EventEmitter<Events> {
       runtime.registryName = entry.name;
       this.emit('changed', sessionId);
       this.emit('renamed', sessionId);
-    }
-    // Follow the registry only when it changes, so it does not undo a fresher hook-based status.
-    if (entry.status && entry.status !== runtime.registryStatus) {
-      const before = runtime.registryStatus;
-      runtime.registryStatus = entry.status;
-      this.setStatus(sessionId, runtime, entry.status);
-      // Without hooks (WSL), the registry is also what tells that Claude is done or needs the user.
-      if (runtime.wsl && entry.status === 'waiting') this.emit('notify', sessionId, 'waiting');
-      if (runtime.wsl && entry.status === 'idle' && before === 'busy') this.emit('notify', sessionId, 'done');
-    } else if (runtime.status === 'starting') {
-      this.setStatus(sessionId, runtime, entry.status ?? 'idle');
     }
   }
 
@@ -697,6 +771,11 @@ export class SessionManager extends EventEmitter<Events> {
 function launchMode(session: SessionRecord, requested: LaunchMode, transcript: boolean): LaunchMode | 'lost' {
   if (requested !== 'resume' || transcript) return requested;
   return session.used ? 'lost' : 'new';
+}
+
+/** Whether the host started the session with what it needs to follow its status (reframe gives it from .22 on). */
+function startedForHost(meta: SessionMeta | undefined): boolean {
+  return !!(meta?.wsl ? meta.wsl.share : meta?.claudeHome);
 }
 
 /** Whether a folder is there, without holding up everything else (a WSL folder may wait for its distribution). */

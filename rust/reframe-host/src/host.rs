@@ -17,7 +17,19 @@ use crate::protocol::{
 };
 use crate::services::{self, Services};
 use crate::transcripts::{self, SvcError, Transcripts, WatchEvent};
+use reframe_sessions::registry::Entry;
+use reframe_sessions::{update_json, Lookup, Tracker, Update};
 use reframe_transcripts::Changes;
+
+/// The session status service (docs/ptyhost-protocol.md, "Services").
+const SESSIONS: &str = "sessions";
+const SESSIONS_VERSION: u32 = 1;
+
+fn now_ms() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0.0, |d| d.as_millis() as f64)
+}
 
 /// Without a reframe and a running session for this long, the host goes.
 pub const IDLE_EXIT: Duration = Duration::from_secs(10);
@@ -52,6 +64,12 @@ pub enum Input {
     Watch(WatchEvent),
     /// Transcript changes collected for a moment are told.
     FlushChanges,
+    /// What a read of a session's registry entry found (see `read_registries`).
+    Registry {
+        serial: u64,
+        entry: Option<Entry>,
+        found: Option<u32>,
+    },
 }
 
 /// What a connection's task writes.
@@ -84,6 +102,10 @@ struct Session {
     /// Views attached, in the order they came.
     views: Vec<u64>,
     meta: Option<Value>,
+    /// Its status, for the `sessions` service (none for a session reframe follows itself).
+    tracker: Option<Tracker>,
+    /// Its registry entry is being read; no second read starts meanwhile.
+    reading: bool,
 }
 
 impl Session {
@@ -215,6 +237,7 @@ impl Host {
             Input::SvcDone { conn, id, outcome } => self.svc_answer(conn, id, outcome),
             Input::Watch(event) => self.watched(event),
             Input::FlushChanges => self.flush_changes(),
+            Input::Registry { serial, entry, found } => self.registry_read(serial, entry, found),
         }
         Flow::Continue
     }
@@ -320,6 +343,7 @@ impl Host {
         for (name, version) in services::SERVICES {
             services.insert(name.into(), json!(version));
         }
+        services.insert(SESSIONS.into(), json!(SESSIONS_VERSION));
         self.send(json!({
             "type": "welcome",
             "protocol": PROTOCOL_VERSION,
@@ -388,6 +412,16 @@ impl Host {
         let Some(conn) = self.client else {
             return;
         };
+        if service == SESSIONS {
+            let outcome = match method {
+                "list" => Ok(json!({ "sessions": self.statuses() })),
+                _ => Err(SvcError {
+                    code: "unknown-method",
+                    message: format!("{service}.{method}"),
+                }),
+            };
+            return self.svc_answer(conn, id, outcome);
+        }
         if services::serves(service) {
             let inputs = self.inputs.clone();
             let answer_id = id.clone();
@@ -487,6 +521,8 @@ impl Host {
             }
         };
         let pid = process.pid();
+        let tracker = Lookup::from_meta(request.meta.as_ref())
+            .map(|lookup| Tracker::new(lookup, pid, now_ms(), reframe_conpty::process_start(pid)));
         self.sessions.push(Session {
             id: session_id.clone(),
             instance,
@@ -496,6 +532,8 @@ impl Host {
             mirror: Mirror::new(request.cols, request.rows),
             views: Vec::new(),
             meta: request.meta,
+            tracker,
+            reading: false,
         });
         self.write_descriptor();
         self.emit(json!({ "type": "spawned", "sessionId": session_id, "instance": instance, "pid": pid }));
@@ -557,11 +595,15 @@ impl Host {
             return;
         };
         session.lifecycle = Lifecycle::Exited { code };
+        let update = session.tracker.as_mut().and_then(Tracker::exited);
         let (id, instance, pid, views) = (session.id.clone(), session.instance, session.pid, session.views.clone());
         for view_id in views {
             self.send_view(view_id, json!({ "type": "exit", "exitCode": code }));
         }
         self.emit(json!({ "type": "exit", "sessionId": id, "instance": instance, "pid": pid, "exitCode": code }));
+        if let Some(update) = update {
+            self.status_changed(serial, update);
+        }
         self.write_descriptor();
     }
 
@@ -669,6 +711,14 @@ impl Host {
     // Hooks and time.
 
     fn hook(&mut self, message: HookMessage) {
+        let tracked = self
+            .sessions
+            .iter_mut()
+            .find(|s| s.id == message.session_id)
+            .and_then(|s| Some((s.serial, s.tracker.as_mut()?.hook(&message.event, &message.payload)?)));
+        if let Some((serial, update)) = tracked {
+            self.status_changed(serial, update);
+        }
         if self.client.is_some() {
             self.send(json!({ "type": "hook", "message": message.to_json() }));
         } else if message.event != STATUS_LINE_EVENT {
@@ -679,7 +729,68 @@ impl Host {
         }
     }
 
+    // The `sessions` service: each session's status, from its hooks and its registry entry.
+
+    /// Tells the attached reframe a session's status; without one, what it announced waits for the next.
+    fn status_changed(&mut self, serial: u64, update: Update) {
+        let attached = self.client.is_some();
+        let Some(session) = self.sessions.iter_mut().find(|s| s.serial == serial) else {
+            return;
+        };
+        if !attached {
+            if let (Some(notify), Some(tracker)) = (update.notify, session.tracker.as_mut()) {
+                tracker.held = Some(notify);
+            }
+            return;
+        }
+        let data = update_json(&session.id, session.instance, &update);
+        self.send(json!({ "type": "svc-event", "service": SESSIONS, "event": "status", "data": data }));
+    }
+
+    fn statuses(&mut self) -> Vec<Value> {
+        self.sessions
+            .iter_mut()
+            .filter_map(|s| Some(s.tracker.as_mut()?.snapshot(&s.id, s.instance)))
+            .collect()
+    }
+
+    /// Reads the registry entry of every running session followed here (once a second, as SessionManager polls),
+    /// each off the host's task, one at a time per session.
+    fn read_registries(&mut self) {
+        for session in &mut self.sessions {
+            if session.reading || session.running().is_none() {
+                continue;
+            }
+            let Some(read) = session.tracker.as_ref().and_then(Tracker::read) else {
+                continue;
+            };
+            session.reading = true;
+            let (inputs, serial) = (self.inputs.clone(), session.serial);
+            let started = std::thread::Builder::new().name("registry".into()).spawn(move || {
+                let (entry, found) = catch_unwind(AssertUnwindSafe(|| {
+                    read.run(reframe_conpty::process_alive, reframe_conpty::process_start)
+                }))
+                .unwrap_or((None, None));
+                let _ = inputs.send(Input::Registry { serial, entry, found });
+            });
+            if started.is_err() {
+                session.reading = false;
+            }
+        }
+    }
+
+    fn registry_read(&mut self, serial: u64, entry: Option<Entry>, found: Option<u32>) {
+        let Some(session) = self.sessions.iter_mut().find(|s| s.serial == serial) else {
+            return;
+        };
+        session.reading = false;
+        if let Some(update) = session.tracker.as_mut().and_then(|t| t.registry(entry, found)) {
+            self.status_changed(serial, update);
+        }
+    }
+
     pub fn tick(&mut self, now: Instant) -> Flow {
+        self.read_registries();
         let running = self.sessions.iter().any(|s| s.running().is_some());
         if self.client.is_some() || running {
             self.idle_since = now;

@@ -3,6 +3,7 @@
 // (out/main/ptyhost.js: `npm run build` first); the Rust host from REFRAME_RUST_HOST_EXE, copied with node-pty's
 // ConPTY next to it as an installed reframe copies it. Windows only (ConPTY).
 import { spawn as spawnProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -16,6 +17,10 @@ import { TranscriptTitles } from '../main/claude/titles';
 import { adoptedClient, CLIENT_ADOPTION_SCHEMA } from '../main/client-adoption';
 import { evaluateLaunchConfig } from '../main/launch-config';
 import { userHasStatusLine } from '../main/quota';
+import type { PtyHostClient } from '../main/ptyhost-client';
+import { SessionManager, type WslLauncher } from '../main/sessions';
+import { looksLikeClaude } from '../main/wsl/distros';
+import type { SessionRecord } from '@shared/state';
 import {
   encode,
   LineDecoder,
@@ -138,7 +143,8 @@ beforeAll(() => {
 afterAll(async () => {
   for (const host of hosts) if (alive(host.pid)) process.kill(host.pid);
   await until('the hosts to exit', () => hosts.every((h) => !alive(h.pid))).catch(() => undefined);
-  fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 5 });
+  // A ConPTY that ends with its host may hold its executable there a moment longer.
+  fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
 });
 
 async function startHost(kind: 'node' | 'rust'): Promise<Host> {
@@ -387,6 +393,230 @@ function fakeCoordinator(behaviour: Record<string, unknown>): { localAppData: st
   fs.copyFileSync(fakeCoordinatorExe, path.join(release, 'LLMCoordinator.exe'));
   fs.writeFileSync(path.join(release, 'fake.json'), JSON.stringify(behaviour));
   return { localAppData, release };
+}
+
+// The sessions service's scenarios: recorded hook and registry sequences, run on a host and on reframe's own
+// SessionManager (the oracle, with a stand-in for the host), whose status trajectories and announcements must agree.
+type Step =
+  | { registry: { status?: string; sessionId?: string; name?: string } }
+  | { hook: string; payload?: Record<string, unknown> }
+  | { exit: number }
+  | { detach: true }
+  | { attach: true };
+
+interface Scenario {
+  name: string;
+  wsl?: boolean;
+  steps: Step[];
+  /** What the oracle must show besides (what reframe keeps deciding itself). */
+  check?: (oracle: Observation[]) => void;
+}
+
+interface Observation {
+  status?: string;
+  claudeSessionId?: string;
+  name?: string;
+  notify: string[];
+}
+
+/** Long enough for a registry change to be read (both poll once a second). */
+const STEP_MS = 1800;
+const CLAUDE_ID = 'claude-1';
+const WSL_DISTRO = 'Fake';
+const WSL_PID = 4242;
+/** A process id nothing has: SessionManager reads its registry entry, nothing else of it. */
+const ORACLE_PID = 999_999_999;
+
+const SCENARIOS: Scenario[] = [
+  {
+    name: 'a turn',
+    steps: [
+      { registry: { status: 'idle' } },
+      { hook: 'UserPromptSubmit', payload: { prompt: 'p' } },
+      { registry: { status: 'busy' } },
+      { hook: 'Stop' },
+      { registry: { status: 'idle' } },
+      { hook: 'Notification', payload: { notification_type: 'idle_prompt' } },
+    ],
+    check: (oracle) => expect(announced(oracle)).toEqual(['done']),
+  },
+  {
+    name: 'a permission prompt',
+    steps: [
+      { registry: { status: 'idle' } },
+      { hook: 'UserPromptSubmit' },
+      { hook: 'Notification', payload: { notification_type: 'permission_prompt' } },
+      { registry: { status: 'waiting' } },
+      { registry: { status: 'busy' } },
+      { hook: 'Stop' },
+    ],
+    check: (oracle) => expect(announced(oracle)).toEqual(['waiting', 'done']),
+  },
+  {
+    name: '/clear and a rename',
+    steps: [
+      { registry: { status: 'idle' } },
+      { hook: 'UserPromptSubmit' },
+      { hook: 'Stop' },
+      { registry: { status: 'idle', sessionId: 'claude-2' } },
+      { registry: { status: 'idle', sessionId: 'claude-2', name: 'Renamed' } },
+    ],
+    check: (oracle) => expect(oracle.at(-1)).toMatchObject({ claudeSessionId: 'claude-2', name: 'Renamed' }),
+  },
+  {
+    name: 'a WSL session (registry only)',
+    wsl: true,
+    steps: [
+      { registry: { status: 'idle' } },
+      { registry: { status: 'busy' } },
+      { registry: { status: 'waiting' } },
+      { registry: { status: 'busy' } },
+      { registry: { status: 'idle' } },
+      { registry: { status: 'idle', sessionId: 'claude-2' } },
+    ],
+    check: (oracle) => expect(announced(oracle)).toEqual(['waiting', 'done']),
+  },
+  {
+    name: 'an exit',
+    steps: [{ registry: { status: 'idle' } }, { hook: 'UserPromptSubmit' }, { exit: 0 }, { hook: 'Stop' }],
+    check: (oracle) => expect(oracle.at(-1)!.status).toBe('ended'),
+  },
+  {
+    name: 'a crash on start',
+    steps: [{ registry: { status: 'idle' } }, { exit: 3 }, { hook: 'Stop' }],
+    // How an early exit counts is reframe's (the host tells it ended).
+    check: (oracle) => expect(oracle.at(-1)!.status).toBe('error'),
+  },
+  {
+    name: 'hooks while no reframe is attached',
+    steps: [
+      { registry: { status: 'idle' } },
+      { hook: 'UserPromptSubmit' },
+      { detach: true },
+      { hook: 'Stop' },
+      { attach: true },
+    ],
+    check: (oracle) => expect(oracle.at(-1)).toMatchObject({ status: 'idle', notify: ['done'] }),
+  },
+];
+
+/** Everything announced in a run. */
+const announced = (run: Observation[]) => run.flatMap((o) => o.notify);
+
+/** The oracle's observation as a host tells it: an exit is `ended` there, however reframe counts it. */
+const comparable = (o: Observation): Observation => (o.status === 'error' ? { ...o, status: 'ended' } : o);
+
+/** A registry entry of Claude Code (and, in WSL, the command line of its Linux process), written at once. */
+function writeEntry(home: string, share: string, pid: number, entry: Extract<Step, { registry: unknown }>['registry']) {
+  const dir = path.join(home, 'sessions');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${pid}.json`);
+  const value = { pid, sessionId: entry.sessionId ?? CLAUDE_ID, cwd: root, status: entry.status, name: entry.name };
+  fs.writeFileSync(`${file}.tmp`, JSON.stringify(value));
+  fs.renameSync(`${file}.tmp`, file);
+  if (share) {
+    const proc = path.join(share, WSL_DISTRO, 'proc', String(pid));
+    fs.mkdirSync(proc, { recursive: true });
+    fs.writeFileSync(path.join(proc, 'cmdline'), 'claude\0--resume\0');
+  }
+}
+
+/** A stand-in for the PTY host, as SessionManager uses it. */
+class OracleHost extends EventEmitter {
+  running = true;
+  hooks = { port: 1, token: 'oracle' };
+  adopted = [];
+  services = {};
+  spawned: Message[] = [];
+  spawn(request: Message) {
+    this.spawned.push(request);
+  }
+  write() {}
+  dispose() {}
+}
+
+/** The scenario on reframe's own SessionManager, as it follows a session in-process today. */
+async function runOracle(scenario: Scenario): Promise<Observation[]> {
+  const home = fs.mkdtempSync(path.join(scratch, 'oracle-'));
+  const share = scenario.wsl ? path.join(home, 'share') : '';
+  const fake = new OracleHost();
+  const wsl: WslLauncher | undefined = scenario.wsl
+    ? {
+        share,
+        command: { file: 'wsl.exe', prefixArgs: [], env: {} },
+        info: async (distro) => ({
+          distro,
+          claude: '/usr/bin/claude',
+          path: '/usr/bin',
+          home: '/home/me',
+          claudeHome: '/home/me/.claude',
+          mountRoot: '/mnt/',
+        }),
+        stopClaude: async () => undefined,
+        alive: async () => true,
+        isClaude: async (distro, pid) =>
+          looksLikeClaude(
+            await fs.promises
+              .readFile(path.join(share, distro, 'proc', String(pid), 'cmdline'), 'utf8')
+              .catch(() => ''),
+          ),
+      }
+    : undefined;
+  const manager = new SessionManager({
+    host: fake as unknown as PtyHostClient,
+    claudeHome: home,
+    settingsDir: path.join(home, 'hooks'),
+    env: {},
+    resolveClaude: () => ({ file: 'claude.exe', prefixArgs: [], env: {}, source: 'oracle' }),
+    wsl,
+  });
+  const cwd = scenario.wsl ? path.join(share, WSL_DISTRO, 'home', 'me', 'proj') : root;
+  fs.mkdirSync(cwd, { recursive: true });
+  const record: SessionRecord = {
+    id: 's',
+    claudeSessionId: CLAUDE_ID,
+    cwd,
+    launch: {},
+    lifecycle: 'open',
+    createdAt: 0,
+    lastActiveAt: 0,
+  };
+  const state: Observation = { notify: [] };
+  manager.on('changed', () => (state.status = manager.status('s')?.status));
+  manager.on('identity', (_id, patch) => {
+    if (patch.claudeSessionId) state.claudeSessionId = patch.claudeSessionId;
+  });
+  manager.on('notify', (_id, kind) => state.notify.push(kind));
+  manager.start(record, 'new');
+  const request = await until('the oracle spawn', () => fake.spawned[0]);
+  fake.emit('event', { type: 'spawned', sessionId: 's', instance: request.instance, pid: ORACLE_PID });
+  const claudeHome = scenario.wsl ? path.join(share, WSL_DISTRO, 'home', 'me', '.claude') : home;
+  const pid = scenario.wsl ? WSL_PID : ORACLE_PID;
+  await pause(500);
+
+  const observations: Observation[] = [];
+  let detached = false;
+  const held: Message[] = [];
+  const event = (message: Message) => (detached ? held.push(message) : fake.emit('event', message));
+  for (const step of scenario.steps) {
+    if ('registry' in step) writeEntry(claudeHome, share, pid, step.registry);
+    if ('hook' in step) {
+      event({ type: 'hook', message: { sessionId: 's', event: step.hook, payload: step.payload ?? {} } });
+    }
+    if ('exit' in step) {
+      fake.emit('event', { type: 'exit', sessionId: 's', instance: request.instance, pid, exitCode: step.exit });
+    }
+    if ('detach' in step) detached = true;
+    if ('attach' in step) {
+      detached = false;
+      // The host holds the hooks of the time no reframe was attached, and gives them to the next one.
+      for (const message of held.splice(0)) fake.emit('event', message);
+    }
+    await pause(STEP_MS);
+    observations.push({ ...state, name: manager.registryName('s'), notify: state.notify.splice(0) });
+  }
+  manager.dispose();
+  return observations;
 }
 
 describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
@@ -638,7 +868,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       const home = transcriptHome(kind);
       const host = await startHost(kind);
       const { connection, welcome } = await attach(host);
-      expect(welcome.services).toEqual({ transcripts: 1, quota: 1, clients: 1, launch: 1 });
+      expect(welcome.services).toEqual({ transcripts: 1, quota: 1, clients: 1, launch: 1, sessions: 1 });
       const index = new TranscriptIndex(home);
       let id = 0;
       const lists = [
@@ -812,6 +1042,18 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       expect(Date.now() - started).toBeLessThan(10_000);
       const { pid } = JSON.parse(fs.readFileSync(path.join(slow.release, 'asked.json'), 'utf8'));
       await until('the slow Coordinator to be killed', () => !alive(pid), 5000);
+
+      // One that writes its answer and closes its output, but does not exit: the deadline covers its exit too.
+      const lingering = fakeCoordinator({ stdout: JSON.stringify(usage), closeStdout: true, sleepMs: 30_000 });
+      const since = Date.now();
+      const late = await svc(connection, id + 2, 'quota', 'codex', {
+        localAppData: lingering.localAppData,
+        timeoutMs: 1500,
+      });
+      expect(late.result).toEqual({ coordinator: true, usage: null });
+      expect(Date.now() - since).toBeLessThan(10_000);
+      const lingerer = JSON.parse(fs.readFileSync(path.join(lingering.release, 'asked.json'), 'utf8')).pid;
+      await until('the lingering Coordinator to be killed', () => !alive(lingerer), 5000);
     });
 
     it('refuses what it does not know', async () => {
@@ -826,5 +1068,123 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       expect(await error(5, 'launch', 'evaluate', {})).toBe('bad-params');
       expect(alive(host.pid)).toBe(true);
     });
+  });
+
+  describe('the sessions service', () => {
+    /** Runs a scenario on this host and, at the same time, on reframe's own SessionManager (the oracle). */
+    it.each(SCENARIOS.map((s) => [s.name, s] as const))(
+      'follows %s as SessionManager does',
+      async (_name, scenario) => {
+        const host = await startHost(kind);
+        const [expected, actual] = await Promise.all([runOracle(scenario), runHost(host, scenario)]);
+        expect(actual, JSON.stringify({ expected, actual })).toEqual(expected.map(comparable));
+        // What the oracle must show for the scenario to mean anything: its registry was read.
+        expect(expected[0]).toMatchObject({ status: 'idle', claudeSessionId: CLAUDE_ID });
+        scenario.check?.(expected);
+      },
+      120_000,
+    );
+
+    it('tells the statuses on attach, and refuses what it does not know', async () => {
+      const host = await startHost(kind);
+      const { connection, welcome } = await attach(host);
+      expect(welcome.services.sessions).toBe(1);
+      connection.send({ type: 'svc', id: 1, service: 'sessions', method: 'list', params: {} });
+      expect(await connection.next('list', (m) => m.type === 'svc-result' && m.id === 1)).toEqual({
+        type: 'svc-result',
+        id: 1,
+        ok: true,
+        result: { sessions: [] },
+      });
+      connection.send({ type: 'svc', id: 2, service: 'sessions', method: 'nope', params: {} });
+      expect(await connection.next('nope', (m) => m.type === 'svc-result' && m.id === 2)).toMatchObject({
+        ok: false,
+        error: { code: 'unknown-method' },
+      });
+      // A session started without what the host needs (by a reframe before .22) is reframe's to follow.
+      spawnChild(connection, 'old');
+      const { pid } = await connection.next('spawned', (m) => m.type === 'spawned');
+      connection.send({ type: 'svc', id: 3, service: 'sessions', method: 'list', params: {} });
+      expect((await connection.next('list', (m) => m.type === 'svc-result' && m.id === 3)).result).toEqual({
+        sessions: [],
+      });
+      connection.request({ type: 'dispose', sessionId: 'old', instance: 1 });
+      await until('the session to end', () => !alive(pid));
+      connection.request({ type: 'shutdown' });
+      await until('the host to exit', () => !alive(host.pid));
+    });
+
+    /** What the host tells of the scenario's session, step by step. */
+    async function runHost(host: Host, scenario: Scenario): Promise<Observation[]> {
+      const home = fs.mkdtempSync(path.join(scratch, `sessions-${kind}-`));
+      const sessionId = 's';
+      const first = await attach(host);
+      let { connection } = first;
+      const { port, token } = first.welcome.hooks;
+      const share = scenario.wsl ? path.join(home, 'share') : '';
+      const claudeHome = scenario.wsl ? path.join(share, WSL_DISTRO, 'home', 'me', '.claude') : home;
+      connection.request({
+        type: 'spawn',
+        sessionId,
+        instance: 1,
+        file: process.execPath,
+        args: [child],
+        cwd: root,
+        env: { ...(process.env as Record<string, string>) },
+        cols: 80,
+        rows: 24,
+        meta: scenario.wsl
+          ? { wsl: { distro: WSL_DISTRO, home: claudeHome, claudeSessionId: CLAUDE_ID, share } }
+          : { claudeHome },
+      });
+      const spawned = await connection.next('spawned', (m) => m.type === 'spawned');
+      const pid = scenario.wsl ? WSL_PID : spawned.pid;
+      await pause(500);
+
+      const state: { status?: string; claudeSessionId?: string; name?: string; notify: string[] } = { notify: [] };
+      const take = (data: Message) => {
+        if (data.sessionId !== sessionId) return;
+        state.status = data.status;
+        if (data.registry) {
+          state.claudeSessionId = data.registry.sessionId;
+          state.name = data.registry.name;
+        }
+        if (data.notify) state.notify.push(data.notify);
+      };
+      let seen = 0;
+      const drain = () => {
+        for (; seen < connection.messages.length; seen++) {
+          const m = connection.messages[seen];
+          if (m.type === 'svc-event' && m.service === 'sessions' && m.event === 'status') take(m.data);
+        }
+      };
+      const observations: Observation[] = [];
+      let held: Promise<unknown> | null = null;
+      for (const step of scenario.steps) {
+        if ('registry' in step) writeEntry(claudeHome, share, pid, step.registry);
+        if ('hook' in step)
+          held = post(port, `/hook/${sessionId}/${step.hook}`, token, JSON.stringify(step.payload ?? {}));
+        if ('exit' in step) connection.request({ type: 'write', sessionId, data: `exit ${step.exit}\r` });
+        if ('detach' in step) {
+          drain();
+          connection.close();
+        }
+        if ('attach' in step) {
+          ({ connection } = await attach(host));
+          seen = 0;
+          connection.send({ type: 'svc', id: 1, service: 'sessions', method: 'list', params: {} });
+          const list = await connection.next('list', (m) => m.type === 'svc-result' && m.id === 1);
+          for (const item of list.result.sessions) take(item);
+        }
+        await held;
+        await pause(STEP_MS);
+        if (!('detach' in step)) drain();
+        observations.push({ ...state, notify: state.notify.splice(0) });
+      }
+      // Ended here, so its ConPTY (OpenConsole.exe, run from the scratch folder) is gone before that is removed.
+      connection.request({ type: 'shutdown' });
+      await until('the host to exit', () => !alive(host.pid));
+      return observations;
+    }
   });
 });

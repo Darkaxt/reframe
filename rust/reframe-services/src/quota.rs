@@ -4,9 +4,9 @@
 use std::fs;
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::mpsc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -55,6 +55,7 @@ pub fn read_codex_usage(exe: &Path, timeout: Duration) -> Option<Value> {
     if let Some(mut stdin) = child.stdin.take() {
         let _ = stdin.write_all(br#"{"method":"usage.snapshot","hours":24}"#);
     }
+    let deadline = Instant::now() + timeout;
     let mut stdout = child.stdout.take()?;
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
@@ -62,19 +63,35 @@ pub fn read_codex_usage(exe: &Path, timeout: Duration) -> Option<Value> {
         let read = (&mut stdout).take(MAX_OUTPUT + 1).read_to_end(&mut output);
         let _ = tx.send(read.ok().filter(|_| output.len() as u64 <= MAX_OUTPUT).map(|_| output));
     });
-    let output = match rx.recv_timeout(timeout) {
-        Ok(Some(output)) => output,
-        // Timed out or too much: the process goes (its children are not looked for, as with execFile).
-        _ => {
-            let _ = child.kill();
-            let _ = child.wait();
-            return None;
-        }
+    // The deadline covers the whole run: a Coordinator that closes its output and goes on is killed too.
+    let finished = match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+        Ok(Some(output)) => wait_until(&mut child, deadline).map(|status| (output, status)),
+        _ => None,
     };
-    if !child.wait().ok()?.success() {
+    let Some((output, status)) = finished else {
+        // Timed out or too much: the process goes (its children are not looked for, as with execFile).
+        let _ = child.kill();
+        let _ = child.wait();
+        return None;
+    };
+    if !status.success() {
         return None;
     }
     serde_json::from_str(&String::from_utf8_lossy(&output)).ok()
+}
+
+/// The process's exit, if it comes before `deadline` (std has no wait with a timeout: it is asked every 20 ms).
+fn wait_until(child: &mut Child, deadline: Instant) -> Option<ExitStatus> {
+    loop {
+        if let Some(status) = child.try_wait().ok()? {
+            return Some(status);
+        }
+        let left = deadline.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return None;
+        }
+        std::thread::sleep(left.min(Duration::from_millis(20)));
+    }
 }
 
 /// Whether the user's Claude Code settings set a status line; true also when they cannot be read (but are there).

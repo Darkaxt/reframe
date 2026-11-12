@@ -27,6 +27,7 @@ import {
   type SessionMeta,
 } from './protocol';
 import { ReadService, SERVICES, SvcError, TranscriptService } from './services';
+import { SessionStatusService } from './sessions';
 
 interface View {
   sessionId: string;
@@ -131,6 +132,7 @@ function spawn(request: Extract<HostRequest, { type: 'spawn' }>): void {
   const session: Session = { instance, proc, mirror, serializer, views: new Set(), exitCode: null, meta: request.meta };
   sessions.set(sessionId, session);
   writeDescriptor();
+  statuses.spawned(sessionId, instance, proc.pid, request.meta);
   emit({ type: 'spawned', sessionId, instance, pid: proc.pid });
   // Views that came before their session's process (one in WSL starts once its distribution answered).
   for (const [viewId, view] of views) if (view.sessionId === sessionId) attach(viewId, view);
@@ -148,6 +150,7 @@ function spawn(request: Extract<HostRequest, { type: 'spawn' }>): void {
     session.exitCode = exitCode;
     for (const viewId of session.views) send({ type: 'view', viewId, message: { type: 'exit', exitCode } });
     emit({ type: 'exit', sessionId, instance, pid: proc.pid, exitCode });
+    statuses.exited(sessionId, instance);
     if (sessions.get(sessionId) === session) writeDescriptor();
   });
 }
@@ -206,6 +209,7 @@ function dispose(sessionId: string, instance: number | null): void {
   const session = sessions.get(sessionId);
   if (!session || (instance !== null && session.instance !== instance)) return;
   sessions.delete(sessionId);
+  statuses.disposed(sessionId, instance);
   for (const viewId of session.views) {
     send({ type: 'view-closed', viewId });
     views.delete(viewId);
@@ -223,6 +227,10 @@ function dispose(sessionId: string, instance: number | null): void {
 
 const transcripts = new TranscriptService((event) => send({ type: 'svc-event', ...event }));
 const reads = new ReadService();
+const statuses = new SessionStatusService(
+  (data) => send({ type: 'svc-event', service: 'sessions', event: 'status', data }),
+  () => client !== null,
+);
 
 /** A service request: answered to the reframe that asked, if it is still the attached one. */
 function svc(request: Extract<HostRequest, { type: 'svc' }>): void {
@@ -232,11 +240,15 @@ function svc(request: Extract<HostRequest, { type: 'svc' }>): void {
   };
   const { id } = request;
   const call =
-    request.service === 'transcripts'
-      ? transcripts.call(request.method, request.params ?? {})
-      : Object.hasOwn(SERVICES, request.service)
-        ? reads.call(request.service, request.method, request.params ?? {})
-        : Promise.reject(new SvcError('unknown-method', `${request.service}.${request.method}`));
+    request.service === 'sessions'
+      ? request.method === 'list'
+        ? Promise.resolve({ sessions: statuses.list() })
+        : Promise.reject(new SvcError('unknown-method', `sessions.${request.method}`))
+      : request.service === 'transcripts'
+        ? transcripts.call(request.method, request.params ?? {})
+        : Object.hasOwn(SERVICES, request.service)
+          ? reads.call(request.service, request.method, request.params ?? {})
+          : Promise.reject(new SvcError('unknown-method', `${request.service}.${request.method}`));
   call.then(
     (result) => answer({ type: 'svc-result', id, ok: true, result: result ?? null }),
     (error: unknown) =>
@@ -354,6 +366,7 @@ function exit(): void {
 
 const hooks = new HookServer();
 hooks.on('hook', (message) => {
+  statuses.hook(message);
   if (client) send({ type: 'hook', message });
   else if (message.event !== 'StatusLine') {
     held.push(message);

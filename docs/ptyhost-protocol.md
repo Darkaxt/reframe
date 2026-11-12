@@ -125,10 +125,39 @@ again when no Coordinator is installed). Each request runs off the host's task, 
 
 | Method | Result |
 | --- | --- |
-| `quota.codex { localAppData, timeoutMs? }` | `{ coordinator: false, usage: null }` without `<localAppData>/Tools/llm-coordinator/active.json` naming a release (`[\w.-]+`) whose `releases/<release>/LLMCoordinator.exe` is there (an empty or null `localAppData` has none). Else `{ coordinator: true, usage }`: the exe is run hidden with `--native-client-stdin-active` and `{"method":"usage.snapshot","hours":24}` on its input, and `usage` is the JSON it writes, or null if it exits other than 0, writes no JSON or more than 64 MiB, or does not exit within `timeoutMs` (20000), when it is killed (the process, as `execFile` kills it). Reframe reads the windows from it with `parseCoordinatorUsage`. |
+| `quota.codex { localAppData, timeoutMs? }` | `{ coordinator: false, usage: null }` without `<localAppData>/Tools/llm-coordinator/active.json` naming a release (`[\w.-]+`) whose `releases/<release>/LLMCoordinator.exe` is there (an empty or null `localAppData` has none). Else `{ coordinator: true, usage }`: the exe is run hidden with `--native-client-stdin-active` and `{"method":"usage.snapshot","hours":24}` on its input, and `usage` is the JSON it writes, or null if it exits other than 0, writes no JSON or more than 64 MiB, or does not exit within `timeoutMs` (20000, for the whole run: also one that closed its output but goes on), when it is killed (the process, as `execFile` kills it). Reframe reads the windows from it with `parseCoordinatorUsage`. |
 | `quota.statusLine { claudeHome }` | Whether `<claudeHome>/settings.json` sets a `statusLine` (truthy); true also when it is there but cannot be read or parsed. |
 | `clients.adopted { record, provider }` | `adoptedClient(record, provider)`: `{ ok: true, path, version }` or `{ ok: false, reason }`. The record is a `reframe.client-adoption.v1` JSON file (a leading byte order mark is skipped); the binary is used only while its sha256 matches. The host keeps the hashes by path, size and modification time. |
 | `launch.evaluate { file }` | `evaluateLaunchConfig(file)`: `{ file, userData, runtime, claudeHome, env, refused, problems }` (the variables a direct start sets, the providers it refuses and why), or null when the file cannot be read (a byte order mark is not skipped) or lacks an absolute `userData`, `runtime` or `claudeHome`. Nothing is applied or created. Reframe applies its launch config before it reaches any host (the profile it sets decides which host that is), so it reads it itself; the method is there for what runs once a host does. |
+
+**`sessions` (version 1).** Each session's status, worked out in the host from its hooks and its Claude Code
+session registry entry as `SessionManager` (`src/main/sessions.ts`) works it out in-process (the Rust host:
+`rust/reframe-sessions`; the Node host: `src/ptyhost/sessions.ts`). The host follows a session only if its spawn's
+`meta` says where its entry is: `claudeHome` (Windows: `<claudeHome>/sessions/<pid>.json`; with `launched`, claude's
+own entry found by its session id once and then by its process id, while that process runs and has the entry's
+`procStart`), or `wsl.share` (WSL: the entry in `wsl.home` found by `wsl.claudeSessionId`, whose Linux process
+`<share>/<distro>/proc/<pid>/cmdline` is a claude's, then by that process id). Reframe gives that from
+0.10.1-claudegpt.22 on; sessions started by an older one are not followed here (reframe follows them itself).
+
+- The status starts as `starting`. Hooks: `UserPromptSubmit` → `busy`; `Stop` → `idle`, announcing `done`;
+  `Notification` other than `idle_prompt` → `waiting`, announcing `waiting`. The registry is read once a second (one
+  read per session at a time, off the host's task): an entry under the process id older than the process (its
+  `procStart` differs, or without one, its `startedAt` is more than 2 s before the spawn) is ignored; a registry
+  `status` that changed is taken (in WSL, which has no hooks, `waiting` announces `waiting`, and `idle` after
+  `busy` announces `done`); otherwise a `starting` session becomes the entry's status or `idle`. The exit makes it
+  `ended`, and nothing changes it after that. How an exit counts (ended, or failed to start), who ended a session,
+  and whether an announcement is shown are reframe's.
+- Event `sessions.status { sessionId, instance, status, registry?, notify? }`, told when the status, the entry or
+  an announcement changed: `status` is `starting`, `idle`, `busy`, `waiting` or `ended`; `registry` the entry as
+  last read, as `parseRegistryEntry` gives it (`{ pid, sessionId, cwd?, name?, nameSource?, status?, startedAt?,
+  procStart? }`; `sessionId` changes on `/clear`, `name` on a rename, `cwd` is the distribution's path in WSL);
+  `notify` is `done` or `waiting`, an intent (reframe words it, and decides whether to show it).
+- `list {}` → `{ sessions: [ same as the event ] }` for every session followed, for a reframe that attaches (events
+  are not held). An announcement made while no reframe was attached comes with it, once (the latest per session).
+
+Reframe takes the status of a session the host follows from these alone (it does not follow its hooks or registry
+for it then); identity (`claudeSessionId`, folder, pids, first use) it takes from the forwarded hooks and the
+`registry` here, as before. Without the service, or if `list` fails, it follows the sessions itself.
 
 ## Hooks
 

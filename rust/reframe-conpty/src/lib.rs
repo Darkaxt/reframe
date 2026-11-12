@@ -17,15 +17,20 @@ use std::ptr;
 use std::sync::{Mutex, OnceLock};
 
 use windows_sys::core::{HRESULT, PCSTR};
-use windows_sys::Win32::Foundation::{HANDLE, HMODULE, WAIT_OBJECT_0};
-use windows_sys::Win32::System::Console::{ClosePseudoConsole, CreatePseudoConsole, ResizePseudoConsole, COORD, HPCON};
+use windows_sys::Win32::Foundation::{
+    CloseHandle, GetLastError, ERROR_ACCESS_DENIED, FILETIME, HANDLE, HMODULE, INVALID_HANDLE_VALUE, WAIT_OBJECT_0,
+};
+use windows_sys::Win32::System::Console::{
+    ClosePseudoConsole, CreatePseudoConsole, GetStdHandle, ResizePseudoConsole, SetStdHandle, COORD, HPCON,
+    STD_OUTPUT_HANDLE,
+};
 use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryExW, LOAD_WITH_ALTERED_SEARCH_PATH};
 use windows_sys::Win32::System::Pipes::CreatePipe;
 use windows_sys::Win32::System::Threading::{
-    CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess, InitializeProcThreadAttributeList,
-    TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject, CREATE_UNICODE_ENVIRONMENT,
-    EXTENDED_STARTUPINFO_PRESENT, INFINITE, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
-    STARTF_USESTDHANDLES, STARTUPINFOEXW,
+    CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess, GetProcessTimes,
+    InitializeProcThreadAttributeList, OpenProcess, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
+    CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT, INFINITE, PROCESS_INFORMATION,
+    PROCESS_QUERY_LIMITED_INFORMATION, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, STARTF_USESTDHANDLES, STARTUPINFOEXW,
 };
 
 type CreateFn = unsafe extern "system" fn(COORD, HANDLE, HANDLE, u32, *mut HPCON) -> HRESULT;
@@ -343,5 +348,73 @@ impl Pty {
 impl Drop for Pty {
     fn drop(&mut self) {
         self.close();
+    }
+}
+
+// Other processes, as src/main/process.ts asks of them (the session status engine tells a claude's registry entry
+// from one a killed claude left behind).
+
+/// An open handle of another process, closed when dropped.
+struct Opened(HANDLE);
+
+impl Opened {
+    fn new(pid: u32) -> Result<Self, u32> {
+        // SAFETY: OpenProcess has no preconditions; a null result is an error (GetLastError tells which).
+        let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+        if handle.is_null() {
+            // SAFETY: no preconditions.
+            Err(unsafe { GetLastError() })
+        } else {
+            Ok(Self(handle))
+        }
+    }
+}
+
+impl Drop for Opened {
+    fn drop(&mut self) {
+        // SAFETY: the handle was opened by Opened::new and is closed once, here.
+        unsafe { CloseHandle(self.0) };
+    }
+}
+
+/// Whether process `pid` runs, as Node's `process.kill(pid, 0)` tells it (one it may not open runs).
+pub fn process_alive(pid: u32) -> bool {
+    const STILL_ACTIVE: u32 = 259;
+    match Opened::new(pid) {
+        Err(error) => error == ERROR_ACCESS_DENIED,
+        Ok(process) => {
+            let mut code = 0u32;
+            // SAFETY: the handle is open; `code` is a valid out pointer.
+            let ok = unsafe { GetExitCodeProcess(process.0, &mut code) } != 0;
+            ok && code == STILL_ACTIVE
+        }
+    }
+}
+
+/// When process `pid` was created: its FILETIME as a decimal string, as Claude Code's registry has it (procStart).
+pub fn process_start(pid: u32) -> Option<String> {
+    let process = Opened::new(pid).ok()?;
+    let zero = FILETIME {
+        dwLowDateTime: 0,
+        dwHighDateTime: 0,
+    };
+    let (mut creation, mut exit, mut kernel, mut user) = (zero, zero, zero, zero);
+    // SAFETY: the handle is open; the four are valid out pointers.
+    if unsafe { GetProcessTimes(process.0, &mut creation, &mut exit, &mut kernel, &mut user) } == 0 {
+        return None;
+    }
+    Some(((u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime)).to_string())
+}
+
+/// Closes this process's standard output (its reader sees the end while the process goes on). For test stand-ins.
+pub fn close_stdout() {
+    // SAFETY: GetStdHandle has no preconditions; the handle it gives is closed once and then unset, so nothing in
+    // this process uses it again (Rust's stdout asks for it each time and finds none).
+    unsafe {
+        let handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        if !handle.is_null() && handle != INVALID_HANDLE_VALUE {
+            SetStdHandle(STD_OUTPUT_HANDLE, ptr::null_mut());
+            CloseHandle(handle);
+        }
     }
 }

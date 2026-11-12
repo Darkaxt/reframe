@@ -1,120 +1,92 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "ad38f7172e12e851142a0c9f199997c183a5e957",
-  "scope": "0.10.1-claudegpt.21: stage 2 slice 2 of the Rust migration. Additive PTY host protocol services (welcome services quota=1, clients=1, launch=1 beside transcripts=1, no protocol bump); rust/reframe-services ports coordinatorExecutable/readCodexQuota (execFile timeout 20 s with kill, 64 MiB output limit), userHasStatusLine, adoptedClient (BOM skipped, sha256 cached by path/size/mtime) and evaluateLaunchConfig (no unsafe); the Rust host serves quota.codex/statusLine, clients.adopted and launch.evaluate on worker threads (at most 8 per service, no host timers); the Node host serves the same with the TypeScript modules; conformance fixtures (adoption records with/without BOM, missing, corrupt, other schema, hash mismatch, launch-config variants, status-line settings, a fake Coordinator example exe) run against both hosts; Electron asks the host when advertised and reads in-process otherwise or on failure; the launch config stays in-process at startup (before any host)",
+  "sourceBase": "7f4c3e6e25e0d70c2d31f028755fc8b22f4723a1",
+  "scope": "0.10.1-claudegpt.22: stage 2 slice 3 of the Rust migration. Additive PTY host protocol service sessions=1 (no protocol bump): the host works out each session's status from Claude Code hooks and the session registry as SessionManager does (UserPromptSubmit busy, Stop idle + done, Notification except idle_prompt waiting + waiting; registry polled once a second, stale entries ignored, changed status followed, WSL registry-only announcements, exit ends it) for sessions whose spawn meta carries claudeHome or wsl.share; event sessions.status { sessionId, instance, status, registry?, notify? } and list {} with the announcement held while detached; rust/reframe-sessions (no unsafe) with process alive/start from reframe-conpty; the Node host serves the same with the TypeScript registry readers; Electron takes status and notify intents from the host for those sessions and keeps its in-process path for the rest (older host or session, failed list); exit classification and whether to show a notification stay in Electron. Quota read: the 20 s deadline covers the wait too and kills on expiry; a fake Coordinator closeStdout case. Conformance replays hook/registry scenarios on both hosts against SessionManager as the oracle",
   "inputHashes": [
     {
-      "file": ".github/workflows/ci.yml",
-      "sha256": "53d284f5defd0e33bfceda162ebe0998abec6548718cc7e32c801698fb77b048"
-    },
-    {
       "file": "docs/ptyhost-protocol.md",
-      "sha256": "e801570b2b21da0a33939f447bb48db2ed0154a4c57af7e7f02d1e382c756f83"
+      "sha256": "6a7beeb3f92a61c2a5372d7aa88dcbb3d0fbcd90036ccaec84bdf184dac093c2"
     },
     {
-      "file": "docs/releases/v0.10.1-claudegpt.21.md",
-      "sha256": "f80bc1bf580f36312b650fb281ea0bbb8b2c779ef70432fba8de5f62061d2f71"
+      "file": "docs/releases/v0.10.1-claudegpt.22.md",
+      "sha256": "ea00bec3e6acea3d91761e530e199d272b7863e45e838b223ac9e29c41742537"
     },
     {
       "file": "package-lock.json",
-      "sha256": "acf595de8c5433997ad9df6e2b45f7c9e999fbc1bac677a57643f7b225be5541"
+      "sha256": "56aea65b676b782eff5998884b02b9e325cb45d3074157957a2dfe38cc205be7"
     },
     {
       "file": "package.json",
-      "sha256": "a0b62f464c208b670f9bb8aa0078e4c3821919d27937920def6b5ae471e4544b"
+      "sha256": "5f70852b17f7d8f6a4cc9d81c891ab523f7c7bde9262a535185f6deca9d7e5c7"
     },
     {
       "file": "rust/Cargo.lock",
-      "sha256": "e4a7d1b190bfdceb4e2099169b8a9171e36c3a90a28199ebb9fbef17e0b9a3ff"
+      "sha256": "678c08281defb232020e5b0a2cd3ae0bcd896b64f97ad1fb915ccb4fa31aa116"
     },
     {
       "file": "rust/Cargo.toml",
-      "sha256": "46bb07340d4f104c538cf54b0a2c5f91c0d3ac89f729b6d829296c422a2d5464"
+      "sha256": "bd3452f7d556392b3dc4664aadcf684508a102f720fde3d4fc181196b23c1fb8"
+    },
+    {
+      "file": "rust/reframe-conpty/src/lib.rs",
+      "sha256": "ddaf7dec3219fe54d90d6098b307dc79963f27c884ceb7df8f9e4d6968aa194a"
     },
     {
       "file": "rust/reframe-host/Cargo.toml",
-      "sha256": "87010e7779d744f01763bd471ad9bb8581db1135561a61efab53684f02b1aa05"
+      "sha256": "b571f65a8979ceb679f8ee8f6b5c64c4e425a94f6733d825f63ec111b1e48207"
     },
     {
       "file": "rust/reframe-host/src/host.rs",
-      "sha256": "f64d38133b42053a767f7fc0a9903dca7bf902fa765a57cd9829517959094640"
-    },
-    {
-      "file": "rust/reframe-host/src/main.rs",
-      "sha256": "b1f69c0c3ef8f3a0ffebdfd95685b3e8a3ac11230030ed39775d810088850a7f"
-    },
-    {
-      "file": "rust/reframe-host/src/services.rs",
-      "sha256": "d968de8f93489ed9b7b5c85f5984cd58597d39fb3d5d162e0f90f250805e2902"
+      "sha256": "5c53f0f03b4eddef6092bb83817f408d1e0f138d90c98ffdc5aa32df7e845e79"
     },
     {
       "file": "rust/reframe-services/Cargo.toml",
-      "sha256": "fcb5a261df6a5dc374e15b806776cc46b8e7b669649015626f12a35f77a5d4f0"
+      "sha256": "830e8e17349b3edff5c2d921b109c0f887c1a112ffcd6f5fbe5bb04dcf24a9b3"
     },
     {
       "file": "rust/reframe-services/examples/fake-coordinator.rs",
-      "sha256": "c3090ded6e547b36832797b36d905d2b78203dfd74a4541f2d90bbcf66b8929a"
-    },
-    {
-      "file": "rust/reframe-services/src/adoption.rs",
-      "sha256": "c7842776c30c82724e9aaf83b4c94f91eb0b5471a15644ac333a8510af080487"
-    },
-    {
-      "file": "rust/reframe-services/src/launch.rs",
-      "sha256": "073719d098ffcebadc96a33f2533999da42bdbcf7b288a932deb2b088468810c"
-    },
-    {
-      "file": "rust/reframe-services/src/lib.rs",
-      "sha256": "1a57ac42398d12c5f694c0d897179d6dce107f8923a5d765439979b7aece5ab8"
+      "sha256": "376e5f854fb91adb1973c4397094d1489fa0c3a5849e7d478567fe5c1b001ebb"
     },
     {
       "file": "rust/reframe-services/src/quota.rs",
-      "sha256": "b1d1c78bb73dbfb0fe88ee6ddbcdd45a1daa6041a2f946987ae1f55e4b1a769d"
+      "sha256": "7a568f3dd9c8086d530daa4e173e76f69b5e2e2215ac727979a50655d5a2c169"
     },
     {
-      "file": "src/main/app.ts",
-      "sha256": "360118de29a5e168f04351ba8b9f53cb142a0ff0c85081411977edd931dbc020"
+      "file": "rust/reframe-sessions/Cargo.toml",
+      "sha256": "f00cd1656e220db8979d6cf55d174bc943d5fd83b10c05b59a222a2fbcd90881"
     },
     {
-      "file": "src/main/host-reads.test.ts",
-      "sha256": "6b794c23e554099ea951fa6ffebab85035c53de9488344a0ccc47a8320683368"
+      "file": "rust/reframe-sessions/src/lib.rs",
+      "sha256": "8a9b419ce44a551aff23bc6706a3f4245586bcda59eac675aafacf4b5d27ce17"
     },
     {
-      "file": "src/main/host-reads.ts",
-      "sha256": "cf2e957373321cb61379ac0d1e807fb9f47ecc73a3df7c2d3d3271b64a3b5c8e"
-    },
-    {
-      "file": "src/main/launch-config.ts",
-      "sha256": "aeff391e17a6eef13819f3cf461b0486e903d7d632590f3ee7f255aa98064932"
-    },
-    {
-      "file": "src/main/ptyhost-client.test.ts",
-      "sha256": "a17a2f56b9a82a83157b772585a152edbcd0106e1d189df4f538cd62eeb334a4"
-    },
-    {
-      "file": "src/main/quota.ts",
-      "sha256": "7a534e1019ee1e98dec8337d1ca0b2d2eeb1965f17594ebcfd54d0e8ca70eebe"
+      "file": "rust/reframe-sessions/src/registry.rs",
+      "sha256": "972086299124687dde8af4cb039599b23f788f5ec60a337b6508f19fa9f39a3f"
     },
     {
       "file": "src/main/sessions.ts",
-      "sha256": "44eefdfe7b224cbe9c12e1e70aa7cdb3bc2a96c8f6a897f5d9e308c9a678aa41"
+      "sha256": "3553faf870493a76b1ae5b78fb5b48b224d0c748c742af3eb738074cbc49dd63"
     },
     {
       "file": "src/ptyhost/host.conformance.ts",
-      "sha256": "7694194d1f388f7a201eb2f84077affe28f01c5298f3d098cbcb123232d74534"
+      "sha256": "e1f8b65db7b4f442a4d0855eeae96625101a28684e4ba83e2c58d6ba419b78ae"
     },
     {
       "file": "src/ptyhost/index.ts",
-      "sha256": "929e294639054d13cdf1b0ef84cd3be75d260e7024c1c28e6d8b3ff1efbbf721"
+      "sha256": "386fdb30551d519c71c1aa1e0c73293f7e7893b7c1464ee91579b868da947241"
     },
     {
       "file": "src/ptyhost/protocol.ts",
-      "sha256": "e5ff995ca7c4d2421dadfa70856b3ceb2acfaec8489fc79bbca56e6250a412e1"
+      "sha256": "21bec6bacff0654b14fed96089291283009fd6e648c95b616f1f411b459848d4"
     },
     {
       "file": "src/ptyhost/services.ts",
-      "sha256": "8a4fe5d1c3f8142ba09ebc6b8b08f963192dfda1067d3fa08951d3b7ea3d6edd"
+      "sha256": "d91a097176b71f3a26ce8648fcea5b2149709e91ce71d5947f792c86d3df7116"
+    },
+    {
+      "file": "src/ptyhost/sessions.ts",
+      "sha256": "73554947a918ff3acc0cf1a7a1938633cbe10ca0141b805e4ddd360029397ac2"
     }
   ],
   "checksNotYetRun": [
