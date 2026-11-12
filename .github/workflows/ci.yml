@@ -33,6 +33,22 @@ jobs:
           path: rust/target/release/examples/fake-coordinator.exe
           if-no-files-found: error
 
+  # The experimental native WPF shell (wpf/): a client of the same PTY host, not part of the release package.
+  wpf:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: wpf
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: dotnet build Reframe.Shell.sln -c Release
+      - run: dotnet test Reframe.Shell.sln -c Release --no-build
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: reframe-shell
+          path: wpf/Reframe.Shell/bin/Release/net8.0-windows/win-x64/
+          if-no-files-found: error
+
   check:
     needs: rust
     strategy:
