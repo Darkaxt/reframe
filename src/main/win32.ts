@@ -21,6 +21,11 @@ export interface Win32 {
   isWindow(hwnd: string): boolean;
   /** Files copied in Explorer (or another file manager) that are on the clipboard. */
   clipboardFiles(): string[];
+  /**
+   * Removes the window event hooks (onMoveSize, onTopLevel). Done on quitting, before Electron tears down the
+   * JavaScript that their native callbacks call into: an event delivered after that would fail inside the callback.
+   */
+  unhookAll(): void;
   /** Has Windows close reframe before other programs (its claudes among them) when it shuts down or logs off. */
   shutDownFirst(): void;
   /**
@@ -48,6 +53,7 @@ function load(): Win32 {
   const SetWinEventHook = user32.func(
     'void* __stdcall SetWinEventHook(uint32_t eventMin, uint32_t eventMax, void* module, WINEVENTPROC* callback, uint32_t pid, uint32_t thread, uint32_t flags)',
   );
+  const UnhookWinEvent = user32.func('bool __stdcall UnhookWinEvent(void* hook)');
   const GetWindowThreadProcessId = user32.func(
     'uint32_t __stdcall GetWindowThreadProcessId(void* hwnd, _Out_ uint32_t* pid)',
   );
@@ -122,12 +128,25 @@ function load(): Win32 {
   const SHUTDOWN_LEVEL_FIRST = 0x300;
 
   const toHandle = (hwnd: string) => BigInt(hwnd);
-  const callbacks: unknown[] = []; // keeps registered callbacks alive
+  const callbacks: unknown[] = []; // keeps registered callbacks alive (also after unhooking: one may be under way)
+  const hooks: unknown[] = [];
+  let unhooked = false;
   const hook = (eventMin: number, eventMax: number, callback: (...args: never[]) => void) => {
-    const registered = koffi.register(callback, koffi.pointer(WINEVENTPROC));
+    if (unhooked) return;
+    // A JavaScript exception must not unwind through the native frame that called back.
+    const guarded = (...args: never[]) => {
+      if (unhooked) return;
+      try {
+        callback(...args);
+      } catch {
+        // Following other apps' windows is best effort.
+      }
+    };
+    const registered = koffi.register(guarded, koffi.pointer(WINEVENTPROC));
     callbacks.push(registered);
     // Out-of-context hooks are delivered through the message loop of this (the UI) thread.
-    SetWinEventHook(eventMin, eventMax, null, registered, 0, 0, WINEVENT_SKIPOWNPROCESS);
+    const handle: unknown = SetWinEventHook(eventMin, eventMax, null, registered, 0, 0, WINEVENT_SKIPOWNPROCESS);
+    if (handle) hooks.push(handle);
   };
 
   return {
@@ -194,6 +213,10 @@ function load(): Win32 {
     },
     isWindow(hwnd) {
       return IsWindow(toHandle(hwnd));
+    },
+    unhookAll() {
+      unhooked = true;
+      for (const handle of hooks.splice(0)) UnhookWinEvent(handle);
     },
     shutDownFirst() {
       SetProcessShutdownParameters(SHUTDOWN_LEVEL_FIRST, 0);

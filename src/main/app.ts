@@ -146,6 +146,7 @@ import { showProject } from '@shared/project-view';
 import { coordinatorQuotaIsNewer, parseClaudeRateLimits, type ProviderQuota } from '@shared/quota';
 import { HostReads } from './host-reads';
 import { Transcripts, type TranscriptLister } from './claude/transcripts';
+import { repairedLaunchFolder, takesReportedCwd } from './claude/launch-folder';
 import { sessionLabel } from '@shared/labels';
 
 export interface AppAssets {
@@ -280,6 +281,7 @@ export class ReframeApp {
         this.log('warn', 'archive recovery unavailable; existing state preserved', { error: String(error) });
       }
     }
+    this.repairLaunchFolders();
     if (this.state.windows.length === 0) this.state.windows.push(emptyWindow(crypto.randomUUID()));
     // Empty windows are not brought back (one stays when all are empty), and the first window with something in it
     // is the first window from now on. Up to 0.6.1, closed empty windows were kept and shown again on a second launch.
@@ -469,6 +471,10 @@ export class ReframeApp {
     this.log('info', mode === 'keep' ? 'reframe quitting, sessions keep running' : 'reframe quitting, ending sessions');
     // Open confirmations behave as Cancel; operations already confirmed own durable outcomes, so quit waits for them.
     this.confirmations.abort();
+    // Window event hooks call into JavaScript from the message loop, which keeps running while Electron tears that
+    // JavaScript down after the last quit: an event then (another app's window shown) ended reframe with
+    // 0xC000041D, a fatal exception in a user callback. Nothing needs them while quitting.
+    win32()?.unhookAll();
     await Promise.allSettled([...this.historyOperations]);
     // A state that cannot be saved (a failed start) must not keep the sessions and the PTY host from being let go.
     try {
@@ -889,6 +895,26 @@ export class ReframeApp {
 
   // ---------- sessions ----------
 
+  /**
+   * Up to 0.10.1-claudegpt.25 a session's folder followed the model's `cd`, which put it under another workspace and
+   * could keep it from resuming. Its transcript tells the folder it was launched in.
+   */
+  private repairLaunchFolders(): void {
+    let repaired = false;
+    for (const record of Object.values(this.state.sessions)) {
+      const launch = repairedLaunchFolder(this.claudeHome, record);
+      if (!launch) continue;
+      this.log('info', 'session folder set back to its launch folder', {
+        session: record.id,
+        from: record.cwd,
+        to: launch,
+      });
+      this.state = { ...this.state, sessions: { ...this.state.sessions, [record.id]: { ...record, cwd: launch } } };
+      repaired = true;
+    }
+    if (repaired) this.store.save(this.state);
+  }
+
   private resumeSessions(): void {
     for (const record of Object.values(this.state.sessions)) {
       if (record.lifecycle !== 'open') continue;
@@ -911,13 +937,15 @@ export class ReframeApp {
     const record = this.state.sessions[sessionId];
     if (!record) return;
     const next: IdentityPatch = { ...patch };
+    // A session's folder is the one it was launched in (Claude Code keeps its transcripts by it), not where `cd` took it.
+    if (next.cwd !== undefined && !takesReportedCwd(record)) delete next.cwd;
     // A new claude session id (after /clear) starts unused unless the same update says otherwise.
     if (patch.claudeSessionId && patch.claudeSessionId !== record.claudeSessionId && patch.used === undefined) {
       next.used = false;
     }
     // A worktree session whose folder moved runs in the worktree Claude Code made for it.
     const intoWorktree =
-      !!record.launch.worktree && !record.launch.worktreeCreated && !!patch.cwd && !samePath(patch.cwd, record.cwd);
+      !!record.launch.worktree && !record.launch.worktreeCreated && !!next.cwd && !samePath(next.cwd, record.cwd);
     const changed = intoWorktree || (Object.keys(next) as (keyof IdentityPatch)[]).some((k) => next[k] !== record[k]);
     if (!changed) return;
     this.updateSession(sessionId, {
