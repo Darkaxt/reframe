@@ -106,7 +106,7 @@ test('a hidden thread leaves the list and comes back when restored in Settings',
 });
 
 test('a session reframe runs cannot be hidden until it is ended', async () => {
-  const { dir, project, env, state } = setup();
+  const { dir, project, env, state, running } = setup();
   try {
     const { app, page } = await launch(env);
     await newSession(page, project, 'managed');
@@ -119,8 +119,18 @@ test('a session reframe runs cannot be hidden until it is ended', async () => {
     await expect(row(page, 'managed')).toBeVisible();
 
     await tileByLabel(page, 'managed').getByRole('button', { name: 'End session' }).click();
-    await row(page, 'managed').click({ button: 'right' });
-    expect(await callMain<boolean>(app, 'clickMenuItem', 'Hide from Reframe…')).toBe(true);
+    // Ended once its claude has exited (until then the menu still says to end it first).
+    await expect.poll(running, { timeout: 10_000 }).toBe(0);
+    // The menu is made when it is opened: once reframe knows the session is no longer running, it offers hiding.
+    await expect
+      .poll(
+        async () => {
+          await row(page, 'managed').click({ button: 'right' });
+          return callMain<boolean>(app, 'clickMenuItem', 'Hide from Reframe…');
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true);
     await expect(row(page, 'managed')).toHaveCount(0, { timeout: 10_000 });
     // Its record is kept (ended), so that restoring it brings it back as it was.
     const saved = await state();
