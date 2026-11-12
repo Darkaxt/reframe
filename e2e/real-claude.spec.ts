@@ -77,7 +77,7 @@ test('real claude: take over a session running in another terminal', async () =>
   let exited = false;
   outside.onExit(() => (exited = true));
   try {
-    await expect.poll(() => readRegistryEntry(claudeHome(), outside.pid)?.name, { timeout: 30_000 }).toBe(name);
+    await expect.poll(async () => readRegistryEntry(claudeHome(), outside.pid)?.name, { timeout: 30_000 }).toBe(name);
 
     const app = await electron.launch({ args: [root], env, cwd: root });
     const page = await app.firstWindow();
@@ -87,7 +87,7 @@ test('real claude: take over a session running in another terminal', async () =>
     });
     await page.getByRole('button', { name: 'Sessions' }).click();
     await page.locator('.sidebar-row', { hasText: name }).click();
-    await expect.poll(() => exited, { timeout: 20_000 }).toBe(true);
+    await expect.poll(async () => exited, { timeout: 20_000 }).toBe(true);
     await expect(page.locator('.tile .status-idle')).toBeVisible({ timeout: 30_000 });
     await page.waitForTimeout(2500);
     await page.screenshot({ path: 'test-results/real-5-takeover.png' });

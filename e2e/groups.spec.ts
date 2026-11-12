@@ -42,7 +42,9 @@ test('groups: create, grow by drag, rename, recolor, collapse, restart, tear out
     const outside = { x: area.x + area.width - 300, y: area.y + 80 };
 
     for (const name of ['alpha', 'beta', 'gamma', 'delta']) await newSession(page, project, name);
-    const [alpha, gamma, delta] = ['alpha', 'gamma', 'delta'].map((n) => byName(n).id) as [string, string, string];
+    const [alpha, gamma, delta] = (await Promise.all(
+      ['alpha', 'gamma', 'delta'].map(async (n) => (await byName(n)).id),
+    )) as [string, string, string];
     // Always the current page's frame (the page changes with the restart).
     const frame = () => page.locator('.group');
 
@@ -78,7 +80,7 @@ test('groups: create, grow by drag, rename, recolor, collapse, restart, tear out
     await frame().locator('.group-name-input').press('Enter');
     await expect(frame().locator('.group-name')).toHaveText('API');
     await callMain(app, 'recolorGroup', groupId, GROUP_COLORS[1].hex);
-    await expect.poll(() => JSON.stringify(state().windows[0]!.layout)).toContain(GROUP_COLORS[1].hex);
+    await expect.poll(async () => JSON.stringify((await state()).windows[0]!.layout)).toContain(GROUP_COLORS[1].hex);
 
     // Collapsing the group puts it into the side bar as one entry.
     await frame().getByRole('button', { name: 'Collapse the group to the side bar' }).click();
@@ -102,7 +104,7 @@ test('groups: create, grow by drag, rename, recolor, collapse, restart, tear out
     const second = await opened;
     await expect(second.locator('.group .tile')).toHaveCount(2);
     await expect(page.locator('.tile')).toHaveCount(2);
-    const secondId = state().windows[1]!.id;
+    const secondId = (await state()).windows[1]!.id;
     const secondClosed = second.waitForEvent('close');
     await transferNode(page, groupId, secondId, { key: tileKey(delta), side: 'bottom' });
     await secondClosed;
@@ -119,12 +121,14 @@ test('groups: create, grow by drag, rename, recolor, collapse, restart, tear out
     await callMain(app, 'addSessionToGroup', delta, nextGroupId);
     await callMain(app, 'endGroup', nextGroupId);
     await expect(page.locator('.tile')).toHaveCount(2);
-    await expect.poll(() => [byName('gamma').lifecycle, byName('delta').lifecycle]).toEqual(['ended', 'ended']);
+    await expect
+      .poll(async () => [(await byName('gamma')).lifecycle, (await byName('delta')).lifecycle])
+      .toEqual(['ended', 'ended']);
 
     await quit(app);
     const all = launches();
     expect(all.filter((l) => l.event === 'exit')).toHaveLength(all.filter((l) => l.event === 'start').length);
-    expect(byName('beta').lifecycle).toBe('open');
+    expect((await byName('beta')).lifecycle).toBe('open');
   } catch (error) {
     await captureWindows('groups');
     throw error;

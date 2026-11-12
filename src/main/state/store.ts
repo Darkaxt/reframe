@@ -4,7 +4,9 @@
 // all, so going back to that version keeps everything), any other is set aside as state.json.rejected-<time>.
 // Once a PTY host that serves `state` (since 0.10.1-claudegpt.23) is attached, saves are written by it, the same way
 // and to the same file (src/main/state/files.ts, rust/reframe-services/src/state.rs), one at a time and always the
-// newest state; a save it cannot make (no host any more, or it failed) is made here. Loading stays here: it comes
+// newest state; a save it cannot make (no host any more, or it failed) is made here. save() returns before such a
+// write is done: flush() resolves once it is, and is awaited before anything outside reads the file and on quitting
+// (where a host that does not answer in time is given up on and the state is written here). Loading stays here: it comes
 // before the host is started (the state says which host). The schema stays here too: the host never reads it.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -46,6 +48,12 @@ export class StateStore {
   private unsaved: AppState | null = null;
   private writing = false;
   private written: Promise<void> = Promise.resolve();
+  /** The state being written through the host (it may be swapped for a newer one on a conflict). */
+  private inFlight: AppState | null = null;
+  /** The newest state given to save. */
+  private newest: AppState | null = null;
+  /** The host did not save in time (on flush with a deadline): from then on everything is written here. */
+  private abandoned = false;
 
   constructor(readonly file: string) {}
 
@@ -57,7 +65,7 @@ export class StateStore {
 
   private served(): StateHost | null {
     const host = this.host();
-    return host && (host.services.state ?? 0) >= 1 ? host : null;
+    return !this.abandoned && host && (host.services.state ?? 0) >= 1 ? host : null;
   }
 
   /** Once the saves given so far are written (by the host or here). */
@@ -97,7 +105,8 @@ export class StateStore {
   save(state: AppState): void {
     this.cancel();
     if (this.readOnly) return;
-    if (!this.writing && !this.served()) {
+    this.newest = state;
+    if ((!this.writing || this.abandoned) && !this.served()) {
       this.saveHere(state);
       return;
     }
@@ -116,18 +125,20 @@ export class StateStore {
         return;
       }
       this.unsaved = null;
+      this.inFlight = state;
       const host = this.served();
       try {
         if (host) {
           try {
-            await this.saveThere(host, state);
+            await this.saveThere(host);
             continue;
           } catch (error) {
             this.log?.('warn', 'the pty host could not save the state; saving here', { error: String(error) });
           }
         }
-        // A newer one given meanwhile is written next.
-        if (!this.unsaved) this.saveHere(state);
+        // A newer one given meanwhile is written next; one already written here (a flush that gave up waiting for
+        // the host) is not written over with this older one.
+        if (!this.unsaved && this.inFlight === this.newest) this.saveHere(this.inFlight);
       } catch (error) {
         this.log?.('error', 'could not save the state', { error: String(error) });
       }
@@ -135,9 +146,9 @@ export class StateStore {
   }
 
   /** Writes through the host: read there first when its revision is not known, or was not the file's any more. */
-  private async saveThere(host: StateHost, state: AppState): Promise<void> {
-    const content = JSON.stringify(state, null, 2);
+  private async saveThere(host: StateHost): Promise<void> {
     for (let attempt = 0; ; attempt++) {
+      const content = JSON.stringify(this.inFlight, null, 2);
       if (!this.remote) {
         const read = (await host.call('state', 'read', { file: this.file })) as {
           revision: number;
@@ -158,7 +169,12 @@ export class StateStore {
       } catch (error) {
         this.remote = null;
         // Changed since (written here meanwhile, say, or by another reframe): read again, and write the newest.
-        if (attempt > 0 || (error as { code?: unknown }).code !== 'conflict') throw error;
+        if (attempt > 0 || (error as { code?: unknown }).code !== 'conflict' || !this.served()) throw error;
+        // Retried with the newest state.
+        if (this.unsaved) {
+          this.inFlight = this.unsaved;
+          this.unsaved = null;
+        }
         this.log?.('info', 'the state file changed since the pty host last wrote it; reading it again', {
           error: String(error),
         });
@@ -194,9 +210,28 @@ export class StateStore {
     }, delayMs);
   }
 
-  flush(): void {
+  /**
+   * Resolves once the newest state (a debounced one too) is on disk. With `deadlineMs`, a host that has not written
+   * it by then is given up on: the newest state is written here, and so is everything after.
+   */
+  async flush(deadlineMs?: number): Promise<void> {
     const next = this.pending;
     if (next) this.save(next);
+    if (!this.writing || this.abandoned) return;
+    const done = this.written.then(() => true);
+    if (deadlineMs === undefined) {
+      await done;
+      return;
+    }
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<false>((resolve) => (timer = setTimeout(() => resolve(false), deadlineMs)));
+    const inTime = await Promise.race([done, late]);
+    clearTimeout(timer);
+    if (inTime) return;
+    this.log?.('warn', 'the pty host did not save the state in time; saving here', { deadlineMs });
+    this.abandoned = true;
+    this.unsaved = null;
+    if (this.newest) this.saveHere(this.newest);
   }
 
   private cancel(): void {

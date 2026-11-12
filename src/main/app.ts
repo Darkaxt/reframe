@@ -186,6 +186,8 @@ const LIST_ASKED_MS = 1_000;
 const LIST_PUSH_MS = 300;
 /** How long quitting waits for the sessions to end (each gets Ctrl+C, then its process tree is killed). */
 const SHUTDOWN_MS = 15_000;
+/** How long a flush waits for the PTY host to write state.json before writing it in-process. */
+const STATE_FLUSH_MS = 5_000;
 /** How long after the system said it is going down sessions that end still count as ended by it. */
 const SYSTEM_ENDING_MS = 60_000;
 
@@ -320,9 +322,9 @@ export class ReframeApp {
       runtime: () => hostRuntime(app.getPath('userData'), this.log, hostKind),
       log: this.log,
     });
-    // Saves stay in-process and synchronous: the rest of reframe (and its end-to-end tests) relies on state.json
-    // being written when save() returns, which a write over the pipe cannot give. StateStore.useHost is there for
-    // when the saves can be awaited; until then the host's `state` service is served but not used here.
+    // Saves go through the host while it serves `state` (checked on every save: a hot-swapped older host does not,
+    // and then they are written here). What must see the file current awaits flushState() first.
+    this.store.useHost(() => this.host, this.log);
     await this.host.start();
     this.sessions = new SessionManager({
       host: this.host,
@@ -474,8 +476,8 @@ export class ReframeApp {
     } catch (error) {
       this.log('error', 'could not save the state on quitting', { error: String(error) });
     }
-    // Written (by the host) before it is let go.
-    await this.store.settle();
+    // Written (by the host, or here if it does not in time) before it is let go.
+    await this.store.flush(STATE_FLUSH_MS);
     // Quitting must not hang on a session that does not go: what is left is ended as an orphan on the next start.
     if (this.sessions && mode === 'end' && !(await settle(this.sessions.stopAll(), SHUTDOWN_MS))) {
       this.log('warn', 'sessions did not end in time, quitting anyway', { sessions: this.sessions.active });
@@ -490,7 +492,7 @@ export class ReframeApp {
     clearTimeout(this.listPush);
     this.save();
     // The host is gone: written here, after anything it was still writing.
-    await this.store.settle();
+    await this.store.flush(STATE_FLUSH_MS);
     this.log('info', 'reframe stopped');
   }
 
@@ -1317,6 +1319,8 @@ export class ReframeApp {
         publish();
       }
     } finally {
+      // The batch's outcome is in state.json before it is reported done.
+      await this.store.flush(STATE_FLUSH_MS);
       result.running = false;
       this.chatBatchRunning = false;
       publish();
@@ -1684,6 +1688,11 @@ export class ReframeApp {
       }),
       windows: this.state.windows.map((w) => removed.reduce((next, id) => dropSession(next, id), w)),
     };
+  }
+
+  /** Resolves once state.json holds the newest state (test hook: the e2e helpers read the file after this). */
+  flushState(): Promise<void> {
+    return this.store.flush(STATE_FLUSH_MS);
   }
 
   /** Test hook (REFRAME_E2E): clicks the item labeled `label` in the menu shown last. */

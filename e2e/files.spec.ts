@@ -14,7 +14,7 @@ test('dropping files and pasting text, files and images', async () => {
   try {
     const { app, page } = await launch(env);
     await newSession(page, project, 'alpha');
-    const claudeSession = byName('alpha').claudeSessionId;
+    const claudeSession = (await byName('alpha')).claudeSessionId;
     const transcript = path.join(env.REFRAME_CLAUDE_HOME!, 'projects', 'fake-project', `${claudeSession}.jsonl`);
     const prompts = () =>
       fs.existsSync(transcript)
@@ -47,7 +47,7 @@ test('dropping files and pasting text, files and images', async () => {
       el.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }));
     });
     await expect(page.locator('.files-drop')).toHaveCount(0);
-    await expect.poll(() => page.evaluate(() => document.activeElement?.closest('.tile') !== null)).toBe(true);
+    await expect.poll(async () => page.evaluate(() => document.activeElement?.closest('.tile') !== null)).toBe(true);
     await page.waitForTimeout(300);
     await send();
     await expect.poll(prompts).toHaveLength(1);
@@ -95,7 +95,7 @@ test('dropping files and pasting text, files and images', async () => {
     const word = { x: screen!.x + 10, y: screen!.y + 8 };
     await page.mouse.dblclick(word.x, word.y);
     await page.mouse.click(word.x, word.y, { button: 'right' });
-    await expect.poll(() => page.evaluate(() => (window as unknown as { copied?: string }).copied)).toBe('FAKE');
+    await expect.poll(async () => page.evaluate(() => (window as unknown as { copied?: string }).copied)).toBe('FAKE');
     await callMain(app, 'fakeClipboard', { text: 'right-clicked words', image: false, files: [] });
     await page.mouse.click(word.x, word.y, { button: 'right' });
     await page.waitForTimeout(300);

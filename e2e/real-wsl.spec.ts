@@ -132,7 +132,7 @@ test('real claude typed into a WSL terminal tab: dropped onto reframe, taken ove
   );
   let app: ElectronApplication | null = null;
   try {
-    await expect.poll(() => wslPids().length, { timeout: 20_000 }).toBeGreaterThan(0);
+    await expect.poll(async () => wslPids().length, { timeout: 20_000 }).toBeGreaterThan(0);
     const terminal = wslPids();
     app = await electron.launch({ args: [root], env, cwd: root });
     const page = await app.firstWindow();
@@ -144,7 +144,10 @@ test('real claude typed into a WSL terminal tab: dropped onto reframe, taken ove
 
     // Dropped once claude is up over there (registered): reframe finds it in that window, by the wsl.exe of its tab.
     await expect
-      .poll(() => callMain<boolean>(app!, 'dropTerminalWindow', hwnd, point), { timeout: 60_000, intervals: [2000] })
+      .poll(async () => callMain<boolean>(app!, 'dropTerminalWindow', hwnd, point), {
+        timeout: 60_000,
+        intervals: [2000],
+      })
       .toBe(true);
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('dropped', { timeout: 30_000 });
@@ -156,7 +159,7 @@ test('real claude typed into a WSL terminal tab: dropped onto reframe, taken ove
     await expect(tile.locator('.status-idle')).toBeVisible({ timeout: 60_000 });
     await expect(tile.locator('.tile-cwd')).toContainText(distro);
     // claude ended there, its shell got "exit", and the tab (with its window) went with wsl.exe.
-    await expect.poll(() => terminal.filter(alive).length, { timeout: 20_000 }).toBe(0);
+    await expect.poll(async () => terminal.filter(alive).length, { timeout: 20_000 }).toBe(0);
     const log = fs.readFileSync(path.join(userData, 'logs', 'main.log'), 'utf8');
     expect(log).toContain('terminal of a claude in wsl found');
     expect(log).toContain('"shell":"wsl"');

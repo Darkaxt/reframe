@@ -9,7 +9,7 @@ test('renaming sessions in the tile and in the list', async () => {
   try {
     let { app, page } = await launch(env);
     await newSession(page, project, 'alpha');
-    const id = byName('alpha').id;
+    const id = (await byName('alpha')).id;
     const label = page.locator('.tile .tile-label');
 
     // Double-click the name in the tile.
@@ -46,7 +46,7 @@ test('renaming sessions in the tile and in the list', async () => {
     await page.locator('.tile-label-input').fill('');
     await page.keyboard.press('Enter');
     await expect(page.locator('.tile .tile-label')).toHaveText('project');
-    expect(byName('alpha')).toBeUndefined(); // no name of its own any more
+    expect(await byName('alpha')).toBeUndefined(); // no name of its own any more
     await quit(app);
   } catch (error) {
     await captureWindows('rename');

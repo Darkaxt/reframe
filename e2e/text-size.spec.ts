@@ -18,10 +18,10 @@ test('text size: keys and mouse wheel, kept after a restart', async () => {
     // Two quick presses add up.
     await page.keyboard.press('Control+Equal');
     await page.keyboard.press('Control+Equal');
-    await expect.poll(() => measured(page)).toBe('15');
-    await expect.poll(() => state().preferences.fontSize).toBe(15);
+    await expect.poll(async () => measured(page)).toBe('15');
+    await expect.poll(async () => (await state()).preferences.fontSize).toBe(15);
     await page.keyboard.press('Control+Minus');
-    await expect.poll(() => measured(page)).toBe('14');
+    await expect.poll(async () => measured(page)).toBe('14');
 
     // A wheel notch away from you, with Ctrl, over the tile.
     const box = (await body.boundingBox())!;
@@ -29,8 +29,8 @@ test('text size: keys and mouse wheel, kept after a restart', async () => {
     await page.keyboard.down('Control');
     await page.mouse.wheel(0, -100);
     await page.keyboard.up('Control');
-    await expect.poll(() => measured(page)).toBe('15');
-    await expect.poll(() => state().preferences.fontSize).toBe(15);
+    await expect.poll(async () => measured(page)).toBe('15');
+    await expect.poll(async () => (await state()).preferences.fontSize).toBe(15);
     await quit(app);
 
     ({ app, page } = await launch(env));
@@ -38,8 +38,8 @@ test('text size: keys and mouse wheel, kept after a restart', async () => {
     expect(await measured(page)).toBe('15');
     await tileByLabel(page, 'alpha').locator('.tile-body').click();
     await page.keyboard.press('Control+0');
-    await expect.poll(() => measured(page)).toBe('13');
-    await expect.poll(() => state().preferences.fontSize).toBe(13);
+    await expect.poll(async () => measured(page)).toBe('13');
+    await expect.poll(async () => (await state()).preferences.fontSize).toBe(13);
     await quit(app);
   } catch (error) {
     await captureWindows('text-size');

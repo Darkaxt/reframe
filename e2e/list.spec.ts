@@ -29,8 +29,8 @@ test('session list: select several, open them together, see new ones pop up', as
   const gamma = past('Gamma task', 30);
   const starts = (claudeSession: string) =>
     launches().filter((l) => l.event === 'start' && l.args.includes(claudeSession)).length;
-  const recordOf = (claudeSession: string) =>
-    Object.values(state().sessions).find((s) => s.claudeSessionId === claudeSession)!.id;
+  const recordOf = async (claudeSession: string) =>
+    Object.values((await state()).sessions).find((s) => s.claudeSessionId === claudeSession)!.id;
 
   try {
     const { app, page } = await launch(env);
@@ -51,11 +51,11 @@ test('session list: select several, open them together, see new ones pop up', as
     await row('Alpha task').click({ button: 'right' });
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Open in a new group')).toBe(true);
     await expect(page.locator('.group .tile')).toHaveCount(2);
-    await expect.poll(() => [starts(alpha), starts(gamma)]).toEqual([1, 1]);
+    await expect.poll(async () => [starts(alpha), starts(gamma)]).toEqual([1, 1]);
 
     // Beta, plus Alpha that is open already, "in a new group in a new window": Alpha moves, without a restart.
     await row('Beta task').click({ modifiers: ['ControlOrMeta'] });
-    await page.locator(`.sidebar-row[data-session="${recordOf(alpha)}"]`).click({ modifiers: ['ControlOrMeta'] });
+    await page.locator(`.sidebar-row[data-session="${await recordOf(alpha)}"]`).click({ modifiers: ['ControlOrMeta'] });
     await expect(page.locator('.sidebar-row[draggable="true"].is-selected')).toHaveCount(2);
     const opened = app.waitForEvent('window');
     await row('Beta task').click({ button: 'right' });
@@ -108,7 +108,7 @@ test('a collapsed session dragged out of the list lands where it is dropped', as
     const alpha = (await tileByLabel(page, 'alpha').boundingBox())!;
     const beta = (await tileByLabel(page, 'beta').boundingBox())!;
     expect(beta.x).toBeGreaterThan(alpha.x + alpha.width / 2);
-    await expect.poll(() => state().windows[0]!.dock).toEqual([]);
+    await expect.poll(async () => (await state()).windows[0]!.dock).toEqual([]);
     await quit(app);
   } catch (error) {
     await captureWindows('list-collapsed');

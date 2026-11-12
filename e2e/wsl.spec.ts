@@ -35,17 +35,9 @@ test('a session in a WSL folder runs there: status, Linux paths, resume', async 
     const start = launches().find((l) => l.event === 'start')!;
     expect(start.args).not.toContain('--settings');
 
+    const linuxId = (await byName('linux')).claudeSessionId;
     const transcript = () =>
-      path.join(
-        share,
-        'Fake',
-        'home',
-        'ann',
-        '.claude',
-        'projects',
-        'fake-project',
-        `${byName('linux').claudeSessionId}.jsonl`,
-      );
+      path.join(share, 'Fake', 'home', 'ann', '.claude', 'projects', 'fake-project', `${linuxId}.jsonl`);
     const prompts = () =>
       fs.existsSync(transcript())
         ? fs
@@ -69,7 +61,7 @@ test('a session in a WSL folder runs there: status, Linux paths, resume', async 
     expect(prompts()[0]).toMatch(/^\/mnt\/c\/.*\/note\.txt$/);
     // Busy, then done: announced from the registry (the tests turn notifications off, the log says which one).
     const log = () => fs.readFileSync(path.join(env.REFRAME_USER_DATA!, 'logs', 'main.log'), 'utf8');
-    await expect.poll(() => log().includes('"kind":"done"'), { timeout: 10_000 }).toBe(true);
+    await expect.poll(async () => log().includes('"kind":"done"'), { timeout: 10_000 }).toBe(true);
 
     // Claude Code in WSL cannot read the clipboard: Ctrl+V with an image types in a saved copy of it.
     await callMain(app, 'fakeClipboard', { text: '', image: true, files: [] });
@@ -81,7 +73,7 @@ test('a session in a WSL folder runs there: status, Linux paths, resume', async 
     await callMain(app, 'fakeClipboard', null);
 
     // Used, as the registry told (no hook did), so it resumes after a restart.
-    await expect.poll(() => byName('linux').used).toBe(true);
+    await expect.poll(async () => (await byName('linux')).used).toBe(true);
     await quit(app);
     ({ app, page } = await launch(env));
     await expect(tileByLabel(page, 'linux').locator('.status-idle')).toBeVisible({ timeout: 15_000 });
@@ -178,7 +170,7 @@ test('the session list: WSL sessions, taking over one, starting a distribution',
     );
     external.onExit(() => (externalExited = true));
     const registry = path.join(claudeHome, 'sessions');
-    await expect.poll(() => (fs.existsSync(registry) ? fs.readdirSync(registry).length : 0)).toBe(1);
+    await expect.poll(async () => (fs.existsSync(registry) ? fs.readdirSync(registry).length : 0)).toBe(1);
 
     const { app, page } = await launch(env);
     await page.getByRole('button', { name: 'Sessions' }).click();
@@ -194,7 +186,7 @@ test('the session list: WSL sessions, taking over one, starting a distribution',
     // The past one resumes in its WSL folder.
     await row(page, 'Log cleanup').click();
     await expect
-      .poll(() => launches().find((l) => l.event === 'start' && l.args.join(' ').includes(`--resume ${pastId}`)))
+      .poll(async () => launches().find((l) => l.event === 'start' && l.args.join(' ').includes(`--resume ${pastId}`)))
       .toBeTruthy();
     await expect(page.locator('.tile')).toHaveCount(1);
     await expect(page.locator('.tile-cwd')).toHaveText('Fake ~/old');
@@ -204,7 +196,7 @@ test('the session list: WSL sessions, taking over one, starting a distribution',
       Object.assign(dialog, { showMessageBox: async () => ({ response: 0, checkboxChecked: false }) });
     });
     await row(page, 'outside').click();
-    await expect.poll(() => externalExited, { timeout: 15_000 }).toBe(true);
+    await expect.poll(async () => externalExited, { timeout: 15_000 }).toBe(true);
     await expect(tileByLabel(page, 'outside').locator('.status-idle')).toBeVisible({ timeout: 15_000 });
     await expect(tileByLabel(page, 'outside').locator('.tile-cwd')).toHaveText('Fake ~/other');
     expect(launches().filter((l) => l.event === 'start' && l.args.includes(runningId))).toHaveLength(2);
@@ -243,7 +235,7 @@ test('a claude that a crashed reframe left running in WSL is ended before its se
     );
     orphan.onExit(() => (orphanExited = true));
     const registry = path.join(share, 'Fake', 'home', 'ann', '.claude', 'sessions');
-    await expect.poll(() => (fs.existsSync(registry) ? fs.readdirSync(registry) : [])).toHaveLength(1);
+    await expect.poll(async () => (fs.existsSync(registry) ? fs.readdirSync(registry) : [])).toHaveLength(1);
     const linuxPid = Number(fs.readdirSync(registry)[0]!.replace('.json', ''));
 
     // What a reframe that crashed left: the session open in its window, with the Linux id of its claude.
@@ -269,12 +261,12 @@ test('a claude that a crashed reframe left running in WSL is ended before its se
     );
 
     const { app, page } = await launch(env);
-    await expect.poll(() => orphanExited, { timeout: 15_000 }).toBe(true);
+    await expect.poll(async () => orphanExited, { timeout: 15_000 }).toBe(true);
     await expect(tileByLabel(page, 'left').locator('.status-idle')).toBeVisible({ timeout: 15_000 });
     // One claude on the session, the new one, whose Linux id is kept for next time.
     expect(fs.readdirSync(registry)).toHaveLength(1);
-    await expect.poll(() => byName('left').linuxPid, { timeout: 10_000 }).not.toBe(linuxPid);
-    expect(byName('left').linuxPid).toBe(Number(fs.readdirSync(registry)[0]!.replace('.json', '')));
+    await expect.poll(async () => (await byName('left')).linuxPid, { timeout: 10_000 }).not.toBe(linuxPid);
+    expect((await byName('left')).linuxPid).toBe(Number(fs.readdirSync(registry)[0]!.replace('.json', '')));
     await quit(app);
   } catch (error) {
     await captureWindows('wsl-orphan');
@@ -334,7 +326,7 @@ test('a registry entry left behind under a Linux pid that another program has no
     const { app, page } = await launch(env);
     await expect(tileByLabel(page, 'left').locator('.status-idle')).toBeVisible({ timeout: 15_000 });
     // The session's claude is the new one, found past the stale entry; the other program was not ended.
-    await expect.poll(() => byName('left').linuxPid, { timeout: 10_000 }).not.toBe(pid);
+    await expect.poll(async () => (await byName('left')).linuxPid, { timeout: 10_000 }).not.toBe(pid);
     expect(alive()).toBe(true);
     // Nor is the stale entry a session running elsewhere.
     await page.getByRole('button', { name: 'Sessions' }).click();

@@ -32,7 +32,7 @@ test('an unusable state file is set aside and the backup takes over', async () =
     fs.writeFileSync(path.join(userData, 'state.json.bak'), JSON.stringify(backup));
 
     const { app } = await launch(env);
-    expect(state().recentFolders).toEqual([project]);
+    expect((await state()).recentFolders).toEqual([project]);
     const aside = fs.readdirSync(userData).filter((f) => f.startsWith('state.json.rejected-'));
     expect(aside).toHaveLength(1);
     expect(fs.readFileSync(path.join(userData, aside[0]!), 'utf8')).toBe('{ "version": 1, "sessions": ');

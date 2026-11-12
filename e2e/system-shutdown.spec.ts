@@ -22,7 +22,7 @@ test('sessions Windows ends on its way down resume on the next start', async () 
 
     // alpha's claude ends while the system runs on: it stays ended.
     await end('alpha');
-    expect(byName('alpha').lifecycle).toBe('ended');
+    expect((await byName('alpha')).lifecycle).toBe('ended');
 
     // Windows asks whether it may go down, then ends beta's claude: beta stays open.
     const hwnd = await app.evaluate(({ BrowserWindow }) =>
@@ -34,7 +34,7 @@ test('sessions Windows ends on its way down resume on the next start', async () 
     const WM_QUERYENDSESSION = 0x0011;
     SendMessageW(BigInt(hwnd), WM_QUERYENDSESSION, 0, 0);
     await end('beta');
-    expect(byName('beta').lifecycle).toBe('open');
+    expect((await byName('beta')).lifecycle).toBe('open');
     await quit(app);
 
     ({ app, page } = await launch(env));
