@@ -59,6 +59,34 @@ impl Notify {
     }
 }
 
+/// The executables of the shells Claude Code runs its tools in (Bash and PowerShell tools, and what they start).
+pub const TOOL_SHELLS: &[&str] = &["bash.exe", "sh.exe", "pwsh.exe", "powershell.exe", "cmd.exe"];
+/// A shell younger than this is not counted: status line and hook commands come and go within it.
+pub const TOOL_SHELL_MIN_AGE_MS: f64 = 5_000.0;
+/// How often a session idle with background work is looked at again (only those sessions).
+pub const BACKGROUND_RECHECK_MS: u64 = 20_000;
+
+/// A FILETIME (100 ns since 1601) as ms since 1970.
+pub fn filetime_ms(filetime: u64) -> f64 {
+    filetime as f64 / 10_000.0 - 11_644_473_600_000.0
+}
+
+/// Whether a claude has tool shells running: direct children (`exe`, started at ms since 1970) named as in
+/// `TOOL_SHELLS` (any case), at least `TOOL_SHELL_MIN_AGE_MS` old, and not older than claude (`parent_start`: a
+/// child of an earlier process under the same id). A child whose start is unknown is not counted.
+pub fn has_tool_shells<'a>(
+    children: impl IntoIterator<Item = (&'a str, Option<f64>)>,
+    parent_start: Option<f64>,
+    now_ms: f64,
+) -> bool {
+    children.into_iter().any(|(exe, start)| {
+        TOOL_SHELLS.iter().any(|shell| exe.eq_ignore_ascii_case(shell))
+            && start.is_some_and(|start| {
+                now_ms - start >= TOOL_SHELL_MIN_AGE_MS && parent_start.is_none_or(|parent| start >= parent)
+            })
+    })
+}
+
 /// Where a session's registry entry is, from what reframe put with it (its spawn's `meta`).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Lookup {
@@ -171,6 +199,8 @@ pub struct Update {
     pub notify: Option<Notify>,
     /// Claude Code's session id as last known: the registry entry's, a hook's, or the spawn's.
     pub claude_session_id: Option<String>,
+    /// Idle, with tool shells (background work) still running in claude: `done` waits until they are gone.
+    pub background: bool,
 }
 
 /// The status of one session (one start of it), as SessionManager keeps it in its Runtime.
@@ -189,6 +219,8 @@ pub struct Tracker {
     /// An announcement made while no reframe was attached: the next one gets it with the statuses.
     pub held: Option<Notify>,
     claude_session_id: Option<String>,
+    /// Idle after a Stop while claude had tool shells running (see `Update::background`).
+    background: bool,
     /// The host's status revision of its last change (the host keeps the counter, one for every session).
     pub revision: u64,
 }
@@ -206,6 +238,7 @@ impl Tracker {
             lookup,
             proc_start,
             held: None,
+            background: false,
             revision: 0,
         }
     }
@@ -229,17 +262,53 @@ impl Tracker {
             registry: self.last.clone(),
             notify,
             claude_session_id: self.claude_session_id.clone(),
+            background: self.background,
         }
     }
 
+    /// Any status but idle ends background work's wait (a new turn, a question, the end).
     fn set(&mut self, status: Status) -> bool {
-        let changed = self.status != status;
+        let changed = self.status != status || (self.background && status != Status::Idle);
+        if status != Status::Idle {
+            self.background = false;
+        }
         self.status = status;
         changed
     }
 
-    /// A hook of the session (SessionManager.onHook); the status line is no state change.
+    /// Claude's own Windows process, whose children are its tool shells: none in WSL, or before a launched one's
+    /// entry was found.
+    pub fn claude_pid(&self) -> Option<u32> {
+        match self.lookup {
+            Lookup::Direct { .. } => Some(self.pid),
+            Lookup::Launched { .. } => self.found,
+            Lookup::Wsl { .. } => None,
+        }
+    }
+
+    /// Claude's process, while the session is idle waiting for background work to end (for `recheck`).
+    pub fn background_pid(&self) -> Option<u32> {
+        self.background.then(|| self.claude_pid()).flatten()
+    }
+
+    /// A look at a session idle with background work: once no tool shell is left (and no new turn started), it is
+    /// plain idle and `done` is announced.
+    pub fn recheck(&mut self, shells: bool) -> Option<Update> {
+        if !self.background || shells || self.status != Status::Idle {
+            return None;
+        }
+        self.background = false;
+        Some(self.update(Some(Notify::Done)))
+    }
+
+    /// A hook of the session, without looking for tool shells (as if there were none).
     pub fn hook(&mut self, event: &str, payload: &Value) -> Option<Update> {
+        self.hook_with(event, payload, |_| false)
+    }
+
+    /// A hook of the session (SessionManager.onHook); the status line is no state change. `shells` tells whether
+    /// claude (that process id) has tool shells running; it is asked only at a Stop.
+    pub fn hook_with(&mut self, event: &str, payload: &Value, shells: impl FnOnce(u32) -> bool) -> Option<Update> {
         if !self.running() {
             return None;
         }
@@ -256,7 +325,9 @@ impl Tracker {
             "UserPromptSubmit" => self.set(Status::Busy).then(|| self.update(None)),
             "Stop" => {
                 self.set(Status::Idle);
-                Some(self.update(Some(Notify::Done)))
+                // Background work (a shell or a monitor left running) can start a turn of its own: not done yet.
+                self.background = self.claude_pid().is_some_and(shells);
+                Some(self.update((!self.background).then_some(Notify::Done)))
             }
             // idle_prompt repeats "waiting for input" a minute after Stop; that was already announced.
             "Notification" if payload.get("notification_type").and_then(Value::as_str) != Some("idle_prompt") => {
@@ -357,6 +428,9 @@ pub fn update_json(session_id: &str, instance: u64, update: &Update, revision: u
     }
     if let Some(notify) = update.notify {
         value["notify"] = json!(notify.as_str());
+    }
+    if update.background {
+        value["background"] = json!(true);
     }
     value
 }
@@ -467,6 +541,82 @@ mod tests {
             (json["claudeSessionId"].as_str(), json["revision"].as_u64()),
             (Some("c2"), Some(0))
         );
+    }
+
+    #[test]
+    fn waits_for_background_work() {
+        let mut t = direct();
+        t.registry(Some(entry(Some("busy"), "a")), None);
+        t.hook("UserPromptSubmit", &json!({}));
+        // Stop with a tool shell: idle with background work, nothing announced.
+        let u = t.hook_with("Stop", &json!({}), |pid| pid == 7).unwrap();
+        assert_eq!((u.status, u.notify, u.background), (Status::Idle, None, true));
+        assert_eq!(update_json("s", 1, &u, 1)["background"], json!(true));
+        assert_eq!(t.background_pid(), Some(7));
+        // The registry going idle keeps it waiting.
+        assert_eq!(
+            t.registry(Some(entry(Some("idle"), "a")), None).map(|u| u.background),
+            Some(true)
+        );
+        assert_eq!(t.recheck(true), None);
+        // The last shell is gone: idle, and done.
+        let u = t.recheck(false).unwrap();
+        assert_eq!(
+            (u.status, u.notify, u.background),
+            (Status::Idle, Some(Notify::Done), false)
+        );
+        assert!(update_json("s", 1, &u, 2).get("background").is_none());
+        assert_eq!(t.recheck(false), None);
+        assert_eq!(t.background_pid(), None);
+        // Stop without one: done at once.
+        let u = t.hook_with("Stop", &json!({}), |_| false).unwrap();
+        assert_eq!((u.notify, u.background), (Some(Notify::Done), false));
+    }
+
+    #[test]
+    fn a_new_turn_ends_the_wait() {
+        let mut t = direct();
+        t.hook_with("Stop", &json!({}), |_| true);
+        let u = t.hook("UserPromptSubmit", &json!({})).unwrap();
+        assert_eq!((u.status, u.background), (Status::Busy, false));
+        assert_eq!(t.recheck(false), None);
+        // Claude starting a turn of its own shows in the registry.
+        t.registry(Some(entry(Some("idle"), "a")), None);
+        t.hook_with("Stop", &json!({}), |_| true);
+        let u = t.registry(Some(entry(Some("busy"), "a")), None).unwrap();
+        assert_eq!((u.status, u.background), (Status::Busy, false));
+        // A question is announced as before.
+        t.hook_with("Stop", &json!({}), |_| true);
+        let u = t
+            .hook("Notification", &json!({ "notification_type": "permission_prompt" }))
+            .unwrap();
+        assert_eq!(
+            (u.status, u.notify, u.background),
+            (Status::Waiting, Some(Notify::Waiting), false)
+        );
+    }
+
+    #[test]
+    fn counts_only_lasting_tool_shells() {
+        let now = 100_000.0;
+        assert!(has_tool_shells([("bash.exe", Some(now - 6_000.0))], Some(0.0), now));
+        assert!(has_tool_shells([("PowerShell.EXE", Some(now - 60_000.0))], None, now));
+        assert!(!has_tool_shells([("bash.exe", Some(now - 1_000.0))], None, now));
+        assert!(!has_tool_shells([("node.exe", Some(0.0))], None, now));
+        assert!(!has_tool_shells([("cmd.exe", None)], None, now));
+        // A child of an earlier process with the same id.
+        assert!(!has_tool_shells([("cmd.exe", Some(10.0))], Some(50.0), now));
+        assert_eq!(filetime_ms(116_444_736_000_000_000), 0.0);
+        // No shells are looked for in WSL.
+        let lookup = Lookup::Wsl {
+            home: "h".into(),
+            share: "s".into(),
+            distro: "D".into(),
+            claude_session_id: "a".into(),
+        };
+        let mut t = Tracker::new(lookup, 7, 0.0, None);
+        let u = t.hook_with("Stop", &json!({}), |_| panic!("not asked in WSL")).unwrap();
+        assert_eq!(u.notify, Some(Notify::Done));
     }
 
     #[test]

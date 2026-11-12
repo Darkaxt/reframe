@@ -17,7 +17,8 @@ import type {
 } from './state';
 
 /** starting → idle/busy/waiting while running; ended once the process is gone; error if it could not run. */
-export type SessionStatus = 'starting' | 'idle' | 'busy' | 'waiting' | 'ended' | 'error';
+/** `background`: idle, with background work (tool shells) still running in claude; `done` comes once it is over. */
+export type SessionStatus = 'starting' | 'idle' | 'background' | 'busy' | 'waiting' | 'ended' | 'error';
 
 export interface SessionView {
   provider?: Provider;

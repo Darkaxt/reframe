@@ -157,7 +157,7 @@ in turn (more: `busy`; from 0.10.1-claudegpt.23, before which more than 8 were r
 | `clients.adopted { record, provider }` | `adoptedClient(record, provider)`: `{ ok: true, path, version }` or `{ ok: false, reason }`. The record is a `reframe.client-adoption.v1` JSON file (a leading byte order mark is skipped); the binary is used only while its sha256 matches. The host keeps the hashes by path, size and modification time. |
 | `launch.evaluate { file }` | `evaluateLaunchConfig(file)`: `{ file, userData, runtime, claudeHome, env, refused, problems }` (the variables a direct start sets, the providers it refuses and why), or null when the file cannot be read (a byte order mark is not skipped) or lacks an absolute `userData`, `runtime` or `claudeHome`. Nothing is applied or created. Reframe applies its launch config before it reaches any host (the profile it sets decides which host that is), so it reads it itself; the method is there for what runs once a host does. |
 
-**`sessions` (version 1).** Each session's status, worked out in the host from its hooks and its Claude Code
+**`sessions` (version 2; 1 before 0.10.1-claudegpt.28).** Each session's status, worked out in the host from its hooks and its Claude Code
 session registry entry as `SessionManager` (`src/main/sessions.ts`) works it out in-process (the Rust host:
 `rust/reframe-sessions`; the Node host: `src/ptyhost/sessions.ts`). The host follows a session only if its spawn's
 `meta` says where its entry is: `claudeHome` (Windows: `<claudeHome>/sessions/<pid>.json`; with `launched`, claude's
@@ -167,7 +167,17 @@ own entry found by its session id once and then by its process id, while that pr
 0.10.1-claudegpt.22 on; sessions started by an older one are not followed here (reframe follows them itself).
 
 - The status starts as `starting`. Hooks: `UserPromptSubmit` → `busy`; `Stop` → `idle`, announcing `done`;
-  `Notification` other than `idle_prompt` → `waiting`, announcing `waiting`. The registry is read once a second (one
+  `Notification` other than `idle_prompt` → `waiting`, announcing `waiting`.
+- **Background work** (version 2): at a `Stop`, the host looks at claude's own Windows process (the spawn's process
+  for `claudeHome`, the registry entry's with `launched`; never in WSL, nor before a launched claude's entry was
+  found) for *tool shells*: direct children named `bash.exe`, `sh.exe`, `pwsh.exe`, `powershell.exe` or `cmd.exe`
+  (any case), at least 5 s old (status line and hook commands are younger) and not older than claude. With any, the
+  session is `idle` with `background: true`, and nothing is announced: Claude Code starts a turn of its own when that
+  work ends. Only such sessions are looked at again, every 20 s (`REFRAME_PTYHOST_BACKGROUND_MS` in the host's
+  environment, for tests); once none is left (still idle), `background` goes and `done` is announced. Any other status
+  (`UserPromptSubmit`, a registry `busy` or `waiting`, a `Notification`, the exit) ends the wait; a registry `idle`
+  does not. Each look is one toolhelp snapshot of the system's processes (CreateToolhelp32Snapshot; koffi in the Node
+  host) and the creation time of claude's children: a few milliseconds. The registry is read once a second (one
   read per session at a time, off the host's task): an entry under the process id older than the process (its
   `procStart` differs, or without one, its `startedAt` is more than 2 s before the spawn) is ignored; a registry
   `status` that changed is taken (in WSL, which has no hooks, `waiting` announces `waiting`, and `idle` after
@@ -175,7 +185,8 @@ own entry found by its session id once and then by its process id, while that pr
   `ended`, and nothing changes it after that. How an exit counts (ended, or failed to start), who ended a session,
   and whether an announcement is shown are reframe's.
 - Event `sessions.status { sessionId, instance, status, registry?, notify?, claudeSessionId?, revision }`, told when
-  the status, the entry, Claude Code's session id or an announcement changed: `status` is `starting`, `idle`, `busy`, `waiting` or `ended`; `registry` the entry as
+  the status, the entry, Claude Code's session id, `background` or an announcement changed: `status` is `starting`, `idle`, `busy`, `waiting` or `ended` (never a new value: a reframe before .28 shows a session with background work as plain `idle`, without the `done`, which it gets when the work ends);
+  `background: true` (version 2) only while idle with background work; `registry` the entry as
   last read, as `parseRegistryEntry` gives it (`{ pid, sessionId, cwd?, name?, nameSource?, status?, startedAt?,
   procStart? }`; `sessionId` changes on `/clear`, `name` on a rename, `cwd` is the distribution's path in WSL);
   `notify` is `done` or `waiting`, an intent (reframe words it, and decides whether to show it).

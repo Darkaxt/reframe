@@ -37,11 +37,11 @@ export function showProject(
 /** A project's activity: how many of its sessions run, and the state that most needs attention among them. */
 export interface ProjectActivity {
   count: number;
-  status: 'waiting' | 'error' | 'busy' | 'idle';
+  status: 'waiting' | 'error' | 'busy' | 'background' | 'idle';
 }
 
-const ATTENTION: ProjectActivity['status'][] = ['waiting', 'error', 'busy', 'idle'];
-const ACTIVE: ReadonlySet<SessionStatus> = new Set(['starting', 'idle', 'busy', 'waiting', 'error']);
+const ATTENTION: ProjectActivity['status'][] = ['waiting', 'error', 'busy', 'background', 'idle'];
+const ACTIVE: ReadonlySet<SessionStatus> = new Set(['starting', 'idle', 'background', 'busy', 'waiting', 'error']);
 
 export function projectActivity(sessions: { cwd: string; status: SessionStatus }[]): Map<string, ProjectActivity> {
   const statuses = new Map<string, SessionStatus[]>();

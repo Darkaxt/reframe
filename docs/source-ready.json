@@ -1,84 +1,108 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "205321bd99fbf03009458785dae4a8ba0f2fa76f",
-  "scope": "0.10.1-claudegpt.27: hide threads from Reframe. 'Hide from Reframe…' (de: 'In Reframe ausblenden…') in the session list/history context menu, after a confirmation naming Settings › Hidden threads; disabled as '(end chat first)' while a Reframe-managed session runs. Keyed by claudeSessionId; state.json hiddenThreads (zod, default [] for older files) with label, cwd, distro and hiddenAt. A hidden thread is filtered by a Set lookup at discovery: registry scans (externalRunning, outsideClaudes: list, take-over, terminal window drops), transcript history, pinned items, project folders, Reframe's own ended records; recordFor and startOrTakeOver refuse it (no adoption, resume or take-over); notify skips it. Its process, registry entry and transcript are never touched; a hidden ended managed record is kept. Settings › Hidden threads lists label, folder and date with Restore and Restore all; restoring rescans at once (no restart). Unit tests for discovery filtering, persistence/migration and restore; e2e spec e2e/hidden-threads.spec.ts (not run locally).",
+  "sourceBase": "0adf672335631cc5fc21e2f1d7ea1902c6828916",
+  "scope": "0.10.1-claudegpt.28: no 'done' while background work runs. At Stop, claude's direct children named bash/sh/pwsh/powershell/cmd.exe at least 5 s old (and not older than claude) count as tool shells; with any, the session is idle with background work (status 'background' in reframe, 'Idle, background work running' / 'Bereit, Hintergrundarbeit läuft', busy colour dimmed) and no done is announced. Only those sessions are rechecked every 20 s; with none left it becomes idle and announces done. A new turn, registry busy/waiting or a Notification ends the wait; WSL is not checked. Same rule in the Rust host (reframe-conpty toolhelp child listing, reframe-sessions), the Node host (koffi toolhelp in src/main/win32.ts, src/ptyhost/sessions.ts) and SessionManager. sessions service version 2: status events carry background: true with status idle (older clients see idle); no protocol bump. Unit tests for the rule in Rust and TypeScript; a conformance scenario with a fake claude spawning a long-lived cmd.exe, run on both hosts against SessionManager.",
   "inputHashes": [
     {
-      "file": "docs/releases/v0.10.1-claudegpt.27.md",
-      "sha256": "359937e49cfc17a3b77d5366a6bdc080ea59c6981f6e8f40f6c76a0556815a66"
+      "file": "docs/ptyhost-protocol.md",
+      "sha256": "67e603a491951b51a813a5204e8149dcce5e773ab2d8a25d29fba282927e00a4"
     },
     {
-      "file": "e2e/helpers.ts",
-      "sha256": "bf03c4657318f35a6debf022df82526b8be175f3ef00ce531922a8f1e48be33c"
-    },
-    {
-      "file": "e2e/hidden-threads.spec.ts",
-      "sha256": "8439670fb23e6df6410ba56361c832eb169c0212d4762ab7421a1b714e587688"
+      "file": "docs/releases/v0.10.1-claudegpt.28.md",
+      "sha256": "250196fd1e1a2d4a7c103b57a0837a5234c3090a794576603ead51f12e0bf75a"
     },
     {
       "file": "package-lock.json",
-      "sha256": "235d641b1dcfe8fb5fa398603b8548dfaaec6f404e757c0d883538edace3f10c"
+      "sha256": "794d8850ecd192785607b5efa628e34666dda9926a8e1a7a0c5c61fe3bf1fe49"
     },
     {
       "file": "package.json",
-      "sha256": "a81993fbfc519e95dc8c4c5f43db8867d0769a17bb63f880e0d7c2bfda4fd4fd"
+      "sha256": "6bfefab6df5884bea1c98df9cb289a907a7312aa531f44f8fee265aab9c64033"
     },
     {
-      "file": "screenshots/capture.spec.ts",
-      "sha256": "13ec379737304126223a63d650c9debfe052ff56613a1196f094bb5c3f04eee1"
+      "file": "rust/reframe-conpty/Cargo.toml",
+      "sha256": "0ab3d4dc659437ba28c35a4b8cc2e1e9a325e39c10d1f57d5a1e1d6ebb0d147d"
     },
     {
-      "file": "src/main/app.ts",
-      "sha256": "1fbfc7ae2642565f797f8bb8e2d886dab1e81d8076da9006101c25625c3fb585"
+      "file": "rust/reframe-conpty/src/lib.rs",
+      "sha256": "c1938285b3f4f1987738c70fbef23e919fc15852b6dcfb8998aedbf9673edbd1"
     },
     {
-      "file": "src/main/claude/discovery.test.ts",
-      "sha256": "60351085e39cd03d025f4913ec24515bb2a395bdb6e8822ec54fc40ef9067ff8"
+      "file": "rust/reframe-host/src/host.rs",
+      "sha256": "b97afc19ebda025e1bfd759b740450045ba1fabb4e88330f7fc3d162f277921f"
     },
     {
-      "file": "src/main/state/store.test.ts",
-      "sha256": "939c5b11663bf7ff14b1271da1e343d6a5c47a1a272942ddab8962b7c75ef135"
+      "file": "rust/reframe-sessions/src/lib.rs",
+      "sha256": "b6c6ea1ec5603cb5c1231e572f3ca2c425e2f14886e72f9e973d37a917cd789c"
     },
     {
-      "file": "src/preload/index.ts",
-      "sha256": "bd1c65156c430bc54e4c606a9fa3a4ef6d18a23398496a5bdc84adbf74354cde"
+      "file": "src/main/claude/tool-shells.test.ts",
+      "sha256": "13f2cc763eff7d1c200942f6f2fe623b200811b77fc088447fd9a589991fbe55"
     },
     {
-      "file": "src/renderer/App.tsx",
-      "sha256": "da1d7a013f5da9742cdfb53910bbe4168166bc5f0854b204ce2189b1da65c321"
+      "file": "src/main/claude/tool-shells.ts",
+      "sha256": "ecbbc948b70881a0656b07410200b12c41ae4fb770db149be245c9d1999b2c45"
     },
     {
-      "file": "src/renderer/components/SettingsDialog.tsx",
-      "sha256": "4e5f42409a7ac61f4318944d234dbcd2ad72eaeb461a7fd9da2dfcce3c465c14"
+      "file": "src/main/sessions.ts",
+      "sha256": "768f8d032619d098852ca6802cd8495248fd9ce6cc4fb83dd738d6ac4ce50671"
+    },
+    {
+      "file": "src/main/win32.ts",
+      "sha256": "051bfb5c0c32924732964bbc104e2b2154513725e34977a6fb611322344e1405"
+    },
+    {
+      "file": "src/ptyhost/host.conformance.ts",
+      "sha256": "585ac76127eab4e57043a4b93346a8d5c67d9e2fc2200658bf4d41124c7bbe53"
+    },
+    {
+      "file": "src/ptyhost/protocol.ts",
+      "sha256": "bc9e3fdded938d69e02d1bf28f62d26f3e666d60d39ac53b8eb39cd424dd21b6"
+    },
+    {
+      "file": "src/ptyhost/services.ts",
+      "sha256": "3129f9b803cd9638439f74311ddbde131985c5235cdcbe4e7cfb57129cb22f66"
+    },
+    {
+      "file": "src/ptyhost/sessions.test.ts",
+      "sha256": "5086ec09f4fded3c52b06ecf73c8d66ab39f9163d1aa54cee8e6bdfa1aecd73e"
+    },
+    {
+      "file": "src/ptyhost/sessions.ts",
+      "sha256": "1d9b68a6575a99ee6fa5b89e79d8fc3a90bc6cf40b630f30af04ec79d8454fbd"
+    },
+    {
+      "file": "src/renderer/components/DockStrip.tsx",
+      "sha256": "c062541bb853b7114723f4bd1fd327e2dc3ba3c6843b7663414cf6c4cd724a70"
+    },
+    {
+      "file": "src/renderer/components/Tile.tsx",
+      "sha256": "2fac734f0920ff05239670308b4fe50e72a9c2bda537cb690305281d821d5b32"
     },
     {
       "file": "src/renderer/styles.css",
-      "sha256": "b0d5b414b94f25cf79da8877c5f08fed03ad9955bf1bef056777f9e6a86d5d7e"
-    },
-    {
-      "file": "src/shared/hidden-threads.test.ts",
-      "sha256": "8cc597fe4212bcb00462609d8434d1b932ef3ddeae7651633da42d652e034bae"
-    },
-    {
-      "file": "src/shared/hidden-threads.ts",
-      "sha256": "d925be9db3dc40ea83648b9335832b90f72a424ac8f2de71af101a7695b9b443"
+      "sha256": "1f0a74e4aac1f9b3b4e66f00ff410add9dedf70a0b9698b542a126d1ac19439f"
     },
     {
       "file": "src/shared/i18n.ts",
-      "sha256": "97a9d482648c10f2e4085973a3eaea9ce5077c652cf0009b7ec48667f0297999"
+      "sha256": "b854fca234e943a76a6fcd313f8eefc8a256d32ea016f1dcf19b93eea8919720"
     },
     {
       "file": "src/shared/ipc.ts",
-      "sha256": "645e0ca1dc54f98278190328f138f8d88f5df2200091df18f3d86d9329e3d9a1"
+      "sha256": "5deca2c07840146ea1e637425304d4a4e886b63e3f0e6efaf9a72ac1a45071ae"
     },
     {
-      "file": "src/shared/state.ts",
-      "sha256": "edf270268f1b8343594b982a1c66a24ae3e1b366169c36a7201dba0721ba65b6"
+      "file": "src/shared/project-view.ts",
+      "sha256": "fbd7ee1228be999b71b68d355a70d7c209be310b334688a3a5f1326d9f255c05"
+    },
+    {
+      "file": "test/ptyhost-conformance-child.mjs",
+      "sha256": "494177bd71b742222daeeafd15b144ba268d3405467d1518561335bd4fb40baf"
     }
   ],
   "checksNotYetRun": [
-    "End-to-end tests including e2e/hidden-threads.spec.ts (CI; not run locally)",
+    "End-to-end tests (CI; not run locally)",
     "Packaged native e2e for this candidate",
     "Windows release delivery and installed activation"
   ]

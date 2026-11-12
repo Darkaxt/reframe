@@ -32,6 +32,9 @@ import {
 } from './protocol';
 
 const root = path.resolve(__dirname, '..', '..');
+// Sessions idle with background work are looked at again every half second here (not every 20 s): in the hosts
+// started below (which inherit it) and in the oracle's SessionManager.
+process.env.REFRAME_PTYHOST_BACKGROUND_MS = '500';
 const child = path.join(root, 'test', 'ptyhost-conformance-child.mjs');
 const conptyDir = path.join(root, 'node_modules', 'node-pty', 'prebuilds', 'win32-x64', 'conpty');
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -403,7 +406,9 @@ type Step =
   | { hook: string; payload?: Record<string, unknown> }
   | { exit: number }
   | { detach: true }
-  | { attach: true };
+  | { attach: true }
+  /** The claude starts a long-lived tool shell (cmd.exe), and waits until it counts (5 s), or ends it again. */
+  | { shell: 'start' | 'stop' };
 
 interface Scenario {
   name: string;
@@ -425,6 +430,8 @@ const STEP_MS = 1800;
 const CLAUDE_ID = 'claude-1';
 const WSL_DISTRO = 'Fake';
 const WSL_PID = 4242;
+/** How long a shell step waits beyond STEP_MS: a started shell counts after 5 s; an ended one is looked for again. */
+const SHELL_WAIT_MS = { start: 5_500, stop: 1_500 };
 /** A process id nothing has: SessionManager reads its registry entry, nothing else of it. */
 const ORACLE_PID = 999_999_999;
 
@@ -499,6 +506,43 @@ const SCENARIOS: Scenario[] = [
     ],
     check: (oracle) => expect(oracle.at(-1)).toMatchObject({ status: 'idle', notify: ['done'] }),
   },
+  {
+    name: 'background work after a turn',
+    steps: [
+      { registry: { status: 'idle' } },
+      { hook: 'UserPromptSubmit' },
+      { registry: { status: 'busy' } },
+      { shell: 'start' },
+      // Done with a shell left running: idle with background work, not done.
+      { hook: 'Stop' },
+      { registry: { status: 'idle' } },
+      // A new turn, and Claude Code starting one of its own.
+      { hook: 'UserPromptSubmit' },
+      { hook: 'Stop' },
+      { registry: { status: 'busy' } },
+      { hook: 'Stop' },
+      // The last shell is gone: done.
+      { shell: 'stop' },
+      { hook: 'Notification', payload: { notification_type: 'permission_prompt' } },
+    ],
+    check: (oracle) => {
+      expect(oracle.map((o) => o.status)).toEqual([
+        'idle',
+        'busy',
+        'busy',
+        'busy',
+        'background',
+        'background',
+        'busy',
+        'background',
+        'busy',
+        'background',
+        'idle',
+        'waiting',
+      ]);
+      expect(announced(oracle)).toEqual(['done', 'waiting']);
+    },
+  },
 ];
 
 /** Everything announced in a run. */
@@ -563,6 +607,8 @@ async function runOracle(scenario: Scenario): Promise<Observation[]> {
           ),
       }
     : undefined;
+  // Whether the oracle's claude has a tool shell (a `shell` step).
+  let shells = false;
   const manager = new SessionManager({
     host: fake as unknown as PtyHostClient,
     claudeHome: home,
@@ -570,6 +616,7 @@ async function runOracle(scenario: Scenario): Promise<Observation[]> {
     env: {},
     resolveClaude: () => ({ file: 'claude.exe', prefixArgs: [], env: {}, source: 'oracle' }),
     wsl,
+    toolShells: () => shells,
   });
   const cwd = scenario.wsl ? path.join(share, WSL_DISTRO, 'home', 'me', 'proj') : root;
   fs.mkdirSync(cwd, { recursive: true });
@@ -608,6 +655,10 @@ async function runOracle(scenario: Scenario): Promise<Observation[]> {
       fake.emit('event', { type: 'exit', sessionId: 's', instance: request.instance, pid, exitCode: step.exit });
     }
     if ('detach' in step) detached = true;
+    if ('shell' in step) {
+      shells = step.shell === 'start';
+      await pause(SHELL_WAIT_MS[step.shell]);
+    }
     if ('attach' in step) {
       detached = false;
       // The host holds the hooks of the time no reframe was attached, and gives them to the next one.
@@ -1021,7 +1072,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         quota: 1,
         clients: 1,
         launch: 1,
-        sessions: 1,
+        sessions: 2,
         state: 1,
         observer: 1,
       });
@@ -1323,7 +1374,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
     it('tells the statuses on attach, and refuses what it does not know', async () => {
       const host = await startHost(kind);
       const { connection, welcome } = await attach(host);
-      expect(welcome.services.sessions).toBe(1);
+      expect(welcome.services.sessions).toBe(2);
       connection.send({ type: 'svc', id: 1, service: 'sessions', method: 'list', params: {} });
       expect(await connection.next('list', (m) => m.type === 'svc-result' && m.id === 1)).toEqual({
         type: 'svc-result',
@@ -1379,7 +1430,8 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       const state: { status?: string; claudeSessionId?: string; name?: string; notify: string[] } = { notify: [] };
       const take = (data: Message) => {
         if (data.sessionId !== sessionId) return;
-        state.status = data.status;
+        // Idle with background work is a status of its own in reframe.
+        state.status = data.status === 'idle' && data.background ? 'background' : data.status;
         if (data.registry) {
           state.claudeSessionId = data.registry.sessionId;
           state.name = data.registry.name;
@@ -1400,6 +1452,10 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         if ('hook' in step)
           held = post(port, `/hook/${sessionId}/${step.hook}`, token, JSON.stringify(step.payload ?? {}));
         if ('exit' in step) connection.request({ type: 'write', sessionId, data: `exit ${step.exit}\r` });
+        if ('shell' in step) {
+          connection.request({ type: 'write', sessionId, data: `shell ${step.shell}\r` });
+          await pause(SHELL_WAIT_MS[step.shell]);
+        }
         if ('detach' in step) {
           drain();
           connection.close();
