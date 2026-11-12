@@ -15,6 +15,7 @@ compile_error!("reframe-host runs on Windows (ConPTY); elsewhere reframe uses it
 mod files;
 mod hooks;
 mod host;
+mod limit;
 mod mirror;
 mod process;
 mod protocol;

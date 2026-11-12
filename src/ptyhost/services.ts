@@ -1,5 +1,5 @@
-// The Node host's services (docs/ptyhost-protocol.md, "Services"): the same `transcripts`, `quota`, `clients` and
-// `launch` services as the Rust host's (rust/reframe-host/src/transcripts.rs, services.rs), made of reframe's own
+// The Node host's services (docs/ptyhost-protocol.md, "Services"): the same `transcripts`, `quota`, `clients`,
+// `launch` and `state` services as the Rust host's (rust/reframe-host/src/transcripts.rs, services.rs), made of reframe's own
 // modules. The conformance tests hold both to them.
 import fs from 'node:fs';
 import { TranscriptIndex } from '../main/claude/discovery';
@@ -8,11 +8,21 @@ import { ClaudeWatcher } from '../main/claude/watcher';
 import { adoptedClient } from '../main/client-adoption';
 import { evaluateLaunchConfig } from '../main/launch-config';
 import { coordinatorExecutable, readCodexUsage, userHasStatusLine } from '../main/quota';
+import { StateConflict, StateFiles } from '../main/state/files';
 import type { HostServices, SvcErrorCode, SvcEvent } from './protocol';
 
-export const SERVICES: Required<HostServices> = { transcripts: 1, quota: 1, clients: 1, launch: 1, sessions: 1 };
-/** Requests being worked on at once; more are answered `busy`. */
+export const SERVICES: Required<HostServices> = {
+  transcripts: 1,
+  quota: 1,
+  clients: 1,
+  launch: 1,
+  sessions: 1,
+  state: 1,
+};
+/** Requests being worked on at once; up to MAX_WAITING more wait their turn (a burst on reframe's start, say), and
+ * beyond that they are answered `busy`. */
 const MAX_IN_FLIGHT = 8;
+const MAX_WAITING = 64;
 
 export class SvcError extends Error {
   constructor(
@@ -44,7 +54,7 @@ const required = (params: Record<string, unknown>, key: string): string => {
 
 export class TranscriptService {
   private homes = new Map<string, Home>();
-  private inFlight = 0;
+  private limit = new Limit();
 
   /** `emit`: a service event for the attached reframe (dropped without one). */
   constructor(private emit: (event: Omit<SvcEvent, 'type'>) => void) {}
@@ -97,14 +107,8 @@ export class TranscriptService {
     }
   }
 
-  private async busy<T>(work: () => Promise<T>): Promise<T> {
-    if (this.inFlight >= MAX_IN_FLIGHT) throw new SvcError('busy', 'too many transcript requests at once');
-    this.inFlight++;
-    try {
-      return await work();
-    } finally {
-      this.inFlight--;
-    }
+  private busy<T>(work: () => Promise<T>): Promise<T> {
+    return this.limit.run('transcript', work);
   }
 
   /** The transcripts only; reframe watches the session registry itself. */
@@ -126,7 +130,7 @@ export class TranscriptService {
 
 /** `quota`, `clients` and `launch`: asked when reframe needs them (no timers here); at most 8 at once. */
 export class ReadService {
-  private inFlight = 0;
+  private limit = new Limit();
 
   async call(service: string, method: string, params: Record<string, unknown>): Promise<unknown> {
     switch (`${service}.${method}`) {
@@ -160,13 +164,66 @@ export class ReadService {
     }
   }
 
-  private async busy<T>(service: string, work: () => Promise<T>): Promise<T> {
-    if (this.inFlight >= MAX_IN_FLIGHT) throw new SvcError('busy', `too many ${service} requests at once`);
-    this.inFlight++;
+  private busy<T>(service: string, work: () => Promise<T>): Promise<T> {
+    return this.limit.run(service, work);
+  }
+}
+
+/** Runs at most `running` at once, queues up to `waiting` more in order, and refuses the rest (`busy`). */
+export class Limit {
+  private active = 0;
+  private queue: (() => void)[] = [];
+
+  constructor(
+    private running = MAX_IN_FLIGHT,
+    private waiting = MAX_WAITING,
+  ) {}
+
+  async run<T>(what: string, work: () => Promise<T>): Promise<T> {
+    if (this.active >= this.running) {
+      if (this.queue.length >= this.waiting) throw new SvcError('busy', `too many ${what} requests at once`);
+      await new Promise<void>((resolve) => this.queue.push(resolve));
+    } else {
+      this.active++;
+    }
     try {
       return await work();
     } finally {
-      this.inFlight--;
+      // The place goes to the next one waiting, if any.
+      const next = this.queue.shift();
+      if (next) next();
+      else this.active--;
+    }
+  }
+}
+
+/** `state`: reframe's state.json, read and written one at a time, in the order asked (src/main/state/files.ts). */
+export class StateService {
+  private files = new StateFiles();
+  private limit = new Limit(1);
+
+  async call(method: string, params: Record<string, unknown>): Promise<unknown> {
+    const file = required(params, 'file');
+    switch (method) {
+      case 'read':
+        return this.limit.run('state', async () => this.files.read(file));
+      case 'write': {
+        const { content, revision, backup } = params;
+        if (typeof content !== 'string') throw new SvcError('bad-params', 'content must be a string');
+        if (typeof revision !== 'number' || !Number.isInteger(revision) || revision < 0)
+          throw new SvcError('bad-params', 'revision must be a number');
+        if (typeof backup !== 'boolean') throw new SvcError('bad-params', 'backup must be true or false');
+        return this.limit.run('state', async () => {
+          try {
+            return { revision: this.files.write(file, content, revision, backup) };
+          } catch (error) {
+            if (error instanceof StateConflict) throw new SvcError('conflict', error.message);
+            throw new SvcError('io', String(error));
+          }
+        });
+      }
+      default:
+        throw new SvcError('unknown-method', `state.${method}`);
     }
   }
 }

@@ -26,7 +26,7 @@ import {
   type ServerMessage,
   type SessionMeta,
 } from './protocol';
-import { ReadService, SERVICES, SvcError, TranscriptService } from './services';
+import { ReadService, SERVICES, StateService, SvcError, TranscriptService } from './services';
 import { SessionStatusService } from './sessions';
 
 interface View {
@@ -227,6 +227,7 @@ function dispose(sessionId: string, instance: number | null): void {
 
 const transcripts = new TranscriptService((event) => send({ type: 'svc-event', ...event }));
 const reads = new ReadService();
+const state = new StateService();
 const statuses = new SessionStatusService(
   (data) => send({ type: 'svc-event', service: 'sessions', event: 'status', data }),
   () => client !== null,
@@ -246,9 +247,11 @@ function svc(request: Extract<HostRequest, { type: 'svc' }>): void {
         : Promise.reject(new SvcError('unknown-method', `sessions.${request.method}`))
       : request.service === 'transcripts'
         ? transcripts.call(request.method, request.params ?? {})
-        : Object.hasOwn(SERVICES, request.service)
-          ? reads.call(request.service, request.method, request.params ?? {})
-          : Promise.reject(new SvcError('unknown-method', `${request.service}.${request.method}`));
+        : request.service === 'state'
+          ? state.call(request.method, request.params ?? {})
+          : Object.hasOwn(SERVICES, request.service)
+            ? reads.call(request.service, request.method, request.params ?? {})
+            : Promise.reject(new SvcError('unknown-method', `${request.service}.${request.method}`));
   call.then(
     (result) => answer({ type: 'svc-result', id, ok: true, result: result ?? null }),
     (error: unknown) =>

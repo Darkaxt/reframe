@@ -1,13 +1,15 @@
 //! What the PTY host's `quota`, `clients` and `launch` services read (docs/ptyhost-protocol.md, "Services"), as
 //! reframe's TypeScript reads it: the Codex quota from LLM Coordinator's native client and whether the user's Claude
 //! Code settings have a status line (src/main/quota.ts), the adopted clients verified by hash
-//! (src/main/client-adoption.ts) and the direct start's reframe-config.json (src/main/launch-config.ts). Nothing here
-//! writes or changes the environment; reframe applies what it is told.
+//! (src/main/client-adoption.ts) and the direct start's reframe-config.json (src/main/launch-config.ts). Besides reframe's state.json
+//! (state.rs, written as src/main/state/store.ts writes it), nothing here writes or changes the environment; reframe
+//! applies what it is told.
 #![forbid(unsafe_code)]
 
 pub mod adoption;
 pub mod launch;
 pub mod quota;
+pub mod state;
 
 use std::fs;
 use std::path::Path;

@@ -143,7 +143,7 @@ import { isProvider, providerName, modelForProviderChange, type Provider } from 
 import { expandedWorkspaceKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
 import { showProject } from '@shared/project-view';
-import { parseClaudeRateLimits, type ProviderQuota } from '@shared/quota';
+import { coordinatorQuotaIsNewer, parseClaudeRateLimits, type ProviderQuota } from '@shared/quota';
 import { HostReads } from './host-reads';
 import { Transcripts, type TranscriptLister } from './claude/transcripts';
 import { sessionLabel } from '@shared/labels';
@@ -219,6 +219,7 @@ export class ReframeApp {
   private sessions!: SessionManager;
   private windows: WindowManager;
   private refreshTray: () => void = () => {};
+  private trayAnyRunning = false;
   private refreshTrayTooltip: () => void = () => {};
   /** The system starts reframe when the user logs in: read at the start, changed in Settings. */
   private startsWithSystem = false;
@@ -319,6 +320,9 @@ export class ReframeApp {
       runtime: () => hostRuntime(app.getPath('userData'), this.log, hostKind),
       log: this.log,
     });
+    // Saves stay in-process and synchronous: the rest of reframe (and its end-to-end tests) relies on state.json
+    // being written when save() returns, which a write over the pipe cannot give. StateStore.useHost is there for
+    // when the saves can be awaited; until then the host's `state` service is served but not used here.
     await this.host.start();
     this.sessions = new SessionManager({
       host: this.host,
@@ -342,6 +346,12 @@ export class ReframeApp {
     this.sessions.on('changed', (id) => {
       this.pushSession(id);
       this.listChanged();
+      // The tray's "Terminate all sessions" is there only while one runs.
+      const running = this.runningSessions().length > 0;
+      if (running !== this.trayAnyRunning) {
+        this.trayAnyRunning = running;
+        this.refreshTray();
+      }
     });
     this.sessions.on('identity', (id, patch) => {
       this.updateIdentity(id, patch);
@@ -464,6 +474,8 @@ export class ReframeApp {
     } catch (error) {
       this.log('error', 'could not save the state on quitting', { error: String(error) });
     }
+    // Written (by the host) before it is let go.
+    await this.store.settle();
     // Quitting must not hang on a session that does not go: what is left is ended as an orphan on the next start.
     if (this.sessions && mode === 'end' && !(await settle(this.sessions.stopAll(), SHUTDOWN_MS))) {
       this.log('warn', 'sessions did not end in time, quitting anyway', { sessions: this.sessions.active });
@@ -477,6 +489,8 @@ export class ReframeApp {
     clearInterval(this.quotaLook);
     clearTimeout(this.listPush);
     this.save();
+    // The host is gone: written here, after anything it was still writing.
+    await this.store.settle();
     this.log('info', 'reframe stopped');
   }
 
@@ -1130,6 +1144,23 @@ export class ReframeApp {
   }
 
   /** Ends every session of the group; like a tile's ×, they stay in the session list. */
+  /** The sessions running in a window: [window id, session id]. */
+  private runningSessions(): [string, string][] {
+    if (!this.sessions) return [];
+    return this.state.windows.flatMap((w) =>
+      windowSessions(w)
+        .filter((id) => this.sessions.isRunning(id))
+        .map((id): [string, string] => [w.id, id]),
+    );
+  }
+
+  /** The tray's "Terminate all sessions": each ends as its tile's × ends it (reframe stays open). */
+  terminateAllSessions(): void {
+    const running = this.runningSessions();
+    this.log('info', 'ending all sessions', { sessions: running.length });
+    for (const [windowId, sessionId] of running) this.endSession(windowId, sessionId);
+  }
+
   endGroup(groupId: string): void {
     const win = this.windowOfGroup(groupId);
     const group = this.findGroup(groupId);
@@ -1943,12 +1974,18 @@ export class ReframeApp {
     for (const w of this.state.windows) this.push(w.id);
   }
 
-  /** Codex quota from LLM Coordinator, now and every five minutes (it observes the account itself), if installed. */
-  private watchCodexQuota(): void {
+  /**
+   * Codex quota from LLM Coordinator, now and every five minutes (it observes the account itself), if installed; and
+   * its Claude quota (newer Coordinators), unless reframe's own status line told a newer one.
+   */
+  private watchCoordinatorQuota(): void {
     if (process.env.REFRAME_E2E) return;
     const read = () =>
-      this.reads.codexQuota().then(({ coordinator, windows }) => {
+      this.reads.codexQuota().then(({ coordinator, windows, claude }) => {
         if (windows) this.setQuota({ source: 'codex', windows, at: Date.now() });
+        if (claude && coordinatorQuotaIsNewer(this.quota.get('claude'), claude)) {
+          this.setQuota({ source: 'claude', windows: claude.windows, at: claude.at });
+        }
         return coordinator;
       });
     void read().then((coordinator) => {
@@ -1982,7 +2019,7 @@ export class ReframeApp {
    * is watched; what runs in WSL is looked at every little while.
    */
   private watchList(): void {
-    this.watchCodexQuota();
+    this.watchCoordinatorQuota();
     // The session registry is watched here; the transcripts by the PTY host when it serves them (else here, too).
     const rescan = () => void this.scanOutside(null).then(() => this.listChanged());
     this.listWatcher = new ClaudeWatcher(this.claudeHome, { folders: ['sessions'] });
@@ -2686,8 +2723,8 @@ export class ReframeApp {
         newSession: t('tray.newSession'),
         newWindow: t('tray.newWindow'),
         about: t('tray.about'),
+        terminateAll: t('tray.terminateAll'),
         quit: t('tray.quit'),
-        endSessionsAndQuit: t('tray.endSessionsAndQuit'),
       }),
       windows: () =>
         this.state.windows.map((w, i) => {
@@ -2728,8 +2765,9 @@ export class ReframeApp {
         }
         return null;
       },
+      anyRunning: () => this.runningSessions().length > 0,
+      terminateAll: () => this.terminateAllSessions(),
       quit: () => app.quit(),
-      endSessionsAndQuit: () => this.endSessionsAndQuit(),
     });
     this.refreshTray = refresh;
     this.refreshTrayTooltip = refreshTooltip;

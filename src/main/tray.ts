@@ -13,8 +13,8 @@ export interface TrayLabels {
   newSession: string;
   newWindow: string;
   about: string;
+  terminateAll: string;
   quit: string;
-  endSessionsAndQuit: string;
 }
 
 export interface TrayActions {
@@ -27,10 +27,12 @@ export interface TrayActions {
   /** "Restart to update" once an update is downloaded; in the portable copy "Download reframe X" (the release page). */
   update: () => { label: string; install: () => void } | null;
   about: () => void;
+  /** Whether a session is running (the menu is refreshed when that changes). */
+  anyRunning: () => boolean;
+  /** Ends every running session, as its tile's × does; reframe stays open. */
+  terminateAll: () => void;
   /** Quits; the sessions keep running and the next reframe takes them over. */
   quit: () => void;
-  /** Quits the way reframe did before its sessions outlived it: they end (and resume next time). */
-  endSessionsAndQuit: () => void;
 }
 
 export function createTray(
@@ -60,8 +62,8 @@ export function createTray(
         { type: 'separator' },
         ...(update ? [{ label: update.label, click: update.install }] : []),
         { label: labels.about, click: actions.about },
+        { label: labels.terminateAll, enabled: actions.anyRunning(), click: actions.terminateAll },
         { label: labels.quit, click: actions.quit },
-        { label: labels.endSessionsAndQuit, click: actions.endSessionsAndQuit },
       ]),
     );
   };

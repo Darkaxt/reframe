@@ -2,7 +2,7 @@
 //! transcript watching, served from the host so they outlive a reframe and its restarts. The reading is
 //! reframe-transcripts; this is the requests, the threads they run on and the folder watching.
 //!
-//! Reads run one thread per request, at most MAX_IN_FLIGHT at a time (more are answered `busy`). A watched folder is
+//! Reads run one thread per request, at most MAX_IN_FLIGHT at a time, MAX_WAITING more queued (beyond, `busy`). A watched folder is
 //! watched by the system (ReadDirectoryChangesW through notify), never polled: `<home>` itself without its subfolders,
 //! to see `projects` appear or go, and `<home>/projects` with them.
 
@@ -18,11 +18,14 @@ use serde_json::{json, Value};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::host::Input;
+use crate::limit::Limit;
 
 pub const SERVICE: &str = "transcripts";
 /// The version of the service the welcome advertises (`services.transcripts`).
 pub const VERSION: u32 = 1;
 const MAX_IN_FLIGHT: usize = 8;
+/// Queued behind those: reframe's start asks for a burst of them.
+const MAX_WAITING: usize = 64;
 
 /// A failed request: its `error` in `svc-result`.
 #[derive(Debug, PartialEq)]
@@ -65,7 +68,7 @@ struct Watching {
 
 pub struct Transcripts {
     homes: HashMap<String, Home>,
-    in_flight: Arc<Mutex<usize>>,
+    limit: Limit,
 }
 
 /// A request's work, run off the host's task; it gets its answer to the host itself.
@@ -75,7 +78,7 @@ impl Transcripts {
     pub fn new() -> Self {
         Self {
             homes: HashMap::new(),
-            in_flight: Arc::new(Mutex::new(0)),
+            limit: Limit::new("transcripts", MAX_IN_FLIGHT, MAX_WAITING),
         }
     }
 
@@ -148,24 +151,11 @@ impl Transcripts {
             }
             other => return Err(SvcError::new("unknown-method", format!("transcripts.{other}"))),
         };
-        {
-            let mut in_flight = self.in_flight.lock().unwrap_or_else(PoisonError::into_inner);
-            if *in_flight >= MAX_IN_FLIGHT {
-                return Err(SvcError::new("busy", "too many transcript requests at once"));
-            }
-            *in_flight += 1;
-        }
-        let in_flight = self.in_flight.clone();
-        let started = std::thread::Builder::new().name("transcripts".into()).spawn(move || {
+        self.limit.run("transcript", move || {
             let outcome = catch_unwind(AssertUnwindSafe(work))
                 .unwrap_or_else(|panic| Err(SvcError::new("io", crate::host::panic_text(&panic))));
-            *in_flight.lock().unwrap_or_else(PoisonError::into_inner) -= 1;
             answer(outcome);
-        });
-        if let Err(error) = started {
-            *self.in_flight.lock().unwrap_or_else(PoisonError::into_inner) -= 1;
-            return Err(SvcError::new("io", error.to_string()));
-        }
+        })?;
         Ok(None)
     }
 

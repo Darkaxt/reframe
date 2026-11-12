@@ -92,7 +92,8 @@ service only of a host whose welcome advertises it, and reads for itself otherwi
 
 - `svc { id, service, method, params }` → `svc-result { id, ok: true, result }` or
   `svc-result { id, ok: false, error: { code, message } }`, where `code` is `unknown-method` (also for an unknown
-  service), `bad-params`, `io` or `busy` (more than 8 requests being worked on at once). Answers go only to the
+  service), `bad-params`, `io` or `busy` (8 requests being worked on and 64 more waiting their turn; before 0.10.1-claudegpt.23, more than 8 at once),
+  `conflict` (`state` only). Answers go only to the
   connection that asked, if it is still the attached one; they can come in any order.
 - `svc-event { service, event, data }`: told to the attached reframe. Events while no reframe is attached are not
   held: the next reframe lists afresh when it attaches.
@@ -119,8 +120,8 @@ told by the system (ReadDirectoryChangesW) and never polls; the Node host uses `
 **`quota`, `clients` and `launch` (version 1 each).** Reads reframe asks for when it needs them, made in the host as
 `src/main/quota.ts`, `client-adoption.ts` and `launch-config.ts` make them (the Rust host: `rust/reframe-services`).
 The host keeps no timers for them: reframe asks for the Codex quota at start and every five minutes, as before (not
-again when no Coordinator is installed). Each request runs off the host's task, at most 8 per service at once
-(more: `busy`). Without the service in the welcome, or when a request fails, reframe reads for itself
+again when no Coordinator is installed). Each request runs off the host's task, at most 8 at once and 64 more waiting
+in turn (more: `busy`; from 0.10.1-claudegpt.23, before which more than 8 were refused). Without the service in the welcome, or when a request fails, reframe reads for itself
 (`src/main/host-reads.ts`).
 
 | Method | Result |
@@ -158,6 +159,24 @@ own entry found by its session id once and then by its process id, while that pr
 Reframe takes the status of a session the host follows from these alone (it does not follow its hooks or registry
 for it then); identity (`claudeSessionId`, folder, pids, first use) it takes from the forwarded hooks and the
 `registry` here, as before. Without the service, or if `list` fails, it follows the sessions itself.
+
+**`state` (version 1, since 0.10.1-claudegpt.23).** Reframe's `state.json`, written by the host as
+`src/main/state/store.ts` writes it in-process (the Rust host: `rust/reframe-services/src/state.rs`; the Node host:
+`src/main/state/files.ts`), so the file, its format and its path stay the same whichever writes it, and any release
+reads it. The content is opaque to the host: the schema, its checks and migrations stay reframe's. Requests are
+taken one at a time, in order (a queue of their own, so a slow quota read never holds a save up).
+
+| Method | Result |
+| --- | --- |
+| `state.read { file }` | `{ revision, content }`: the file's text (UTF-8), or null when it is not there. The revision is the host's for the file as read: unchanged (same size and modification time) since it was last read or written here, the same number; else a new one, higher than any before. |
+| `state.write { file, content, revision, backup }` | `{ revision }`, the new one. Refused with `conflict` (nothing written) unless `revision` is the file's current one here and the file has not changed on disk since: a file never read here, a stale writer, or one written meanwhile by someone else (reframe itself included). The content goes to `<file>.<host pid>.tmp`, is flushed to disk (fsync) and renamed over the file (retried a few times while something holds it); with `backup` and a file there, that file is first copied to `<file>.bak`. A failed write removes the temporary file and leaves the file; it must be read again before the next write. |
+
+Revisions live as long as the host: a new host (after an update) knows no file, so a writer reads it first.
+Reframe 0.10.1-claudegpt.23 does not use the service yet: it loads `state.json` itself (before a host is started:
+the state says which host) and saves it in-process and synchronously, because its callers expect the file written
+when a save returns. `StateStore.useHost` (one write at a time, always the newest state, the backup asked for when
+the file there is the one last written or read again and found good, one retry after reading again on `conflict`,
+in-process when the host fails) is there for when the saves can be awaited.
 
 ## Hooks
 

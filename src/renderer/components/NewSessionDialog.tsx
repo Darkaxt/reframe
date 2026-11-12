@@ -11,7 +11,7 @@ import {
   type PermissionMode,
 } from '@shared/launch';
 import { useApp } from '../context';
-import { folderKey } from '@shared/folder-workspaces';
+import { folderKey, rebaseFolder } from '@shared/folder-workspaces';
 
 const folderName = (folder: string): string => folder.trim().split(/[\\/]/).filter(Boolean).pop() ?? '';
 
@@ -92,9 +92,12 @@ export function NewSessionDialog({ onClose, initial }: { onClose: () => void; in
   };
 
   const pickProvider = (next: Provider) => {
+    const previous = providerRef.current;
     providerRef.current = next;
     setProvider(next);
-    setCwd(initial?.locations?.find((location) => location.provider === next)?.cwd || providerRoots[next]);
+    // The provider's own location of this workspace; else the folder moved from one workspace root to the other.
+    const location = initial?.locations?.find((l) => l.provider === next)?.cwd;
+    setCwd(location || rebaseFolder(cwd, providerRoots[previous], providerRoots[next]));
     // Each provider starts with its own remembered choices.
     if (!currentPreferences.current) return setModel('');
     const remembered = defaultsFor(currentPreferences.current, next);
