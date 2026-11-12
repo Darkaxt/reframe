@@ -13,6 +13,12 @@
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
       <ListBox x:Name="SessionList" Grid.Column="0" MouseDoubleClick="SessionList_Open" KeyDown="SessionList_KeyDown">
+        <ListBox.ItemContainerStyle>
+          <Style TargetType="ListBoxItem">
+            <!-- Screen readers and UI automation read the session's label, not the item's type name. -->
+            <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+          </Style>
+        </ListBox.ItemContainerStyle>
         <ListBox.ItemTemplate>
           <DataTemplate>
             <StackPanel Margin="2">
