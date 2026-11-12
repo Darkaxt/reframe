@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { expandedWorkspaceKey, folderKey, folderWorkspaces, workspaceKey } from './folder-workspaces';
+import { expandedWorkspaceKey, folderKey, folderWorkspaces, rebaseFolder, workspaceKey } from './folder-workspaces';
 describe('folder workspaces', () => {
   it('merges final folder names across paths and providers, retaining actual locations', () => {
     const groups = folderWorkspaces([
@@ -40,5 +40,26 @@ describe('folder workspaces', () => {
     expect(expandedWorkspaceKey('anthropic:c:/owner/Anthropic/Android')).toBe('project:android');
     expect(expandedWorkspaceKey('d:/other/ANDROID')).toBe('project:android');
     expect(expandedWorkspaceKey('project:android')).toBe('project:android');
+  });
+});
+
+describe('rebaseFolder', () => {
+  const from = 'C:\\Users\\me\\Documents\\ChatGPT\\Windows';
+  const to = 'C:\\Users\\me\\Documents\\Anthropic\\Windows';
+  it('moves a folder inside the root, keeping its relative part as written', () => {
+    expect(rebaseFolder(`${from}\\Foo/Bar`, from, to)).toBe(`${to}\\Foo/Bar`);
+    expect(rebaseFolder('c:/users/ME/documents/chatgpt/windows/Foo', from, to)).toBe(`${to}\\Foo`);
+    expect(rebaseFolder(`${from}\\foo`, `${from}\\`, `${to}\\`)).toBe(`${to}\\foo`);
+  });
+  it('gives the new root for the root itself and for an empty folder', () => {
+    expect(rebaseFolder(from, from, to)).toBe(to);
+    expect(rebaseFolder(`${from}\\`, from, to)).toBe(to);
+    expect(rebaseFolder('', from, to)).toBe(to);
+  });
+  it('leaves folders outside the root, siblings included', () => {
+    expect(rebaseFolder('D:\\Projects\\x', from, to)).toBe('D:\\Projects\\x');
+    const sibling = 'C:\\Users\\me\\Documents\\ChatGPT2\\Windows\\x';
+    expect(rebaseFolder(sibling, 'C:\\Users\\me\\Documents\\ChatGPT', to)).toBe(sibling);
+    expect(rebaseFolder(`${from}2\\x`, from, to)).toBe(`${from}2\\x`);
   });
 });

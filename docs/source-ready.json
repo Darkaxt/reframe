@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "f11e4878c3fc120bc0f86da16861366dfff97fea",
+  "sourceBase": "3f6dbde3ddbce97dbfeb7d649100fd3b8c9cefa2",
   "scope": "0.10.1-claudegpt.23: stage 2 slice 4 of the Rust migration. Additive PTY host protocol service state=1 (no protocol bump): state.read { file } -> { revision, content|null } and state.write { file, content, revision, backup } -> { revision } or conflict; temp file + fsync + rename with retry, .bak copied only when reframe vouches for the file there, compare-and-set on a per-host revision that also detects changes on disk; content opaque (zod schema and migrations stay in TypeScript); rust/reframe-services state.rs and the Node host's src/main/state/files.ts; StateStore writes through the host when the welcome advertises state (serialized, newest-state-wins, re-read on conflict, in-process fallback, settle before letting the host go and before exit), loads in-process as before; byte-compatible file. Host service requests queue (8 running, 64 waiting) instead of answering busy at 8. Tray: Terminate all sessions + Quit replace Quit (sessions keep running) and End sessions and quit. Claude quota from LLM Coordinator usage.snapshot providers[] when the user's own status line prevents capture; capture preferred unless the Coordinator observed later; codex from providers with buckets fallback",
   "inputHashes": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.10.1-claudegpt.23.md",
-      "sha256": "10260e0b6af2a98ace2d1d990cb14f071a09e40b1be471bfc042c9f1d9365cb9"
+      "sha256": "8a0bbedf9121be8fd08fa275489ef1871df810ff4e3d220360b225efde9bace9"
     },
     {
       "file": "package-lock.json",
@@ -91,6 +91,18 @@
     {
       "file": "src/ptyhost/services.ts",
       "sha256": "9f2f57c3570ff28fa0e3a2bcc2a998a56ebb97e0a597592f23f0e36b15ef43a5"
+    },
+    {
+      "file": "src/renderer/components/NewSessionDialog.tsx",
+      "sha256": "d806b5944f20a68f7983f6a96aedc0fe59b6e11b99ce2b9c0bb4f59c6ce60a1e"
+    },
+    {
+      "file": "src/shared/folder-workspaces.test.ts",
+      "sha256": "a5c6003063f297e9d57c79c0de51efd2685c5d7c6668d72bfee0731c6da8c06f"
+    },
+    {
+      "file": "src/shared/folder-workspaces.ts",
+      "sha256": "48015d1db7b22d6d9987549b878487d6e5f6584fa9a710b147af1ed3d74a7f79"
     },
     {
       "file": "src/shared/i18n.ts",
