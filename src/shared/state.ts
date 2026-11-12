@@ -108,6 +108,17 @@ export const sessionRecordSchema = z.object({
   used: z.boolean().optional(),
 });
 
+/** A thread hidden from Reframe (see hidden-threads.ts), with what the manager in Settings shows. */
+export const hiddenThreadSchema = z.object({
+  claudeSessionId: z.string(),
+  /** Its title when it was hidden. */
+  label: z.string(),
+  cwd: z.string(),
+  /** Its WSL distribution, if it ran in one. */
+  distro: z.string().optional(),
+  hiddenAt: z.number(),
+});
+
 export const LANGUAGES = ['system', 'en', 'de'] as const;
 
 /** The terminals' font size in pixels: what it starts at, and how far it goes. */
@@ -226,6 +237,8 @@ export const appStateSchema = z.object({
     .optional(),
   /** WSL distributions Claude Code was found in, so the session list can tell when one of them is not running. */
   wslDistros: z.array(z.string()).optional(),
+  /** Threads hidden from Reframe (added in 0.10.1-claudegpt.27; older files get none). */
+  hiddenThreads: z.array(hiddenThreadSchema).default([]),
 });
 
 export type DockEntry = z.infer<typeof dockEntrySchema>;
@@ -234,6 +247,7 @@ export type WindowState = z.infer<typeof windowStateSchema>;
 export type LaunchOptions = z.infer<typeof launchOptionsSchema>;
 export type SessionRecord = z.infer<typeof sessionRecordSchema>;
 export type Preferences = z.infer<typeof preferencesSchema>;
+export type HiddenThread = z.infer<typeof hiddenThreadSchema>;
 export type AppState = z.infer<typeof appStateSchema>;
 
 export function emptyWindow(id: string): WindowState {
@@ -247,5 +261,6 @@ export function defaultState(): AppState {
     windows: [emptyWindow(globalThis.crypto.randomUUID())],
     recentFolders: [],
     preferences: { ...DEFAULT_PREFERENCES },
+    hiddenThreads: [],
   };
 }

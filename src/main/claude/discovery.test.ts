@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { listRunning, listRunningAsync, readTranscriptInfo, TranscriptIndex } from './discovery';
+import { hiddenIds, restoreThreads } from '@shared/hidden-threads';
 
 const temps: string[] = [];
 function home(): string {
@@ -146,3 +147,46 @@ describe('listRunning', () => {
     expect(await listRunningAsync(path.join(h, 'missing'), none, alive)).toEqual([]);
   });
 });
+
+describe('hidden threads', () => {
+  it('leaves hidden threads out of the running ones, with and without blocking, and leaves their files alone', async () => {
+    const h = home();
+    fs.mkdirSync(path.join(h, 'sessions'));
+    const entry = (pid: number, sessionId: string) => {
+      const file = path.join(h, 'sessions', `${pid}.json`);
+      fs.writeFileSync(file, JSON.stringify({ pid, sessionId, cwd: 'C:/x' }));
+      return file;
+    };
+    entry(process.pid, 'visible');
+    const hiddenFile = entry(process.ppid, 'hidden');
+    const before = fs.readFileSync(hiddenFile, 'utf8');
+    const exclude = { pids: new Set<number>(), sessionIds: hiddenIds([thread('hidden')]) };
+    expect(listRunning(h, exclude).map((r) => r.sessionId)).toEqual(['visible']);
+    expect((await listRunningAsync(h, exclude, async () => true)).map((r) => r.sessionId)).toEqual(['visible']);
+    expect(fs.readFileSync(hiddenFile, 'utf8')).toBe(before);
+    // Restored: listed again at the next look.
+    const restored = { pids: new Set<number>(), sessionIds: hiddenIds(restoreThreads([thread('hidden')], 'all')) };
+    expect(
+      listRunning(h, restored)
+        .map((r) => r.sessionId)
+        .sort(),
+    ).toEqual(['hidden', 'visible']);
+  });
+
+  it('leaves hidden threads out of the history and its folders, and lists them again once restored', async () => {
+    const h = home();
+    transcript(h, 'p1', 'shown', user('shown work', 'C:/work/api'), 1_000);
+    transcript(h, 'p2', 'secret', user('hidden work', 'C:/work/secret'));
+    const index = new TranscriptIndex(h);
+    const hidden = [thread('secret')];
+    const page = await index.list({ limit: 10, exclude: hiddenIds(hidden) });
+    expect(page.items.map((i) => i.sessionId)).toEqual(['shown']);
+    expect(page.folders.flatMap((f) => f.locations.flatMap((l) => l.sessionIds))).toEqual(['shown']);
+    const again = await index.list({ limit: 10, exclude: hiddenIds(restoreThreads(hidden, ['secret'])) });
+    expect(again.items.map((i) => i.sessionId)).toEqual(['secret', 'shown']);
+  });
+});
+
+function thread(claudeSessionId: string) {
+  return { claudeSessionId, label: claudeSessionId, cwd: 'C:/x', hiddenAt: 1 };
+}

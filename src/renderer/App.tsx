@@ -643,6 +643,7 @@ export function App({ terminals }: { terminals: TerminalRegistry }) {
             defaultModel={view.defaultModel}
             defaultEffort={view.defaultEffort}
             defaultPermissionMode={view.defaultPermissionMode}
+            hiddenThreads={view.hiddenThreads}
             onClose={() => setSettingsOpen(false)}
           />
         )}
