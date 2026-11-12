@@ -55,6 +55,12 @@ export type HostRequest =
 export interface HostServices {
   /** Past sessions, titles and transcript watching (docs/ptyhost-protocol.md, "Services"). */
   transcripts?: number;
+  /** The Codex quota from LLM Coordinator and whether the user has a Claude Code status line. */
+  quota?: number;
+  /** The adopted Claude clients, verified by hash. */
+  clients?: number;
+  /** A direct start's reframe-config.json, verified by hash. */
+  launch?: number;
 }
 
 export interface SvcRequest {

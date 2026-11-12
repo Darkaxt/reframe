@@ -1,0 +1,16 @@
+[package]
+name = "reframe-services"
+version = "0.10.1"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Reframe's quota, client adoption and launch config reading, as its TypeScript does (src/main/quota.ts, client-adoption.ts, launch-config.ts)."
+
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+
+[[example]]
+# A stand-in for LLM Coordinator's native client in the conformance tests (never the real Coordinator).
+name = "fake-coordinator"
+path = "examples/fake-coordinator.rs"

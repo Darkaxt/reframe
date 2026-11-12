@@ -20,10 +20,17 @@ jobs:
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
       - run: cargo build --release --locked -p reframe-host
+      # The conformance tests' stand-in for LLM Coordinator (never the real one).
+      - run: cargo build --release --locked -p reframe-services --example fake-coordinator
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: reframe-host
           path: rust/target/release/reframe-host.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: fake-coordinator
+          path: rust/target/release/examples/fake-coordinator.exe
           if-no-files-found: error
 
   check:
@@ -51,11 +58,17 @@ jobs:
         with:
           name: reframe-host
           path: rust/dist
+      - uses: actions/download-artifact@v7.0.0
+        with:
+          name: fake-coordinator
+          path: rust/fake
       - name: Package (unpacked app)
         run: npm run dist:dir
       - name: PTY host conformance (Node and Rust hosts)
         shell: bash
-        run: REFRAME_RUST_HOST_EXE="$PWD/rust/dist/reframe-host.exe" npm run test:conformance
+        run: >-
+          REFRAME_RUST_HOST_EXE="$PWD/rust/dist/reframe-host.exe"
+          REFRAME_FAKE_COORDINATOR_EXE="$PWD/rust/fake/fake-coordinator.exe" npm run test:conformance
       - name: Packaged Rust PTY host
         shell: bash
         run: |

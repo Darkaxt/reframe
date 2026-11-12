@@ -18,6 +18,7 @@ mod host;
 mod mirror;
 mod process;
 mod protocol;
+mod services;
 mod transcripts;
 
 use std::path::PathBuf;

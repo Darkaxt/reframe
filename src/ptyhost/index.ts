@@ -26,7 +26,7 @@ import {
   type ServerMessage,
   type SessionMeta,
 } from './protocol';
-import { SERVICES, SvcError, TranscriptService } from './services';
+import { ReadService, SERVICES, SvcError, TranscriptService } from './services';
 
 interface View {
   sessionId: string;
@@ -222,6 +222,7 @@ function dispose(sessionId: string, instance: number | null): void {
 }
 
 const transcripts = new TranscriptService((event) => send({ type: 'svc-event', ...event }));
+const reads = new ReadService();
 
 /** A service request: answered to the reframe that asked, if it is still the attached one. */
 function svc(request: Extract<HostRequest, { type: 'svc' }>): void {
@@ -233,7 +234,9 @@ function svc(request: Extract<HostRequest, { type: 'svc' }>): void {
   const call =
     request.service === 'transcripts'
       ? transcripts.call(request.method, request.params ?? {})
-      : Promise.reject(new SvcError('unknown-method', `${request.service}.${request.method}`));
+      : Object.hasOwn(SERVICES, request.service)
+        ? reads.call(request.service, request.method, request.params ?? {})
+        : Promise.reject(new SvcError('unknown-method', `${request.service}.${request.method}`));
   call.then(
     (result) => answer({ type: 'svc-result', id, ok: true, result: result ?? null }),
     (error: unknown) =>

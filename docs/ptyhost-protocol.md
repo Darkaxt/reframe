@@ -116,6 +116,20 @@ Event `transcripts.changed { home, projects: [project] | "all" }`: transcripts o
 second after the first change, however many follow). The host has listed them as changed already. The Rust host is
 told by the system (ReadDirectoryChangesW) and never polls; the Node host uses `fs.watch` as reframe did.
 
+**`quota`, `clients` and `launch` (version 1 each).** Reads reframe asks for when it needs them, made in the host as
+`src/main/quota.ts`, `client-adoption.ts` and `launch-config.ts` make them (the Rust host: `rust/reframe-services`).
+The host keeps no timers for them: reframe asks for the Codex quota at start and every five minutes, as before (not
+again when no Coordinator is installed). Each request runs off the host's task, at most 8 per service at once
+(more: `busy`). Without the service in the welcome, or when a request fails, reframe reads for itself
+(`src/main/host-reads.ts`).
+
+| Method | Result |
+| --- | --- |
+| `quota.codex { localAppData, timeoutMs? }` | `{ coordinator: false, usage: null }` without `<localAppData>/Tools/llm-coordinator/active.json` naming a release (`[\w.-]+`) whose `releases/<release>/LLMCoordinator.exe` is there (an empty or null `localAppData` has none). Else `{ coordinator: true, usage }`: the exe is run hidden with `--native-client-stdin-active` and `{"method":"usage.snapshot","hours":24}` on its input, and `usage` is the JSON it writes, or null if it exits other than 0, writes no JSON or more than 64 MiB, or does not exit within `timeoutMs` (20000), when it is killed (the process, as `execFile` kills it). Reframe reads the windows from it with `parseCoordinatorUsage`. |
+| `quota.statusLine { claudeHome }` | Whether `<claudeHome>/settings.json` sets a `statusLine` (truthy); true also when it is there but cannot be read or parsed. |
+| `clients.adopted { record, provider }` | `adoptedClient(record, provider)`: `{ ok: true, path, version }` or `{ ok: false, reason }`. The record is a `reframe.client-adoption.v1` JSON file (a leading byte order mark is skipped); the binary is used only while its sha256 matches. The host keeps the hashes by path, size and modification time. |
+| `launch.evaluate { file }` | `evaluateLaunchConfig(file)`: `{ file, userData, runtime, claudeHome, env, refused, problems }` (the variables a direct start sets, the providers it refuses and why), or null when the file cannot be read (a byte order mark is not skipped) or lacks an absolute `userData`, `runtime` or `claudeHome`. Nothing is applied or created. Reframe applies its launch config before it reaches any host (the profile it sets decides which host that is), so it reads it itself; the method is there for what runs once a host does. |
+
 ## Hooks
 
 `POST /hook/<encodeURIComponent(sessionId)>/<event>` with `X-Reframe-Token: <hooks.token>`, where `event` is

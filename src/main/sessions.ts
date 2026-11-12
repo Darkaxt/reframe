@@ -84,13 +84,14 @@ export interface SessionManagerDeps {
   host: PtyHostClient;
   claudeHome: string;
   settingsDir: string;
-  resolveClaude: (provider?: Provider) => ClaudeBinary | null;
+  /** A promise when the PTY host is asked (an adopted client is verified there); the session shows as starting. */
+  resolveClaude: (provider?: Provider) => ClaudeBinary | null | Promise<ClaudeBinary | null>;
   env: NodeJS.ProcessEnv;
   log?: LogFn;
   /** Windows only: runs sessions in WSL folders. */
   wsl?: WslLauncher;
   /** Whether an Anthropic session's status line input may be captured (for its quota): no status line of the user's. */
-  captureStatusLine?: () => boolean;
+  captureStatusLine?: () => boolean | Promise<boolean>;
 }
 
 export type IdentityPatch = Partial<Pick<SessionRecord, 'claudeSessionId' | 'cwd' | 'pid' | 'linuxPid' | 'used'>>;
@@ -197,6 +198,32 @@ export class SessionManager extends EventEmitter<Events> {
     if (mode === 'lost') return this.fail(session.id, 'transcriptMissing');
     runtime.mode = mode;
     const claude = this.deps.resolveClaude(session.launch.provider);
+    const capture = session.launch.provider === 'anthropic' && (this.deps.captureStatusLine?.() ?? false);
+    if (!(claude instanceof Promise) && !(capture instanceof Promise)) {
+      return this.startHere(session, requested, runtime, claude, capture);
+    }
+    // Asked of the PTY host: the session shows as starting meanwhile, and is not started if it was ended by then.
+    this.emit('changed', session.id);
+    void Promise.all([claude, capture]).then(
+      ([claude, capture]) => {
+        if (this.runtimes.get(session.id) !== runtime || runtime.stopping || runtime.status !== 'starting') {
+          return runtime.markExited?.();
+        }
+        this.startHere(session, requested, runtime, claude, capture);
+      },
+      () => this.fail(session.id, 'claudeNotFound'),
+    );
+  }
+
+  /** Starts claude on Windows itself, once it is known which and whether its status line is captured. */
+  private startHere(
+    session: SessionRecord,
+    requested: LaunchMode,
+    runtime: Runtime,
+    claude: ClaudeBinary | null,
+    capture: boolean,
+  ): void {
+    const { mode } = runtime;
     if (!claude) return this.fail(session.id, 'claudeNotFound');
 
     const settings = writeHookSettings(
@@ -205,7 +232,7 @@ export class SessionManager extends EventEmitter<Events> {
       this.deps.host.hooks.token,
       session.id,
       session.launch.provider,
-      session.launch.provider === 'anthropic' && !!this.deps.captureStatusLine?.(),
+      capture,
     );
     this.log('info', 'session start', {
       session: session.id,

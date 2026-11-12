@@ -47,41 +47,47 @@ function check(binary: Binary | undefined, what: string): string | null {
   }
 }
 
+/** What a launch config sets: its profile and runtime folders, the variables it gives and what it refuses. */
+export interface LaunchPlan {
+  file: string;
+  userData: string;
+  runtime: string;
+  claudeHome: string;
+  /** REFRAME_CLIENT_ADOPTION, the two CLI bindings and the history helper's variables, as far as they are usable. */
+  env: Record<string, string>;
+  refused: Partial<Record<Provider, string>>;
+  problems: string[];
+}
+
+const isAbsolute = (p: unknown): p is string => typeof p === 'string' && path.isAbsolute(p);
+
 /**
- * Applies reframe-config.json to `env` when this is a direct start (REFRAME_USER_DATA unset, not a test) of a
- * packaged Windows build with such a file next to it. Returns null when nothing was applied.
+ * Reads the launch config `file` and verifies its bindings by hash, without changing anything; null when it cannot be
+ * read or lacks an absolute profile, runtime or Claude folder. (The PTY host's `launch.evaluate` answers the same.)
  */
-export function applyLaunchConfig(
-  execPath: string,
-  env: NodeJS.ProcessEnv,
-  { packaged, platform = process.platform }: { packaged: boolean; platform?: NodeJS.Platform },
-): AppliedLaunchConfig | null {
-  if (!packaged || platform !== 'win32' || env.REFRAME_USER_DATA || env.REFRAME_E2E) return null;
-  const file = path.join(path.dirname(execPath), LAUNCH_CONFIG);
+export function evaluateLaunchConfig(file: string): LaunchPlan | null {
   let config: LaunchConfig;
   try {
     config = JSON.parse(fs.readFileSync(file, 'utf8')) as LaunchConfig;
   } catch {
     return null;
   }
-  if (![config.userData, config.runtime, config.claudeHome].every((p) => typeof p === 'string' && path.isAbsolute(p)))
-    return null;
-  const result: AppliedLaunchConfig = { file, refused: {}, problems: [] };
-  fs.mkdirSync(config.runtime, { recursive: true });
-  env.REFRAME_USER_DATA = config.userData;
-  env.REFRAME_RUNTIME = config.runtime;
-  env.TEMP = env.TMP = config.runtime;
-  env.REFRAME_CLAUDE_HOME = config.claudeHome;
-  delete env.CLAUDE_CONFIG_DIR;
-  delete env.REFRAME_CLAUDE_BIN;
-  delete env.REFRAME_ANTHROPIC_CLAUDE_BIN;
-
-  delete env.REFRAME_CLIENT_ADOPTION;
+  if (!config || typeof config !== 'object') return null;
+  if (![config.userData, config.runtime, config.claudeHome].every(isAbsolute)) return null;
+  const plan: LaunchPlan = {
+    file,
+    userData: config.userData,
+    runtime: config.runtime,
+    claudeHome: config.claudeHome,
+    env: {},
+    refused: {},
+    problems: [],
+  };
+  const { env } = plan;
 
   // Adopted clients: the record is re-read for each new session (app.findClaude); a provider it cannot supply is
   // refused there. Without a usable record the fixed bindings below apply.
-  const adoption =
-    typeof config.clientAdoption === 'string' && path.isAbsolute(config.clientAdoption) ? config.clientAdoption : null;
+  const adoption = isAbsolute(config.clientAdoption) ? config.clientAdoption : null;
   const chatgptAdopted = adoption ? adoptedClient(adoption, 'chatgpt') : null;
   const anthropicAdopted = adoption ? adoptedClient(adoption, 'anthropic') : null;
   if (chatgptAdopted?.ok && anthropicAdopted?.ok) {
@@ -89,21 +95,61 @@ export function applyLaunchConfig(
     env.REFRAME_CLAUDE_BIN = chatgptAdopted.path;
     env.REFRAME_ANTHROPIC_CLAUDE_BIN = anthropicAdopted.path;
   } else {
-    for (const c of [chatgptAdopted, anthropicAdopted]) if (c && !c.ok) result.problems.push(c.reason);
+    for (const c of [chatgptAdopted, anthropicAdopted]) if (c && !c.ok) plan.problems.push(c.reason);
     const chatgpt = check(config.claudeBin, 'ChatGPT CLI');
-    if (chatgpt) result.refused.chatgpt = chatgpt;
+    if (chatgpt) plan.refused.chatgpt = chatgpt;
     else env.REFRAME_CLAUDE_BIN = config.claudeBin.path;
     const anthropic = check(config.anthropicClaudeBin, 'Anthropic CLI');
-    if (anthropic) result.refused.anthropic = anthropic;
+    if (anthropic) plan.refused.anthropic = anthropic;
     else env.REFRAME_ANTHROPIC_CLAUDE_BIN = config.anthropicClaudeBin!.path;
   }
 
   const history = config.history;
   const helper = history && check({ path: history.helper, sha256: history.helperSha256 }, 'history helper');
-  if (history && !helper && path.isAbsolute(history.python)) {
+  if (history && !helper && isAbsolute(history.python)) {
     env.REFRAME_HISTORY_PYTHON = history.python;
     env.REFRAME_HISTORY_HELPER = history.helper;
     env.REFRAME_HISTORY_HELPER_SHA256 = history.helperSha256;
-  } else result.problems.push(helper || 'history helper: not configured');
-  return result;
+  } else plan.problems.push(helper || 'history helper: not configured');
+  return plan;
+}
+
+/** The launch config next to a direct start (REFRAME_USER_DATA unset, not a test) of a packaged Windows build. */
+export function launchConfigFile(
+  execPath: string,
+  env: NodeJS.ProcessEnv,
+  { packaged, platform = process.platform }: { packaged: boolean; platform?: NodeJS.Platform },
+): string | null {
+  if (!packaged || platform !== 'win32' || env.REFRAME_USER_DATA || env.REFRAME_E2E) return null;
+  return path.join(path.dirname(execPath), LAUNCH_CONFIG);
+}
+
+/** Sets what `plan` gives in `env` (the variables of the managed launcher's it replaces are cleared first). */
+export function applyLaunchPlan(plan: LaunchPlan, env: NodeJS.ProcessEnv): AppliedLaunchConfig {
+  fs.mkdirSync(plan.runtime, { recursive: true });
+  env.REFRAME_USER_DATA = plan.userData;
+  env.REFRAME_RUNTIME = plan.runtime;
+  env.TEMP = env.TMP = plan.runtime;
+  env.REFRAME_CLAUDE_HOME = plan.claudeHome;
+  delete env.CLAUDE_CONFIG_DIR;
+  delete env.REFRAME_CLAUDE_BIN;
+  delete env.REFRAME_ANTHROPIC_CLAUDE_BIN;
+  delete env.REFRAME_CLIENT_ADOPTION;
+  Object.assign(env, plan.env);
+  return { file: plan.file, refused: { ...plan.refused }, problems: [...plan.problems] };
+}
+
+/**
+ * Applies reframe-config.json to `env` when this is a direct start (REFRAME_USER_DATA unset, not a test) of a
+ * packaged Windows build with such a file next to it. Returns null when nothing was applied. It runs before any PTY
+ * host is reached (the profile and runtime it sets decide which host that is), so it reads here.
+ */
+export function applyLaunchConfig(
+  execPath: string,
+  env: NodeJS.ProcessEnv,
+  options: { packaged: boolean; platform?: NodeJS.Platform },
+): AppliedLaunchConfig | null {
+  const file = launchConfigFile(execPath, env, options);
+  const plan = file && evaluateLaunchConfig(file);
+  return plan ? applyLaunchPlan(plan, env) : null;
 }

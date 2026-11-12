@@ -138,13 +138,13 @@ import { History, type PreparedHistory, type RetireJob } from './history';
 import { isArchiveRoot } from './archive-root';
 import { cleanAddDirs, cleanPrompt, rememberedDefaults } from '@shared/new-session';
 import { refusedProviders } from './launch-config';
-import { adoptedClient } from './client-adoption';
+import type { AdoptedClient } from './client-adoption';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
 import { expandedWorkspaceKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
 import { showProject } from '@shared/project-view';
 import { parseClaudeRateLimits, type ProviderQuota } from '@shared/quota';
-import { coordinatorExecutable, readCodexQuota, userHasStatusLine } from './quota';
+import { HostReads } from './host-reads';
 import { Transcripts, type TranscriptLister } from './claude/transcripts';
 import { sessionLabel } from '@shared/labels';
 
@@ -229,6 +229,7 @@ export class ReframeApp {
   private claudeHome = claudeHome();
   /** Windows' own past sessions and titles: from the PTY host when it serves them, else read here. */
   private transcripts = new Transcripts(this.claudeHome, () => this.host, this.log);
+  private reads = new HostReads(() => this.host, this.log);
   private updates: Updates;
   /** Sessions in WSL folders (Windows only). */
   private wsl = process.platform === 'win32' ? new WslDistros(this.log) : null;
@@ -296,7 +297,8 @@ export class ReframeApp {
       windows: this.state.windows.length,
       ...(dropped > 0 ? { emptyWindowsDropped: dropped } : {}),
       sessions: Object.keys(this.state.sessions).length,
-      claude: this.findClaude()?.source ?? 'not found',
+      // Before the PTY host is reached: found here.
+      claude: ((found) => (found instanceof Promise ? 'pty host' : (found?.source ?? 'not found')))(this.findClaude()),
       claudeHome: this.claudeHome,
     });
 
@@ -326,7 +328,11 @@ export class ReframeApp {
       resolveClaude: (provider) => this.findClaude(provider),
       log: this.log,
       wsl: this.wsl ?? undefined,
-      captureStatusLine: () => !process.env.REFRAME_E2E && !userHasStatusLine(this.claudeHome),
+      captureStatusLine: () => {
+        if (process.env.REFRAME_E2E) return false;
+        const has = this.reads.userHasStatusLine(this.claudeHome);
+        return typeof has === 'boolean' ? !has : has.then((h) => !h);
+      },
     });
     this.sessions.on('renamed', (id) => this.refreshTitle(id));
     this.sessions.on('quota', (_id, rateLimits) => {
@@ -1937,17 +1943,19 @@ export class ReframeApp {
     for (const w of this.state.windows) this.push(w.id);
   }
 
-  /** Codex quota from LLM Coordinator, now and every five minutes (it observes the account itself). */
+  /** Codex quota from LLM Coordinator, now and every five minutes (it observes the account itself), if installed. */
   private watchCodexQuota(): void {
-    const exe = process.env.REFRAME_E2E ? null : coordinatorExecutable();
-    if (!exe) return;
+    if (process.env.REFRAME_E2E) return;
     const read = () =>
-      void readCodexQuota(exe).then((windows) => {
+      this.reads.codexQuota().then(({ coordinator, windows }) => {
         if (windows) this.setQuota({ source: 'codex', windows, at: Date.now() });
+        return coordinator;
       });
-    read();
-    this.quotaLook = setInterval(read, 5 * 60_000);
-    this.quotaLook.unref();
+    void read().then((coordinator) => {
+      if (!coordinator || this.windows.quitting) return;
+      this.quotaLook = setInterval(() => void read(), 5 * 60_000);
+      this.quotaLook.unref();
+    });
   }
 
   /** The window shows the project of this session (other projects' tiles collapse). */
@@ -2898,14 +2906,14 @@ export class ReframeApp {
     on(IPC.openExternal, (_id, _event, url: unknown) => {
       if (typeof url === 'string' && /^https?:\/\//i.test(url)) void shell.openExternal(url);
     });
-    handle(IPC.dialogDefaults, () => ({
+    handle(IPC.dialogDefaults, async () => ({
       providerWorkspaceRoots: {
         chatgpt: path.join(app.getPath('documents'), 'ChatGPT'),
         anthropic: path.join(app.getPath('documents'), 'Anthropic'),
       },
       recentFolders: this.state.recentFolders.filter((folder) => !!this.wslPath(folder) || isDirectory(folder)),
       preferences: this.state.preferences,
-      claude: this.findClaude()?.source ?? null,
+      claude: (await this.findClaude())?.source ?? null,
     }));
     handle(IPC.pickClaude, async (id) => {
       const win = this.windows.get(id);
@@ -3068,7 +3076,7 @@ export class ReframeApp {
    * The claude sessions run (in WSL folders their distribution's instead): the one chosen in Settings, else
    * REFRAME_CLAUDE_BIN (tests: a .js fake run by REFRAME_NODE), else the one on the PATH.
    */
-  private findClaude(provider?: Provider): ClaudeBinary | null {
+  private findClaude(provider?: Provider): ClaudeBinary | null | Promise<ClaudeBinary | null> {
     // A binary the launch config refused (missing or changed) never falls back to the PATH or the other provider.
     const refused = refusedProviders[provider ?? 'chatgpt'];
     if (refused) {
@@ -3080,12 +3088,16 @@ export class ReframeApp {
     // wins over the Settings choice, which the managed launcher pins to its own route anyway.
     const adoption = process.env.REFRAME_CLIENT_ADOPTION;
     if (adoption) {
-      const adopted = adoptedClient(adoption, provider ?? 'chatgpt');
-      if (!adopted.ok) {
-        this.log('error', 'adopted client refused', { provider: provider ?? 'chatgpt', reason: adopted.reason });
-        return null;
-      }
-      return resolveClaude({ env: process.env, platform: process.platform, override: adopted.path });
+      const use = (adopted: AdoptedClient) => {
+        if (!adopted.ok) {
+          this.log('error', 'adopted client refused', { provider: provider ?? 'chatgpt', reason: adopted.reason });
+          return null;
+        }
+        return resolveClaude({ env: process.env, platform: process.platform, override: adopted.path });
+      };
+      // Verified by the PTY host when it serves that (the hash of a large binary is not worked out here then).
+      const adopted = this.reads.adoptedClient(adoption, provider ?? 'chatgpt');
+      return adopted instanceof Promise ? adopted.then(use) : use(adopted);
     }
     return resolveClaude({
       env: process.env,

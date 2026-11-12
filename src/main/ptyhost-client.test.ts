@@ -211,3 +211,60 @@ describe('SessionManager.adopt', () => {
     manager.dispose();
   });
 });
+
+describe('SessionManager.start', () => {
+  const host = () =>
+    Object.assign(new EventEmitter(), {
+      running: true,
+      hooks: { port: 1, token: 't' },
+      adopted: [] as HostSession[],
+      write: vi.fn(),
+      dispose: vi.fn(),
+      spawn: vi.fn(),
+    });
+  const session = (id: string) =>
+    ({
+      id,
+      lifecycle: 'open',
+      claudeSessionId: `c-${id}`,
+      cwd: dir,
+      launch: { provider: 'anthropic' },
+      lastActiveAt: 0,
+    }) as unknown as SessionRecord;
+  const claude = { file: process.execPath, prefixArgs: [], env: {}, source: 'adopted' };
+
+  it('starts once the PTY host answered which claude and whether to capture the status line', async () => {
+    const pty = host();
+    const manager = new SessionManager({
+      host: pty as never,
+      claudeHome: dir,
+      settingsDir: dir,
+      resolveClaude: async () => claude as never,
+      captureStatusLine: async () => true,
+      env: {},
+    });
+    manager.start(session('a'), 'new');
+    expect(pty.spawn).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(pty.spawn).toHaveBeenCalledTimes(1));
+    expect(pty.spawn.mock.calls[0]![0]).toMatchObject({ sessionId: 'a', file: process.execPath });
+    manager.dispose();
+  });
+
+  it('does not start a session ended while the host was asked', async () => {
+    const pty = host();
+    let answer!: (c: never) => void;
+    const manager = new SessionManager({
+      host: pty as never,
+      claudeHome: dir,
+      settingsDir: dir,
+      resolveClaude: () => new Promise((resolve) => (answer = resolve)),
+      env: {},
+    });
+    manager.start(session('b'), 'new');
+    void manager.stop('b');
+    answer(claude as never);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(pty.spawn).not.toHaveBeenCalled();
+    manager.dispose();
+  });
+});

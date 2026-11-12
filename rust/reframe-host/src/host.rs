@@ -15,6 +15,7 @@ use crate::process::{self, Process, ProcessEvent};
 use crate::protocol::{
     check_hello, encode, HelloCheck, Request, SpawnRequest, ViewMessage, HOST_KIND, PROTOCOL_VERSION,
 };
+use crate::services::{self, Services};
 use crate::transcripts::{self, SvcError, Transcripts, WatchEvent};
 use reframe_transcripts::Changes;
 
@@ -149,6 +150,7 @@ pub struct Host {
     idle_since: Instant,
     next_serial: u64,
     transcripts: Transcripts,
+    services: Services,
     /// Transcript changes not told yet, per Claude Code folder; told once a batch is over, dropped (not queued)
     /// while no reframe is attached: the next one lists afresh.
     changes: Vec<(String, Changes)>,
@@ -169,6 +171,7 @@ impl Host {
             idle_since: Instant::now(),
             next_serial: 0,
             transcripts: Transcripts::new(),
+            services: Services::new(),
             changes: Vec::new(),
             flush_scheduled: false,
         }
@@ -312,6 +315,11 @@ impl Host {
                 entry
             })
             .collect();
+        let mut services = serde_json::Map::new();
+        services.insert(transcripts::SERVICE.into(), json!(transcripts::VERSION));
+        for (name, version) in services::SERVICES {
+            services.insert(name.into(), json!(version));
+        }
         self.send(json!({
             "type": "welcome",
             "protocol": PROTOCOL_VERSION,
@@ -320,7 +328,7 @@ impl Host {
             "hooks": { "port": self.config.hooks_port, "token": self.config.hooks_token },
             "sessions": sessions,
             "kind": HOST_KIND,
-            "services": { transcripts::SERVICE: transcripts::VERSION },
+            "services": services,
         }));
         // What changed before is in what the new reframe lists now.
         self.changes.clear();
@@ -380,6 +388,21 @@ impl Host {
         let Some(conn) = self.client else {
             return;
         };
+        if services::serves(service) {
+            let inputs = self.inputs.clone();
+            let answer_id = id.clone();
+            let answer = move |outcome| {
+                let _ = inputs.send(Input::SvcDone {
+                    conn,
+                    id: answer_id,
+                    outcome,
+                });
+            };
+            if let Err(error) = self.services.request(service, method, params, answer) {
+                self.svc_answer(conn, id, Err(error));
+            }
+            return;
+        }
         if service != transcripts::SERVICE {
             let error = SvcError {
                 code: "unknown-method",
