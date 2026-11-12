@@ -56,6 +56,7 @@ export interface SavedState {
   };
   recentFolders: string[];
   expandedProjects?: string[];
+  hiddenThreads?: { claudeSessionId: string; label: string; cwd: string; hiddenAt: number }[];
 }
 
 export interface FakeLaunch {

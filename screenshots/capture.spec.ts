@@ -104,6 +104,7 @@ class Demo {
       windows,
       recentFolders: [],
       preferences: { ...DEFAULT_PREFERENCES, language: 'en' },
+      hiddenThreads: [],
     };
     fs.mkdirSync(this.userData, { recursive: true });
     fs.writeFileSync(path.join(this.userData, 'state.json'), JSON.stringify(state, null, 2));

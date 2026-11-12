@@ -6,7 +6,15 @@ import type { FolderWorkspace } from './folder-workspaces';
 import type { DropTarget, LayoutNode } from './layout';
 import type { Locale } from './i18n';
 import type { EffortLevel, PermissionMode } from './launch';
-import type { CloseWindow, DockEntry, Preferences, PtyHostPreference, SessionRecord, Language } from './state';
+import type {
+  CloseWindow,
+  DockEntry,
+  HiddenThread,
+  Preferences,
+  PtyHostPreference,
+  SessionRecord,
+  Language,
+} from './state';
 
 /** starting → idle/busy/waiting while running; ended once the process is gone; error if it could not run. */
 export type SessionStatus = 'starting' | 'idle' | 'busy' | 'waiting' | 'ended' | 'error';
@@ -78,6 +86,8 @@ export interface WindowView {
   viewMode: 'single' | 'tiled';
   /** Subscription quota, for the counters below the session list. */
   quota: ProviderQuota[];
+  /** Threads hidden from Reframe, for the manager in Settings. */
+  hiddenThreads: HiddenThread[];
   sessions: Record<string, SessionView>;
 }
 
@@ -355,6 +365,8 @@ export interface ReframeApi {
   onEditChatModels(listener: (request: ChatModelEdit) => void): () => void;
   changeChatModels(items: ListItemRef[], provider: Provider, model: string): Promise<void>;
   onChatBatchResult(listener: (result: ChatBatchResult) => void): () => void;
+  /** Makes hidden threads visible again, by Claude session id, or all of them. */
+  restoreHiddenThreads(ids: string[] | 'all'): void;
   /** Forgets an ended session (its Claude Code transcript stays). */
   removeSession(sessionId: string): void;
   /** A terminal window with claude is dragged over this window (content coordinates); null when it left. */
@@ -413,6 +425,7 @@ export const IPC = {
   sessionListChanged: 'reframe:session-list-changed',
   openSession: 'reframe:open-session',
   removeSession: 'reframe:remove-session',
+  restoreHiddenThreads: 'reframe:restore-hidden-threads',
   openSessions: 'reframe:open-sessions',
   listMenu: 'reframe:list-menu',
   foreignDrag: 'reframe:foreign-drag',

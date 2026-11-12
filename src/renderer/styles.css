@@ -936,6 +936,48 @@ textarea {
   font-size: 12px;
 }
 
+.hidden-threads {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hidden-thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.hidden-thread {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hidden-thread-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hidden-thread-label,
+.hidden-thread-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hidden-thread-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .setting select {
   padding: 4px 6px;
   border: 1px solid var(--border-strong);

@@ -1,39 +1,84 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "a2926d7208a203f6f0e7003b667b0ccaa7ba0d72",
-  "scope": "0.10.1-claudegpt.26: (1) a session keeps its launch folder: identity cwd (hooks, registry) is taken only for a record without a cwd or a worktree session not yet in its worktree; on start, records whose transcript is not under their folder project are set back to the transcript head cwd (slug-checked) when their cwd lies inside it, logged per repair. (2) quit: window event hooks (koffi SetWinEventHook callbacks) are unhooked at the start of shutdown and their callbacks guarded, against 0xC000041D on quit (mechanism inferred, not confirmed by a dump). Also carries the unreleased 0.10.1-claudegpt.25 content.",
+  "sourceBase": "205321bd99fbf03009458785dae4a8ba0f2fa76f",
+  "scope": "0.10.1-claudegpt.27: hide threads from Reframe. 'Hide from Reframe…' (de: 'In Reframe ausblenden…') in the session list/history context menu, after a confirmation naming Settings › Hidden threads; disabled as '(end chat first)' while a Reframe-managed session runs. Keyed by claudeSessionId; state.json hiddenThreads (zod, default [] for older files) with label, cwd, distro and hiddenAt. A hidden thread is filtered by a Set lookup at discovery: registry scans (externalRunning, outsideClaudes: list, take-over, terminal window drops), transcript history, pinned items, project folders, Reframe's own ended records; recordFor and startOrTakeOver refuse it (no adoption, resume or take-over); notify skips it. Its process, registry entry and transcript are never touched; a hidden ended managed record is kept. Settings › Hidden threads lists label, folder and date with Restore and Restore all; restoring rescans at once (no restart). Unit tests for discovery filtering, persistence/migration and restore; e2e spec e2e/hidden-threads.spec.ts (not run locally).",
   "inputHashes": [
     {
-      "file": "docs/releases/v0.10.1-claudegpt.26.md",
-      "sha256": "5883ca2765b2a261ad6f7403f6fbf7fe6023617c61bec98876e95656acbfd4ed"
+      "file": "docs/releases/v0.10.1-claudegpt.27.md",
+      "sha256": "359937e49cfc17a3b77d5366a6bdc080ea59c6981f6e8f40f6c76a0556815a66"
+    },
+    {
+      "file": "e2e/helpers.ts",
+      "sha256": "bf03c4657318f35a6debf022df82526b8be175f3ef00ce531922a8f1e48be33c"
+    },
+    {
+      "file": "e2e/hidden-threads.spec.ts",
+      "sha256": "320b3531fc99e0739675284184a5ee4ae4e9e609e33da5bf20ce9fedc355edf9"
     },
     {
       "file": "package-lock.json",
-      "sha256": "8a86e67379529eb32c02811f5ff6cd973aa63ced06242e0ef14248a4b3b8b5df"
+      "sha256": "235d641b1dcfe8fb5fa398603b8548dfaaec6f404e757c0d883538edace3f10c"
     },
     {
       "file": "package.json",
-      "sha256": "0707d29bfaceeee0c9b557e583b5af1ef8b2a0ab2940f0917d3ef069b8792436"
+      "sha256": "a81993fbfc519e95dc8c4c5f43db8867d0769a17bb63f880e0d7c2bfda4fd4fd"
+    },
+    {
+      "file": "screenshots/capture.spec.ts",
+      "sha256": "13ec379737304126223a63d650c9debfe052ff56613a1196f094bb5c3f04eee1"
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "ac3dbb109bc05140b3d5c7ea388b407b97ed09aa10bd1f5fc2c301c401eab419"
+      "sha256": "1fbfc7ae2642565f797f8bb8e2d886dab1e81d8076da9006101c25625c3fb585"
     },
     {
-      "file": "src/main/claude/launch-folder.test.ts",
-      "sha256": "150f79070cee89db09722d093376f39e4a4d4f4c8611a6639085f7a3889c038a"
+      "file": "src/main/claude/discovery.test.ts",
+      "sha256": "60351085e39cd03d025f4913ec24515bb2a395bdb6e8822ec54fc40ef9067ff8"
     },
     {
-      "file": "src/main/claude/launch-folder.ts",
-      "sha256": "c6703945cecce667061ac7644720c1a5839987499f14142d453f04ca296db884"
+      "file": "src/main/state/store.test.ts",
+      "sha256": "939c5b11663bf7ff14b1271da1e343d6a5c47a1a272942ddab8962b7c75ef135"
     },
     {
-      "file": "src/main/win32.ts",
-      "sha256": "1734d06a47ef07f72983928e3abede7a646d993f1cb3b082a64d9bde83b8e6f2"
+      "file": "src/preload/index.ts",
+      "sha256": "bd1c65156c430bc54e4c606a9fa3a4ef6d18a23398496a5bdc84adbf74354cde"
+    },
+    {
+      "file": "src/renderer/App.tsx",
+      "sha256": "da1d7a013f5da9742cdfb53910bbe4168166bc5f0854b204ce2189b1da65c321"
+    },
+    {
+      "file": "src/renderer/components/SettingsDialog.tsx",
+      "sha256": "4e5f42409a7ac61f4318944d234dbcd2ad72eaeb461a7fd9da2dfcce3c465c14"
+    },
+    {
+      "file": "src/renderer/styles.css",
+      "sha256": "b0d5b414b94f25cf79da8877c5f08fed03ad9955bf1bef056777f9e6a86d5d7e"
+    },
+    {
+      "file": "src/shared/hidden-threads.test.ts",
+      "sha256": "8cc597fe4212bcb00462609d8434d1b932ef3ddeae7651633da42d652e034bae"
+    },
+    {
+      "file": "src/shared/hidden-threads.ts",
+      "sha256": "d925be9db3dc40ea83648b9335832b90f72a424ac8f2de71af101a7695b9b443"
+    },
+    {
+      "file": "src/shared/i18n.ts",
+      "sha256": "97a9d482648c10f2e4085973a3eaea9ce5077c652cf0009b7ec48667f0297999"
+    },
+    {
+      "file": "src/shared/ipc.ts",
+      "sha256": "645e0ca1dc54f98278190328f138f8d88f5df2200091df18f3d86d9329e3d9a1"
+    },
+    {
+      "file": "src/shared/state.ts",
+      "sha256": "edf270268f1b8343594b982a1c66a24ae3e1b366169c36a7201dba0721ba65b6"
     }
   ],
   "checksNotYetRun": [
+    "End-to-end tests including e2e/hidden-threads.spec.ts (CI; not run locally)",
     "Packaged native e2e for this candidate",
     "Windows release delivery and installed activation"
   ]

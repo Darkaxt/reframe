@@ -70,6 +70,7 @@ const api: ReframeApi = {
   onSessionList: (listener) => subscribe<SessionList>(IPC.sessionListChanged, listener),
   openSession: (request) => ipcRenderer.send(IPC.openSession, request),
   removeSession: (sessionId) => ipcRenderer.send(IPC.removeSession, sessionId),
+  restoreHiddenThreads: (ids) => ipcRenderer.send(IPC.restoreHiddenThreads, ids),
   openSessions: (request) => ipcRenderer.send(IPC.openSessions, request),
   showListMenu: (items) => ipcRenderer.send(IPC.listMenu, items),
   onEditChatModels: (listener) => subscribe<ChatModelEdit>(IPC.editChatModels, listener),

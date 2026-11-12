@@ -142,6 +142,7 @@ import type { AdoptedClient } from './client-adoption';
 import { isProvider, providerName, modelForProviderChange, type Provider } from '@shared/providers';
 import { expandedWorkspaceKey, folderWorkspaces, workspaceKey } from '@shared/folder-workspaces';
 import { chatKey, parseChatKey } from '@shared/sidebar-chats';
+import { hiddenIds, hideThread, restoreThreads, withoutHidden } from '@shared/hidden-threads';
 import { showProject } from '@shared/project-view';
 import { coordinatorQuotaIsNewer, parseClaudeRateLimits, type ProviderQuota } from '@shared/quota';
 import { HostReads } from './host-reads';
@@ -659,6 +660,7 @@ export class ReframeApp {
       activeProject: win.activeProject ?? null,
       viewMode: viewModeOf(win),
       quota: [...this.quota.values()],
+      hiddenThreads: this.state.hiddenThreads,
       sessions,
     };
   }
@@ -1041,6 +1043,7 @@ export class ReframeApp {
    */
   private async startOrTakeOver(sessionId: string, mode: LaunchMode, windowId: string | null): Promise<void> {
     if (this.historyBusy.has(this.state.sessions[sessionId]?.claudeSessionId ?? '')) return;
+    if (this.hiddenThreads().has(this.state.sessions[sessionId]?.claudeSessionId ?? '')) return;
     if (this.startsPending.has(sessionId) || this.sessions.keepsRunning(sessionId)) return;
     const record = this.state.sessions[sessionId];
     if (!record) return;
@@ -1364,6 +1367,10 @@ export class ReframeApp {
     const distro = item.kind === 'app' ? this.wslPath(record!.cwd)?.distro : item.distro;
     const key = chatKey(identity, distro);
     const pinned = this.state.pinnedChats?.includes(key) || false;
+    // A session reframe runs is ended first, like Archive and Delete.
+    const hideable =
+      !record ||
+      (!this.sessions.isRunning(record.id) && record.lifecycle === 'ended' && !this.startsPending.has(record.id));
     const pinActions: MenuItemConstructorOptions[] = [
       { type: 'separator' },
       {
@@ -1378,6 +1385,12 @@ export class ReframeApp {
           this.save();
           this.listChanged();
         },
+      },
+      {
+        label: hideable ? this.t('hide.menu') : this.t('hide.menuEndFirst'),
+        enabled: hideable,
+        click: () =>
+          void this.hideFromList(windowId, item).catch((error: unknown) => this.showError(windowId, String(error))),
       },
     ];
     if (item.kind === 'running') return pinActions;
@@ -1421,6 +1434,102 @@ export class ReframeApp {
         click: () => run('delete'),
       },
     ];
+  }
+
+  // ---------- hidden threads ----------
+
+  private hiddenCache: { list: AppState['hiddenThreads']; ids: Set<string> } | null = null;
+  /** The hidden threads' Claude session ids (kept while the list is the same). */
+  private hiddenThreads(): Set<string> {
+    const list = this.state.hiddenThreads;
+    if (this.hiddenCache?.list !== list) this.hiddenCache = { list, ids: hiddenIds(list) };
+    return this.hiddenCache.ids;
+  }
+
+  /**
+   * Hides a list entry's thread from Reframe after asking: it is no longer listed, offered, counted or notified. Its
+   * process, registry entry and transcript are left alone; a session of reframe's keeps its record (ended), so that
+   * restoring it in Settings brings it back as it was.
+   */
+  private async hideFromList(windowId: string, item: ListItemRef): Promise<void> {
+    const record =
+      item.kind === 'app'
+        ? this.state.sessions[item.sessionId]
+        : Object.values(this.state.sessions).find((r) => r.claudeSessionId === item.claudeSessionId);
+    if (item.kind === 'app' && !record) return;
+    const busy = (r: SessionRecord) =>
+      this.sessions.isRunning(r.id) || r.lifecycle !== 'ended' || this.startsPending.has(r.id);
+    if (record && busy(record)) throw Error(this.t('hide.endFirst'));
+    const claudeSessionId = record?.claudeSessionId ?? (item as { claudeSessionId: string }).claudeSessionId;
+    const shown = await this.describeThread(item, record);
+    const browserWindow = this.windows.get(windowId);
+    const options = {
+      type: 'question' as const,
+      buttons: [this.t('hide.confirm'), this.t('dialog.cancel')],
+      defaultId: 0,
+      cancelId: 1,
+      title: this.t('hide.title'),
+      message: this.t('hide.message', { label: shown.label }),
+      detail: this.t('hide.detail'),
+    };
+    const { response } = browserWindow
+      ? await dialog.showMessageBox(browserWindow, options)
+      : await dialog.showMessageBox(options);
+    if (response !== 0) return;
+    // Started (or removed) while that was asked: left as it is.
+    const now = record && this.state.sessions[record.id];
+    if (record && (!now || busy(now))) return;
+    this.state = {
+      ...this.state,
+      hiddenThreads: hideThread(this.state.hiddenThreads, {
+        claudeSessionId,
+        label: shown.label,
+        cwd: shown.cwd,
+        ...(shown.distro ? { distro: shown.distro } : {}),
+        hiddenAt: Date.now(),
+      }),
+    };
+    this.save();
+    this.log('info', 'thread hidden from reframe', { claudeSession: claudeSessionId });
+    this.hiddenChanged();
+  }
+
+  /** A list entry's title and folder, as the hidden threads' manager shows them. */
+  private async describeThread(
+    item: ListItemRef,
+    record: SessionRecord | undefined,
+  ): Promise<{ label: string; cwd: string; distro?: string }> {
+    if (record) {
+      return { label: this.sessionView(record).label, cwd: record.cwd, distro: this.wslPath(record.cwd)?.distro };
+    }
+    if (item.kind === 'app') return { label: '', cwd: '' };
+    const listed = this.outside?.sources
+      .flatMap(({ source, running }) => running.map((entry) => ({ source, entry })))
+      .find(({ entry }) => entry.sessionId === item.claudeSessionId);
+    if (listed?.entry.cwd) {
+      const cwd = listed.source.windowsPath(listed.entry.cwd);
+      return { label: listed.entry.name || path.basename(cwd), cwd, distro: item.distro };
+    }
+    const source = await this.sourceOf(item);
+    const info = await source?.transcripts.find(item.claudeSessionId);
+    const cwd = info?.cwd && source ? source.windowsPath(info.cwd) : '';
+    return { label: info?.title || (cwd && path.basename(cwd)) || item.claudeSessionId, cwd, distro: item.distro };
+  }
+
+  /** Makes hidden threads visible again (all of them: 'all'); they show at the next look, which is made now. */
+  restoreHiddenThreads(ids: string[] | 'all'): void {
+    const next = restoreThreads(this.state.hiddenThreads, ids);
+    if (next.length === this.state.hiddenThreads.length) return;
+    this.state = { ...this.state, hiddenThreads: next };
+    this.save();
+    this.log('info', 'hidden threads restored', { count: ids === 'all' ? 'all' : ids.length });
+    this.hiddenChanged();
+  }
+
+  /** The list and Settings (the manager) show the change; what runs elsewhere is looked at again right away. */
+  private hiddenChanged(): void {
+    for (const w of this.state.windows) this.push(w.id);
+    void this.scanOutside(null).then(() => this.listChanged());
   }
 
   private async inactiveChat(item: ListItemRef): Promise<SessionRecord> {
@@ -1757,7 +1866,8 @@ export class ReframeApp {
   private async sessionList(query: string, limit: number, folder?: string, provider?: Provider): Promise<SessionList> {
     const q = query.trim().toLowerCase();
     const matches = (...fields: (string | undefined)[]) => !q || fields.some((f) => f?.toLowerCase().includes(q));
-    const records = Object.values(this.state.sessions);
+    const hidden = this.hiddenThreads();
+    const records = withoutHidden(Object.values(this.state.sessions), hidden, (r) => r.claudeSessionId);
     const recordedProviders = new Map<string, Provider>(
       records.map((record) => [
         chatKey(record.claudeSessionId, this.wslPath(record.cwd)?.distro),
@@ -1823,7 +1933,7 @@ export class ReframeApp {
     const running = scanned
       .flatMap(({ source, running: entries }) =>
         entries
-          .filter((entry) => !ownIds.has(entry.sessionId))
+          .filter((entry) => !ownIds.has(entry.sessionId) && !hidden.has(entry.sessionId))
           .map((entry): RunningListItem => ({
             kind: 'running',
             pid: entry.pid,
@@ -1844,7 +1954,7 @@ export class ReframeApp {
           (!provider || providerOf(item.claudeSessionId, item.distro) === provider),
       );
 
-    const exclude = new Set([...ownIds, ...running.map((r) => r.claudeSessionId)]);
+    const exclude = new Set([...ownIds, ...running.map((r) => r.claudeSessionId), ...hidden]);
     const pages = await Promise.all(
       sources.map(async (source) => ({
         source,
@@ -1880,7 +1990,12 @@ export class ReframeApp {
     ]);
     for (const key of this.state.pinnedChats || []) {
       const pin = parseChatKey(key);
-      if (!pin || knownKeys.has(key) || found.some((item) => chatKey(item.claudeSessionId, item.distro) === key))
+      if (
+        !pin ||
+        hidden.has(pin.id) ||
+        knownKeys.has(key) ||
+        found.some((item) => chatKey(item.claudeSessionId, item.distro) === key)
+      )
         continue;
       const source = sources.find((entry) => (entry.distro?.toLowerCase() || '') === (pin.distro || ''));
       const info = await source?.transcripts.find(pin.id);
@@ -2125,7 +2240,8 @@ export class ReframeApp {
    * distribution that does not answer in time has none.
    */
   private async externalRunning(source: ClaudeSource): Promise<RegistryEntry[]> {
-    const exclude = { pids: this.ownProcesses(source.distro), sessionIds: new Set<string>() };
+    // Hidden threads are left out here, so nothing that asks what runs elsewhere sees them (list, take-over, drops).
+    const exclude = { pids: this.ownProcesses(source.distro), sessionIds: this.hiddenThreads() };
     const running = source.distro
       ? await withTimeout(listRunningAsync(source.home, exclude, source.alive), SHARE_TIMEOUT_MS, [])
       : listRunning(source.home, exclude);
@@ -2138,7 +2254,10 @@ export class ReframeApp {
    * told is left out).
    */
   private async outsideClaudes(): Promise<OutsideClaude[]> {
-    const ownIds = new Set(Object.values(this.state.sessions).map((r) => r.claudeSessionId));
+    const ownIds = new Set([
+      ...Object.values(this.state.sessions).map((r) => r.claudeSessionId),
+      ...this.hiddenThreads(),
+    ]);
     const here = listRunning(this.claudeHome, { pids: this.ownProcesses(), sessionIds: ownIds })
       .filter((entry) => entry.cwd)
       .map((entry): OutsideClaude => ({ entry, consolePid: entry.pid }));
@@ -2189,6 +2308,8 @@ export class ReframeApp {
   private async recordFor(windowId: string, item: ListItemRef, confirmed: boolean): Promise<SessionRecord | null> {
     const historyId = item.kind === 'app' ? this.state.sessions[item.sessionId]?.claudeSessionId : item.claudeSessionId;
     if (historyId && this.historyBusy.has(historyId)) return null;
+    // A hidden thread is never opened, adopted, resumed or taken over.
+    if (historyId && this.hiddenThreads().has(historyId)) return null;
     if (item.kind === 'app') return this.state.sessions[item.sessionId] ?? null;
 
     // A conversation reframe already manages is opened as that session, not a second copy.
@@ -2666,7 +2787,7 @@ export class ReframeApp {
   private notify(sessionId: string, kind: NotifyKind): void {
     const win = this.windowOf(sessionId);
     const record = this.state.sessions[sessionId];
-    if (!win || !record) return;
+    if (!win || !record || this.hiddenThreads().has(record.claudeSessionId)) return;
     const skip = (reason: string) => this.log('info', 'notification skipped', { session: sessionId, kind, reason });
     const seen = this.windows.isAttentive(win.id) && !isCollapsed(win, sessionId);
     // Waiting where nobody looks: its window's taskbar button flashes too, until the window is looked at.
@@ -3142,6 +3263,10 @@ export class ReframeApp {
         answer.claudeSessionIds.every((s) => typeof s === 'string') &&
         (answer.target === null || isDropTarget(answer.target));
       request.resolve(valid ? { claudeSessionIds: answer.claudeSessionIds!, target: answer.target ?? null } : null);
+    });
+    on(IPC.restoreHiddenThreads, (_id, _event, ids: unknown) => {
+      if (ids === 'all') this.restoreHiddenThreads('all');
+      else if (Array.isArray(ids) && ids.every((id) => typeof id === 'string')) this.restoreHiddenThreads(ids);
     });
     on(IPC.removeSession, (_id, _event, sessionId: unknown) => {
       if (typeof sessionId === 'string') this.removeSession(sessionId);

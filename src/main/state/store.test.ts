@@ -17,6 +17,7 @@ afterEach(() => {
   for (const dir of temps.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 
+const reloaded = (file: string): AppState => new StateStore(file).load().state;
 const withFolder = (folder: string): AppState => ({ ...defaultState(), recentFolders: [folder] });
 
 describe('StateStore', () => {
@@ -52,6 +53,18 @@ describe('StateStore', () => {
     fs.writeFileSync(s.file, JSON.stringify({ ...state, preferences }));
     expect(s.load()).toMatchObject({ source: 'file', state: { preferences: { ptyHost: 'node' } } });
     expect(defaultState().preferences.ptyHost).toBe('node');
+  });
+
+  it('gives files from before hidden threads existed none, and keeps hidden threads across a save', async () => {
+    const s = store();
+    const { hiddenThreads: _hidden, ...old } = defaultState();
+    fs.writeFileSync(s.file, JSON.stringify(old));
+    const loaded = s.load();
+    expect(loaded).toMatchObject({ source: 'file', state: { hiddenThreads: [] } });
+    const hidden = [{ claudeSessionId: 'abc', label: 'Elsewhere', cwd: 'C:/work', hiddenAt: 5 }];
+    s.save({ ...loaded.state, hiddenThreads: hidden });
+    await s.flush();
+    expect(reloaded(s.file).hiddenThreads).toEqual(hidden);
   });
 
   it('loads files with the removed saved workspaces and drops them on the next save', () => {

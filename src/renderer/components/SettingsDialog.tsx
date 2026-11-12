@@ -7,9 +7,10 @@ import {
   type EffortLevel,
   type PermissionMode,
 } from '@shared/launch';
-import { FONT_SIZE, type CloseWindow, type Language, type PtyHostPreference } from '@shared/state';
+import { FONT_SIZE, type CloseWindow, type HiddenThread, type Language, type PtyHostPreference } from '@shared/state';
 import { useApp } from '../context';
 import { fontSizeAfter } from '../shortcuts';
+import { exactTime } from '../time';
 
 /**
  * Settings: the language, the terminals' text size, snapping separators to a grid, what closing a window with
@@ -33,6 +34,7 @@ export function SettingsDialog({
   defaultEffort,
   defaultPermissionMode,
   archiveRoot,
+  hiddenThreads = [],
   onClose,
 }: {
   language: Language;
@@ -51,6 +53,7 @@ export function SettingsDialog({
   defaultEffort: EffortLevel | null;
   defaultPermissionMode: PermissionMode | null;
   archiveRoot?: string;
+  hiddenThreads?: HiddenThread[];
   onClose: () => void;
 }) {
   const { t, keys, locale } = useApp();
@@ -312,6 +315,45 @@ export function SettingsDialog({
             <p className="setting-hint">{t('settings.updatesHint')}</p>
           </>
         )}
+
+        <section className="hidden-threads" aria-label={t('settings.hidden')}>
+          <div className="setting">
+            <span>{t('settings.hidden')}</span>
+            <button
+              className="button"
+              disabled={hiddenThreads.length === 0}
+              onClick={() => window.reframe.restoreHiddenThreads('all')}
+            >
+              {t('settings.hiddenRestoreAll')}
+            </button>
+          </div>
+          <p className="setting-hint">{t('settings.hiddenHint')}</p>
+          {hiddenThreads.length === 0 ? (
+            <p className="setting-hint">{t('settings.hiddenNone')}</p>
+          ) : (
+            <ul className="hidden-thread-list">
+              {hiddenThreads.map((thread) => (
+                <li key={thread.claudeSessionId} className="hidden-thread">
+                  <span className="hidden-thread-text">
+                    <span className="hidden-thread-label">{thread.label || thread.claudeSessionId}</span>
+                    <span className="hidden-thread-meta" title={thread.cwd}>
+                      {[thread.cwd, t('settings.hiddenAt', { date: exactTime(thread.hiddenAt, locale) })]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </span>
+                  <button
+                    className="button"
+                    aria-label={`${t('settings.hiddenRestore')}: ${thread.label || thread.claudeSessionId}`}
+                    onClick={() => window.reframe.restoreHiddenThreads([thread.claudeSessionId])}
+                  >
+                    {t('settings.hiddenRestore')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         <div className="button-row end">
           <button className="button primary" autoFocus onClick={onClose}>
