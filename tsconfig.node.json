@@ -10,6 +10,7 @@
     "vitest.setup.ts",
     "playwright.config.ts",
     "playwright.screenshots.config.ts",
+    "playwright.visual.config.ts",
     "src/main/**/*",
     "src/preload/**/*",
     "src/ptyhost/**/*",

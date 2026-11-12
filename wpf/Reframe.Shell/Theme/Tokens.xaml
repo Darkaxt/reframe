@@ -1,0 +1,65 @@
+<!--
+  reframe's design tokens, taken from the Electron UI so that the WPF shell looks the same:
+  - colours: the custom properties of :root in src/renderer/styles.css (key = property name without its two leading dashes);
+  - sizes: the CSS rule and property named in each comment (and the title bar overlay of src/main/windows.ts).
+  Reframe.Shell.Tests/TokenTests.cs parses styles.css and windows.ts and fails when this file no longer matches them.
+  Every colour also has a brush ("<key>Brush").
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+  <Color x:Key="bg">#1b1c20</Color>
+  <Color x:Key="surface">#22242a</Color>
+  <Color x:Key="surface-2">#2a2d34</Color>
+  <Color x:Key="terminal">#17181c</Color>
+  <Color x:Key="border">#30333b</Color>
+  <Color x:Key="border-strong">#454a55</Color>
+  <Color x:Key="text">#d7dae0</Color>
+  <Color x:Key="muted">#8a8f98</Color>
+  <Color x:Key="accent">#d97757</Color>
+  <Color x:Key="accent-text">#1b1c20</Color>
+  <Color x:Key="ok">#4fbf7f</Color>
+  <Color x:Key="warn">#e0b04a</Color>
+  <Color x:Key="danger">#e06060</Color>
+  <Color x:Key="orange">#e8913a</Color>
+
+  <SolidColorBrush x:Key="bgBrush" Color="{StaticResource bg}" />
+  <SolidColorBrush x:Key="surfaceBrush" Color="{StaticResource surface}" />
+  <SolidColorBrush x:Key="surface-2Brush" Color="{StaticResource surface-2}" />
+  <SolidColorBrush x:Key="terminalBrush" Color="{StaticResource terminal}" />
+  <SolidColorBrush x:Key="borderBrush" Color="{StaticResource border}" />
+  <SolidColorBrush x:Key="border-strongBrush" Color="{StaticResource border-strong}" />
+  <SolidColorBrush x:Key="textBrush" Color="{StaticResource text}" />
+  <SolidColorBrush x:Key="mutedBrush" Color="{StaticResource muted}" />
+  <SolidColorBrush x:Key="accentBrush" Color="{StaticResource accent}" />
+  <SolidColorBrush x:Key="accent-textBrush" Color="{StaticResource accent-text}" />
+  <SolidColorBrush x:Key="okBrush" Color="{StaticResource ok}" />
+  <SolidColorBrush x:Key="warnBrush" Color="{StaticResource warn}" />
+  <SolidColorBrush x:Key="dangerBrush" Color="{StaticResource danger}" />
+  <SolidColorBrush x:Key="orangeBrush" Color="{StaticResource orange}" />
+
+  <!-- :root custom property "radius" -->
+  <sys:Double x:Key="radius">6</sys:Double>
+  <CornerRadius x:Key="radiusCorner">6</CornerRadius>
+
+  <!-- Font sizes (CSS px = WPF device-independent units): :root { font } is 13px; 12px is the most used. -->
+  <sys:Double x:Key="FontSize.Base">13</sys:Double>
+  <sys:Double x:Key="FontSize.Small">12</sys:Double>
+  <sys:Double x:Key="FontSize.Smaller">11</sys:Double>
+  <sys:Double x:Key="FontSize.Tiny">10</sys:Double>
+  <FontFamily x:Key="FontFamily.Ui">Segoe UI</FontFamily>
+
+  <!-- Sizes: rule and property in styles.css. -->
+  <sys:Double x:Key="Toolbar.Height">40</sys:Double>           <!-- .toolbar height -->
+  <sys:Double x:Key="TitleBar.Height">39</sys:Double>          <!-- TITLE_BAR_OVERLAY.height (windows.ts) -->
+  <sys:Double x:Key="TileHeader.Height">30</sys:Double>        <!-- .tile-header height -->
+  <sys:Double x:Key="GroupHeader.Height">28</sys:Double>       <!-- .group-header height -->
+  <sys:Double x:Key="ToolbarIcon.Size">28</sys:Double>         <!-- .toolbar-icon width -->
+  <sys:Double x:Key="IconButton.Size">22</sys:Double>          <!-- .icon-button width -->
+  <sys:Double x:Key="FolderWorkspace.MinHeight">44</sys:Double> <!-- .folder-workspace min-height -->
+  <sys:Double x:Key="Sidebar.Width">270</sys:Double>           <!-- .sidebar width (default of the sidebar-width variable) -->
+  <sys:Double x:Key="SidebarRow.Padding">6</sys:Double>        <!-- .sidebar-row padding -->
+  <sys:Double x:Key="Dock.Width">34</sys:Double>               <!-- .dock width -->
+  <sys:Double x:Key="StatusDot.Size">8</sys:Double>            <!-- .status-dot width -->
+  <sys:Double x:Key="QuotaBar.Height">6</sys:Double>           <!-- .quota-bar height -->
+</ResourceDictionary>

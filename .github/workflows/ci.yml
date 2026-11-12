@@ -61,6 +61,62 @@ jobs:
           path: wpf/publish/reframe-shell/
           if-no-files-found: error
 
+  # Visual parity with the Electron UI (tools/visual/report.mjs): Electron's reference set, the WPF shell's captures
+  # (--diag-capture, against the Rust host with two cmd.exe sessions) and the side-by-side report, on one runner.
+  visual:
+    needs: [rust, wpf]
+    runs-on: windows-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      REFRAME_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v7.0.0
+        with:
+          name: reframe-host
+          path: rust/dist
+      - uses: actions/download-artifact@v7.0.0
+        with:
+          name: reframe-shell
+          path: wpf-shell
+      - name: Package (unpacked app)
+        run: npm run dist:dir
+      - name: Electron reference set
+        shell: bash
+        run: >-
+          REFRAME_E2E_APP="$PWD/dist/win-unpacked/reframe.exe" REFRAME_VISUAL_OUT="$PWD/visual/electron"
+          npx playwright test -c playwright.visual.config.ts
+      - name: WPF captures
+        if: success() || failure()
+        shell: pwsh
+        run: ./tools/visual/Capture-Wpf.ps1 -Shell wpf-shell/Reframe.Shell.exe -HostBin rust/dist -Out visual/wpf -Scratch "$env:RUNNER_TEMP/wpf-visual"
+      - name: Side-by-side report
+        if: success() || failure()
+        run: node tools/visual/report.mjs --electron visual/electron --wpf visual/wpf --out visual/report
+      - uses: actions/upload-artifact@v7.0.2
+        if: success() || failure()
+        with:
+          name: visual-reference
+          path: visual/electron/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7.0.2
+        if: success() || failure()
+        with:
+          name: wpf-capture
+          path: visual/wpf/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7.0.2
+        if: success() || failure()
+        with:
+          name: visual-report
+          path: visual/report/
+          if-no-files-found: warn
+
   check:
     needs: rust
     strategy:

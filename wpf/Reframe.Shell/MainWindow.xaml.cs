@@ -69,7 +69,19 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         SessionList.ItemsSource = sessions;
-        Loaded += async (_, _) => await AttachAsync();
+        if (App.CaptureDir is { } captureDir)
+        {
+            // The client area at the Electron reference's page size, wherever the window is.
+            Root.Width = DiagCapture.Width;
+            Root.Height = DiagCapture.Height;
+            SizeToContent = SizeToContent.WidthAndHeight;
+            Loaded += async (_, _) =>
+            {
+                await AttachAsync();
+                await CaptureAsync(captureDir);
+            };
+        }
+        else Loaded += async (_, _) => await AttachAsync();
         Closed += async (_, _) =>
         {
             // Leaves the host with every session running (never "shutdown").
@@ -125,6 +137,37 @@ public partial class MainWindow : Window
             item.HasTitle = true;
         }
         catch (HostServiceException) { }
+    }
+
+    /// <summary>--diag-capture: the states stage 3a has, under the state ids of e2e/visual-reference.spec.ts; then exits.
+    /// Without a host that is the empty window; with sessions, the first one open, then two as tabs.</summary>
+    async Task CaptureAsync(string dir)
+    {
+        try
+        {
+            await DiagCapture.SettleAsync(this, 1000);
+            if (sessions.Count == 0)
+            {
+                DiagCapture.Save(this, dir, "main-empty");
+                return;
+            }
+            SessionList.SelectedIndex = 0;
+            OpenSelected();
+            await DiagCapture.SettleAsync(this, 3000);
+            DiagCapture.Save(this, dir, "main-sessions");
+            if (sessions.Count > 1)
+            {
+                SessionList.SelectedIndex = 1;
+                OpenSelected();
+                await DiagCapture.SettleAsync(this, 3000);
+                DiagCapture.Save(this, dir, "tabs");
+            }
+        }
+        finally
+        {
+            DiagCapture.WriteManifest(dir, StatusText.Text);
+            Close();
+        }
     }
 
     void SessionList_Open(object sender, MouseButtonEventArgs e) => OpenSelected();
