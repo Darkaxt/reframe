@@ -127,7 +127,7 @@ test('a terminal window dropped onto reframe hands its claude over and closes', 
     const { app, page } = await launch(s.env);
     // A group to drop into: released over its bar (not over a tile), the session must join it.
     await newSession(page, s.project, 'alpha');
-    await callMain(app, 'createGroup', s.byName('alpha').id);
+    await callMain(app, 'createGroup', (await s.byName('alpha')).id);
     const header = (await page.locator('.group-header').boundingBox())!;
     const bounds = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getContentBounds());
     const point = { x: bounds.x + header.x + header.width / 2, y: bounds.y + header.y + header.height / 2 };
@@ -145,15 +145,15 @@ test('a terminal window dropped onto reframe hands its claude over and closes', 
     await dialog.getByRole('button', { name: 'Take over' }).click();
 
     // claude left the terminal and continues in reframe, in the group, under the name it had there.
-    await expect.poll(() => alive(pid), { timeout: 15_000 }).toBe(false);
+    await expect.poll(async () => alive(pid), { timeout: 15_000 }).toBe(false);
     await expect(tileByLabel(page, 'outside')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.group .tile')).toHaveCount(2);
     await expect
-      .poll(() => s.launches().filter((l) => l.event === 'start' && l.args.join(' ').includes(sessionId)).length)
+      .poll(async () => s.launches().filter((l) => l.event === 'start' && l.args.join(' ').includes(sessionId)).length)
       .toBe(2);
 
     // Only cmd was left in that console, so reframe typed "exit" and the console went away.
-    await expect.poll(() => alive(shellPid), { timeout: 15_000 }).toBe(false);
+    await expect.poll(async () => alive(shellPid), { timeout: 15_000 }).toBe(false);
     expect(readLog(s)).toContain('typing exit');
     expect(readLog(s)).toContain('repeated drop of the same terminal window ignored');
 
@@ -180,17 +180,17 @@ test('a terminal window with a claude in WSL hands it over too, and its shells a
     await dialog.getByRole('button', { name: 'Take over' }).click();
 
     // claude ended in WSL (on a signal) and continues in reframe, in that distribution, under its name.
-    await expect.poll(() => alive(pid), { timeout: 15_000 }).toBe(false);
+    await expect.poll(async () => alive(pid), { timeout: 15_000 }).toBe(false);
     const outside = tileByLabel(page, 'outside');
     await expect(outside).toBeVisible({ timeout: 15_000 });
     await expect(outside.locator('.tile-cwd')).toHaveText('Fake ~/proj');
     await expect
-      .poll(() => s.launches().filter((l) => l.event === 'start' && l.args.join(' ').includes(sessionId)).length)
+      .poll(async () => s.launches().filter((l) => l.event === 'start' && l.args.join(' ').includes(sessionId)).length)
       .toBe(2);
 
     // The shell claude was typed into got "exit", which ended wsl.exe; then cmd, which had started it, got one too.
-    await expect.poll(() => alive(wslPid), { timeout: 15_000 }).toBe(false);
-    await expect.poll(() => alive(shellPid), { timeout: 15_000 }).toBe(false);
+    await expect.poll(async () => alive(wslPid), { timeout: 15_000 }).toBe(false);
+    await expect.poll(async () => alive(shellPid), { timeout: 15_000 }).toBe(false);
     expect(readLog(s)).toContain('"shell":"wsl"');
     expect(readLog(s)).toContain('terminal of a claude in wsl found');
 
@@ -266,13 +266,13 @@ test('a terminal tab torn out over reframe (a new terminal window there) is take
     await expect(dialog).toContainText('outside', { timeout: 10_000 });
     await dialog.getByRole('button', { name: 'Take over' }).click();
 
-    await expect.poll(() => alive(pid), { timeout: 15_000 }).toBe(false);
+    await expect.poll(async () => alive(pid), { timeout: 15_000 }).toBe(false);
     await expect(tileByLabel(page, 'outside')).toBeVisible({ timeout: 15_000 });
     // Dropped below alpha, then the tiled view puts the two back in its even grid, side by side.
     const alpha = (await tileByLabel(page, 'alpha').boundingBox())!;
     const outside = (await tileByLabel(page, 'outside').boundingBox())!;
     expect(outside.x).toBeGreaterThan(alpha.x + alpha.width / 2);
-    await expect.poll(() => alive(shellPid), { timeout: 15_000 }).toBe(false);
+    await expect.poll(async () => alive(shellPid), { timeout: 15_000 }).toBe(false);
     expect(readLog(s)).toContain('"pointFrom":"drag over reframe"');
 
     await quit(app);

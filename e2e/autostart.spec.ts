@@ -31,7 +31,7 @@ test('started by the system: windows stay hidden, sessions resume', async () => 
     const visible = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => w.isVisible()));
     await expect(tileByLabel(page, 'alpha')).toHaveCount(1);
     expect(await visible()).toEqual([false]);
-    await expect.poll(() => launches().filter((l) => l.event === 'start').length).toBe(2);
+    await expect.poll(async () => launches().filter((l) => l.event === 'start').length).toBe(2);
 
     // Started again: the second process leaves, and the window is there with its session.
     await startAgain(env);

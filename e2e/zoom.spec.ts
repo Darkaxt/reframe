@@ -9,7 +9,7 @@ test('Ctrl+Shift+Z lets a tile fill the window and back, the layout unchanged', 
     const { app, page } = await launch(env);
     await newSession(page, project, 'alpha');
     await newSession(page, project, 'beta');
-    const layout = JSON.stringify(state().windows[0]!.layout);
+    const layout = JSON.stringify((await state()).windows[0]!.layout);
     const area = (await page.locator('.layout').boundingBox())!;
     const before = (await tileByLabel(page, 'alpha').boundingBox())!;
 
@@ -21,7 +21,7 @@ test('Ctrl+Shift+Z lets a tile fill the window and back, the layout unchanged', 
     expect(zoomed.height).toBeGreaterThan(area.height - 20);
     // Typing goes on where it was.
     await expect(tileByLabel(page, 'alpha').locator('.xterm-helper-textarea')).toBeFocused();
-    expect(JSON.stringify(state().windows[0]!.layout)).toBe(layout);
+    expect(JSON.stringify((await state()).windows[0]!.layout)).toBe(layout);
 
     await page.keyboard.press('Control+Shift+Z');
     await expect(page.locator('.tile')).toHaveCount(2);

@@ -20,15 +20,15 @@ test('keyboard shortcuts and new windows', async () => {
 
     // Ctrl+1…9 by position (tiled view: alpha and beta on top, gamma below), Ctrl+Shift+arrows to the neighbor.
     await page.keyboard.press('ControlOrMeta+1');
-    await expect.poll(() => focused(page)).toBe('alpha');
+    await expect.poll(async () => focused(page)).toBe('alpha');
     await expect(tileByLabel(page, 'alpha')).toHaveCSS('border-color', 'rgb(217, 119, 87)');
     await expect(tileByLabel(page, 'beta')).not.toHaveCSS('border-color', 'rgb(217, 119, 87)');
     await page.keyboard.press('ControlOrMeta+2');
-    await expect.poll(() => focused(page)).toBe('beta');
+    await expect.poll(async () => focused(page)).toBe('beta');
     await page.keyboard.press('ControlOrMeta+Shift+ArrowLeft');
-    await expect.poll(() => focused(page)).toBe('alpha');
+    await expect.poll(async () => focused(page)).toBe('alpha');
     await page.keyboard.press('ControlOrMeta+Shift+ArrowDown');
-    await expect.poll(() => focused(page)).toBe('gamma');
+    await expect.poll(async () => focused(page)).toBe('gamma');
 
     // Ctrl+Shift+G: a single window shows the selected thread; Ctrl+Tab goes through the others; and back.
     await page.keyboard.press('ControlOrMeta+Shift+G');
@@ -45,13 +45,13 @@ test('keyboard shortcuts and new windows', async () => {
 
     // Ctrl+Shift+M collapses the focused tile; pressed again (no tile focused), it brings it back, focused.
     await page.keyboard.press('ControlOrMeta+3');
-    await expect.poll(() => focused(page)).toBe('gamma');
+    await expect.poll(async () => focused(page)).toBe('gamma');
     await page.keyboard.press('ControlOrMeta+Shift+M');
     await expect(page.locator('.dock-item', { hasText: 'gamma' })).toBeVisible();
     await expect(page.locator('.tile')).toHaveCount(2);
     await page.keyboard.press('ControlOrMeta+Shift+M');
     await expect(page.locator('.tile')).toHaveCount(3);
-    await expect.poll(() => focused(page)).toBe('gamma');
+    await expect.poll(async () => focused(page)).toBe('gamma');
 
     // Ctrl+Shift+L: the session list, with the search box ready to type in.
     await page.keyboard.press('ControlOrMeta+Shift+L');
@@ -70,12 +70,12 @@ test('keyboard shortcuts and new windows', async () => {
     await page.keyboard.press('ControlOrMeta+Shift+N');
     const second = await opened;
     await expect(second.getByText('No sessions yet')).toBeVisible();
-    await expect.poll(() => state().windows.length).toBe(2);
+    await expect.poll(async () => (await state()).windows.length).toBe(2);
     await quit(app);
 
-    const mainId = state().windows[0]!.id;
+    const mainId = (await state()).windows[0]!.id;
     app = (await launch(env)).app;
-    await expect.poll(() => state().windows.map((w) => w.id)).toEqual([mainId]);
+    await expect.poll(async () => (await state()).windows.map((w) => w.id)).toEqual([mainId]);
     await expect((await pageOf(app, mainId)).locator('.tile')).toHaveCount(3);
     expect(app.windows()).toHaveLength(1);
     await quit(app);
@@ -94,7 +94,7 @@ test('F11: full screen, kept after a restart', async () => {
     const fullscreen = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.isFullScreen());
     await page.keyboard.press('F11');
     await expect.poll(fullscreen, { timeout: 10_000 }).toBe(true);
-    await expect.poll(() => state().windows[0]!.fullscreen).toBe(true);
+    await expect.poll(async () => (await state()).windows[0]!.fullscreen).toBe(true);
     // A moment's hint how to leave it, and a button for it in the toolbar while it lasts.
     await expect(page.locator('.fullscreen-hint')).toContainText('F11');
     await expect(page.getByRole('button', { name: 'Exit full screen' })).toBeVisible();
@@ -105,7 +105,7 @@ test('F11: full screen, kept after a restart', async () => {
     await page.getByRole('button', { name: 'Exit full screen' }).click();
     await expect.poll(fullscreen, { timeout: 10_000 }).toBe(false);
     await expect(page.getByRole('button', { name: 'Exit full screen' })).toHaveCount(0);
-    await expect.poll(() => state().windows[0]!.fullscreen).toBe(false);
+    await expect.poll(async () => (await state()).windows[0]!.fullscreen).toBe(false);
     await quit(app);
   } catch (error) {
     await captureWindows('fullscreen');

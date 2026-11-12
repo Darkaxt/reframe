@@ -30,15 +30,15 @@ test('the session list shows when each session was last used', async () => {
     await newSession(page, project, 'alpha');
     await newSession(page, project, 'beta');
     // A prompt and its answer are a use.
-    const before = byName('alpha').lastActiveAt;
+    const before = (await byName('alpha')).lastActiveAt;
     await tileByLabel(page, 'alpha').locator('.tile-body').click();
     await page.keyboard.type('hello');
     await page.keyboard.press('Enter');
-    await expect.poll(() => byName('alpha').lastActiveAt).toBeGreaterThan(before);
+    await expect.poll(async () => (await byName('alpha')).lastActiveAt).toBeGreaterThan(before);
     await quit(app);
 
     // alpha used 3 hours ago, beta 2 days ago.
-    const saved = state();
+    const saved = await state();
     const id = (name: string) => Object.values(saved.sessions).find((s) => s.name === name)!.id;
     saved.sessions[id('alpha')]!.lastActiveAt = Date.now() - 3 * HOUR;
     saved.sessions[id('beta')]!.lastActiveAt = Date.now() - 48 * HOUR;
@@ -68,9 +68,9 @@ test('the session list shows when each session was last used', async () => {
     const pastRow = page.locator('.sidebar-row', { hasText: 'Past task' });
     await expect(pastRow.locator('.sidebar-used')).toHaveText('5h');
     await pastRow.click();
-    const adopted = () => Object.values(state().sessions).find((s) => s.claudeSessionId === pastId);
-    await expect.poll(() => adopted()?.lastActiveAt).toBeLessThan(Date.now() - 4 * HOUR);
-    await expect(page.locator(`.sidebar-row[data-session="${adopted()!.id}"] .sidebar-used`)).toHaveText('5h');
+    const adopted = async () => Object.values((await state()).sessions).find((s) => s.claudeSessionId === pastId);
+    await expect.poll(async () => (await adopted())?.lastActiveAt).toBeLessThan(Date.now() - 4 * HOUR);
+    await expect(page.locator(`.sidebar-row[data-session="${(await adopted())!.id}"] .sidebar-used`)).toHaveText('5h');
     await quit(app);
   } catch (error) {
     await captureWindows('last-used');

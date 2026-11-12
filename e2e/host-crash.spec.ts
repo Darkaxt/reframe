@@ -25,15 +25,15 @@ test('after the PTY host died, its sessions can be resumed and new ones started'
     for (const label of ['alpha', 'beta']) {
       await expect(tileByLabel(page, label).getByText('terminal host stopped unexpectedly')).toBeVisible();
     }
-    await expect.poll(() => pids.filter(alive), { timeout: 10_000 }).toEqual([]);
+    await expect.poll(async () => pids.filter(alive), { timeout: 10_000 }).toEqual([]);
     // Lost to a crash, not ended by the user: they would resume on the next start.
-    expect(Object.values(state().sessions).map((s) => s.lifecycle)).toEqual(['open', 'open']);
+    expect(Object.values((await state()).sessions).map((s) => s.lifecycle)).toEqual(['open', 'open']);
 
     const alpha = tileByLabel(page, 'alpha');
     await alpha.getByRole('button', { name: 'Resume' }).click();
     await expect(alpha.locator('.status-idle')).toBeVisible({ timeout: 15_000 });
     // Under its own id (never prompted, so started fresh under it, as on any resume).
-    expect(launches().filter((l) => l.event === 'start')[2]!.args).toContain(byName('alpha').claudeSessionId);
+    expect(launches().filter((l) => l.event === 'start')[2]!.args).toContain((await byName('alpha')).claudeSessionId);
     await newSession(page, project, 'gamma');
     expect(launches().filter((l) => l.event === 'start')).toHaveLength(4);
     await expect(tileByLabel(page, 'beta').getByRole('button', { name: 'Resume' })).toBeVisible();

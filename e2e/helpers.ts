@@ -100,8 +100,14 @@ export function setup() {
           .map((l) => JSON.parse(l) as FakeLaunch)
       : [];
   userData = env.REFRAME_USER_DATA!;
-  const state = (): SavedState => JSON.parse(fs.readFileSync(path.join(env.REFRAME_USER_DATA!, 'state.json'), 'utf8'));
-  const byName = (name: string): SavedSession => Object.values(state().sessions).find((s) => s.name === name)!;
+  // Saves may be written by the PTY host a moment after they are made: the running reframe flushes them first.
+  const state = async (): Promise<SavedState> => {
+    const app = runningApp();
+    if (app) await callMain(app, 'flushState').catch(() => {});
+    return JSON.parse(fs.readFileSync(path.join(env.REFRAME_USER_DATA!, 'state.json'), 'utf8'));
+  };
+  const byName = async (name: string): Promise<SavedSession> =>
+    Object.values((await state()).sessions).find((s) => s.name === name)!;
   // Fake claudes that are up: each writes its registry entry once it reads input (and so handles Ctrl+C), and
   // removes it when it exits. One ended while still starting leaves no "exit" in the launch log.
   const registry = path.join(env.REFRAME_CLAUDE_HOME!, 'sessions');
@@ -110,6 +116,8 @@ export function setup() {
 }
 
 let running: ElectronApplication | null = null;
+/** The reframe launched last and not quit yet (setup() has a `running` of its own). */
+const runningApp = (): ElectronApplication | null => running;
 /** User data folder of the latest setup(), for the app log of a failed test. */
 let userData: string | null = null;
 

@@ -10,20 +10,18 @@ test("a window cannot end another window's session", async () => {
     const { app, page } = await launch(env);
     await newSession(page, project, 'alpha');
     const other = await pageOf(app, await callMain<string>(app, 'newWindow'));
+    const alphaId = (await byName('alpha')).id;
     const end = (from: typeof page) =>
-      from.evaluate(
-        (id) => (globalThis as unknown as { reframe: ReframeApi }).reframe.endSession(id),
-        byName('alpha').id,
-      );
+      from.evaluate((id) => (globalThis as unknown as { reframe: ReframeApi }).reframe.endSession(id), alphaId);
 
     await end(other);
     await page.waitForTimeout(1000);
     await expect(tileByLabel(page, 'alpha').locator('.status-idle')).toBeVisible();
-    expect(byName('alpha').lifecycle).toBe('open');
+    expect((await byName('alpha')).lifecycle).toBe('open');
 
     await end(page);
     await expect(tileByLabel(page, 'alpha')).toHaveCount(0);
-    await expect.poll(() => byName('alpha').lifecycle).toBe('ended');
+    await expect.poll(async () => (await byName('alpha')).lifecycle).toBe('ended');
     await quit(app);
   } catch (error) {
     await captureWindows('ipc');

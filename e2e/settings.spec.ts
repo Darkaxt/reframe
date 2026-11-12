@@ -18,9 +18,9 @@ test('Settings: language, text size, update checks, closing windows, starting wi
     // The text size by its buttons.
     await settings.getByRole('button', { name: 'Larger' }).click();
     await expect(settings.locator('output')).toHaveText('14');
-    await expect.poll(() => state().preferences.fontSize).toBe(14);
+    await expect.poll(async () => (await state()).preferences.fontSize).toBe(14);
     await settings.getByRole('button', { name: 'Normal' }).click();
-    await expect.poll(() => state().preferences.fontSize).toBe(13);
+    await expect.poll(async () => (await state()).preferences.fontSize).toBe(13);
 
     // Update checks: offered only where this copy checks (in the tests it does not, until it is told to).
     const updates = settings.getByRole('checkbox', { name: 'Check for updates' });
@@ -28,17 +28,17 @@ test('Settings: language, text size, update checks, closing windows, starting wi
     await callMain(app, 'fakeUpdateChecks');
     await expect(updates).toBeChecked();
     await updates.uncheck();
-    await expect.poll(() => state().preferences.checkForUpdates).toBe(false);
+    await expect.poll(async () => (await state()).preferences.checkForUpdates).toBe(false);
     await updates.check();
-    await expect.poll(() => state().preferences.checkForUpdates).toBe(true);
+    await expect.poll(async () => (await state()).preferences.checkForUpdates).toBe(true);
 
     // Closing a window with sessions: asks, until something else is chosen.
     const closing = settings.getByRole('combobox', { name: /^Closing a window with sessions/ });
     await expect(closing).toHaveValue('ask');
     await closing.selectOption('end');
-    await expect.poll(() => state().preferences.closeWindow).toBe('end');
+    await expect.poll(async () => (await state()).preferences.closeWindow).toBe('end');
     await closing.selectOption('ask');
-    await expect.poll(() => state().preferences.closeWindow).toBe('ask');
+    await expect.poll(async () => (await state()).preferences.closeWindow).toBe('ask');
 
     // Starting with the system (the tests leave the system's own setting alone): on, and still on when Settings
     // opens again.
@@ -57,7 +57,7 @@ test('Settings: language, text size, update checks, closing windows, starting wi
     await settings.getByRole('combobox', { name: /^Language/ }).selectOption('de');
     await expect(page.getByRole('dialog', { name: 'Einstellungen' })).toBeVisible();
     await expect(page.locator('.toolbar').getByRole('button', { name: 'Neue Session' })).toBeVisible();
-    await expect.poll(() => state().preferences.language).toBe('de');
+    await expect.poll(async () => (await state()).preferences.language).toBe('de');
     await quit(app);
 
     ({ app, page } = await launch(env));
@@ -102,26 +102,26 @@ test('Separators snap to a grid, unless Alt is held or snapping is off', async (
     await newSession(page, project, 'alpha');
     await newSession(page, project, 'beta');
     // The first panel's share of the side-by-side split (saved a moment after the drag).
-    const first = () => (state().windows[0]!.layout as { sizes: number[] }).sizes[0]!;
+    const first = async () => ((await state()).windows[0]!.layout as { sizes: number[] }).sizes[0]!;
     const near = (value: number) => (share: number) => Math.abs(share - value) < 1;
 
     // 37 % is nearest to 4/12 of the layout: there it lands (a bit less, so the separator's middle is on the line).
     await dragSeparator(page, 0.37);
-    await expect.poll(() => near(33.3)(first())).toBe(true);
+    await expect.poll(async () => near(33.3)(await first())).toBe(true);
 
     // Alt places it freely, and does not open the window's menu bar on its way up.
     await dragSeparator(page, 0.37, true);
-    await expect.poll(() => near(37)(first())).toBe(true);
+    await expect.poll(async () => near(37)(await first())).toBe(true);
     const menuBar = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.isMenuBarVisible());
     expect(await menuBar()).toBe(false);
 
     // Turned off, it does not snap at all.
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByRole('dialog').getByRole('checkbox', { name: 'Snap separators to a grid' }).uncheck();
-    await expect.poll(() => state().preferences.snapToGrid).toBe(false);
+    await expect.poll(async () => (await state()).preferences.snapToGrid).toBe(false);
     await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
     await dragSeparator(page, 0.6);
-    await expect.poll(() => near(60)(first())).toBe(true);
+    await expect.poll(async () => near(60)(await first())).toBe(true);
     await quit(app);
   } catch (error) {
     await captureWindows('snap');
@@ -153,7 +153,7 @@ test('Settings: which Claude Code runs, and what new sessions start with', async
     await settings.getByLabel('Model for new sessions').press('Enter');
     await settings.getByLabel('Permission mode for new sessions').selectOption('plan');
     await expect
-      .poll(() => state().preferences)
+      .poll(async () => (await state()).preferences)
       .toMatchObject({
         claudeBin: other,
         defaultModel: 'opus',
@@ -181,7 +181,7 @@ test('Settings: which Claude Code runs, and what new sessions start with', async
     await expect(claude).toHaveText(`Chosen, but not there any more:${other}`);
     await settings.getByRole('button', { name: 'Use the one on the PATH' }).click();
     await expect(claude).toHaveText(`From the PATH:${env.REFRAME_CLAUDE_BIN}`);
-    await expect.poll(() => state().preferences.claudeBin).toBeUndefined();
+    await expect.poll(async () => (await state()).preferences.claudeBin).toBeUndefined();
     await quit(app);
   } catch (error) {
     await captureWindows('settings-claude');
@@ -213,7 +213,7 @@ test('Hardware acceleration is off unless chosen; the choice is saved and applie
     const box = dialog.getByRole('checkbox', { name: 'Use GPU acceleration' });
     await expect(box).not.toBeChecked();
     await box.check();
-    await expect.poll(() => state().preferences.gpuAcceleration).toBe(true);
+    await expect.poll(async () => (await state()).preferences.gpuAcceleration).toBe(true);
     await expect(dialog.getByText('Takes effect after restarting Reframe.', { exact: true })).toBeVisible();
     await dialog.getByRole('button', { name: 'Close' }).click();
     // Not before a restart.

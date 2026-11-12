@@ -1,120 +1,36 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "fac026a1e301adb72599730afc0cd857f3854993",
-  "scope": "0.10.1-claudegpt.23: stage 2 slice 4 of the Rust migration. Additive PTY host protocol service state=1 (no protocol bump): state.read { file } -> { revision, content|null } and state.write { file, content, revision, backup } -> { revision } or conflict; temp file + fsync + rename with retry, .bak copied only when reframe vouches for the file there, compare-and-set on a per-host revision that also detects changes on disk; content opaque (zod schema and migrations stay in TypeScript); rust/reframe-services state.rs and the Node host's src/main/state/files.ts; StateStore.useHost implements writing through the host (serialized, newest-state-wins, re-read on conflict, in-process fallback, settle) but app.ts does not enable it yet: saves stay synchronous in-process because callers and e2e rely on the file being written when save() returns; byte-compatible file. Host service requests queue (8 running, 64 waiting) instead of answering busy at 8. Tray: Terminate all sessions + Quit replace Quit (sessions keep running) and End sessions and quit. Claude quota from LLM Coordinator usage.snapshot providers[] when the user's own status line prevents capture; capture preferred unless the Coordinator observed later; codex from providers with buckets fallback. New session dialog rebases the folder onto the new provider root when switching provider (rebaseFolder)",
+  "sourceBase": "1c6e8f3402157bb85d81d1b67fa797242429ca27",
+  "scope": "0.10.1-claudegpt.24: stage 2 slice 5 of the Rust migration. StateStore saves through the PTY host's state=1 service whenever the attached host advertises it (checked per save; a hot-swapped older host without it, e.g. .22, saves synchronously in-process). One write in flight, newer snapshots replace queued ones, conflict re-reads the revision and retries once with the newest snapshot, non-conflict failures fall back to the in-process write with a warning. flush(deadline?) resolves when the newest snapshot (debounced too) is on disk; with a deadline (5 s) an unanswering host is abandoned and the newest snapshot written in-process, later saves too, and a late host answer cannot write an older snapshot. Awaited in shutdown() before sessions end and the host is let go, after the host stops, and at the end of bulk chat batches; flushState() test hook; e2e helpers' state()/byName() are async and flush the running app before reading state.json. No protocol bump, no Rust changes",
   "inputHashes": [
     {
-      "file": "docs/ptyhost-protocol.md",
-      "sha256": "ffcf7637e2f1d9e0b3d487a3e541cd736d44315e080d6c7ab7a3b94484745f59"
+      "file": "docs/releases/v0.10.1-claudegpt.24.md",
+      "sha256": "d1a8a3cd753de52b2f632d16b94aa2200078172e2684b591ba84df99005eed67"
     },
     {
-      "file": "docs/releases/v0.10.1-claudegpt.23.md",
-      "sha256": "29eb41fa4d80864b3973c1f99ead030a4bdeb9dd7b1236d4b20039d64a1ac5de"
+      "file": "e2e/helpers.ts",
+      "sha256": "f7a6f3eb56510ed2653559a77b61e9cec7ef8d228ec471a70af06cde3de99995"
     },
     {
       "file": "package-lock.json",
-      "sha256": "9a1936423128b81d4fc76edb0bfd8d749f97a8f8726f1200fa91ad7365ab4bdf"
+      "sha256": "4472810bde91eeefa0ca19ff746a7c869174e8bed6a70cdf4961f29696c0414a"
     },
     {
       "file": "package.json",
-      "sha256": "81097f579d6e9ede11a2f3c95f78cc3d634f44059aeefa7444c558a066283dcd"
-    },
-    {
-      "file": "rust/reframe-host/src/limit.rs",
-      "sha256": "5b8835a695d421c400c44ef51f255a1a57e14346f9fd01101b116dc533368daf"
-    },
-    {
-      "file": "rust/reframe-host/src/main.rs",
-      "sha256": "9af8cc40700c701a150d7cbad13970d17a959170f46550319db407fc75eec0e6"
-    },
-    {
-      "file": "rust/reframe-host/src/services.rs",
-      "sha256": "c4f742c7d1bdf69a93bb771e80acec6236a7ec9a5a9d6812f78c2870c6d954de"
-    },
-    {
-      "file": "rust/reframe-host/src/transcripts.rs",
-      "sha256": "6aa9965e7b70ad47c6ef8d5a9f167db48b15f5f58356906ae66d858bc29791af"
-    },
-    {
-      "file": "rust/reframe-services/src/lib.rs",
-      "sha256": "23a85a7982a1adbfc976d07e66f09e7468df5cee5433e0fc26dabf253a8eb420"
-    },
-    {
-      "file": "rust/reframe-services/src/state.rs",
-      "sha256": "b0c6180436d239db482d928b1ed67ca1a78faaeabc5a0dc7635ea631bb1c25c8"
+      "sha256": "640f254cfa764c29c3f00d01b7001f8bbc31fc4d07f8e738dc2f69cdfdeaf4bf"
     },
     {
       "file": "src/main/app.ts",
-      "sha256": "ec061537df00e96507da855d1b9e1452739d122932245a9b9e47148a2181f99e"
-    },
-    {
-      "file": "src/main/host-reads.ts",
-      "sha256": "6587c4da69fbf3e0bef726e3c75dcc7439dcf8c63c395afdc2796d1f6b2aacbf"
-    },
-    {
-      "file": "src/main/quota.ts",
-      "sha256": "3bbd81df2890a0fc7659400280ac12afbf893765247ac577cbe7d535cc5eb879"
-    },
-    {
-      "file": "src/main/state/files.ts",
-      "sha256": "869c165d06772e64a1bdfe7b1fafda2deb55ed52c8ec21e2ba6de51f7bd29b1b"
+      "sha256": "321c7b17d595fefacd78a52972b4675dc5fc8664b4f635e4389171289c586005"
     },
     {
       "file": "src/main/state/store.test.ts",
-      "sha256": "ce391fec13d6712eb52c9df45283dbac680e69a1fb4f103f1cc18ffbb67ba181"
+      "sha256": "92321ecd110d0e3164eabee3447ee0f75636267dec391dbc065e015b8fa64645"
     },
     {
       "file": "src/main/state/store.ts",
-      "sha256": "7acac26f3a0ce66e70be6bad98ab4fd38b790a0cd567ad237e4d30e154068cf4"
-    },
-    {
-      "file": "src/main/tray.ts",
-      "sha256": "b1cf5d210c782e5b9bd4beea5f5eab2f6ed018355655b6bc920c0327d0801429"
-    },
-    {
-      "file": "src/ptyhost/host.conformance.ts",
-      "sha256": "ea4a703c1a8d53ca90db79494accb205b55cdae951ab186328d2691a4f0d811c"
-    },
-    {
-      "file": "src/ptyhost/index.ts",
-      "sha256": "4c89fe1d13d553e76326be4f5279588d3826d7d9a34c5d289d6eb4f8958e3670"
-    },
-    {
-      "file": "src/ptyhost/protocol.ts",
-      "sha256": "711c4a705f0cc0fb1bfdf52baaef1e5d963f630a99ac162587bbcad19d5aeacb"
-    },
-    {
-      "file": "src/ptyhost/services.test.ts",
-      "sha256": "e35788380e0c99d3570b3daa08d2b0dbe45331df86b3010b765c4143a746665d"
-    },
-    {
-      "file": "src/ptyhost/services.ts",
-      "sha256": "9f2f57c3570ff28fa0e3a2bcc2a998a56ebb97e0a597592f23f0e36b15ef43a5"
-    },
-    {
-      "file": "src/renderer/components/NewSessionDialog.tsx",
-      "sha256": "d806b5944f20a68f7983f6a96aedc0fe59b6e11b99ce2b9c0bb4f59c6ce60a1e"
-    },
-    {
-      "file": "src/shared/folder-workspaces.test.ts",
-      "sha256": "a5c6003063f297e9d57c79c0de51efd2685c5d7c6668d72bfee0731c6da8c06f"
-    },
-    {
-      "file": "src/shared/folder-workspaces.ts",
-      "sha256": "48015d1db7b22d6d9987549b878487d6e5f6584fa9a710b147af1ed3d74a7f79"
-    },
-    {
-      "file": "src/shared/i18n.ts",
-      "sha256": "3ce05d7f1ff97bd95a5985fa9bad61c4b38b1d114cb2a280b42c3ec34554c62f"
-    },
-    {
-      "file": "src/shared/quota.test.ts",
-      "sha256": "b4acca2dfad1c33d60436a02d2622c20349cf88c6e0661b33646865627e88ee1"
-    },
-    {
-      "file": "src/shared/quota.ts",
-      "sha256": "103673ab802827d4714810dbcc1953c66fdcb3954c2b71d700af83cdadfc6fac"
+      "sha256": "f748b1a43e0a543b81d06423f02a80c00e2b5dfbb722d616a92b2dc5027540de"
     }
   ],
   "checksNotYetRun": [

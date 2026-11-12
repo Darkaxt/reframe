@@ -84,7 +84,7 @@ test('one catalogue has persistent pins, independent project branches and unifie
     await expect(page.locator('.sidebar-pinned .sidebar-row[draggable="true"]')).toHaveCount(1);
     await pinned.click({ button: 'right' });
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Unpin chat')).toBe(true);
-    await expect.poll(() => (state() as unknown as { pinnedChats: string[] }).pinnedChats).toEqual([]);
+    await expect.poll(async () => ((await state()) as unknown as { pinnedChats: string[] }).pinnedChats).toEqual([]);
     await quit(app);
   } finally {
     await cleanup(dir);

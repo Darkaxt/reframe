@@ -291,5 +291,105 @@ describe('StateStore', () => {
       expect(s.load().state.recentFolders).toEqual(['one']);
       expect(log).toHaveBeenCalledWith('warn', 'the pty host could not save the state; saving here', expect.anything());
     });
+
+    it('flush resolves once the newest state, a debounced one too, is written by the host', async () => {
+      const s = store();
+      const h = host();
+      s.useHost(() => h);
+      s.save(withFolder('one'));
+      expect(fs.existsSync(s.file)).toBe(false);
+      s.saveSoon(withFolder('two'));
+      await s.flush();
+      expect(s.load().state.recentFolders).toEqual(['two']);
+      expect(h.calls.filter((c) => c === 'state.write')).toHaveLength(2);
+    });
+
+    it('keeps one write going and writes them in order, the newest last', async () => {
+      const s = store();
+      const files = new StateFiles();
+      const h = host(files);
+      let inFlight = 0;
+      let most = 0;
+      const seen: string[] = [];
+      s.useHost(() => ({
+        services: h.services,
+        async call(service, method, params) {
+          most = Math.max(most, ++inFlight);
+          try {
+            const result = await h.call(service, method, params);
+            if (method === 'write') seen.push(JSON.parse((params as { content: string }).content).recentFolders[0]);
+            return result;
+          } finally {
+            inFlight--;
+          }
+        },
+      }));
+      s.save(withFolder('a'));
+      s.save(withFolder('b'));
+      await Promise.resolve();
+      s.save(withFolder('c'));
+      await s.flush();
+      expect(most).toBe(1);
+      expect(seen).toEqual(['a', 'c']);
+      expect(s.load().state.recentFolders).toEqual(['c']);
+    });
+
+    it('retries a conflict with the newest state, and loses no update', async () => {
+      const s = store();
+      const h = host();
+      s.useHost(() => h);
+      s.save(withFolder('one'));
+      await s.flush();
+      // Somebody else writes the file: the host's revision is stale, and a newer save comes while that is found out.
+      fs.writeFileSync(s.file, JSON.stringify(withFolder('elsewhere')));
+      s.save(withFolder('two'));
+      await Promise.resolve();
+      s.save(withFolder('three'));
+      await s.flush();
+      expect(s.load().state.recentFolders).toEqual(['three']);
+      expect(h.calls).toEqual(['state.read', 'state.write', 'state.write', 'state.read', 'state.write']);
+    });
+
+    it('writes here when the host does not answer within the deadline, and a late answer writes nothing older', async () => {
+      const s = store();
+      const log = vi.fn();
+      let answer: (() => void) | undefined;
+      const calls: string[] = [];
+      s.useHost(
+        () => ({
+          services: { state: 1 },
+          call: (_service, method) => {
+            calls.push(method);
+            return new Promise((_resolve, reject) => {
+              answer = () => reject(Object.assign(new Error('conflict'), { code: 'conflict' }));
+            });
+          },
+        }),
+        log,
+      );
+      s.save(withFolder('one'));
+      s.save(withFolder('two'));
+      await s.flush(20);
+      expect(s.load().state.recentFolders).toEqual(['two']);
+      expect(log).toHaveBeenCalledWith('warn', 'the pty host did not save the state in time; saving here', {
+        deadlineMs: 20,
+      });
+      // From then on, written here at once; the host is not asked again.
+      s.save(withFolder('three'));
+      expect(s.load().state.recentFolders).toEqual(['three']);
+      answer!();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(s.load().state.recentFolders).toEqual(['three']);
+      expect(calls).toEqual(['read']);
+    });
+
+    it('writes here, at once, through a host that does not serve state (an older one swapped in)', () => {
+      const s = store();
+      const call = vi.fn();
+      s.useHost(() => ({ services: {}, call }));
+      s.save(withFolder('one'));
+      expect(s.load().state.recentFolders).toEqual(['one']);
+      expect(call).not.toHaveBeenCalled();
+    });
   });
 });

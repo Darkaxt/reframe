@@ -53,10 +53,10 @@ test('tiles move between windows, empty windows close, all windows come back', a
     expect(b.x).toBeGreaterThan(a.x + a.width / 2);
     expect(c.y).toBeGreaterThan(a.y + a.height / 2);
     expect(Math.abs(a.height - b.height)).toBeLessThan(2);
-    const alpha = byName('alpha').id;
-    const beta = byName('beta').id;
-    const gamma = byName('gamma').id;
-    const mainId = state().windows[0]!.id;
+    const alpha = (await byName('alpha')).id;
+    const beta = (await byName('beta')).id;
+    const gamma = (await byName('gamma')).id;
+    const mainId = (await state()).windows[0]!.id;
 
     // Letting go over one of our windows is not a tear-out.
     expect(await tearOut(app, alpha, inside)).toBe(false);
@@ -67,8 +67,8 @@ test('tiles move between windows, empty windows close, all windows come back', a
     const second = await opened;
     await expect(tileByLabel(second, 'beta').locator('.status-idle')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.tile')).toHaveCount(2);
-    expect(state().windows).toHaveLength(2);
-    const secondId = state().windows[1]!.id;
+    expect((await state()).windows).toHaveLength(2);
+    const secondId = (await state()).windows[1]!.id;
     expect(launches().filter((l) => l.event === 'start')).toHaveLength(3);
 
     // Move beta back under alpha: the second window is empty now and closes.
@@ -76,7 +76,7 @@ test('tiles move between windows, empty windows close, all windows come back', a
     await transfer(page, beta, secondId, { key: `tile:${alpha}`, side: 'bottom' });
     await secondClosed;
     await expect(page.locator('.tile')).toHaveCount(3);
-    expect(state().windows.map((w) => w.id)).toEqual([mainId]);
+    expect((await state()).windows.map((w) => w.id)).toEqual([mainId]);
 
     // Tear gamma out and collapse it there: a window with only a collapsed tile stays. Then hide it (X, keeping
     // gamma in the tray).
@@ -85,17 +85,17 @@ test('tiles move between windows, empty windows close, all windows come back', a
     const third = await opened;
     await tileByLabel(third, 'gamma').getByRole('button', { name: 'Collapse to the side bar' }).click();
     await expect(third.locator('.dock-item', { hasText: 'gamma' })).toBeVisible();
-    const thirdId = state().windows[1]!.id;
+    const thirdId = (await state()).windows[1]!.id;
     await answerDialogs(app, 1);
     await (await app.browserWindow(third)).evaluate((win) => win.close());
-    await expect.poll(() => state().windows[1]!.hidden, { timeout: 5_000 }).toBe(true);
+    await expect.poll(async () => (await state()).windows[1]!.hidden, { timeout: 5_000 }).toBe(true);
     expect(launches().filter((l) => l.event === 'start')).toHaveLength(3);
 
     await quit(app);
 
     // --- restart: both windows come back, the second one still hidden with gamma collapsed ---
     ({ app, page } = await launch(env));
-    await expect.poll(() => app.windows().length, { timeout: 10_000 }).toBe(2);
+    await expect.poll(async () => app.windows().length, { timeout: 10_000 }).toBe(2);
     // The visible one appears on ready-to-show, so wait for it rather than look once.
     const visibility = () =>
       app.evaluate(({ BrowserWindow }) =>
@@ -114,7 +114,7 @@ test('tiles move between windows, empty windows close, all windows come back', a
     await transfer(hiddenPage, beta, mainId, { key: `tile:${alpha}`, side: 'right' });
     await expect(mainPage.getByText('No sessions yet')).toBeVisible();
     await expect(hiddenPage.locator('.tile')).toHaveCount(2);
-    expect(state().windows).toHaveLength(2);
+    expect((await state()).windows).toHaveLength(2);
 
     // An empty window takes a dropped tile as a whole.
     await transfer(mainPage, alpha, thirdId, null);

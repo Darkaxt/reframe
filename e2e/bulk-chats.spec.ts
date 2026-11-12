@@ -54,7 +54,7 @@ test('selected native rows expose bulk model/provider controls and preserve acti
   try {
     let { app, page } = await launch(fixture.env);
     await newSession(page, fixture.project, 'Bulk active');
-    const preferences = fixture.state().preferences;
+    const preferences = (await fixture.state()).preferences;
     await select(page, ['Bulk 1', 'Bulk 2', 'Bulk active']);
     await expect(page.getByRole('group', { name: 'Selected chats' })).toContainText('3 selected');
     expect(await callMain<boolean>(app, 'clickMenuItem', 'Change model…')).toBe(true);
@@ -97,25 +97,29 @@ test('selected native rows expose bulk model/provider controls and preserve acti
     await expect(page.getByRole('region', { name: 'Selected chat results' })).toContainText(
       '2 completed · 1 skipped · 0 failed',
     );
-    const records = Object.values(fixture.state().sessions).filter((record) =>
+    const records = Object.values((await fixture.state()).sessions).filter((record) =>
       ids.slice(0, 2).includes(record.claudeSessionId),
     );
     expect(records).toHaveLength(2);
     for (const record of records) expect(record.launch).toMatchObject({ provider: 'anthropic', model: 'opus' });
-    expect(fixture.byName('Bulk active').launch).not.toHaveProperty('provider', 'anthropic');
+    expect((await fixture.byName('Bulk active')).launch).not.toHaveProperty('provider', 'anthropic');
     expect(fixture.launches().filter((entry) => entry.event === 'start')).toHaveLength(1);
-    expect(fixture.state().preferences).toEqual(preferences);
+    expect((await fixture.state()).preferences).toEqual(preferences);
     await quit(app);
     ({ app, page } = await launch(fixture.env));
     for (const id of ids.slice(0, 2))
       expect(
-        Object.values(fixture.state().sessions).find((record) => record.claudeSessionId === id)?.launch,
+        Object.values((await fixture.state()).sessions).find((record) => record.claudeSessionId === id)?.launch,
       ).toMatchObject({ provider: 'anthropic', model: 'opus' });
-    const resumed = Object.values(fixture.state().sessions).find((record) => record.claudeSessionId === ids[1])!;
+    const resumed = Object.values((await fixture.state()).sessions).find(
+      (record) => record.claudeSessionId === ids[1],
+    )!;
     await sidebar(page);
     await page.locator(`.sidebar-recents .sidebar-row[data-session="${resumed.id}"]`).click();
     await expect
-      .poll(() => fixture.launches().find((entry) => entry.event === 'start' && entry.args.includes(ids[1]!))?.args)
+      .poll(
+        async () => fixture.launches().find((entry) => entry.event === 'start' && entry.args.includes(ids[1]!))?.args,
+      )
       .toEqual(expect.arrayContaining(['--model', 'opus']));
     await quit(app);
   } finally {
@@ -267,7 +271,8 @@ test('a chat that never wrote Claude history is deleted as a Reframe entry only 
     await expect(page.getByRole('region', { name: 'Selected chat results' })).toContainText(
       '2 completed · 0 skipped · 0 failed',
     );
-    empty.forEach((id) => expect(fixture.state().sessions[id]).toBeUndefined());
+    const after = await fixture.state();
+    empty.forEach((id) => expect(after.sessions[id]).toBeUndefined());
     original.files.forEach((history) => expect(fs.existsSync(history)).toBe(true));
     await quit(app);
   } finally {

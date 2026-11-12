@@ -22,12 +22,12 @@ test('sessions survive a restart with layout, dock and latest session ids', asyn
     await answerDialogs(app, 1);
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.close());
     await expect
-      .poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.isVisible()))
+      .poll(async () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.isVisible()))
       .toBe(false);
-    await expect.poll(() => state().windows[0]!.hidden, { timeout: 5_000 }).toBe(true);
+    await expect.poll(async () => (await state()).windows[0]!.hidden, { timeout: 5_000 }).toBe(true);
     expect(launches().filter((l) => l.event === 'exit')).toHaveLength(0);
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.show());
-    await expect.poll(() => state().windows[0]!.hidden, { timeout: 5_000 }).toBe(false);
+    await expect.poll(async () => (await state()).windows[0]!.hidden, { timeout: 5_000 }).toBe(false);
 
     // Collapse beta into the dock.
     await tileByLabel(page, 'beta').getByRole('button', { name: 'Collapse to the side bar' }).click();
@@ -35,21 +35,21 @@ test('sessions survive a restart with layout, dock and latest session ids', asyn
     await expect(page.locator('.dock-item', { hasText: 'beta' })).toBeVisible();
 
     // /clear in alpha gives it a new Claude session id; reframe must pick that up.
-    const alphaId = byName('alpha');
+    const alphaId = await byName('alpha');
     await tileByLabel(page, 'alpha').locator('.tile-body').click();
     await page.keyboard.type('/clear');
     await page.keyboard.press('Enter');
     await expect
-      .poll(() => state().sessions[alphaId.id]!.claudeSessionId, { timeout: 10_000 })
+      .poll(async () => (await state()).sessions[alphaId.id]!.claudeSessionId, { timeout: 10_000 })
       .not.toBe(alphaId.claudeSessionId);
-    const alphaAfterClear = state().sessions[alphaId.id]!.claudeSessionId;
-    expect(state().sessions[alphaId.id]!.used).toBe(false);
+    const alphaAfterClear = (await state()).sessions[alphaId.id]!.claudeSessionId;
+    expect((await state()).sessions[alphaId.id]!.used).toBe(false);
 
     // A prompt gives the new session a transcript, so it must be resumed later.
     await page.keyboard.type('hello');
     await page.keyboard.press('Enter');
-    await expect.poll(() => state().sessions[alphaId.id]!.used, { timeout: 10_000 }).toBe(true);
-    const betaId = byName('beta').claudeSessionId;
+    await expect.poll(async () => (await state()).sessions[alphaId.id]!.used, { timeout: 10_000 }).toBe(true);
+    const betaId = (await byName('beta')).claudeSessionId;
 
     await quit(app);
 
@@ -57,7 +57,7 @@ test('sessions survive a restart with layout, dock and latest session ids', asyn
     const firstRun = launches();
     expect(firstRun.filter((l) => l.event === 'start')).toHaveLength(2);
     expect(firstRun.filter((l) => l.event === 'exit')).toHaveLength(2);
-    const saved = state();
+    const saved = await state();
     expect(saved.windows[0]!.dock.map((d) => saved.sessions[d.sessionId]!.name)).toEqual(['beta']);
     expect(Object.values(saved.sessions).every((s) => s.lifecycle === 'open')).toBe(true);
 
@@ -104,8 +104,8 @@ test('a worktree session started again without a transcript runs in its worktree
     await dialog.getByRole('button', { name: 'Start' }).click();
     await expect(tileByLabel(page, 'wt').locator('.status-idle')).toBeVisible({ timeout: 15_000 });
     const worktree = path.join(project, '.claude', 'worktrees', 'feat');
-    await expect.poll(() => byName('wt').launch.worktreeCreated, { timeout: 10_000 }).toBe(true);
-    expect(byName('wt').cwd.toLowerCase()).toBe(worktree.toLowerCase());
+    await expect.poll(async () => (await byName('wt')).launch.worktreeCreated, { timeout: 10_000 }).toBe(true);
+    expect((await byName('wt')).cwd.toLowerCase()).toBe(worktree.toLowerCase());
     await quit(app);
 
     // Never prompted, so it starts fresh under its id: in the worktree, and without making another one in there.
@@ -113,7 +113,7 @@ test('a worktree session started again without a transcript runs in its worktree
     await expect(tileByLabel(page, 'wt').locator('.status-idle')).toBeVisible({ timeout: 15_000 });
     const [first, second] = launches().filter((l) => l.event === 'start');
     expect(first!.args).toContain('--worktree');
-    expect(second!.args.slice(0, 2)).toEqual(['--session-id', byName('wt').claudeSessionId]);
+    expect(second!.args.slice(0, 2)).toEqual(['--session-id', (await byName('wt')).claudeSessionId]);
     expect(second!.args).not.toContain('--worktree');
     expect(fs.existsSync(path.join(worktree, '.claude', 'worktrees'))).toBe(false);
     await quit(app);
@@ -133,8 +133,8 @@ test('a session started anew after its transcript was lost starts without one af
     await tileByLabel(page, 'alpha').locator('.tile-body').click();
     await page.keyboard.type('hello');
     await page.keyboard.press('Enter');
-    await expect.poll(() => byName('alpha').used, { timeout: 10_000 }).toBe(true);
-    const lost = byName('alpha').claudeSessionId;
+    await expect.poll(async () => (await byName('alpha')).used, { timeout: 10_000 }).toBe(true);
+    const lost = (await byName('alpha')).claudeSessionId;
     await quit(app);
     fs.rmSync(path.join(env.REFRAME_CLAUDE_HOME!, 'projects', 'fake-project', `${lost}.jsonl`));
 
@@ -143,8 +143,8 @@ test('a session started anew after its transcript was lost starts without one af
     await expect(tile.getByText("Claude Code no longer has this session's transcript.")).toBeVisible();
     await tile.getByRole('button', { name: 'Start a new session here' }).click();
     await expect(tile.locator('.status-idle')).toBeVisible({ timeout: 15_000 });
-    expect(byName('alpha').claudeSessionId).not.toBe(lost);
-    expect(byName('alpha').used).toBe(false);
+    expect((await byName('alpha')).claudeSessionId).not.toBe(lost);
+    expect((await byName('alpha')).used).toBe(false);
     await quit(app);
 
     // No prompt in the new one yet: it starts fresh under its id again, instead of "transcript missing".
@@ -155,7 +155,7 @@ test('a session started anew after its transcript was lost starts without one af
         .filter((l) => l.event === 'start')
         .at(-1)!
         .args.slice(0, 2),
-    ).toEqual(['--session-id', byName('alpha').claudeSessionId]);
+    ).toEqual(['--session-id', (await byName('alpha')).claudeSessionId]);
     await quit(app);
   } catch (error) {
     await captureWindows('restore-fresh');

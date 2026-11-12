@@ -47,11 +47,11 @@ test('a session resumed in another terminal is taken over, not run twice', async
     await tileByLabel(page, 'alpha').locator('.tile-body').click();
     await page.keyboard.type('hello');
     await page.keyboard.press('Enter');
-    await expect.poll(() => byName('alpha').used, { timeout: 10_000 }).toBe(true);
+    await expect.poll(async () => (await byName('alpha')).used, { timeout: 10_000 }).toBe(true);
     await tileByLabel(page, 'alpha').getByRole('button', { name: 'End session' }).click();
     await expect.poll(running, { timeout: 10_000 }).toBe(0);
 
-    outside = resumeOutside(env, dir, project, byName('alpha').claudeSessionId);
+    outside = resumeOutside(env, dir, project, (await byName('alpha')).claudeSessionId);
     await expect.poll(running, { timeout: 10_000 }).toBe(1);
     await page.getByRole('button', { name: 'Sessions' }).click();
     // In reframe's list as running elsewhere, and not a second time among the other terminals' sessions.
@@ -84,16 +84,16 @@ test('a session resumed elsewhere before reframe starts waits for "Take over"', 
     await tileByLabel(page, 'alpha').locator('.tile-body').click();
     await page.keyboard.type('hello');
     await page.keyboard.press('Enter');
-    await expect.poll(() => byName('alpha').used, { timeout: 10_000 }).toBe(true);
+    await expect.poll(async () => (await byName('alpha')).used, { timeout: 10_000 }).toBe(true);
     await quit(app);
 
-    outside = resumeOutside(env, dir, project, byName('alpha').claudeSessionId);
+    outside = resumeOutside(env, dir, project, (await byName('alpha')).claudeSessionId);
     await expect.poll(running, { timeout: 10_000 }).toBe(1);
     ({ app, page } = await launch(env));
     const tile = tileByLabel(page, 'alpha');
     await expect(tile.getByText('This session is running in another terminal.')).toBeVisible({ timeout: 15_000 });
     expect(outside.ended()).toBe(false);
-    expect(byName('alpha').lifecycle).toBe('open');
+    expect((await byName('alpha')).lifecycle).toBe('open');
 
     await answerDialogs(app, 0);
     await tile.getByRole('button', { name: 'Take over' }).click();

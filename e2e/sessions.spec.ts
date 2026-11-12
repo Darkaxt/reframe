@@ -61,13 +61,13 @@ test('session list: reopen, remove, resume a found session, take over a running 
       .getByRole('button', { name: 'Remove from list' })
       .click();
     await expect(row(page, 'beta')).toHaveCount(0);
-    await expect.poll(() => Object.values(state().sessions).some((s) => s.name === 'beta')).toBe(false);
+    await expect.poll(async () => Object.values((await state()).sessions).some((s) => s.name === 'beta')).toBe(false);
 
     // A found session is resumed under its own id, in its own folder.
     await row(page, 'Parser refactor').click();
     await expect(page.locator('.tile')).toHaveCount(2);
     await expect
-      .poll(() => launches().some((l) => l.event === 'start' && l.args.join(' ').includes(`--resume ${pastId}`)))
+      .poll(async () => launches().some((l) => l.event === 'start' && l.args.join(' ').includes(`--resume ${pastId}`)))
       .toBe(true);
 
     // Taking over the running one: confirm, it ends over there, and continues here.
@@ -75,16 +75,16 @@ test('session list: reopen, remove, resume a found session, take over a running 
       Object.assign(dialog, { showMessageBox: async () => ({ response: 0, checkboxChecked: false }) });
     });
     await row(page, 'outside').click();
-    await expect.poll(() => externalExited, { timeout: 15_000 }).toBe(true);
+    await expect.poll(async () => externalExited, { timeout: 15_000 }).toBe(true);
     await expect(page.locator('.tile')).toHaveCount(3, { timeout: 15_000 });
     // The name the user gave it over there comes along.
     await expect(tileByLabel(page, 'outside')).toBeVisible();
     // It never got a prompt, so there is no transcript: it starts fresh under the same id.
     await expect
-      .poll(() => launches().filter((l) => l.event === 'start' && l.args.join(' ').includes(runningId)).length)
+      .poll(async () => launches().filter((l) => l.event === 'start' && l.args.join(' ').includes(runningId)).length)
       .toBe(2);
-    expect(Object.values(state().sessions).find((s) => s.claudeSessionId === runningId)).toBeTruthy();
-    expect(byName('alpha').lifecycle).toBe('open');
+    expect(Object.values((await state()).sessions).find((s) => s.claudeSessionId === runningId)).toBeTruthy();
+    expect((await byName('alpha')).lifecycle).toBe('open');
 
     await quit(app);
     expect(fs.readFileSync(path.join(env.REFRAME_USER_DATA!, 'logs', 'main.log'), 'utf8')).toContain(

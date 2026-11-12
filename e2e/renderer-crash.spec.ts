@@ -21,14 +21,16 @@ test('a window whose page crashed is loaded again, its sessions still running', 
       ]);
 
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.forcefullyCrashRenderer());
-    await expect.poll(() => run(`!!document.querySelector('.tile .status-idle')`), { timeout: 15_000 }).toBe(true);
+    await expect
+      .poll(async () => run(`!!document.querySelector('.tile .status-idle')`), { timeout: 15_000 })
+      .toBe(true);
     const log = fs.readFileSync(path.join(env.REFRAME_USER_DATA!, 'logs', 'main.log'), 'utf8');
     expect(log).toContain('window crashed, loading it again');
     // The same claude: nothing was started again.
     expect(launches().filter((l) => l.event === 'start')).toHaveLength(1);
 
     // And its terminal is connected to it again: a prompt typed there reaches it (its hook marks the session used).
-    expect(byName('alpha').used).toBeFalsy();
+    expect((await byName('alpha')).used).toBeFalsy();
     await run(`document.querySelector('.tile .xterm-helper-textarea').focus()`);
     await app.evaluate(({ BrowserWindow }) => {
       const contents = BrowserWindow.getAllWindows()[0]!.webContents;
@@ -37,7 +39,7 @@ test('a window whose page crashed is loaded again, its sessions still running', 
       contents.sendInputEvent({ type: 'char', keyCode: '\r' });
       contents.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
     });
-    await expect.poll(() => byName('alpha').used, { timeout: 10_000 }).toBe(true);
+    await expect.poll(async () => (await byName('alpha')).used, { timeout: 10_000 }).toBe(true);
 
     await quit(app);
   } catch (error) {

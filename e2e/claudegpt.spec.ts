@@ -18,15 +18,13 @@ test('providers, automatic folders and native inactive-chat actions survive rest
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
     await settings.getByRole('combobox', { name: 'Default effort', exact: true }).selectOption('high');
     await settings.getByRole('button', { name: 'Close', exact: true }).click();
-    await expect.poll(() => state().preferences.defaultEffort).toBe('high');
+    await expect.poll(async () => (await state()).preferences.defaultEffort).toBe('high');
     await newSession(page, project, 'ChatGPT fixture');
     await expect
-      .poll(
-        () =>
-          launches().find(
-            (entry) => entry.event === 'start' && entry.args.includes(byName('ChatGPT fixture').claudeSessionId),
-          )?.args,
-      )
+      .poll(async () => {
+        const id = (await byName('ChatGPT fixture')).claudeSessionId;
+        return launches().find((entry) => entry.event === 'start' && entry.args.includes(id))?.args;
+      })
       .toEqual(expect.arrayContaining(['--effort', 'high']));
     await expect(page.locator('.tile .provider-icon[aria-label="ChatGPT"]')).toBeVisible();
     await page.getByRole('button', { name: 'New session', exact: true }).first().click();
@@ -41,22 +39,20 @@ test('providers, automatic folders and native inactive-chat actions survive rest
     await dialog.getByRole('button', { name: 'Start', exact: true }).click();
     await expect(page.locator('.tile .provider-icon[aria-label="Anthropic"]')).toBeVisible();
     await expect
-      .poll(
-        () =>
-          launches().find((l) => l.event === 'start' && l.args.includes(byName('Anthropic fixture').claudeSessionId))
-            ?.args,
-      )
+      .poll(async () => {
+        const id = (await byName('Anthropic fixture')).claudeSessionId;
+        return launches().find((l) => l.event === 'start' && l.args.includes(id))?.args;
+      })
       .toEqual(expect.arrayContaining(['--model', 'sonnet', '--effort', 'xhigh']));
-    expect(
-      launches().find((l) => l.event === 'start' && l.args.includes(byName('Anthropic fixture').claudeSessionId))
-        ?.script,
-    ).toBe(anthropicBinary);
-    expect(
-      launches().find((l) => l.event === 'start' && l.args.includes(byName('ChatGPT fixture').claudeSessionId))?.script,
-    ).toBe(env.REFRAME_CLAUDE_BIN);
-    expect((state().sessions[byName('Anthropic fixture').id]!.launch as { provider?: string }).provider).toBe(
-      'anthropic',
+    const anthropicId = (await byName('Anthropic fixture')).claudeSessionId;
+    const chatgptId = (await byName('ChatGPT fixture')).claudeSessionId;
+    expect(launches().find((l) => l.event === 'start' && l.args.includes(anthropicId))?.script).toBe(anthropicBinary);
+    expect(launches().find((l) => l.event === 'start' && l.args.includes(chatgptId))?.script).toBe(
+      env.REFRAME_CLAUDE_BIN,
     );
+    expect(
+      ((await state()).sessions[(await byName('Anthropic fixture')).id]!.launch as { provider?: string }).provider,
+    ).toBe('anthropic');
     if (!(await page.locator('.sidebar').isVisible()))
       await page.getByRole('button', { name: 'Sessions', exact: true }).click();
     const projects = page.locator('.sidebar-projects');
@@ -94,7 +90,9 @@ test('providers, automatic folders and native inactive-chat actions survive rest
         .locator('.tile', { has: page.locator('.tile-label', { hasText: 'ChatGPT fixture' }) })
         .getByRole('button', { name: 'End session', exact: true })
         .click();
-      await expect.poll(() => state().sessions[byName('ChatGPT fixture').id]?.lifecycle).toBe('ended');
+      await expect
+        .poll(async () => (await state()).sessions[(await byName('ChatGPT fixture')).id]?.lifecycle)
+        .toBe('ended');
       const ended = page.getByRole('button', { name: /ChatGPT fixture.*ended/ });
       await expect(ended.locator('.status-ended')).toBeVisible();
       await ended.click({ button: 'right' });
@@ -111,7 +109,10 @@ test('providers, automatic folders and native inactive-chat actions survive rest
         )
         .toBe(0);
       await expect
-        .poll(() => (state().sessions[byName('ChatGPT fixture').id]!.launch as { model?: string }).model)
+        .poll(
+          async () =>
+            ((await state()).sessions[(await byName('ChatGPT fixture')).id]!.launch as { model?: string }).model,
+        )
         .toBe('gpt-fixture');
       await ended.click();
       await expect(page.locator('.tile .provider-icon[aria-label="ChatGPT"]')).toBeVisible();
@@ -122,9 +123,9 @@ test('providers, automatic folders and native inactive-chat actions survive rest
     await expect(page.locator('.tile .provider-icon[aria-label="Anthropic"]')).toHaveCount(1);
     await expect(page.locator('.sidebar-projects .folder-workspace')).toHaveCount(1);
     await expect(page.locator('.sidebar-projects .folder-workspace')).toHaveAttribute('aria-expanded', 'false');
-    expect(state().preferences.defaultEffort).toBe('high');
-    expect(byName('ChatGPT fixture').launch.effort).toBe('high');
-    expect(byName('Anthropic fixture').launch.effort).toBe('xhigh');
+    expect((await state()).preferences.defaultEffort).toBe('high');
+    expect((await byName('ChatGPT fixture')).launch.effort).toBe('high');
+    expect((await byName('Anthropic fixture')).launch.effort).toBe('xhigh');
     await page.getByRole('button', { name: 'New session', exact: true }).first().click();
     const defaults = await page.evaluate(() => window.reframe.getDialogDefaults());
     await expect(page.getByRole('dialog').getByPlaceholder('Path to a project folder')).toHaveValue(
@@ -183,13 +184,15 @@ test('legacy expansion merges same folder names across paths/providers without m
     await expect(projects.locator('.sidebar-project-chats')).toContainText('Legacy ChatGPT');
     await expect(projects.locator('.sidebar-project-chats')).toContainText('Legacy Claude');
     expect(fixture.launches()).toHaveLength(0);
-    expect(Object.values(fixture.state().sessions).map((record) => record.cwd)).toEqual([
+    expect(Object.values((await fixture.state()).sessions).map((record) => record.cwd)).toEqual([
       fixture.project,
       path.join(fixture.dir, 'anthropic', path.basename(fixture.project)),
     ]);
-    expect(fixture.state().preferences.defaultEffort).toBeUndefined();
+    expect((await fixture.state()).preferences.defaultEffort).toBeUndefined();
     await quit(app);
-    expect(fixture.state().expandedProjects).toEqual([`project:${path.basename(fixture.project).toLowerCase()}`]);
+    expect((await fixture.state()).expandedProjects).toEqual([
+      `project:${path.basename(fixture.project).toLowerCase()}`,
+    ]);
     ({ app, page } = await launch(fixture.env));
     if (!(await page.locator('.sidebar').isVisible()))
       await page.getByRole('button', { name: 'Sessions', exact: true }).click();
@@ -241,11 +244,11 @@ test('archive and restore a fictional discovered chat through the context menu',
     );
     expect(retirement).toEqual([{ status: 'fulfilled' }]);
     expect(await dialogsAsked(app)).toEqual([expect.stringMatching(/^Archive /)]);
-    await expect.poll(() => fs.existsSync(history), { timeout: 30000 }).toBe(false);
+    await expect.poll(async () => fs.existsSync(history), { timeout: 30000 }).toBe(false);
     await page.locator('.sidebar-archives > summary').click();
     await expect(page.getByRole('button', { name: /Archive fixture.*Restore chat/ })).toBeVisible();
     await page.getByRole('button', { name: /Archive fixture.*Restore chat/ }).click();
-    await expect.poll(() => fs.existsSync(history), { timeout: 30000 }).toBe(true);
+    await expect.poll(async () => fs.existsSync(history), { timeout: 30000 }).toBe(true);
     expect(fs.readFileSync(history, 'utf8')).toBe(content);
     const restored = page.getByRole('button', { name: /Archive fixture.*ended/ });
     await restored.click({ button: 'right' });
@@ -263,7 +266,7 @@ test('archive and restore a fictional discovered chat through the context menu',
       ),
     );
     expect(deletion).toEqual([{ status: 'fulfilled' }]);
-    await expect.poll(() => fs.existsSync(history), { timeout: 30000 }).toBe(false);
+    await expect.poll(async () => fs.existsSync(history), { timeout: 30000 }).toBe(false);
     await expect(page.getByRole('button', { name: /Archive fixture/ })).toHaveCount(0);
     await quit(app);
   } finally {

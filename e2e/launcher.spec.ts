@@ -20,15 +20,15 @@ test('claude behind an unknown launcher in a folder with a space runs, with its 
     await newSession(page, project, 'my task');
     const start = launches().find((l) => l.event === 'start')!;
     // The session's process is claude's own (for cleaning up after a crash), not cmd's, once its entry was seen.
-    await expect.poll(() => byName('my task').pid, { timeout: 10_000 }).toBe(start.pid);
+    await expect.poll(async () => (await byName('my task')).pid, { timeout: 10_000 }).toBe(start.pid);
     expect(start.args).toEqual(
-      expect.arrayContaining(['--session-id', byName('my task').claudeSessionId, '--name', 'my task']),
+      expect.arrayContaining(['--session-id', (await byName('my task')).claudeSessionId, '--name', 'my task']),
     );
 
     await tileByLabel(page, 'my task').locator('.tile-body').click();
     await page.keyboard.type('hello');
     await page.keyboard.press('Enter');
-    await expect.poll(() => byName('my task').used, { timeout: 10_000 }).toBe(true);
+    await expect.poll(async () => (await byName('my task')).used, { timeout: 10_000 }).toBe(true);
     await quit(app);
     expect(launches().filter((l) => l.event === 'exit')).toHaveLength(1);
   } catch (error) {
