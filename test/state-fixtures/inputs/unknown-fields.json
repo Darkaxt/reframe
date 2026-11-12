@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "futureTopLevel": {
+    "nested": [
+      1,
+      2,
+      {
+        "deep": true
+      }
+    ]
+  },
+  "sessions": {
+    "s1": {
+      "id": "s1",
+      "claudeSessionId": "c1",
+      "cwd": "C:\\a",
+      "launch": {
+        "futureLaunch": "x"
+      },
+      "lifecycle": "open",
+      "createdAt": 1,
+      "lastActiveAt": 1,
+      "futureSession": 7
+    }
+  },
+  "windows": [
+    {
+      "id": "w",
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 1,
+        "dpi": 2
+      },
+      "maximized": false,
+      "hidden": false,
+      "layout": {
+        "kind": "tile",
+        "sessionId": "s1",
+        "zoom": 3
+      },
+      "dock": [],
+      "futureWindow": "y"
+    }
+  ],
+  "recentFolders": [],
+  "preferences": {
+    "nameFromFolder": false,
+    "futurePref": "z",
+    "providerDefaults": {
+      "anthropic": {
+        "model": "m",
+        "more": 1
+      },
+      "other": {}
+    }
+  },
+  "hiddenThreads": [
+    {
+      "claudeSessionId": "h",
+      "label": "l",
+      "cwd": "c",
+      "hiddenAt": 1,
+      "why": "x"
+    }
+  ]
+}

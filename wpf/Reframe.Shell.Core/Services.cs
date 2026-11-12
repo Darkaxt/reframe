@@ -18,7 +18,7 @@ public sealed record SessionStatus(string SessionId, int Instance, string Status
 
 public sealed record TranscriptItem(string SessionId, double ModifiedAt, string? Cwd, string? Title);
 
-/// <summary>The v1 services the shell uses: <c>sessions</c> and <c>transcripts</c>.</summary>
+/// <summary>The v1 services the shell uses: <c>sessions</c>, <c>transcripts</c> and <c>state</c> (read only, for now).</summary>
 public sealed class HostServices
 {
     readonly HostConnection connection;
@@ -88,5 +88,12 @@ public sealed class HostServices
         if (!Offers("transcripts")) return null;
         var result = await connection.CallAsync("transcripts", "title", new JsonObject { ["home"] = home, ["sessionId"] = claudeSessionId });
         return result is JsonValue v && v.TryGetValue<string>(out var title) ? title : null;
+    }
+
+    /// <summary><c>state.read { file }</c>: the file's text (null when it is not there) and the host's revision of it.</summary>
+    public async Task<(string? Content, long? Revision)> ReadStateAsync(string file)
+    {
+        var result = await connection.CallAsync("state", "read", new JsonObject { ["file"] = file });
+        return ((string?)result?["content"], (long?)result?["revision"]);
     }
 }

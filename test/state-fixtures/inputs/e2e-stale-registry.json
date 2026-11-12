@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "sessions": {
+    "a": {
+      "id": "a",
+      "claudeSessionId": "own-session",
+      "cwd": "C:\\work\\project",
+      "launch": {},
+      "lifecycle": "ended",
+      "createdAt": 1,
+      "lastActiveAt": 1,
+      "pid": 4242
+    }
+  },
+  "windows": [
+    {
+      "id": "w",
+      "bounds": null,
+      "maximized": false,
+      "hidden": false,
+      "layout": null,
+      "dock": []
+    }
+  ],
+  "recentFolders": []
+}

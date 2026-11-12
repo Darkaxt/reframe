@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "sessions": {},
+  "windows": [],
+  "recentFolders": [],
+  "preferences": {
+    "nameFromFolder": false,
+    "language": "de",
+    "fontSize": 15
+  },
+  "folderWorkspaces": [
+    {
+      "id": "f1",
+      "cwd": "C:\\p",
+      "name": "p",
+      "sessionIds": [
+        "a",
+        "b"
+      ],
+      "provider": "chatgpt",
+      "extra": 1
+    },
+    {
+      "id": "f2",
+      "cwd": "C:\\q",
+      "name": "q",
+      "sessionIds": [],
+      "locations": [
+        {
+          "cwd": "C:\\q",
+          "provider": "anthropic",
+          "sessionIds": [
+            "c"
+          ]
+        }
+      ]
+    }
+  ]
+}

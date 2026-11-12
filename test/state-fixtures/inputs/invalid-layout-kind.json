@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "sessions": {},
+  "recentFolders": [],
+  "windows": [
+    {
+      "id": "w",
+      "bounds": null,
+      "maximized": false,
+      "hidden": false,
+      "dock": [],
+      "layout": {
+        "kind": "pane",
+        "sessionId": "a"
+      }
+    }
+  ]
+}

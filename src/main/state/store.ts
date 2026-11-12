@@ -286,7 +286,7 @@ function readFile(file: string): { state?: AppState; newer?: boolean; reason?: s
 }
 
 /** The state in a file's text, or why there is none. */
-function parse(text: string): { state?: AppState; newer?: boolean; reason?: string } {
+export function parse(text: string): { state?: AppState; newer?: boolean; reason?: string } {
   let json: unknown;
   try {
     json = JSON.parse(text);
