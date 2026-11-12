@@ -22,10 +22,20 @@ jobs:
       - run: cargo build --release --locked -p reframe-host
       # The conformance tests' stand-in for LLM Coordinator (never the real one).
       - run: cargo build --release --locked -p reframe-services --example fake-coordinator
+      # The host as the package ships it (electron-builder.yml, resources/reframe-host): reframe-host.exe (static CRT,
+      # rust/.cargo/config.toml) with node-pty's bundled ConPTY (conpty.dll, OpenConsole.exe) beside it.
+      - name: Stage the host with its ConPTY
+        shell: bash
+        run: |
+          version=$(node -p "require('../package-lock.json').packages['node_modules/node-pty'].version")
+          mkdir -p dist-host ../.node-pty
+          npm pack "node-pty@$version" --pack-destination ../.node-pty
+          tar -xzf "../.node-pty/node-pty-$version.tgz" -C ../.node-pty
+          cp target/release/reframe-host.exe ../.node-pty/package/prebuilds/win32-x64/conpty/conpty.dll             ../.node-pty/package/prebuilds/win32-x64/conpty/OpenConsole.exe dist-host/
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: reframe-host
-          path: rust/target/release/reframe-host.exe
+          path: rust/dist-host/
           if-no-files-found: error
       - uses: actions/upload-artifact@v7.0.2
         with:
@@ -43,10 +53,12 @@ jobs:
       - uses: actions/checkout@v7.0.1
       - run: dotnet build Reframe.Shell.sln -c Release
       - run: dotnet test Reframe.Shell.sln -c Release --no-build
+      # Self-contained, so that it runs on a clean Windows without the .NET desktop runtime (tests/sandbox-smoke).
+      - run: dotnet publish Reframe.Shell/Reframe.Shell.csproj -c Release -r win-x64 --self-contained true -o publish/reframe-shell
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: reframe-shell
-          path: wpf/Reframe.Shell/bin/Release/net8.0-windows/win-x64/
+          path: wpf/publish/reframe-shell/
           if-no-files-found: error
 
   check:

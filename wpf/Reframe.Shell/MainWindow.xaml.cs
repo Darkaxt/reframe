@@ -1,10 +1,14 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Automation;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Terminal.Wpf;
 using Reframe.Shell.Core;
 
@@ -23,6 +27,8 @@ sealed class SessionItem(HostSession session) : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    public override string ToString() => Name;
+
     void Set(ref string field, string value, [CallerMemberName] string? property = null)
     {
         if (field == value) return;
@@ -33,6 +39,9 @@ sealed class SessionItem(HostSession session) : INotifyPropertyChanged
 
 public partial class MainWindow : Window
 {
+    [DllImport("user32.dll")]
+    static extern IntPtr SetFocus(IntPtr hwnd);
+
     /// <summary>reframe's terminal look (src/renderer/terminals.ts): its background, foreground and selection, and
     /// xterm.js's default 16 colours, which reframe keeps. Win32 COLORREF is 0x00BBGGRR.</summary>
     static readonly TerminalTheme Theme = new()
@@ -121,7 +130,9 @@ public partial class MainWindow : Window
 
     void SessionList_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter) OpenSelected();
+        if (e.Key != Key.Enter) return;
+        OpenSelected();
+        e.Handled = true;
     }
 
     void OpenSelected()
@@ -131,6 +142,7 @@ public partial class MainWindow : Window
         if (open is not null)
         {
             Tabs.SelectedItem = open;
+            if (open.Content is TerminalControl shown && shown.IsLoaded) FocusTerminal(shown);
             return;
         }
         var control = new TerminalControl { AutoResize = true };
@@ -139,6 +151,7 @@ public partial class MainWindow : Window
         control.Loaded += (_, _) =>
         {
             control.SetTheme(Theme, FontFamilyName, TerminalFontSize, Color.FromRgb(0x17, 0x18, 0x1c));
+            FocusTerminal(control);
             if (connected) return; // a tab switch unloads and loads the control again
             connected = true;
             control.Connection = terminal;
@@ -156,11 +169,13 @@ public partial class MainWindow : Window
         };
 
         var header = new DockPanel();
-        var close = new Button { Content = "×", Padding = new Thickness(4, 0, 4, 0), Margin = new Thickness(6, 0, 0, 0) };
+        var close = new Button { Content = "×", ToolTip = $"Close {item.Name}", Padding = new Thickness(4, 0, 4, 0), Margin = new Thickness(6, 0, 0, 0) };
         DockPanel.SetDock(close, Dock.Right);
+        AutomationProperties.SetName(close, $"Close {item.Name}");
         header.Children.Add(close);
         header.Children.Add(new TextBlock { Text = item.Name });
         var tab = new TabItem { Header = header, Content = control, Tag = item };
+        AutomationProperties.SetName(tab, item.Name);
         close.Click += (_, _) =>
         {
             terminal.Close(); // detaches the view only; the session goes on
@@ -168,5 +183,26 @@ public partial class MainWindow : Window
         };
         Tabs.Items.Add(tab);
         Tabs.SelectedItem = tab;
+    }
+
+    /// <summary>Moves keyboard focus into the terminal once its native window exists, so typing goes to the session
+    /// (not to the list item that opened it). TerminalControl hosts the terminal in an HwndHost, which WPF focus alone
+    /// does not reach, so the native window gets Win32 focus as well.</summary>
+    void FocusTerminal(TerminalControl control) => _ = Dispatcher.InvokeAsync(() =>
+    {
+        if (FindHost(control) is not { } host) return;
+        Keyboard.Focus(host);
+        if (host.Handle != IntPtr.Zero) SetFocus(host.Handle);
+    }, DispatcherPriority.Input);
+
+    static HwndHost? FindHost(DependencyObject parent)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is HwndHost host) return host;
+            if (FindHost(child) is { } found) return found;
+        }
+        return null;
     }
 }
