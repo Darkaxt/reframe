@@ -39,7 +39,7 @@ try {
     Log "descriptor: $d"
 
     # A minimal protocol client (docs/ptyhost-protocol.md): hello, spawn cmd.exe, wait for spawned, detach.
-    $name = ($d | ConvertFrom-Json).pipe -replace '^\\\.\pipe\', ''
+    $name = ($d | ConvertFrom-Json).pipe.Replace('\\.\pipe\', '')
     $c = New-Object IO.Pipes.NamedPipeClientStream('.', $name, [IO.Pipes.PipeDirection]::InOut)
     $c.Connect(5000)
     $w = New-Object IO.StreamWriter($c, (New-Object Text.UTF8Encoding($false))); $w.NewLine = "`n"; $w.AutoFlush = $true
