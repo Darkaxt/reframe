@@ -131,7 +131,7 @@ sealed class NewSessionDialog
         Add(Field(T("dialog.effort"), effortBox));
 
         Folder = Input(T("dialog.folderPlaceholder"));
-        Folder.Text = preset?.Cwd is { Length: > 0 } cwd ? cwd : roots.GetValueOrDefault(provider) ?? "";
+        Folder.Text = preset?.Cwd ?? "";
         Folder.TextChanged += (_, _) =>
         {
             ShowError(null, null);

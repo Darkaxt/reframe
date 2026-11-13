@@ -358,7 +358,12 @@ public partial class MainWindow : Window
     void ShowSession(string id)
     {
         var win = Win;
-        if (Layout.Leaves(win.Layout).Contains(id)) SelectTile(id);
+        if (Layout.Leaves(win.Layout).Contains(id))
+        {
+            // openSession: an ended one is resumed where it is.
+            if (!Runs(id) && Writable) shell.Resume(WindowId, id);
+            SelectTile(id);
+        }
         else if (LayoutActions.IsCollapsed(win, id))
         {
             if (Writable) Act(new LayoutAction.TileExpand(id));
