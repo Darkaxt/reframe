@@ -8,7 +8,7 @@ export default defineConfig(
   js.configs.recommended,
   tseslint.configs.recommended,
   {
-    files: ['scripts/**/*.mjs', 'test/**/*.mjs', 'screenshots/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'test/**/*.mjs', 'screenshots/**/*.mjs', 'tools/**/*.mjs'],
     languageOptions: {
       globals: {
         Buffer: 'readonly',

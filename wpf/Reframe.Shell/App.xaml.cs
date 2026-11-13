@@ -10,6 +10,10 @@ public partial class App : Application
     /// <summary>Attach as the primary client even while another client is attached (it is replaced: one primary per
     /// profile). Without it, the shell watches read-only beside that client when the host offers observers.</summary>
     public static bool TakeOver { get; private set; }
+    /// <summary>Diagnostics (<c>--diag-capture &lt;dir&gt;</c>): renders the window's states at a fixed size, saves each
+    /// as &lt;state id&gt;.png in the folder (PrintWindow, so the native terminal shows too) and exits. For the visual
+    /// parity report (tools/visual); never used by a normal start.</summary>
+    public static string? CaptureDir { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -18,6 +22,7 @@ public partial class App : Application
         {
             if (e.Args[i] == "--profile" && i + 1 < e.Args.Length) ProfileDir = Path.GetFullPath(e.Args[++i]);
             else if (e.Args[i] == "--take-over") TakeOver = true;
+            else if (e.Args[i] == "--diag-capture" && i + 1 < e.Args.Length) CaptureDir = Path.GetFullPath(e.Args[++i]);
         }
         base.OnStartup(e);
         new MainWindow().Show();
