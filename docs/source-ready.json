@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "4cca47b9757bd4c2cb3b1c2cc68a81342f8c0208",
-  "scope": "0.11.0-claudegpt.34: faster managed start (one release folder walk, launch hash stamps) and the WPF shell's Trace output in the profile's logs\\main.log; a press on a tile's header button no longer moves the focus into the terminal (lost clicks on \u00d7); an ended session's status is ended (no stale host status). PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.33, the protocol and cutover docs, the version and release notes.",
+  "sourceBase": "fe1a11b41b8cdf43a416f350a4af9968608272e9",
+  "scope": "0.11.0-claudegpt.34: faster managed start (one release folder walk, launch hash stamps) and the WPF shell's Trace output in the profile's logs\\main.log; a press on a tile's header button no longer moves the focus into the terminal (lost clicks on ×); an ended session's status is ended (no stale host status) and its sidebar row reads ended; a terminal host too old to plan starts (before launch.spawnPlan) is reported with a Restart terminal host action instead of a failed start. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.33, the protocol and cutover docs, the version and release notes.",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.34.md",
-      "sha256": "3f895bdd1826ec38ef9b69f0d5090ec1a74148dc29eba67a27d5ebae987e049b"
+      "sha256": "099a472fad663a4c71329391ce11e051db65f0f419f7329a2318d8f09c995d02"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -41,8 +41,28 @@
       "sha256": "76470ba2bcb066a6d440a2a5c1c12d991d8fa31ca200820387729d64343b031f"
     },
     {
+      "file": "wpf/Reframe.Shell.Core/HostConnection.cs",
+      "sha256": "93a661d7e491c9586e51f52a69da8b7740cd62cdb7972b23297a69a0a9e1ca13"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/NewSession.cs",
+      "sha256": "760b35ae481666ccdab70a16ea402ba46d1af4d6e38ca015e3589f77aade87a5"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/Services.cs",
+      "sha256": "470cdb6eaf059c4162a302f9098964fb8f3e1b1080a3c61ff12f0856d0e3c13e"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
+      "sha256": "c8e240ffe9875f2c694824039a65864826fd72c7435e07f3bedd3e25be50246c"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/Strings.cs",
+      "sha256": "e492926726e107ece8a7f990963f39423354e5c5102b68df244610a12a37cad3"
+    },
+    {
       "file": "wpf/Reframe.Shell/App.xaml.cs",
-      "sha256": "0dff2c92f76d240adbb926a234e268ca679349dcd9b8b1284d3a1fdd622d6ecf"
+      "sha256": "26e0c70da239e8783839d0cfefe28ccaece7ac524083270bf40a0a359bfef603"
     },
     {
       "file": "wpf/Reframe.Shell/FileLog.cs",
@@ -50,7 +70,19 @@
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "1f136c7ee77022c1dae37affbd14c917b6ee735cfae108818433e914b5d43ef1"
+      "sha256": "baf9e003465d1ef6042be4ff8c8436abb45b6dd825ed8801c54bacbf7d1a1225"
+    },
+    {
+      "file": "wpf/Reframe.Shell/NewSessionDialog.cs",
+      "sha256": "3a41870393c8b6d9a570ab266f99dd8bb6cb3e228d2ad00507d8ab1848da4227"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Host.cs",
+      "sha256": "4adf8d9a3033ecc97616750411555f0b96b82cd4e039cbf12ed4f00083219abf"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
+      "sha256": "5488bff721fd7e01d2af2ac48c4b6a22a8fc443935f546617fb6a4c67b832724"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.cs",
