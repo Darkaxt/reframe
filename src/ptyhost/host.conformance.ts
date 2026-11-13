@@ -20,7 +20,10 @@ import { userHasStatusLine } from '../main/quota';
 import type { PtyHostClient } from '../main/ptyhost-client';
 import { SessionManager, type WslLauncher } from '../main/sessions';
 import { StateStore } from '../main/state/store';
-import { looksLikeClaude } from '../main/wsl/distros';
+import { cleanUp, DROPS_KEEP_MS } from '../main/cleanup';
+import { HELPER_MISSING, retireInput, type RetireJob } from '../main/history-helper';
+import { looksLikeClaude, WslDistros } from '../main/wsl/distros';
+import { linuxPathOf, parseWslPath, wslWindowsPath } from '@shared/wsl';
 import { defaultState, type SessionRecord } from '@shared/state';
 import {
   encode,
@@ -56,6 +59,16 @@ const alive = (pid: number): boolean => {
     return false;
   }
 };
+
+/** A real Python on the PATH (not the Microsoft Store's stand-in), for the history helper's stand-in; or null. */
+function findPython(): string | null {
+  for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
+    if (!dir || /WindowsApps/i.test(dir)) continue;
+    const exe = path.join(dir, 'python.exe');
+    if (path.isAbsolute(exe) && fs.existsSync(exe)) return exe;
+  }
+  return null;
+}
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -1426,6 +1439,299 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       // Never read by this host.
       expect(await code(6, 'write', { file, content: '{}', revision: 1, backup: false })).toBe('conflict');
       expect(fs.existsSync(file)).toBe(false);
+    });
+  });
+
+  describe('the cleanup, wsl and history services', () => {
+    async function svc(connection: Connection, id: number, service: string, method: string, params: unknown) {
+      connection.send({ type: 'svc', id, service, method, params });
+      return connection.next(`svc-result ${id}`, (m) => m.type === 'svc-result' && m.id === id);
+    }
+    const plain = (value: unknown) => JSON.parse(JSON.stringify(value ?? null)) as unknown;
+    const sleeper = () => {
+      const proc = spawnProcess(process.execPath, ['-e', 'setInterval(() => {}, 60000)'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+      return proc.pid!;
+    };
+
+    it('removes old drops and stray hook files as reframe does, and nothing else', async () => {
+      const fixture = (name: string) => {
+        const dir = fs.mkdtempSync(path.join(scratch, `cleanup-${name}-`));
+        const drops = path.join(dir, 'drops');
+        const hooks = path.join(dir, 'hooks');
+        for (const n of ['old', 'new']) {
+          fs.mkdirSync(path.join(drops, n), { recursive: true });
+          fs.writeFileSync(path.join(drops, n, 'image.png'), '');
+        }
+        const longAgo = new Date(Date.now() - DROPS_KEEP_MS - 60_000);
+        fs.utimesSync(path.join(drops, 'old'), longAgo, longAgo);
+        fs.mkdirSync(hooks);
+        for (const n of ['kept.json', 'gone.json', 'notes.txt']) fs.writeFileSync(path.join(hooks, n), '{}');
+        fs.mkdirSync(path.join(hooks, 'folder'));
+        return { drops, hooks };
+      };
+      const oracle = fixture('oracle');
+      const expected = await cleanUp(oracle.drops, oracle.hooks, new Set(['kept']));
+      const left = (f: { drops: string; hooks: string }) => [
+        fs.readdirSync(f.drops).sort(),
+        fs.readdirSync(f.hooks).sort(),
+      ];
+      const host = await startHost(kind);
+      const { connection } = await attach(host);
+      const mine = fixture(kind);
+      const answer = await svc(connection, 1, 'cleanup', 'files', { ...mine, sessionIds: ['kept'] });
+      expect(answer.result).toEqual(expected);
+      expect(expected).toEqual({ drops: 1, hooks: 1 });
+      expect(left(mine)).toEqual(left(oracle));
+      const none = path.join(scratch, 'none');
+      expect(
+        (await svc(connection, 2, 'cleanup', 'files', { drops: none, hooks: none, sessionIds: [] })).result,
+      ).toEqual({ drops: 0, hooks: 0 });
+      expect(
+        (await svc(connection, 3, 'cleanup', 'files', { drops: 'rel', hooks: none, sessionIds: [] })).error?.code,
+      ).toBe('bad-params');
+    });
+
+    it('ends only the orphaned claude whose registry entry is that session and process', async () => {
+      const home = fs.mkdtempSync(path.join(scratch, 'orphans-'));
+      fs.mkdirSync(path.join(home, 'sessions'));
+      const [orphan, other, hosted] = [sleeper(), sleeper(), sleeper()];
+      const entry = (pid: number, sessionId: string) =>
+        fs.writeFileSync(path.join(home, 'sessions', `${pid}.json`), JSON.stringify({ pid, sessionId }));
+      entry(orphan, 'mine');
+      entry(other, 'someone-else');
+      entry(hosted, 'hosted');
+      try {
+        const host = await startHost(kind);
+        const { connection } = await attach(host);
+        const answer = await svc(connection, 1, 'cleanup', 'orphans', {
+          claudeHome: home,
+          sessions: [
+            { pid: orphan, claudeSessionId: 'mine' },
+            { pid: other, claudeSessionId: 'not-its-entry' },
+            { pid: hosted, claudeSessionId: 'hosted' },
+          ],
+          hosted: [hosted],
+        });
+        expect(answer.result).toEqual({ killed: [orphan] });
+        await until('the orphan to be killed', () => !alive(orphan), 10_000);
+        expect(alive(other) && alive(hosted)).toBe(true);
+        expect(fs.readdirSync(path.join(home, 'sessions')).sort()).toEqual([`${hosted}.json`, `${other}.json`].sort());
+      } finally {
+        for (const pid of [orphan, other, hosted]) if (alive(pid)) process.kill(pid);
+      }
+    });
+
+    it('lists WSL distributions, asks one for claude and ends only a claude, as reframe does', async () => {
+      const share = fs.mkdtempSync(path.join(scratch, 'wsl-share-'));
+      for (const d of ['Alpha', 'Beta', 'docker-desktop']) fs.mkdirSync(path.join(share, d));
+      fs.writeFileSync(path.join(share, 'Beta', 'no-claude'), '');
+      fs.writeFileSync(path.join(share, 'Beta', 'stopped'), '');
+      const command = {
+        file: process.execPath,
+        prefixArgs: [path.join(root, 'test', 'fake-wsl', 'fake-wsl.mjs')],
+        env: { REFRAME_WSL_SHARE: share },
+      };
+      const where = { share, command };
+      const oracle = new WslDistros(() => {}, where);
+      const proc = (pid: number, cmdline: string) => {
+        fs.mkdirSync(path.join(share, 'Alpha', 'proc', String(pid)), { recursive: true });
+        fs.writeFileSync(path.join(share, 'Alpha', 'proc', String(pid), 'cmdline'), cmdline);
+      };
+      const claude = sleeper();
+      const notClaude = sleeper();
+      proc(claude, '/usr/local/bin/claude\0--resume\0x');
+      proc(notClaude, 'bash\0');
+      try {
+        const host = await startHost(kind);
+        const { connection } = await attach(host);
+        let id = 0;
+        const ask = async (method: string, params: Record<string, unknown> = {}) =>
+          (await svc(connection, ++id, 'wsl', method, { ...where, ...params })).result;
+        expect(await ask('list')).toEqual(await oracle.list());
+        expect(await ask('running')).toEqual(await oracle.running(0));
+        expect(await ask('running')).toEqual(['Alpha']);
+        for (const distro of ['Alpha', 'Beta', 'Nope']) {
+          expect(await ask('info', { distro }), distro).toEqual(plain(await oracle.info(distro)));
+        }
+        expect(((await ask('info', { distro: 'Alpha' })) as { claude: string }).claude).toBe('/usr/local/bin/claude');
+        expect(await ask('isClaude', { distro: 'Alpha', pid: claude })).toBe(true);
+        expect(await ask('isClaude', { distro: 'Alpha', pid: notClaude })).toBe(false);
+        expect(await ask('stopClaude', { distro: 'Alpha', pid: notClaude })).toBe('failed');
+        expect(alive(notClaude)).toBe(true);
+        expect(await ask('stopClaude', { distro: 'Alpha', pid: claude })).toBe('stopped');
+        await until('the claude to end', () => !alive(claude), 10_000);
+        const code = async (params: Record<string, unknown>) =>
+          (await svc(connection, ++id, 'wsl', 'info', params)).error?.code;
+        expect(await code({ distro: '..\\x', ...where })).toBe('bad-params');
+        expect(await code({ distro: 'Alpha', share, command: { file: '' } })).toBe('bad-params');
+      } finally {
+        for (const pid of [claude, notClaude]) if (alive(pid)) process.kill(pid);
+      }
+    });
+
+    it('converts WSL paths as src/shared/wsl.ts does', async () => {
+      const host = await startHost(kind);
+      const { connection } = await attach(host);
+      let id = 0;
+      const ask = async (method: string, params: Record<string, unknown>) =>
+        (await svc(connection, ++id, 'wsl', method, params)).result;
+      for (const [p, share] of [
+        ['\\\\wsl.localhost\\Ubuntu\\home\\ann\\shop', undefined],
+        ['\\\\WSL$\\Debian\\srv\\', undefined],
+        ['//wsl.localhost/Ubuntu', undefined],
+        ['C:\\tmp\\share\\Fake\\home\\ann', 'C:\\tmp\\share'],
+        ['C:\\Users\\ann\\shop', undefined],
+        ['\\\\wsl.localhost\\', undefined],
+        ['\\\\wsl.localhostX\\Ubuntu\\home', undefined],
+      ] as const) {
+        expect(await ask('parsePath', { path: p, share }), p).toEqual(plain(parseWslPath(p, share)));
+      }
+      for (const [distro, p, share] of [
+        ['Ubuntu', '/home/ann/shop', '\\\\wsl.localhost'],
+        ['Ubuntu', '/', 'C:\\tmp\\share\\'],
+      ] as const) {
+        expect(await ask('windowsPath', { distro, path: p, share })).toBe(wslWindowsPath(distro, p, share));
+      }
+      for (const [p, distro, mountRoot] of [
+        ['C:\\Users\\Ann\\Pictures\\shot.png', 'Ubuntu', '/mnt/'],
+        ['D:\\', 'Ubuntu', '/mnt'],
+        ['E:', 'Ubuntu', '/mnt/'],
+        ['C:x', 'Ubuntu', '/mnt/'],
+        ['\\\\wsl.localhost\\Ubuntu\\home\\ann\\a b.txt', 'ubuntu', '/mnt/'],
+        ['\\\\wsl.localhost\\Debian\\home\\x', 'Ubuntu', '/mnt/'],
+        ['\\\\server\\share\\x', 'Ubuntu', '/mnt/'],
+      ] as const) {
+        expect(await ask('linuxPath', { path: p, distro, mountRoot }), p).toEqual(linuxPathOf(p, distro, mountRoot));
+      }
+    });
+
+    it('refuses history jobs without the pinned Python, and checks what it is given', async () => {
+      const saved = { python: process.env.REFRAME_HISTORY_PYTHON, sha: process.env.REFRAME_HISTORY_HELPER_SHA256 };
+      delete process.env.REFRAME_HISTORY_PYTHON;
+      delete process.env.REFRAME_HISTORY_HELPER_SHA256;
+      let host: Host;
+      try {
+        host = await startHost(kind);
+      } finally {
+        if (saved.python !== undefined) process.env.REFRAME_HISTORY_PYTHON = saved.python;
+        if (saved.sha !== undefined) process.env.REFRAME_HISTORY_HELPER_SHA256 = saved.sha;
+      }
+      const { connection } = await attach(host);
+      const backend = path.join(scratch, 'history_backend.py');
+      const base = { backend, cwd: scratch, home: scratch };
+      const missing = await svc(connection, 1, 'history', 'restore', {
+        ...base,
+        id: 'x',
+        operation: 'D:\\o',
+        archive: 'D:\\a.zip',
+        sha256: 'ab',
+      });
+      expect(missing.error).toEqual({ code: 'io', message: HELPER_MISSING });
+      const code = async (n: number, method: string, params: Record<string, unknown>) =>
+        (await svc(connection, n, 'history', method, params)).error?.code;
+      expect(await code(2, 'prepare', { ...base, root: 'C:\\archives', ids: [] })).toBe('bad-params');
+      expect(
+        await code(3, 'prepare', { ...base, backend: path.join(scratch, 'other.py'), root: 'D:\\a', ids: [] }),
+      ).toBe('bad-params');
+      expect(await code(4, 'recover', { ...base, root: 'relative' })).toBe('bad-params');
+      expect(await code(5, 'retire', { ...base, jobs: [{ prepared: {}, mode: 'shred', metadata: {} }] })).toBe(
+        'bad-params',
+      );
+      expect(await code(6, 'nope', {})).toBe('unknown-method');
+    });
+
+    // A stand-in history_backend.py run by the real Python (never the real helper, nor real chats): it answers what
+    // it was asked, so both hosts can be held to how reframe runs the helper.
+    const python = findPython();
+    const archives = path.join(root, 'out', `conformance-archives-${kind}`);
+    it.skipIf(!python || /^c:/i.test(archives))('runs the pinned helper as reframe runs it', async () => {
+      const dir = fs.mkdtempSync(path.join(scratch, 'history-'));
+      const backend = path.join(dir, 'history_backend.py');
+      fs.writeFileSync(
+        backend,
+        [
+          'import json, os, sys',
+          'args = sys.argv[1:]',
+          'data = sys.stdin.read() if sys.stdin is not None else ""',
+          'given = json.loads(data) if data else None',
+          'home = args[args.index("--home") + 1]',
+          'if home.endswith("fail"):',
+          '    print(json.dumps({"ok": False, "error": "the helper said no", "code": "chat_active"}))',
+          '    sys.exit(3)',
+          'if home.endswith("garbage"):',
+          '    print("not json")',
+          '    sys.exit(0)',
+          'results = [dict(job, ok=True) for job in given["jobs"]] if given else None',
+          'print(json.dumps({"ok": True, "result": {"results": results, "args": args, "cwd": os.getcwd(),',
+          '    "temp": os.environ.get("TEMP"), "isolated": sys.flags.isolated, "given": given}}))',
+        ].join('\n'),
+      );
+      const runtime = fs.mkdtempSync(path.join(scratch, 'history-runtime-'));
+      const saved = { ...process.env };
+      Object.assign(process.env, {
+        REFRAME_HISTORY_PYTHON: python!,
+        REFRAME_HISTORY_HELPER_SHA256: 'a'.repeat(64),
+        REFRAME_RUNTIME: runtime,
+      });
+      let host: Host;
+      try {
+        host = await startHost(kind);
+      } finally {
+        for (const key of ['REFRAME_HISTORY_PYTHON', 'REFRAME_HISTORY_HELPER_SHA256', 'REFRAME_RUNTIME'])
+          if (saved[key] === undefined) delete process.env[key];
+          else process.env[key] = saved[key];
+      }
+      const { connection } = await attach(host);
+      const home = path.join(dir, 'home');
+      const base = { backend, cwd: dir, home };
+      fs.mkdirSync(archives, { recursive: true });
+      try {
+        const prepared = await svc(connection, 1, 'history', 'prepare', { ...base, root: archives, ids: ['a', 'b'] });
+        expect(prepared.ok).toBe(true);
+        const results = prepared.result as { id: string; ok: boolean; operation: string }[];
+        expect(results.map((r) => [r.id, r.ok])).toEqual([
+          ['a', true],
+          ['b', true],
+        ]);
+        for (const r of results)
+          expect(r.operation).toMatch(
+            new RegExp(`^${path.join(archives, 'operations').replace(/\\/g, '\\\\')}\\\\[0-9a-f-]{36}$`),
+          );
+        const job = {
+          prepared: { id: 'a', operation: results[0]!.operation, plan: 'D:\\p.json', sha256: 'ab', files: 1, bytes: 2 },
+          mode: 'archive',
+          metadata: { id: 'a', label: 'A', cwd: 'D:\\w', provider: 'chatgpt' },
+        };
+        const retired = await svc(connection, 2, 'history', 'retire', { ...base, jobs: [job] });
+        expect(retired.result).toEqual(
+          (retireInput([job as RetireJob]).jobs as Record<string, unknown>[]).map((j) => ({ ...j, ok: true })),
+        );
+        const recovered = await svc(connection, 3, 'history', 'recover', { ...base, root: archives });
+        expect(recovered.result).toMatchObject({
+          results: null,
+          args: ['recover', '--home', home, '--operation', archives],
+          cwd: dir,
+          temp: runtime,
+          isolated: 1,
+          given: null,
+        });
+        const restore = { ...base, id: 'a', operation: 'D:\\o', archive: 'D:\\a.zip', sha256: 'ab' };
+        expect((await svc(connection, 4, 'history', 'restore', restore)).result).toBeNull();
+        const failed = await svc(connection, 5, 'history', 'restore', { ...restore, home: path.join(dir, 'fail') });
+        expect(failed.error).toEqual({ code: 'io', message: 'the helper said no' });
+        const garbage = await svc(connection, 6, 'history', 'recover', {
+          ...base,
+          home: path.join(dir, 'garbage'),
+          root: archives,
+        });
+        expect(garbage.error.code).toBe('io');
+        expect(garbage.error.message).toMatch(/^Chat operation failed; originals\/recovery receipts are kept\. /);
+      } finally {
+        fs.rmSync(archives, { recursive: true, force: true });
+      }
     });
   });
 

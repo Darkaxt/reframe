@@ -1,15 +1,21 @@
 // The Node host's services (docs/ptyhost-protocol.md, "Services"): the same `transcripts`, `quota`, `clients`,
-// `launch` and `state` services as the Rust host's (rust/reframe-host/src/transcripts.rs, services.rs), made of reframe's own
+// `launch`, `state`, `cleanup`, `wsl` and `history` services as the Rust host's (rust/reframe-host/src/transcripts.rs, services.rs), made of reframe's own
 // modules. The conformance tests hold both to them.
 import fs from 'node:fs';
+import path from 'node:path';
 import { TranscriptIndex } from '../main/claude/discovery';
 import { TranscriptTitles } from '../main/claude/titles';
 import { ClaudeWatcher } from '../main/claude/watcher';
+import { isArchiveRoot } from '../main/archive-root';
+import { cleanUp, endOrphans } from '../main/cleanup';
 import { adoptedClient } from '../main/client-adoption';
+import { prepareInput, retireInput, runHistoryHelper, type HelperRun, type RetireJob } from '../main/history-helper';
 import { evaluateLaunchConfig } from '../main/launch-config';
 import { realPlanFs, spawnPlan, spawnPlanInputProblem, type SpawnPlanInput } from '../main/claude/spawn-plan';
 import { coordinatorExecutable, readCodexUsage, userHasStatusLine } from '../main/quota';
 import { StateConflict, StateFiles } from '../main/state/files';
+import { linuxPathOf, parseWslPath, wslWindowsPath } from '@shared/wsl';
+import { WslDistros, type WslCommand } from '../main/wsl/distros';
 import type { HostServices, SvcErrorCode, SvcEvent } from './protocol';
 
 export const SERVICES: Required<HostServices> = {
@@ -20,6 +26,9 @@ export const SERVICES: Required<HostServices> = {
   sessions: 2,
   state: 1,
   observer: 1,
+  cleanup: 1,
+  wsl: 1,
+  history: 1,
 };
 /** Requests being worked on at once; up to MAX_WAITING more wait their turn (a burst on reframe's start, say), and
  * beyond that they are answered `busy`. */
@@ -239,5 +248,209 @@ export class StateService {
       default:
         throw new SvcError('unknown-method', `state.${method}`);
     }
+  }
+}
+
+const absolute = (params: Record<string, unknown>, key: string): string => {
+  const value = required(params, key);
+  if (!path.win32.isAbsolute(value)) throw new SvcError('bad-params', `${key} must be an absolute path`);
+  return value;
+};
+
+const pidOf = (params: Record<string, unknown>, key = 'pid'): number => {
+  const value = params[key];
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0)
+    throw new SvcError('bad-params', `${key} must be a process id`);
+  return value;
+};
+
+/** A distribution's name: a plain name (never a path that would reach past the share). */
+const distroOf = (params: Record<string, unknown>): string => {
+  const name = required(params, 'distro');
+  if (/[\\/]/.test(name) || name === '.' || name === '..')
+    throw new SvcError('bad-params', "distro must be a distribution's name");
+  return name;
+};
+
+const list = (params: Record<string, unknown>, key: string): unknown[] => {
+  const value = params[key];
+  if (!Array.isArray(value)) throw new SvcError('bad-params', `${key} must be a list`);
+  return value;
+};
+
+const strings = (params: Record<string, unknown>, key: string): string[] => {
+  const value = list(params, key);
+  if (value.some((v) => typeof v !== 'string')) throw new SvcError('bad-params', `${key} must be a list of strings`);
+  return value as string[];
+};
+
+/** A wsl.exe given instead of the environment's: `{ file, prefixArgs, env }` as `wslCommand` gives it. */
+function wslWhere(params: Record<string, unknown>): { command?: WslCommand; share?: string } {
+  const share = text(params, 'share');
+  const command = params.command;
+  if (command === undefined || command === null) return { share };
+  const c = command as Record<string, unknown>;
+  const ok =
+    typeof c === 'object' &&
+    typeof c.file === 'string' &&
+    !!c.file &&
+    Array.isArray(c.prefixArgs) &&
+    c.prefixArgs.every((a) => typeof a === 'string') &&
+    (c.env === undefined || (typeof c.env === 'object' && c.env !== null && !Array.isArray(c.env)));
+  if (!ok) throw new SvcError('bad-params', 'command must be { file, prefixArgs, env }');
+  const env = Object.fromEntries(
+    Object.entries((c.env ?? {}) as Record<string, unknown>).filter(
+      (e): e is [string, string] => typeof e[1] === 'string',
+    ),
+  );
+  return { share, command: { file: c.file as string, prefixArgs: c.prefixArgs as string[], env } };
+}
+
+/** history_backend.py and the folder it runs in, as reframe gives them; the Python is the host's own pinned one. */
+function helperRun(params: Record<string, unknown>): HelperRun {
+  const backend = absolute(params, 'backend');
+  if (path.win32.basename(backend).toLowerCase() !== 'history_backend.py')
+    throw new SvcError('bad-params', 'backend must be history_backend.py');
+  return { backend, cwd: absolute(params, 'cwd'), env: process.env };
+}
+
+function archiveRoot(params: Record<string, unknown>): string {
+  const root = required(params, 'root');
+  if (!isArchiveRoot(root, 'win32'))
+    throw new SvcError('bad-params', 'root must be an absolute folder on a non-C drive');
+  return root;
+}
+
+/** A failed helper run (or a helper that cannot be run): its message as an `io` error. */
+const helperFailed = (error: unknown): never => {
+  throw new SvcError('io', error instanceof Error ? error.message : String(error));
+};
+
+/**
+ * `cleanup`, `wsl` and `history` (docs/ptyhost-protocol.md): reframe's own cleanup.ts, wsl/distros.ts and
+ * history-helper.ts, run in the host. At most 8 at once (`wsl` and `history` start processes).
+ */
+export class JobService {
+  private limit = new Limit();
+  private distros = new Map<string, WslDistros>();
+
+  async call(service: string, method: string, params: Record<string, unknown>): Promise<unknown> {
+    switch (`${service}.${method}`) {
+      case 'cleanup.files': {
+        const drops = absolute(params, 'drops');
+        const hooks = absolute(params, 'hooks');
+        const ids = new Set(strings(params, 'sessionIds'));
+        const { now } = params;
+        if (now !== undefined && now !== null && typeof now !== 'number')
+          throw new SvcError('bad-params', 'now must be a number');
+        return this.busy(service, () => cleanUp(drops, hooks, ids, now ?? undefined));
+      }
+      case 'cleanup.orphans': {
+        const claudeHome = absolute(params, 'claudeHome');
+        const sessions = list(params, 'sessions').map((s) => {
+          const record = (s && typeof s === 'object' ? s : {}) as Record<string, unknown>;
+          return { pid: pidOf(record), claudeSessionId: required(record, 'claudeSessionId') };
+        });
+        const hosted = new Set(list(params, 'hosted').map((pid) => pidOf({ pid })));
+        return this.busy(service, async () => ({ killed: await endOrphans(claudeHome, sessions, hosted) }));
+      }
+      case 'wsl.list': {
+        const wsl = this.wsl(params);
+        return this.busy(service, () => wsl.list());
+      }
+      case 'wsl.running': {
+        const wsl = this.wsl(params);
+        return this.busy(service, () => wsl.running(0));
+      }
+      case 'wsl.info': {
+        const distro = distroOf(params);
+        const wsl = this.wsl(params);
+        return this.busy(service, () => wsl.info(distro));
+      }
+      case 'wsl.isClaude': {
+        const distro = distroOf(params);
+        const pid = pidOf(params);
+        const wsl = this.wsl(params);
+        return this.busy(service, () => wsl.isClaude(distro, pid));
+      }
+      case 'wsl.stopClaude': {
+        const distro = distroOf(params);
+        const pid = pidOf(params);
+        const wsl = this.wsl(params);
+        return this.busy(service, () => wsl.stopClaude(distro, pid));
+      }
+      case 'wsl.parsePath':
+        return parseWslPath(required(params, 'path'), text(params, 'share'));
+      case 'wsl.windowsPath':
+        return wslWindowsPath(required(params, 'distro'), required(params, 'path'), required(params, 'share'));
+      case 'wsl.linuxPath':
+        return linuxPathOf(
+          required(params, 'path'),
+          required(params, 'distro'),
+          required(params, 'mountRoot'),
+          text(params, 'share'),
+        );
+      case 'history.prepare': {
+        const run = helperRun(params);
+        const home = required(params, 'home');
+        const input = prepareInput(archiveRoot(params), strings(params, 'ids'));
+        return this.busy(
+          service,
+          async () => (await runHistoryHelper(run, 'prepare', home, [], input).catch(helperFailed)).results,
+        );
+      }
+      case 'history.retire': {
+        const run = helperRun(params);
+        const home = required(params, 'home');
+        const jobs = list(params, 'jobs') as RetireJob[];
+        const valid = jobs.every(
+          (j) =>
+            !!j &&
+            typeof j === 'object' &&
+            (j.mode === 'archive' || j.mode === 'delete') &&
+            !!j.prepared &&
+            typeof j.prepared === 'object' &&
+            !!j.metadata &&
+            typeof j.metadata === 'object',
+        );
+        if (!valid) throw new SvcError('bad-params', 'jobs must be { prepared, mode: archive | delete, metadata }');
+        return this.busy(
+          service,
+          async () => (await runHistoryHelper(run, 'retire', home, [], retireInput(jobs)).catch(helperFailed)).results,
+        );
+      }
+      case 'history.recover': {
+        const run = helperRun(params);
+        const home = required(params, 'home');
+        const root = archiveRoot(params);
+        return this.busy(service, () =>
+          runHistoryHelper(run, 'recover', home, ['--operation', root]).catch(helperFailed),
+        );
+      }
+      case 'history.restore': {
+        const run = helperRun(params);
+        const home = required(params, 'home');
+        const extra = ['id', 'operation', 'archive', 'sha256'].flatMap((key) => [`--${key}`, required(params, key)]);
+        return this.busy(service, async () => {
+          await runHistoryHelper(run, 'restore', home, extra).catch(helperFailed);
+          return null;
+        });
+      }
+      default:
+        throw new SvcError('unknown-method', `${service}.${method}`);
+    }
+  }
+
+  /** One WslDistros per wsl.exe and share, which keeps what each distribution answered as reframe's does. */
+  private wsl(params: Record<string, unknown>): WslDistros {
+    const where = wslWhere(params);
+    const key = JSON.stringify([where.share ?? null, where.command ?? null]);
+    let distros = this.distros.get(key);
+    if (!distros) this.distros.set(key, (distros = new WslDistros(() => {}, where)));
+    return distros;
+  }
+
+  private busy<T>(service: string, work: () => Promise<T>): Promise<T> {
+    return this.limit.run(service, work);
   }
 }

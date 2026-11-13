@@ -376,6 +376,7 @@ name = "reframe-services"
 version = "0.10.1"
 dependencies = [
  "reframe-conpty",
+ "reframe-sessions",
  "serde_json",
  "sha2",
 ]

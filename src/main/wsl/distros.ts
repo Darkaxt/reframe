@@ -179,16 +179,22 @@ export function discoverable(wsl: WslDistros | null, enabled: boolean, maxAgeMs?
 }
 
 export class WslDistros extends EventEmitter<Events> {
-  readonly command = wslCommand();
-  readonly share = wslShare();
+  readonly command: WslCommand;
+  readonly share: string;
   private infos = new Map<string, Promise<WslInfo | null>>();
   private known = new Map<string, WslInfo>();
   private runningNow: { at: number; names: Promise<string[]> } | null = null;
   /** Processes that keep distributions running (started from the session list). */
   private keepers = new Map<string, ChildProcess>();
 
-  constructor(private log: LogFn) {
+  /** `where`: another wsl.exe or share than the environment's (the PTY host's `wsl` service is told them). */
+  constructor(
+    private log: LogFn,
+    where: { command?: WslCommand; share?: string } = {},
+  ) {
     super();
+    this.command = where.command ?? wslCommand();
+    this.share = where.share ?? wslShare();
   }
 
   /**

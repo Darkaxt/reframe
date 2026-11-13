@@ -224,6 +224,53 @@ when a save returns. `StateStore.useHost` (one write at a time, always the newes
 the file there is the one last written or read again and found good, one retry after reading again on `conflict`,
 in-process when the host fails) is there for when the saves can be awaited.
 
+**`cleanup`, `wsl` and `history` (version 1 each).** What Electron's main process does
+for these, served by the host so that a shell without it (the WPF shell) gets the same: the Node host runs reframe's
+own `src/main/cleanup.ts`, `src/main/wsl/distros.ts` (with `src/shared/wsl.ts`) and `src/main/history-helper.ts`;
+the Rust host ports them (`rust/reframe-services/src/cleanup.rs`, `wsl.rs`, `history.rs`; the orphan check in
+`rust/reframe-host/src/jobs.rs`). Primary only (an observer is refused, `forbidden`); each request runs off the
+host's task with the other reads (at most 8 at once, 64 waiting). Electron reframe itself still runs the
+TypeScript in-process; the services are there for the shell. Paths are Windows paths; `bad-params` for a missing or
+relative one where an absolute one is asked for.
+
+| Method | Result |
+| --- | --- |
+| `cleanup.files { drops, hooks, sessionIds, now? }` | `{ drops, hooks }`: how many were removed, as `cleanUp` removes them. In `drops` (reframe's `<temp>/reframe-drops`) each entry directly in it whose modification time is more than 7 days before `now` (ms, default the host's clock) is removed (a folder with what it holds; a link itself, never what it points to); in `hooks` (`<userData>/hooks`) each entry whose name ends in `.json` and whose name without it is not in `sessionIds`. Nothing else, nothing deeper; an entry that cannot go now goes next time. A folder that is not there is nothing to clean. |
+| `cleanup.orphans { claudeHome, sessions: [{ pid, claudeSessionId }], hosted: [pid] }` | `{ killed: [pid] }` (sorted): `SessionManager.cleanupOrphans` without reframe's own running sessions (the caller leaves those out). A session's process is killed (`taskkill /PID <pid> /T /F`, hidden) only when it runs, is not in `hosted` (sessions a host runs), and `<claudeHome>/sessions/<pid>.json` names that very process (its `pid`) with that `sessionId` and, if it has a `procStart`, the process's creation time matches; its entry is removed after it once it is gone. WSL sessions' claudes are not looked at here (`wsl.stopClaude`). |
+| `wsl.list { share?, command? }` | The distributions there are (`wsl.exe -l -q`, UTF-16 or UTF-8), `[]` without WSL. |
+| `wsl.running { share?, command? }` | Those that run now (`-l --running -q`), without `docker-desktop*`; asking starts none. Asked afresh each time (reframe's own keeps an answer 3 s). A distribution not running (and not found with claude) is probed again next time. |
+| `wsl.info { distro, share?, command? }` | `WslInfo` `{ distro, claude, path, home, claudeHome, mountRoot }` or null: the probe (`PROBE_SCRIPT`, through the user's interactive login shell, which starts the distribution; 60 s), asked once per distribution (by its lower-case name) and host as `WslDistros.info` asks it; `claude` is null when the only one is the Windows one under the mount root. |
+| `wsl.isClaude { distro, pid }` | Whether `<share>\<distro>\proc\<pid>\cmdline` is a Claude Code's (`looksLikeClaude`). |
+| `wsl.stopClaude { distro, pid }` | `stopped` or `failed`: never a process that is not a claude (`failed` without signalling); else `kill -s INT`, `INT`, then `TERM` in the distribution, each followed by up to 3 s of waiting for its `/proc` folder to go. |
+| `wsl.parsePath { path, share? }` | `parseWslPath`: `{ distro, path }` for a folder under `share`, `\\wsl.localhost` or `\\wsl$` (any case, either slash), else null. |
+| `wsl.windowsPath { distro, path, share }` | `wslWindowsPath`: the Linux `path` as a Windows path under `share`. |
+| `wsl.linuxPath { path, distro, mountRoot, share? }` | `linuxPathOf`: a drive path under `mountRoot` (`C:\x` → `/mnt/c/x`), the distribution's own folder as its Linux path, else null. |
+| `history.prepare { backend, cwd, home, root, ids }` | The helper's `prepare` `results` (per chat `{ ok: true, id, plan, sha256, files, bytes, operation }` or `{ ok: false, id, error, code? }`), each chat planned in `<root>\operations\<random UUID>`. |
+| `history.retire { backend, cwd, home, jobs: [{ prepared, mode: archive \| delete, metadata }] }` | The helper's `retire` `results` (`{ ok: true, id, archive?, sha256? }` or a failure; `code: chat_active` for a chat that runs). |
+| `history.recover { backend, cwd, home, root }` | The helper's `recover` result `{ entries, warnings, restored }`. |
+| `history.restore { backend, cwd, home, id, operation, archive, sha256 }` | null once restored. |
+
+`wsl`: `share` and `command` (`{ file, prefixArgs, env }`, as `wslCommand` gives it) replace the share and wsl.exe;
+without them, the host's `REFRAME_WSL_SHARE` (else `\\wsl.localhost`) and `REFRAME_WSL_EXE` (else
+`%SystemRoot%\System32\wsl.exe`; a `.js`/`.cjs`/`.mjs` stand-in runs by `REFRAME_NODE`; the Rust host has no
+fallback for a script without it and then finds no distributions). wsl.exe runs hidden with `WSL_UTF8=1` (10 s for
+the lists and signals). `distro` must be a plain name (no `\`, `/`, `.` or `..`). Not served (yet): keeping a
+distribution running (`keep`/`release`, which need a keeper process tied to the shell's life) and the takeover
+helpers `terminalOf`, `shellsOf`, `idle` (stage S12). Real WSL is not exercised in CI (the conformance tests use
+`test/fake-wsl`); the path and parsing rules have unit tests in both languages.
+
+`history` wraps `maintenance/history_backend.py` unchanged (it is not ported): the host runs
+`<REFRAME_HISTORY_PYTHON> -I -B <backend> <command> --home <home> …` hidden, in `cwd` (reframe's profile folder),
+with `TEMP`/`TMP` set to `REFRAME_RUNTIME` when set, the job list as JSON on its input for `prepare` and `retire`,
+and no time limit (a job runs as long as it needs). The Python is the host's own environment's, never the request's:
+absolute, and only with `REFRAME_HISTORY_HELPER_SHA256` set (the helper itself verifies its thread-cleanup helper,
+`REFRAME_HISTORY_HELPER`, against it); otherwise `io` with reframe's message, nothing run. `backend` must be an
+absolute path to a file named `history_backend.py`; `root` an absolute folder not on drive C: (`isArchiveRoot`);
+`cwd` absolute. A helper that fails answers `io` with its `error` (else `Chat operation incomplete (<command>).`);
+one whose output is not its JSON, `io` starting `Chat operation failed; originals/recovery receipts are kept.`.
+The caller chooses `root` (reframe: the archive root setting, `REFRAME_ARCHIVE_ROOT` or `<userData>/archives`) and
+applies the results to the state (removing retired chats, recording archives) itself.
+
 **`overview` (version 1; the Rust host only).** The activity index behind the WPF shell's Overview pane, built from
 thread activity (Claude Code transcripts `<home>/projects/<project>/<session id>.jsonl`), not from repositories (the
 Rust host: `rust/reframe-transcripts/src/overview.rs`). The Node host does not offer it (the Overview is the WPF

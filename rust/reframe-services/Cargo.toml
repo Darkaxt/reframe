@@ -7,6 +7,7 @@ rust-version.workspace = true
 description = "Reframe's quota, client adoption and launch config reading, as its TypeScript does (src/main/quota.ts, client-adoption.ts, launch-config.ts)."
 
 [dependencies]
+reframe-sessions = { path = "../reframe-sessions" }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"
 

@@ -26,7 +26,7 @@ import {
   type ServerMessage,
   type SessionMeta,
 } from './protocol';
-import { ReadService, SERVICES, StateService, SvcError, TranscriptService } from './services';
+import { JobService, ReadService, SERVICES, StateService, SvcError, TranscriptService } from './services';
 import { SessionStatusService } from './sessions';
 
 /** A view of a session's terminal, opened by one connection (the primary or an observer) under its own id. */
@@ -264,10 +264,13 @@ function dispose(sessionId: string, instance: number | null): void {
 const transcripts = new TranscriptService((event) => send({ type: 'svc-event', ...event }));
 const reads = new ReadService();
 const state = new StateService();
+const jobs = new JobService();
 const statuses = new SessionStatusService(
   (data) => broadcast({ type: 'svc-event', service: 'sessions', event: 'status', data }),
   () => client !== null,
 );
+
+const JOB_SERVICES = new Set(['cleanup', 'wsl', 'history']);
 
 /** What an observer may ask: reads only. */
 const OBSERVER_METHODS = new Set([
@@ -302,9 +305,11 @@ function svc(asker: net.Socket, request: Extract<HostRequest, { type: 'svc' }>):
             ? transcripts.call(request.method, request.params ?? {})
             : request.service === 'state'
               ? state.call(request.method, request.params ?? {})
-              : Object.hasOwn(SERVICES, request.service)
-                ? reads.call(request.service, request.method, request.params ?? {})
-                : Promise.reject(new SvcError('unknown-method', `${request.service}.${request.method}`));
+              : JOB_SERVICES.has(request.service)
+                ? jobs.call(request.service, request.method, request.params ?? {})
+                : Object.hasOwn(SERVICES, request.service)
+                  ? reads.call(request.service, request.method, request.params ?? {})
+                  : Promise.reject(new SvcError('unknown-method', `${request.service}.${request.method}`));
   call.then(
     (result) => answer({ type: 'svc-result', id, ok: true, result: result ?? null }),
     (error: unknown) =>

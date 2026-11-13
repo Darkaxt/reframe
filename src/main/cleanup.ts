@@ -4,6 +4,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { forgetRegistryEntry, isRunningEntry, readRegistryEntry } from './claude/registry';
+import { isAlive, killTree } from './process';
 
 /** Where dropped and pasted files are saved, one folder each. */
 export const dropsDir = (): string => path.join(os.tmpdir(), 'reframe-drops');
@@ -55,4 +57,37 @@ export async function cleanUp(
     drops: await remove(drops, olderThan(await entries(drops), now, DROPS_KEEP_MS)),
     hooks: await remove(hooks, strayHookFiles(await fs.promises.readdir(hooks).catch(() => []), sessionIds)),
   };
+}
+
+/** A session reframe ran: its process and its Claude Code session. */
+export interface OrphanCandidate {
+  pid?: number;
+  claudeSessionId: string;
+}
+
+/**
+ * Kills the claudes of sessions that survived a crash of a previous run, so they are not resumed twice: a process
+ * that runs, is not `hosted` (a pty host runs it), and whose registry entry in `claudeHome` is that session's and
+ * that very process's (its id alone may be another program's by now). Its entry goes after it. The pids killed.
+ */
+export async function endOrphans(
+  claudeHome: string,
+  sessions: OrphanCandidate[],
+  hosted: ReadonlySet<number> = new Set(),
+  killing: (pid: number) => void = () => {},
+): Promise<number[]> {
+  const killed: number[] = [];
+  await Promise.all(
+    sessions.map(async (s) => {
+      if (!s.pid || !isAlive(s.pid) || hosted.has(s.pid)) return;
+      const entry = readRegistryEntry(claudeHome, s.pid);
+      if (entry && entry.sessionId === s.claudeSessionId && isRunningEntry(entry)) {
+        killing(s.pid);
+        await killTree(s.pid);
+        forgetRegistryEntry(claudeHome, s.pid);
+        killed.push(s.pid);
+      }
+    }),
+  );
+  return killed.sort((a, b) => a - b);
 }

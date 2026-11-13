@@ -3,14 +3,19 @@
 //! Code settings have a status line (src/main/quota.ts), the adopted clients verified by hash
 //! (src/main/client-adoption.ts) and the direct start's reframe-config.json (src/main/launch-config.ts). Besides reframe's state.json
 //! (state.rs, written as src/main/state/store.ts writes it), nothing here writes or changes the environment; reframe
-//! applies what it is told.
+//! applies what it is told. Except, for the `cleanup`, `wsl` and `history` services: removing reframe's old drops and
+//! stray hook files (cleanup.rs), ending a claude in WSL (wsl.rs) and running the pinned history helper (history.rs),
+//! each as narrowly as reframe's TypeScript does it.
 #![forbid(unsafe_code)]
 
 pub mod adoption;
+pub mod cleanup;
+pub mod history;
 pub mod launch;
 pub mod quota;
 pub mod spawn_plan;
 pub mod state;
+pub mod wsl;
 
 use std::fs;
 use std::path::Path;
