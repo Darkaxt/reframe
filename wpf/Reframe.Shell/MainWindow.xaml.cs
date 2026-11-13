@@ -568,7 +568,7 @@ public partial class MainWindow : Window
     // ---------- diagnostics ----------
 
     /// <summary>--diag-capture: renders the fixture's states under the state ids of e2e/visual-reference.spec.ts (the
-    /// root in a 1280x800 popup, whatever the screen's size), saves them and returns. Without a fixture: the live
+    /// root in a 1280x800 capture window, whatever the screen's size), saves them and returns. Without a fixture: the live
     /// profile's main window as main-empty or main-sessions.</summary>
     public async Task CaptureAsync(string dir, string? fixtureFile)
     {

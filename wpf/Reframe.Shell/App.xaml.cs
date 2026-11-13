@@ -35,7 +35,7 @@ public partial class App : Application
             window.Show();
             return;
         }
-        // Diagnostics: never shown as a window; the captures run in a popup, then the shell exits.
+        // Diagnostics: the main window is never shown; the captures run in a borderless capture window, then the shell exits.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         Dispatcher.InvokeAsync(async () =>
         {

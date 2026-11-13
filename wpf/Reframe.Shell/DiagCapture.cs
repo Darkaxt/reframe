@@ -34,31 +34,50 @@ static class DiagCapture
     [StructLayout(LayoutKind.Sequential)]
     struct Rect { public int Left, Top, Right, Bottom; }
 
-    /// <summary>Shows <paramref name="root"/> in a borderless popup of exactly Width x Height at 0,0 (not a Window: a
-    /// window is kept to the screen's size, and a CI runner's screen is 1024x768), never activated.</summary>
+    /// <summary>Shows <paramref name="root"/> in a borderless, never activated window whose client area is exactly
+    /// Width x Height at 0,0, past the screen's size (a CI runner's is 1024x768). A real Window, not a bare HwndSource:
+    /// the terminal's HwndHost crashes natively without one.</summary>
     public static HwndSource Host(FrameworkElement root)
     {
-        const int WS_POPUP = unchecked((int)0x80000000), WS_VISIBLE = 0x10000000, WS_CLIPCHILDREN = 0x02000000;
-        const int WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000;
         root.Width = Width;
         root.Height = Height;
-        // The window's own text settings (MainWindow.xaml), which a popup does not have.
+        // The window's own text settings (MainWindow.xaml).
         var frame = new System.Windows.Controls.Border { Background = (System.Windows.Media.Brush)Application.Current.FindResource("bgBrush"), Child = root };
         frame.SetValue(System.Windows.Documents.TextElement.FontFamilyProperty, Application.Current.FindResource("FontFamily.Ui"));
         frame.SetValue(System.Windows.Documents.TextElement.FontSizeProperty, 13.0);
         frame.SetValue(System.Windows.Documents.TextElement.ForegroundProperty, Application.Current.FindResource("textBrush"));
-        var source = new HwndSource(new HwndSourceParameters("Reframe Shell capture")
+        var window = new Window
         {
-            WindowStyle = WS_POPUP | WS_VISIBLE | WS_CLIPCHILDREN,
-            ExtendedWindowStyle = WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-            PositionX = 0, PositionY = 0, Width = Width, Height = Height,
-        })
-        {
-            SizeToContent = SizeToContent.Manual,
-            RootVisual = frame,
+            Title = "Reframe Shell capture", WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize,
+            ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual,
+            Left = 0, Top = 0, Width = Width, Height = Height, Content = frame,
         };
-        return source;
+        window.SourceInitialized += (_, _) =>
+            HwndSource.FromHwnd(new WindowInteropHelper(window).Handle)!.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+            {
+                const int WM_GETMINMAXINFO = 0x0024;
+                if (msg != WM_GETMINMAXINFO) return IntPtr.Zero;
+                var info = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+                info.MaxTrackX = info.MaxTrackY = 8192;
+                Marshal.StructureToPtr(info, lParam, false);
+                handled = true;
+                return IntPtr.Zero;
+            });
+        window.Show();
+        var handle = new WindowInteropHelper(window).Handle;
+        GetWindowRect(handle, out var outer);
+        GetClientRect(handle, out var inner);
+        int dx = (outer.Right - outer.Left) - (inner.Right - inner.Left), dy = (outer.Bottom - outer.Top) - (inner.Bottom - inner.Top);
+        const uint SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10;
+        SetWindowPos(handle, IntPtr.Zero, 0, 0, Width + dx, Height + dy, SWP_NOZORDER | SWP_NOACTIVATE);
+        return HwndSource.FromHwnd(handle)!;
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct MinMaxInfo { public int ReservedX, ReservedY, MaxSizeX, MaxSizeY, MaxPositionX, MaxPositionY, MinTrackX, MinTrackY, MaxTrackX, MaxTrackY; }
+
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
 
     static readonly List<object> Captured = [];
 
