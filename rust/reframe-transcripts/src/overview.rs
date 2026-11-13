@@ -103,7 +103,7 @@ pub struct FileEntry {
 }
 
 /// The cache: every transcript's entry, by path.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Cache {
     pub schema: u32,
@@ -114,12 +114,20 @@ pub struct Cache {
     pub files: BTreeMap<String, FileEntry>,
 }
 
-impl Cache {
-    pub fn new() -> Self {
+impl Default for Cache {
+    fn default() -> Self {
         Self {
             schema: SCHEMA,
-            ..Self::default()
+            last_pass_day: None,
+            first_pass_complete: false,
+            files: BTreeMap::new(),
         }
+    }
+}
+
+impl Cache {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// The cache in `file`, or a new one when it is not there, cannot be read or has another schema.
@@ -128,7 +136,7 @@ impl Cache {
             .ok()
             .and_then(|bytes| serde_json::from_slice::<Cache>(&bytes).ok())
             .filter(|cache| cache.schema == SCHEMA)
-            .unwrap_or_else(Cache::new)
+            .unwrap_or_default()
     }
 
     /// Writes it to `<file>.tmp`, then renames that over `file`.
