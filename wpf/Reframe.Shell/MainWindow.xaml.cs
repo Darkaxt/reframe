@@ -151,6 +151,7 @@ public partial class MainWindow : Window
             Content = root;
             Loaded += async (_, _) => await StartAsync();
             WatchWindow();
+            WatchAttention();
         }
     }
 
