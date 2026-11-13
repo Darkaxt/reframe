@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using Reframe.Shell.Core;
 
 namespace Reframe.Shell;
 
@@ -17,24 +18,44 @@ public partial class App : Application
     /// <summary>With --diag-capture: a visual fixture (tools/visual/fixtures/*.json) to render instead of the profile's
     /// state, with the host's sessions of the same ids as its terminals.</summary>
     public static string? FixtureFile { get; private set; }
+    /// <summary>Starts the profile's Rust host when none runs (from <c>--host-dir</c>, REFRAME_RUST_HOST_DIR or
+    /// <c>reframe-host</c> beside the shell); null when there is none to start, and in diagnostics (which only attach).</summary>
+    public static HostStarter? Starter { get; private set; }
+
+    SingleInstance? instance;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         ProfileDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Reframe Shell Test");
+        string? hostDir = null;
         for (var i = 0; i < e.Args.Length; i++)
         {
+            if (e.Args[i] == "--host-dir" && i + 1 < e.Args.Length) hostDir = Path.GetFullPath(e.Args[++i]);
+            else
             if (e.Args[i] == "--profile" && i + 1 < e.Args.Length) ProfileDir = Path.GetFullPath(e.Args[++i]);
             else if (e.Args[i] == "--take-over") TakeOver = true;
             else if (e.Args[i] == "--diag-capture" && i + 1 < e.Args.Length) CaptureDir = Path.GetFullPath(e.Args[++i]);
             else if (e.Args[i] == "--diag-fixture" && i + 1 < e.Args.Length) FixtureFile = Path.GetFullPath(e.Args[++i]);
         }
         base.OnStartup(e);
-        var window = new MainWindow();
         if (CaptureDir is not { } dir)
         {
-            window.Show();
+            // One shell per profile: a second launch brings the first one's window forward and exits.
+            MainWindow? shown = null;
+            instance = SingleInstance.TryAcquire(ProfileDir, () => Dispatcher.InvokeAsync(() => shown?.BringForward()));
+            if (instance is null)
+            {
+                ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                SingleInstance.ActivateFirstAsync(ProfileDir, TimeSpan.FromSeconds(5)).ContinueWith(_ => Dispatcher.InvokeAsync(Shutdown));
+                return;
+            }
+            if (HostLauncher.FindSource(hostDir, AppContext.BaseDirectory) is { } source)
+                Starter = new HostLauncher(source, $"shell-{typeof(App).Assembly.GetName().Version}").StartAsync;
+            shown = new MainWindow();
+            shown.Show();
             return;
         }
+        var window = new MainWindow();
         // Diagnostics: never shown as a window; the captures run in a popup, then the shell exits.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         Dispatcher.InvokeAsync(async () =>
@@ -53,5 +74,11 @@ public partial class App : Application
                 Shutdown();
             }
         });
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        instance?.Dispose();
+        base.OnExit(e);
     }
 }

@@ -57,6 +57,9 @@ static class DiagCapture
             SizeToContent = SizeToContent.Manual,
             RootVisual = frame,
         };
+        // WPF's hardware path renders a window only where it is on a monitor: on a 1024x768 runner screen the rest of
+        // the 1280x800 popup stayed black in PrintWindow (main-empty). The software path renders the whole window.
+        source.CompositionTarget.RenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
         return source;
     }
 

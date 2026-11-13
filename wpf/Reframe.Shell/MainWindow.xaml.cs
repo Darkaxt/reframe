@@ -295,10 +295,23 @@ public partial class MainWindow : Window
         infoButton.ToolTip = $"About Reframe\n{text}";
     }
 
+    /// <summary>A second launch on the profile asked for this window (SingleInstance).</summary>
+    public void BringForward()
+    {
+        Show();
+        if (WindowState == System.Windows.WindowState.Minimized) WindowState = System.Windows.WindowState.Normal;
+        Activate();
+        // Activate alone may only flash the taskbar button; the asking launch let us take the foreground.
+        SetForegroundWindow(new WindowInteropHelper(this).Handle);
+    }
+
+    [DllImport("user32.dll")]
+    static extern bool SetForegroundWindow(IntPtr hwnd);
+
     async Task AttachAsync()
     {
         SetStatus($"Profile {App.ProfileDir}: attaching...");
-        var result = await ShellAttach.AttachAsync(App.ProfileDir, App.TakeOver);
+        var result = await ShellAttach.AttachAsync(App.ProfileDir, App.TakeOver, start: App.Starter);
         SetStatus($"Profile {App.ProfileDir}: {result.Message}");
         if (result.Connection is null) return;
         connection = result.Connection;
@@ -525,7 +538,7 @@ public partial class MainWindow : Window
         Left(icon);
         Left(new TextBlock
         {
-            Text = label, Style = S("Text13"), FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
+            Text = label, Style = S("Text13"), Foreground = B("textBrush"), FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
             MaxWidth = 400, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
         });
         close.Margin = new Thickness(6, 0, 0, 0);

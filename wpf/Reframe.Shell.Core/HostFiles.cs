@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Security.AccessControl;
+using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text.Json;
 
 namespace Reframe.Shell.Core;
@@ -13,7 +16,7 @@ public static class HostFiles
 {
     public static string HostDir(string profileDir) => Path.Combine(profileDir, "ptyhost");
 
-    /// <summary>The profile's token, or null. Unlike reframe, the shell never makes one: no token, no host to attach to.</summary>
+    /// <summary>The profile's token, or null when there is none (yet).</summary>
     public static string? ReadToken(string hostDir)
     {
         try
@@ -23,6 +26,26 @@ public static class HostFiles
         }
         catch (IOException) { return null; }
         catch (UnauthorizedAccessException) { return null; }
+    }
+
+    /// <summary>
+    /// The profile's token, made on first use as src/main/ptyhost-files.ts ensureToken does (only before the shell starts
+    /// a host): 32 random bytes in hex, in a file only the current user can access, written whole or not at all.
+    /// </summary>
+    public static string EnsureToken(string hostDir)
+    {
+        if (ReadToken(hostDir) is { } existing) return existing;
+        Directory.CreateDirectory(hostDir);
+        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+        var file = Path.Combine(hostDir, "token");
+        var temp = $"{file}.{Environment.ProcessId}.tmp";
+        var security = new FileSecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        security.AddAccessRule(new FileSystemAccessRule(WindowsIdentity.GetCurrent().User!, FileSystemRights.FullControl, AccessControlType.Allow));
+        using (var stream = new FileInfo(temp).Create(FileMode.Create, FileSystemRights.FullControl, FileShare.None, 4096, FileOptions.None, security))
+        using (var writer = new StreamWriter(stream)) writer.Write(token);
+        File.Move(temp, file, overwrite: true);
+        return token;
     }
 
     /// <summary>Descriptors of hosts whose process still runs.</summary>
@@ -54,7 +77,7 @@ public static class HostFiles
         return found;
     }
 
-    static bool Alive(int pid)
+    internal static bool Alive(int pid)
     {
         try { using var p = Process.GetProcessById(pid); return !p.HasExited; }
         catch (ArgumentException) { return false; }

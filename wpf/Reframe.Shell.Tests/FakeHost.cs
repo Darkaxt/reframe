@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json.Nodes;
+using Reframe.Shell.Core;
 
 namespace Reframe.Shell.Tests;
 
@@ -19,6 +20,8 @@ sealed class FakeHost : IAsyncDisposable
     NamedPipeServerStream? current;
 
     public string ProfileDir { get; }
+    /// <summary>What the host's descriptor file says.</summary>
+    public HostDescriptor Descriptor { get; }
     public string PipeName { get; } = $"reframe-ptyhost-test-{Guid.NewGuid():N}";
     /// <summary>Every request the host got after a hello, in order.</summary>
     public ConcurrentQueue<JsonObject> Requests { get; } = new();
@@ -28,13 +31,18 @@ sealed class FakeHost : IAsyncDisposable
     /// <summary>What <c>state.read</c> serves, by file name (the text, or none there).</summary>
     public ConcurrentDictionary<string, string> StateFiles { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-    public FakeHost(bool observers = false)
+    readonly string token;
+
+    /// <param name="profileDir">A profile whose token is there already (a host the shell starts); by default a new
+    /// one with <see cref="Token"/>.</param>
+    public FakeHost(bool observers = false, string? profileDir = null)
     {
         this.observers = observers;
-        ProfileDir = Path.Combine(Path.GetTempPath(), "reframe-shell-tests", Guid.NewGuid().ToString("N"));
+        ProfileDir = profileDir ?? Path.Combine(Path.GetTempPath(), "reframe-shell-tests", Guid.NewGuid().ToString("N"));
         var hostDir = Path.Combine(ProfileDir, "ptyhost");
         Directory.CreateDirectory(Path.Combine(hostDir, "hosts"));
-        File.WriteAllText(Path.Combine(hostDir, "token"), Token);
+        if (profileDir is null) File.WriteAllText(Path.Combine(hostDir, "token"), Token);
+        token = File.ReadAllText(Path.Combine(hostDir, "token")).Trim();
         var pid = Environment.ProcessId;
         File.WriteAllText(Path.Combine(hostDir, "hosts", $"{pid}.json"), new JsonObject
         {
@@ -42,6 +50,7 @@ sealed class FakeHost : IAsyncDisposable
             ["startedAt"] = 0, ["sessionPids"] = new JsonArray(), ["kind"] = "rust",
             ["observer"] = observers ? 1 : null,
         }.ToJsonString());
+        Descriptor = new HostDescriptor(pid, $@"\\.\pipe\{PipeName}", 1, "test", "rust", observers ? 1 : 0);
         serving = Task.Run(ServeAsync);
     }
 
@@ -68,7 +77,7 @@ sealed class FakeHost : IAsyncDisposable
                 var message = JsonNode.Parse(line)!.AsObject();
                 if (!welcomed)
                 {
-                    if ((string?)message["token"] != Token)
+                    if ((string?)message["token"] != token)
                     {
                         await SendAsync(pipe, new JsonObject { ["type"] = "refused", ["reason"] = "token", ["protocol"] = 1 });
                         return;

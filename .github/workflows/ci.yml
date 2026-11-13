@@ -44,15 +44,23 @@ jobs:
           if-no-files-found: error
 
   # The experimental native WPF shell (wpf/): a client of the same PTY host, not part of the release package.
+  # Its tests start the real Rust host (the rust job's artifact) once: start, welcome, primary attach.
   wpf:
+    needs: rust
     runs-on: windows-latest
     defaults:
       run:
         working-directory: wpf
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: actions/download-artifact@v7.0.0
+        with:
+          name: reframe-host
+          path: rust/dist
       - run: dotnet build Reframe.Shell.sln -c Release
       - run: dotnet test Reframe.Shell.sln -c Release --no-build
+        env:
+          REFRAME_RUST_HOST_DIR: ${{ github.workspace }}/rust/dist
       # Self-contained, so that it runs on a clean Windows without the .NET desktop runtime (tests/sandbox-smoke).
       - run: dotnet publish Reframe.Shell/Reframe.Shell.csproj -c Release -r win-x64 --self-contained true -o publish/reframe-shell
       - uses: actions/upload-artifact@v7.0.2
