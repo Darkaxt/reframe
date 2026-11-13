@@ -36,6 +36,8 @@ sealed class ShellController
     readonly HashSet<string> askingToClose = [];
     long focusCount;
     TrayIcon? tray;
+    Toasts? toasts;
+    readonly Dictionary<string, int> attention = [];
     DispatcherTimer? trayTimer;
 
     static Dispatcher Ui => Application.Current.Dispatcher;
@@ -75,6 +77,7 @@ sealed class ShellController
         {
             HostStatus[changed.SessionId] = changed;
             foreach (var window in windows.Values) window.HostStatusChanged(changed.SessionId);
+            if (changed.Notify is "done" or "waiting") Notify(changed.SessionId, changed.Notify);
             RefreshTray();
         });
         foreach (var session in connection.Welcome.Sessions) HostSessions[session.SessionId] = session;
@@ -136,6 +139,8 @@ sealed class ShellController
         var shown = ShellWindows.WindowsToShow(State.Windows).Select(w => w.Id).ToHashSet();
         foreach (var w in State.Windows.ToList()) Open(w, !hidden && shown.Contains(w.Id));
         tray = new TrayIcon(Tooltip(), TrayMenu, RunTray, () => Show(State.Windows[0].Id));
+        toasts = new Toasts(id => Ui.InvokeAsync(() => FocusFromNotification(id)));
+        RefreshTray();
         // The tooltip follows the sessions needing the user (refreshTrayTooltip).
         trayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         trayTimer.Tick += (_, _) => RefreshTray();
@@ -249,6 +254,7 @@ sealed class ShellController
         Save();
         if (windows.Remove(windowId, out var window)) window.Discard();
         focusedAt.Remove(windowId);
+        attention.Remove(windowId);
     }
 
     /// <summary>closeWindow: with sessions in it, asks (unless an answer was kept): end them, or keep them running with
@@ -324,6 +330,8 @@ sealed class ShellController
         foreach (var window in windows.Values.ToList()) window.Close();
         tray?.Dispose();
         tray = null;
+        toasts?.Dispose();
+        toasts = null;
         if (Connection is not null) await Connection.DisposeAsync();
         shellLock?.Dispose();
         Application.Current.Shutdown();
@@ -373,7 +381,53 @@ sealed class ShellController
 
     string Tooltip() => ShellWindows.TrayTooltip(Waiting());
 
-    void RefreshTray() => tray?.SetTooltip(Tooltip());
+    /// <summary>The tray's tooltip and, per window, the taskbar badge (updateAttention).</summary>
+    void RefreshTray()
+    {
+        tray?.SetTooltip(Tooltip());
+        foreach (var (id, count) in Notifications.AttentionCounts(State, StatusOf))
+        {
+            if (attention.GetValueOrDefault(id) == count || !windows.TryGetValue(id, out var window)) continue;
+            attention[id] = count;
+            window.Badge(count, count > 0 ? Notifications.WaitingText(count) : "");
+        }
+    }
+
+    // ---------- notifications ----------
+
+    /// <summary>notify: a session is done or needs the user. A toast unless the user looks at its tile; waiting where
+    /// nobody looks, its window's taskbar button flashes too.</summary>
+    void Notify(string sessionId, string kind)
+    {
+        if (Fixture is not null) return;
+        var owner = State.Windows.FirstOrDefault(w => LayoutActions.WindowHasSession(w, sessionId));
+        var attentive = owner is not null && windows.TryGetValue(owner.Id, out var shown) && shown.Attentive;
+        var disabled = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Notifications.DisableVariable));
+        var decision = Notifications.Decide(State, sessionId, kind, attentive, disabled);
+        if (decision.Flash && owner is not null) windows.GetValueOrDefault(owner.Id)?.Flash();
+        if (!decision.Toast)
+        {
+            System.Diagnostics.Trace.WriteLine($"notification skipped: {sessionId} {kind} ({decision.Skipped})");
+            return;
+        }
+        var record = State.Sessions[sessionId];
+        var (title, body) = Notifications.ToastText(kind, StateValues.SessionLabel(record.Name, record.ClaudeName, record.Cwd));
+        toasts?.Show(sessionId, title, body);
+    }
+
+    /// <summary>focusFromNotification: the clicked toast's session comes up in its window; one in no window any more
+    /// brings the windows up instead.</summary>
+    void FocusFromNotification(string sessionId)
+    {
+        var owner = State.Windows.FirstOrDefault(w => LayoutActions.WindowHasSession(w, sessionId));
+        if (owner is null || !windows.TryGetValue(owner.Id, out var window))
+        {
+            Reveal();
+            return;
+        }
+        window.BringForward();
+        window.FocusTile(sessionId);
+    }
 
     public List<MenuSpec> TrayMenu() => ShellWindows.TrayMenu(ShellWindows.TrayWindows(State), RunningSessions().Count > 0);
 
