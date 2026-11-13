@@ -93,10 +93,7 @@
             "sessionId": "vs-rate-limiter"
           }
         ],
-        "sizes": [
-          50.0,
-          50.0
-        ]
+        "sizes": [50.0, 50.0]
       },
       {
         "kind": "split",
@@ -112,20 +109,10 @@
             "sessionId": "vs-release-notes"
           }
         ],
-        "sizes": [
-          50.0,
-          50.0
-        ]
+        "sizes": [50.0, 50.0]
       }
     ],
-    "sizes": [
-      50.0,
-      50.0
-    ]
+    "sizes": [50.0, 50.0]
   },
-  "hosted": [
-    "vs-checkout-fix",
-    "vs-rate-limiter",
-    "vs-db-migration"
-  ]
+  "hosted": ["vs-checkout-fix", "vs-rate-limiter", "vs-db-migration"]
 }

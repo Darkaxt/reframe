@@ -69,10 +69,7 @@
               "sessionId": "vt-payment-webhooks"
             }
           ],
-          "sizes": [
-            50.0,
-            50.0
-          ]
+          "sizes": [50.0, 50.0]
         }
       },
       {
@@ -89,16 +86,10 @@
             "sessionId": "vt-ios-crash"
           }
         ],
-        "sizes": [
-          50.0,
-          50.0
-        ]
+        "sizes": [50.0, 50.0]
       }
     ],
-    "sizes": [
-      50.0,
-      50.0
-    ]
+    "sizes": [50.0, 50.0]
   },
   "dock": [
     {
@@ -107,11 +98,5 @@
       "hint": null
     }
   ],
-  "hosted": [
-    "vt-checkout-fix",
-    "vt-payment-webhooks",
-    "vt-docs-refresh",
-    "vt-ios-crash",
-    "vt-android-push"
-  ]
+  "hosted": ["vt-checkout-fix", "vt-payment-webhooks", "vt-docs-refresh", "vt-ios-crash", "vt-android-push"]
 }
