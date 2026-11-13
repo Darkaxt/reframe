@@ -1,4 +1,5 @@
-//! The `quota`, `clients`, `launch`, `state` and `overview` services (docs/ptyhost-protocol.md, "Services"): what
+//! The `quota`, `clients`, `launch`, `state`, `overview`, `cleanup`, `wsl` and `history` services (the last three in
+//! jobs.rs) (docs/ptyhost-protocol.md, "Services"): what
 //! reframe-services reads (and, for `state`, writes), asked by reframe when it needs it (the host keeps no timers for
 //! them). Each request runs on a thread of its own, at most MAX_IN_FLIGHT at a time and MAX_WAITING more queued
 //! (beyond, `busy`): the Coordinator can take seconds, a client's hash too. `state` has a queue of its own, so that
@@ -15,16 +16,20 @@ use reframe_services::{launch, quota, spawn_plan};
 use reframe_transcripts::overview::{self, Config as OverviewConfig, Home, OffsetFn, Overview};
 use serde_json::{json, Value};
 
+use crate::jobs::Jobs;
 use crate::limit::Limit;
 use crate::transcripts::{SvcError, Work};
 
 /// The services and the version of each the welcome advertises.
-pub const SERVICES: [(&str, u32); 5] = [
+pub const SERVICES: [(&str, u32); 8] = [
     ("quota", 1),
     ("clients", 1),
     ("launch", 2),
     ("state", 1),
     ("overview", 1),
+    ("cleanup", 1),
+    ("wsl", 1),
+    ("history", 1),
 ];
 const MAX_IN_FLIGHT: usize = 8;
 const MAX_WAITING: usize = 64;
@@ -40,6 +45,8 @@ pub struct Services {
     saves: Limit,
     /// The Overview's activity index: its worker thread runs in background mode from the first `configure` on.
     overview: Overview,
+    /// `cleanup`, `wsl` and `history` (jobs.rs).
+    jobs: Jobs,
 }
 
 fn bad(message: impl Into<String>) -> SvcError {
@@ -67,6 +74,7 @@ impl Services {
             overview: Overview::new(Box::new(OffsetFn(reframe_conpty::local_offset_minutes)), || {
                 reframe_conpty::background_thread();
             }),
+            jobs: Jobs::default(),
         }
     }
 
@@ -184,6 +192,7 @@ impl Services {
                     outcome.map_err(bad)
                 })
             }
+            (service, method) if crate::jobs::serves(service) => self.jobs.work(service, method, params)?,
             _ => {
                 return Err(SvcError {
                     code: "unknown-method",

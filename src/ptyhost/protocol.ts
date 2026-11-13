@@ -68,6 +68,12 @@ export interface HostServices {
   sessions?: number;
   /** Reframe's state.json, read and written with revisions (src/main/state/files.ts). */
   state?: number;
+  /** Dropped files and stray hook settings removed, orphaned claudes ended (src/main/cleanup.ts). */
+  cleanup?: number;
+  /** WSL distributions: listed, asked for claude, its claude ended, paths converted (src/main/wsl/distros.ts). */
+  wsl?: number;
+  /** Chat archive/delete/restore/recovery through the pinned history_backend.py (src/main/history-helper.ts). */
+  history?: number;
   /** Read-only clients beside the primary (`role: "observer"` in the hello) and `observer.primary` (since .25). */
   observer?: number;
 }

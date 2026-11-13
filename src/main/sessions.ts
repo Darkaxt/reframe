@@ -33,9 +33,10 @@ import type { ClaudeBinary } from './claude/resolve';
 import { writeHookSettings } from './claude/settings';
 import type { HookMessage } from './hooks/server';
 import type { LogFn } from './log';
-import { isAlive, killTree, processStart } from './process';
+import { killTree, processStart } from './process';
 import type { PtyHostClient } from './ptyhost-client';
 import type { SessionMeta } from '../ptyhost/protocol';
+import { endOrphans } from './cleanup';
 import { settle, withTimeout } from './wait';
 import { SHARE_TIMEOUT_MS, type WslCommand, type WslInfo } from './wsl/distros';
 
@@ -516,17 +517,12 @@ export class SessionManager extends EventEmitter<Events> {
    * host runs (`hosted`: taken over, or kept by a host of another reframe) are not orphans.
    */
   async cleanupOrphans(sessions: SessionRecord[], hosted: Set<number> = new Set()): Promise<void> {
-    await Promise.all(
-      sessions.map(async (s) => {
-        if (!s.pid || !isAlive(s.pid) || hosted.has(s.pid) || this.runtimes.has(s.id)) return;
-        const entry = readRegistryEntry(this.deps.claudeHome, s.pid);
-        // Its entry alone is not enough: the process may be gone and its id another program's now.
-        if (entry && entry.sessionId === s.claudeSessionId && isRunningEntry(entry)) {
-          this.log('warn', 'killing orphaned claude from a previous run', { session: s.id, pid: s.pid });
-          await killTree(s.pid);
-          forgetRegistryEntry(this.deps.claudeHome, s.pid);
-        }
-      }),
+    const byPid = new Map(sessions.filter((s) => s.pid).map((s) => [s.pid!, s]));
+    await endOrphans(
+      this.deps.claudeHome,
+      sessions.filter((s) => !this.runtimes.has(s.id)),
+      hosted,
+      (pid) => this.log('warn', 'killing orphaned claude from a previous run', { session: byPid.get(pid)?.id, pid }),
     );
   }
 
