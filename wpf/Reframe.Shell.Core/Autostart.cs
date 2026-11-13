@@ -54,8 +54,11 @@ public sealed class RegistryRunKeys : IRunKeys
 /// AppUserModelID, as <c>"&lt;exe&gt;" --autostart</c>. The shell uses the same keys, but only ever its own value,
 /// named after its profile (<see cref="ValueName"/>), so it never changes reframe's own entry (or another profile's):
 /// the shell runs on a test profile until the cutover (S14) points the real entry at it.
+/// A managed start (<paramref name="appId"/>, REFRAME_APP_ID) uses reframe's own entry instead: the value Electron named
+/// after that app id, with <c>"&lt;exe&gt;" --autostart</c> (a direct start reads reframe-config.json beside the executable),
+/// so the cutover takes the user's existing login entry over (<see cref="Repoint"/>).
 /// </summary>
-public sealed class Autostart(IRunKeys keys, string profileDir, string executable)
+public sealed class Autostart(IRunKeys keys, string profileDir, string executable, string? appId = null)
 {
     /// <summary>AUTOSTART_ARG: marks a start by the system.</summary>
     public const string Argument = "--autostart";
@@ -72,10 +75,24 @@ public sealed class Autostart(IRunKeys keys, string profileDir, string executabl
         return $"Reframe Shell {hash}";
     }
 
-    public string Name { get; } = ValueName(profileDir);
+    public string Name { get; } = string.IsNullOrEmpty(appId) ? ValueName(profileDir) : appId;
 
-    /// <summary>launchCommand: the shell, its profile and <see cref="Argument"/>.</summary>
-    public string Command { get; } = $"\"{executable}\" --profile \"{Path.GetFullPath(profileDir).TrimEnd('\\')}\" {Argument}";
+    /// <summary>launchCommand: the shell, its profile (unless managed: then reframe-config.json gives it) and
+    /// <see cref="Argument"/>.</summary>
+    public string Command { get; } = string.IsNullOrEmpty(appId)
+        ? $"\"{executable}\" --profile \"{Path.GetFullPath(profileDir).TrimEnd('\\')}\" {Argument}"
+        : $"\"{executable}\" {Argument}";
+
+    /// <summary>At a start: an existing entry of this name that starts something else (an earlier release, Electron's
+    /// reframe.exe) is pointed at this executable; whether Task Manager lets it run stays as it is. No entry: nothing
+    /// is written. True when it changed the entry.</summary>
+    public bool Repoint()
+    {
+        var current = keys.GetRun(Name);
+        if (current is null || current == Command) return false;
+        keys.SetRun(Name, Command);
+        return true;
+    }
 
     /// <summary>getLoginItemSettings().openAtLogin: the entry is there and not disabled in Task Manager.</summary>
     public bool Enabled

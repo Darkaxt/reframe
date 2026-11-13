@@ -43,7 +43,7 @@ jobs:
           path: rust/target/release/examples/fake-coordinator.exe
           if-no-files-found: error
 
-  # The experimental native WPF shell (wpf/): a client of the same PTY host, not part of the release package.
+  # The native WPF shell (wpf/): a client of the same PTY host, and since the cutover (S14) the release's app.
   # Its tests start the real Rust host (the rust job's artifact) once: start, welcome, primary attach.
   wpf:
     needs: rust
@@ -70,6 +70,27 @@ jobs:
         with:
           name: reframe-shell
           path: wpf/publish/reframe-shell/
+          if-no-files-found: error
+      # The release package since the cutover (maintenance/package-shell.ps1, docs/wpf-cutover.md) from the two
+      # artifacts, and its packaged smoke through the managed scripts (the deploy runs the same on a hidden desktop).
+      - name: Release package (shell + Rust host)
+        shell: pwsh
+        run: ../maintenance/package-shell.ps1 -ShellDir publish/reframe-shell -HostDir ../rust/dist -PackageDirectory "$env:RUNNER_TEMP/package"
+      - name: Packaged smoke
+        shell: pwsh
+        run: |
+          $version = (Get-Content ../package.json -Raw | ConvertFrom-Json).version
+          ../maintenance/windows/smoke-packaged.ps1 -Package "$env:RUNNER_TEMP/package/reframe-$version-win-portable" -Scratch "$env:RUNNER_TEMP/smoke"
+      - uses: actions/upload-artifact@v7.0.2
+        if: success() || failure()
+        with:
+          name: packaged-smoke
+          path: ${{ runner.temp }}/smoke/smoke-result.json
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: reframe-portable
+          path: ${{ runner.temp }}/package/*.zip
           if-no-files-found: error
 
   # Visual parity with the Electron UI (tools/visual/report.mjs): Electron's reference set, the WPF shell's captures
