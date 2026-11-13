@@ -59,7 +59,9 @@ sealed partial class ShellController
 
     string RunStatus(string sessionId) =>
         Fixture?.Statuses.GetValueOrDefault(sessionId)
-        ?? (HostStatus.TryGetValue(sessionId, out var known) ? known.Status : HostSessions.ContainsKey(sessionId) ? "starting" : "ended");
+        // Only a session the host runs has a run status: one ended here (× or Terminate all) keeps no stale "done" from
+        // the host's last report, nor from a status the host sends while it disposes the session.
+        ?? (!HostSessions.ContainsKey(sessionId) ? "ended" : HostStatus.TryGetValue(sessionId, out var known) ? known.Status : "starting");
 
     public bool Runs(string sessionId) =>
         Fixture is not null ? Fixture.Statuses.GetValueOrDefault(sessionId, "ended") != "ended" : HostSessions.ContainsKey(sessionId) && RunStatus(sessionId) != "ended";
@@ -424,12 +426,15 @@ sealed partial class ShellController
         if (!Writable || !State.Sessions.TryGetValue(sessionId, out var record)) return;
         if (HostSessions.Remove(sessionId, out var hosted) && Connection is { IsOpen: true } connection)
             _ = connection.DisposeSessionAsync(sessionId, hosted.Instance);
+        HostStatus.Remove(sessionId);
         record.Lifecycle = "ended";
         startErrors.Remove(sessionId);
         var index = State.Windows.FindIndex(w => w.Id == windowId);
         if (index >= 0) State.Windows[index] = LayoutActions.DropSession(State.Windows[index], sessionId);
         Save();
         windows.GetValueOrDefault(windowId)?.LayoutChanged();
+        // Its dot (lists, dock, other windows' tiles) goes to ended everywhere.
+        foreach (var window in windows.Values) window.HostStatusChanged(sessionId);
         if (closeIfEmpty) CloseIfEmpty(windowId);
     }
 
