@@ -3,7 +3,9 @@ using System.Text.Json.Nodes;
 namespace Reframe.Shell.Core;
 
 /// <summary>A claude running outside reframe, as Claude Code's session registry has it.</summary>
-public sealed record RunningClaude(int Pid, string SessionId, string? Cwd, string? Name, double? StartedAt = null);
+/// <summary>A claude running outside reframe, as Claude Code's session registry has it; <c>NameSource</c> "user" for a
+/// name the user gave it.</summary>
+public sealed record RunningClaude(int Pid, string SessionId, string? Cwd, string? Name, double? StartedAt = null, string? NameSource = null);
 
 /// <summary>A project folder's sessions as <c>transcripts.list</c> groups them (<c>folders[].locations</c>).</summary>
 public sealed record TranscriptLocation(string Cwd, IReadOnlyList<string> SessionIds);

@@ -116,6 +116,28 @@ public static class LayoutGeometry
         _ => box,
     };
 
+    /// <summary>Where a terminal window dragged in from another app would land at a point (dnd.ts dropTargetAt): beside
+    /// the tile under it (its nearest side, the preview that half); on a group's frame after its last tile (the preview
+    /// the group's body); elsewhere at the end (the preview the whole layout area while the window is empty).</summary>
+    public static DropTarget? ForeignTargetAt(LayoutPlaces places, Box area, double x, double y, out Box? preview)
+    {
+        foreach (var t in places.Tiles)
+        {
+            if (!t.Box.Contains(x, y)) continue;
+            var side = SideAt(t.Box, x, y);
+            preview = PreviewOf(t.Box, side);
+            return new DropTarget(Layout.TileKey(t.SessionId), side);
+        }
+        foreach (var g in places.Groups)
+        {
+            if (!g.Box.Contains(x, y) || places.Tiles.LastOrDefault(t => t.Group?.Id == g.Group.Id) is not { } last) continue;
+            preview = GroupBody(g.Box);
+            return new DropTarget(Layout.TileKey(last.SessionId), "right");
+        }
+        preview = places.Tiles.Count == 0 && area.Contains(x, y) ? area : null;
+        return null;
+    }
+
     /// <summary>Where a dragged node would land at a point: a group frame's 14 px edge bands (outside the group), else
     /// the tile under the point and its nearest side. A group never lands inside another group, nor on itself.</summary>
     public static DropTarget? TargetAt(LayoutPlaces places, string draggedKey, bool draggingGroup, double x, double y, out Box preview)

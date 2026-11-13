@@ -120,8 +120,11 @@ public class OverviewTests
         Assert.Equal(0.4, bars[0].Share, 3);
         Assert.Equal(3, bars[2].Count);
         var tools = Overview.ToolBars(new Dictionary<string, long> { ["bash"] = 3, ["read"] = 1 });
-        Assert.Equal(["Edit", "Bash", "Read", "Web", "Other"], tools.Select(b => b.Label));
-        Assert.Equal(0.75, tools[1].Share, 3);
+        Assert.Equal(["Bash", "Read", "Edit", "Web", "Other"], tools.Select(b => b.Label));
+        Assert.Equal(0.75, tools[0].Share, 3);
+        // Largest share first (the capture showed Edit 22 %, Bash 31 %, Read 39 %), "Other" last however large.
+        tools = Overview.ToolBars(new Dictionary<string, long> { ["edit"] = 22, ["bash"] = 31, ["read"] = 39, ["web"] = 2, ["other"] = 6 });
+        Assert.Equal(["Read", "Bash", "Edit", "Web", "Other"], tools.Select(b => b.Label));
         Assert.Equal("Claude Code", Overview.ProviderLabel("claude"));
     }
 

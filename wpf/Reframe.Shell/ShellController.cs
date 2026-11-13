@@ -14,7 +14,7 @@ namespace Reframe.Shell;
 /// Terminate all sessions and Quit. Closing a window never quits: like reframe, the shell stays in the tray; Quit leaves
 /// every session running in the host (never <c>shutdown</c>).
 /// </summary>
-sealed class ShellController
+sealed partial class ShellController
 {
     public AppState State { get; set; } = AppState.CreateDefault();
     public StateStore? Store { get; private set; }
@@ -244,6 +244,7 @@ sealed class ShellController
         trayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         trayTimer.Tick += (_, _) => RefreshTray();
         trayTimer.Start();
+        WatchForeignWindows();
     }
 
     // ---------- windows ----------
@@ -421,6 +422,7 @@ sealed class ShellController
         if (Quitting) return;
         Quitting = true;
         trayTimer?.Stop();
+        StopWatchingForeignWindows();
         if (Store is not null)
         {
             Store.Save(State, Synthetic);
