@@ -1,0 +1,2 @@
+# Patches against microsoft/terminal sources: kept byte for byte (CRLF), as git apply needs them.
+*.patch -text
