@@ -158,6 +158,32 @@ public static partial class NewSession
         }
         record.Lifecycle = "open";
     }
+
+    /// <summary>The model field's datalist (MODEL_SUGGESTIONS) as Chromium filters it while typing: the suggestions
+    /// that contain the text (any case); none when the text is exactly the only match.</summary>
+    public static List<string> MatchingModels(string text)
+    {
+        var typed = text.Trim();
+        var matches = ModelSuggestions.Where(m => m.Contains(typed, StringComparison.OrdinalIgnoreCase)).ToList();
+        return matches is [var only] && string.Equals(only, typed, StringComparison.OrdinalIgnoreCase) ? [] : matches;
+    }
+
+    /// <summary>resumeSessions (src/main/app.ts start): of the open sessions, those in a window that the host does not
+    /// run any more (after a reboot, say) are resumed; those the host still runs are only attached; open ones in no
+    /// window are ended. Host sessions reframe's state does not know (<paramref name="synthetic"/>) are left alone.</summary>
+    public static (List<string> Resume, List<string> Ended) AtStart(IEnumerable<SessionRecord> sessions, Func<string, bool> inWindow,
+        Func<string, bool> hostRuns, ISet<string> synthetic)
+    {
+        var resume = new List<string>();
+        var ended = new List<string>();
+        foreach (var record in sessions)
+        {
+            if (record.Lifecycle != "open" || synthetic.Contains(record.Id)) continue;
+            if (!inWindow(record.Id)) ended.Add(record.Id);
+            else if (!hostRuns(record.Id)) resume.Add(record.Id);
+        }
+        return (resume, ended);
+    }
 }
 
 /// <summary>The card over a tile whose session does not run (Tile.tsx .tile-overlay-card): its text and buttons.</summary>

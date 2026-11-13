@@ -14,13 +14,24 @@ public static class ClaudeRegistry
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
 
     /// <summary>The registry's entries whose process still runs.</summary>
-    public static List<RunningClaude> Running(string home)
+    public static List<RunningClaude> Running(string home) => Entries(home).Where(e => Alive(e.Pid)).ToList();
+
+    /// <summary>Every entry of the registry, whether its process runs or not (one in WSL is a Linux process, asked
+    /// about in its distribution).</summary>
+    public static List<RunningClaude> Entries(string home)
     {
         var result = new List<RunningClaude>();
         var dir = Path.Combine(home, "sessions");
-        if (!Directory.Exists(dir)) return result;
-        foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
-            if (Read(file) is { } entry && Alive(entry.Pid)) result.Add(entry);
+        try
+        {
+            if (!Directory.Exists(dir)) return result;
+            foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
+                if (Read(file) is { } entry) result.Add(entry);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            // A share that went away while it was read: nothing found this time.
+        }
         return result;
     }
 

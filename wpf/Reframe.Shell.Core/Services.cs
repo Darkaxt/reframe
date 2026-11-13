@@ -153,6 +153,14 @@ public sealed class HostServices
     public async Task<WslInfo?> WslInfoAsync(string distro) =>
         Offers("wsl") ? WslInfo.From(await connection.CallAsync("wsl", "info", new JsonObject { ["distro"] = distro })) : null;
 
+    /// <summary><c>wsl.isClaude</c>: whether Linux process <paramref name="pid"/> of <paramref name="distro"/> is a claude.</summary>
+    public async Task<bool> WslIsClaudeAsync(string distro, int pid) =>
+        Offers("wsl") && (bool?)await connection.CallAsync("wsl", "isClaude", new JsonObject { ["distro"] = distro, ["pid"] = pid }) == true;
+
+    /// <summary><c>wsl.stopClaude</c>: ends that claude as Ctrl+C would; "failed" when it did not go (or is no claude).</summary>
+    public async Task<string> WslStopClaudeAsync(string distro, int pid) =>
+        Offers("wsl") ? (string?)await connection.CallAsync("wsl", "stopClaude", new JsonObject { ["distro"] = distro, ["pid"] = pid }) ?? "failed" : "failed";
+
     /// <summary>Whether the host keeps distributions running (<c>wsl</c> version 2).</summary>
     public bool CanKeepWsl => connection.Welcome.Services.TryGetValue("wsl", out var version) && version >= 2;
 

@@ -70,6 +70,8 @@ sealed class ChatModelDialog
 
         Model = new TextBox { Style = S("SearchBox"), Tag = "Provider default", Text = initialModel ?? "", MaxLength = 300 };
         SpellCheck.SetIsEnabled(Model, false);
+        // The model suggestions as the New Session dialog offers them (ChatModelDialog.tsx has none: added on request).
+        Suggestions.Attach(Model);
         Model.MinHeight = 32;
         Add(Field("Model", Model));
 

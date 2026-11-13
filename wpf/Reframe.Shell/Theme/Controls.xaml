@@ -163,8 +163,11 @@
     </Setter>
   </Style>
 
+  <!-- Chromium's placeholder colour (styles.css sets none), as Forms.xaml's text fields have it. -->
+  <SolidColorBrush x:Key="placeholderBrush" Color="#757575" />
+
   <!-- input: padding 6px 8px, 1px border-strong, radius 6, bg; :focus-visible: a 2px accent outline 1px outside.
-       With text, Chromium's search field shows its clear button (×). -->
+       With text, Chromium's search field shows its clear button (×); an empty one its placeholder, dimmed. -->
   <Style x:Key="SearchBox" TargetType="TextBox">
     <Setter Property="Foreground" Value="{StaticResource textBrush}" />
     <Setter Property="CaretBrush" Value="{StaticResource textBrush}" />
@@ -184,7 +187,7 @@
                   <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="Placeholder" Style="{StaticResource Text13}" Margin="0" Padding="0"
-                           Text="{TemplateBinding Tag}" Foreground="{StaticResource mutedBrush}" IsHitTestVisible="False" Visibility="Collapsed" />
+                           Text="{TemplateBinding Tag}" Foreground="{StaticResource placeholderBrush}" IsHitTestVisible="False" Visibility="Collapsed" />
                 <ScrollViewer x:Name="PART_ContentHost" Margin="0" Padding="0" VerticalAlignment="Center" Height="18.2"
                               Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
                 <Button x:Name="Clear" Grid.Column="1" Width="14" Height="14" Margin="6,0,0,0" Cursor="Arrow" IsTabStop="False" Focusable="False" ToolTip="Clear" AutomationProperties.Name="Clear search"

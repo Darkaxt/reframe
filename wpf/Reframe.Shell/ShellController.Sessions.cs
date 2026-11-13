@@ -166,19 +166,30 @@ sealed partial class ShellController
                 SessionChanged(sessionId);
                 return;
             }
-            if (mode == "resume" && WslPaths.Parse(record.Cwd, WslShare) is null && await RunningElsewhereAsync(record) is { } outside)
+            Elsewhere? outside = null;
+            try
+            {
+                if (mode == "resume") outside = await RunningElsewhereAsync(record);
+            }
+            catch (Exception e) when (e is HostServiceException or IOException or UnauthorizedAccessException)
+            {
+                Log($"could not tell whether a session runs elsewhere, starting it: {e.Message}");
+            }
+            if (outside is { } found)
             {
                 var asked = windowId is not null && windows.TryGetValue(windowId, out var window) && window.ConfirmTakeover(Label(record));
-                Log($"session runs elsewhere already: {sessionId} pid {outside.Pid} asked {asked}");
-                if (!asked || takeoverStopper() is not { } stopper || await stopper.StopExternalClaudeAsync(outside.Pid) == "failed")
+                Log($"session runs elsewhere already: {sessionId} pid {found.Entry.Pid} asked {asked}");
+                if (!asked || !await StopOutsideAsync(found))
                 {
                     if (asked) MessageBox.Show(windows[windowId!], Strings.T("takeover.failed"), "Reframe", MessageBoxButton.OK, MessageBoxImage.Error);
                     startErrors[sessionId] = "runningElsewhere";
                     SessionChanged(sessionId);
                     return;
                 }
-                if (outside.Cwd is { Length: > 0 } cwd) record.Cwd = cwd;
-                if (await Task.Run(() => ClaudeRegistry.TranscriptModifiedAt(ClaudeRegistry.Home(), record.ClaudeSessionId)) is { } usedThere && usedThere > record.LastActiveAt)
+                // Resumed in another folder, the conversation went on there; so it does here. It was used there, too.
+                if (found.Entry.Cwd is { Length: > 0 } cwd) record.Cwd = found.WindowsPath(cwd);
+                if (await WithTimeout(Task.Run(() => ClaudeRegistry.TranscriptModifiedAt(found.Home, record.ClaudeSessionId)), null) is { } usedThere
+                    && usedThere > record.LastActiveAt)
                     record.LastActiveAt = usedThere;
                 Save();
             }
@@ -206,18 +217,140 @@ sealed partial class ShellController
         }
     }
 
+    /// <summary>Conversations being adopted from the list, so two clicks make one record (adopting).</summary>
+    readonly HashSet<string> adopting = [];
+
+    /// <summary>recordFor: the session to open for a list entry that is no session of reframe's yet: the one that
+    /// already has its conversation, else a new record for a past chat (found) or for a claude running in another
+    /// terminal, ended there first after asking (adopt). Null when there is nothing (any more) to open.</summary>
+    public async Task<string?> RecordForAsync(string windowId, ListItemRef item)
+    {
+        if (Fixture is not null || !Writable || item.ClaudeSessionId is not { } claudeId) return null;
+        // A hidden thread is never opened, adopted, resumed or taken over.
+        if (HistoryBusy.Contains(claudeId) || State.HiddenThreads.Any(h => h.ClaudeSessionId == claudeId)) return null;
+        string? Known() => State.Sessions.Values.FirstOrDefault(r => r.ClaudeSessionId == claudeId)?.Id;
+        if (Known() is { } known) return known;
+        if (!adopting.Add(claudeId)) return null;
+        try
+        {
+            var record = item.Kind switch
+            {
+                ListItemKind.Found => await FoundRecordAsync(item, claudeId),
+                ListItemKind.Running => await TakeOverRunningAsync(windowId, item, claudeId),
+                _ => null,
+            };
+            if (record is null) return null;
+            if (Known() is { } meanwhile) return meanwhile;
+            State.Sessions[record.Id] = record;
+            Log($"session adopted from the list: {record.Id} ({item.Kind})");
+            return record.Id;
+        }
+        catch (Exception e) when (e is HostServiceException or IOException or UnauthorizedAccessException)
+        {
+            Log($"could not open the list entry {claudeId}: {e.Message}");
+            return null;
+        }
+        finally
+        {
+            adopting.Remove(claudeId);
+        }
+    }
+
+    /// <summary>A past chat's record, in the folder its transcript tells (in WSL: under the share).</summary>
+    async Task<SessionRecord?> FoundRecordAsync(ListItemRef item, string claudeId)
+    {
+        if (Connection is not { } connection) return null;
+        TranscriptItem? info;
+        Func<string, string> windowsPath = folder => folder;
+        if (string.IsNullOrEmpty(item.Distro)) info = await new HostTranscriptSource(connection, ClaudeRegistry.Home()).FindAsync(claudeId);
+        else if (wslScan?.Sources.FirstOrDefault(s => string.Equals(s.Distro, item.Distro, StringComparison.OrdinalIgnoreCase)) is { } source)
+        {
+            info = await WithTimeout(source.Transcripts.FindAsync(claudeId), null);
+            windowsPath = source.WindowsPath;
+        }
+        else return null;
+        if (string.IsNullOrEmpty(info?.Cwd))
+        {
+            Log($"found session has no folder: {claudeId}");
+            return null;
+        }
+        return Takeover.Adopted(claudeId, windowsPath(info.Cwd), null, info.ModifiedAt > 0 ? info.ModifiedAt : null, Now());
+    }
+
+    /// <summary>A claude running in another terminal (Windows): asked first, ended there, then adopted; a name the user
+    /// gave it survives.</summary>
+    async Task<SessionRecord?> TakeOverRunningAsync(string windowId, ListItemRef item, string claudeId)
+    {
+        if (!string.IsNullOrEmpty(item.Distro) || !windows.TryGetValue(windowId, out var window)) return null;
+        var home = ClaudeRegistry.Home();
+        var entry = await Task.Run(() => ClaudeRegistry.Entry(home, item.Pid));
+        if (entry is not { Cwd: { Length: > 0 } cwd } || entry.SessionId != claudeId || !ClaudeRegistry.Alive(entry.Pid))
+        {
+            Log($"running session is gone, nothing to take over: pid {item.Pid}");
+            return null;
+        }
+        if (!window.ConfirmTakeover(entry.Name ?? Path.GetFileName(cwd.TrimEnd('\\', '/')))) return null;
+        Log($"taking over session from another terminal: pid {item.Pid}");
+        if (!await StopOutsideAsync(new Elsewhere(entry, null, home)))
+        {
+            MessageBox.Show(window, Strings.T("takeover.failed"), "Reframe", MessageBoxButton.OK, MessageBoxImage.Error);
+            return null;
+        }
+        var modified = await Task.Run(() => ClaudeRegistry.TranscriptModifiedAt(home, claudeId));
+        return Takeover.Adopted(claudeId, cwd, entry.NameSource == "user" ? entry.Name : null, modified, Now());
+    }
+
     static string Label(SessionRecord record) => StateValues.SessionLabel(record.Name, record.ClaudeName, record.Cwd);
 
     Takeover? takeoverStopper() => takeover ??= Store is { ReadOnly: false }
         ? new Takeover(consoles, ClaudeRegistry.Alive, KillTreeAsync, ms => Task.Delay(ms), Log)
         : null;
 
-    /// <summary>The claude running the session's conversation outside reframe (not one of the host's own), if any.</summary>
-    async Task<RunningClaude?> RunningElsewhereAsync(SessionRecord record)
+    /// <summary>A claude running a session's conversation outside reframe: its registry entry, the WSL distribution it
+    /// runs in (null: Windows) and Claude Code's home there, as Windows reaches it.</summary>
+    sealed record Elsewhere(RunningClaude Entry, string? Distro, string Home)
     {
-        var own = HostSessions.Values.Select(s => s.Pid).Append((int)(record.Pid ?? 0)).ToHashSet();
-        var home = ClaudeRegistry.Home();
-        return await Task.Run(() => ClaudeRegistry.Running(home).FirstOrDefault(e => e.SessionId == record.ClaudeSessionId && !own.Contains(e.Pid)));
+        public string WindowsPath(string folder) => Distro is null ? folder : WslSource.WindowsPath(Distro, folder, WslShare);
+    }
+
+    /// <summary>How long a WSL distribution's files over the share may take to answer (SHARE_TIMEOUT_MS).</summary>
+    static readonly TimeSpan ShareTimeout = TimeSpan.FromSeconds(3);
+
+    static async Task<T> WithTimeout<T>(Task<T> task, T fallback) =>
+        await Task.WhenAny(task, Task.Delay(ShareTimeout)) == task ? await task : fallback;
+
+    /// <summary>runningElsewhere: the claude running the session's conversation outside reframe (not one of the host's
+    /// own, nor the session's own last process), if any; in WSL only if its distribution runs (asking one that does not
+    /// would start it), its registry read over the share and its process asked of the distribution.</summary>
+    async Task<Elsewhere?> RunningElsewhereAsync(SessionRecord record)
+    {
+        if (WslPaths.Parse(record.Cwd, WslShare) is not { } where)
+        {
+            var own = HostSessions.Values.Select(s => s.Pid).Append((int)(record.Pid ?? 0)).ToHashSet();
+            var home = ClaudeRegistry.Home();
+            return await Task.Run(() => ClaudeRegistry.Running(home).FirstOrDefault(e => e.SessionId == record.ClaudeSessionId && !own.Contains(e.Pid)))
+                is { } entry ? new Elsewhere(entry, null, home) : null;
+        }
+        if (Services is not { } services || !services.Offers("wsl")) return null;
+        var running = await services.WslRunningAsync();
+        if (!running.Any(d => string.Equals(d, where.Distro, StringComparison.OrdinalIgnoreCase))) return null;
+        if (await services.WslInfoAsync(where.Distro) is not { Claude: not null, ClaudeHome: { } linuxHome }) return null;
+        var wslHome = WslSource.WindowsPath(where.Distro, linuxHome, WslShare);
+        var last = (int)(record.LinuxPid ?? 0);
+        var entries = await WithTimeout(Task.Run(() => ClaudeRegistry.Entries(wslHome)), new List<RunningClaude>());
+        foreach (var entry in entries.Where(e => e.SessionId == record.ClaudeSessionId && e.Pid != last))
+            if (await WithTimeout(services.WslIsClaudeAsync(where.Distro, entry.Pid), false)) return new Elsewhere(entry, where.Distro, wslHome);
+        return null;
+    }
+
+    /// <summary>stopOutside: ends the claude the way its user would (in WSL as a signal, as from Ctrl+C); whether it went.</summary>
+    async Task<bool> StopOutsideAsync(Elsewhere outside)
+    {
+        var result = outside.Distro is { } distro
+            ? Services is { } services ? await services.WslStopClaudeAsync(distro, outside.Entry.Pid) : "failed"
+            : takeoverStopper() is { } stopper ? await stopper.StopExternalClaudeAsync(outside.Entry.Pid) : "failed";
+        Log($"other terminal stopped: {outside.Entry.Pid} {result}");
+        return result != "failed";
     }
 
     /// <summary>The host's spawn plan for the session (in WSL folders with the distribution's claude).</summary>

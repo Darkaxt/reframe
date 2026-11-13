@@ -12,6 +12,7 @@ public static class Strings
     public static readonly IReadOnlyDictionary<string, string> En = new Dictionary<string, string>
     {
         ["keys.ctrl"] = "Ctrl",
+        ["find.placeholder"] = "Find",
         ["dialog.modelPlaceholder"] = "Default",
         ["dialog.default"] = "Default",
         ["quota.label"] = "Subscription quota",

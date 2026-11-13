@@ -179,6 +179,7 @@ sealed class NewSessionDialog
 
         // details.advanced: the summary (12 px, muted, the disclosure triangle), folded.
         modelBox = Input(T("dialog.modelPlaceholder"));
+        Suggestions.Attach(modelBox);
         permissionBox = Select(new[] { ("", T("dialog.default")) }.Concat(NewSession.PermissionModes.Select(m => (m, m))));
         addDirsBox = Area(T("dialog.addDirsPlaceholder"), 2);
         var body = new StackPanel { Margin = new Thickness(0, 10, 0, 0), Visibility = Visibility.Collapsed };
