@@ -194,6 +194,11 @@ public sealed class HostConnection : IAsyncDisposable
     internal Task ViewMessageAsync(int viewId, JsonObject message) =>
         SendAsync(new JsonObject { ["type"] = "view-message", ["viewId"] = viewId, ["message"] = message });
 
+    /// <summary>Ends a session (protocol <c>dispose</c>): its process is killed if that instance still runs. An observer's
+    /// is ignored by the host, so none is sent.</summary>
+    public Task DisposeSessionAsync(string sessionId, int instance) => IsObserver ? Task.CompletedTask :
+        SendAsync(new JsonObject { ["type"] = "dispose", ["sessionId"] = sessionId, ["instance"] = instance });
+
     /// <summary>Asks a service of the host (one its welcome advertises).</summary>
     public async Task<JsonNode?> CallAsync(string service, string method, JsonObject? parameters = null)
     {

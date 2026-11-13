@@ -362,6 +362,8 @@ test('main window with sessions: sidebar rows in each status, search, error tile
       if (await row.isVisible()) await menuOf(state, row);
     }
     await menuOf('menu-tile', tileByLabel(page, 'checkout-fix').locator('.tile-header'));
+    // The tray's menu (tray.ts; native, not clickable here): its structure as it is with these sessions.
+    menus['menu-tray'] = await callMain<unknown>(app, 'trayMenuSpec');
 
     await page.getByRole('searchbox', { name: 'Search sessions' }).fill('check');
     await shoot('sidebar-search');

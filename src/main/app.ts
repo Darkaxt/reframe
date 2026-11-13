@@ -193,6 +193,21 @@ const STATE_FLUSH_MS = 5_000;
 /** How long after the system said it is going down sessions that end still count as ended by it. */
 const SYSTEM_ENDING_MS = 60_000;
 
+/** A menu as a structured spec: type, label, enabled, checked, accelerator, submenu (lastMenuSpec, trayMenuSpec). */
+const menuSpec = (items: MenuItem[]): unknown[] =>
+  items.map((item) =>
+    item.type === 'separator'
+      ? { type: 'separator' }
+      : {
+          type: item.type,
+          label: item.label,
+          enabled: item.enabled,
+          ...(item.type === 'checkbox' || item.type === 'radio' ? { checked: item.checked } : {}),
+          ...(item.accelerator ? { accelerator: String(item.accelerator) } : {}),
+          ...(item.submenu ? { submenu: menuSpec(item.submenu.items) } : {}),
+        },
+  );
+
 export class ReframeApp {
   private history = new History(() => this.state.preferences.archiveRoot);
   private historyBusy = new Set<string>();
@@ -223,6 +238,7 @@ export class ReframeApp {
   private sessions!: SessionManager;
   private windows: WindowManager;
   private refreshTray: () => void = () => {};
+  private trayMenu: () => Menu | null = () => null;
   private trayAnyRunning = false;
   private refreshTrayTooltip: () => void = () => {};
   /** The system starts reframe when the user logs in: read at the start, changed in Settings. */
@@ -1834,20 +1850,14 @@ export class ReframeApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last as a structured spec (the visual report compares it with the shell's). */
   lastMenuSpec(): unknown[] | null {
-    const spec = (items: MenuItem[]): unknown[] =>
-      items.map((item) =>
-        item.type === 'separator'
-          ? { type: 'separator' }
-          : {
-              type: item.type,
-              label: item.label,
-              enabled: item.enabled,
-              ...(item.type === 'checkbox' || item.type === 'radio' ? { checked: item.checked } : {}),
-              ...(item.accelerator ? { accelerator: String(item.accelerator) } : {}),
-              ...(item.submenu ? { submenu: spec(item.submenu.items) } : {}),
-            },
-      );
-    return this.lastMenu ? spec(this.lastMenu.items) : null;
+    return this.lastMenu ? menuSpec(this.lastMenu.items) : null;
+  }
+
+  /** Test hook (REFRAME_E2E): the tray's menu as it is now, as a structured spec (compared with the shell's). */
+  trayMenuSpec(): unknown[] | null {
+    this.refreshTray();
+    const menu = this.trayMenu();
+    return menu ? menuSpec(menu.items) : null;
   }
 
   /** Test hook (REFRAME_E2E): clicks the item labeled `label` in the menu shown last. */
@@ -2893,7 +2903,7 @@ export class ReframeApp {
 
   private createTray(): void {
     const t = this.t;
-    const { refresh, refreshTooltip } = createTray(this.assets.trayIcon, this.assets.trayIcon2x, {
+    const { refresh, refreshTooltip, menu } = createTray(this.assets.trayIcon, this.assets.trayIcon2x, {
       labels: () => ({
         tooltip: this.waitingTotal > 0 ? this.waitingText(this.waitingTotal) : t('tray.tooltip'),
         newSession: t('tray.newSession'),
@@ -2947,6 +2957,7 @@ export class ReframeApp {
     });
     this.refreshTray = refresh;
     this.refreshTrayTooltip = refreshTooltip;
+    this.trayMenu = menu;
   }
 
   /** Whether the system starts reframe (no if that cannot be read). The end-to-end tests leave the system alone. */

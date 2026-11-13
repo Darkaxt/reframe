@@ -19,7 +19,9 @@ namespace Reframe.Shell;
 /// the layout area with the window's tiles (MainWindow.Layout.cs), or the empty state. reframe's state is read and, as the primary
 /// client, written through the host's <c>state</c> service (StateStore; never as an observer, while reframe owns it);
 /// the context menus of rows and tiles (src/main/menus.ts) rename, pin and hide. Sessions are opened as views of the
-/// host's sessions; Settings, About and the quota are in MainWindow.Settings.cs. New session and New window are not wired yet.
+/// host's sessions; Settings, About and the quota are in MainWindow.Settings.cs. The connection, the state and the other
+/// windows are the ShellController's (one per profile); this window is the state's window <see cref="WindowId"/>, its
+/// bounds, full screen and visibility in MainWindow.Windows.cs. New session is not wired yet.
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -32,20 +34,15 @@ public partial class MainWindow : Window
     readonly Button sessionsButton, singleButton, tiledButton, infoButton;
     readonly StackPanel captionButtons = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
 
-    string status = "";
-    HostConnection? connection;
-    HostServices? services;
-    IDisposable? shellLock;
-    AppState state = AppState.CreateDefault();
-    StateStore? store;
-    /// <summary>Host sessions listed though reframe's state does not have them: never written to it.</summary>
-    readonly HashSet<string> synthetic = [];
-    bool flushed;
+    readonly ShellController shell;
+    string status => shell.Status;
+    HostConnection? connection => shell.Connection;
+    HostServices? services => shell.Services;
+    AppState state { get => shell.State; set => shell.State = value; }
     /// <summary>Menus as built for the capture (menus.json), by state id.</summary>
     readonly System.Text.Json.Nodes.JsonObject capturedMenus = [];
-    readonly Dictionary<string, HostSession> hostSessions = [];
-    readonly Dictionary<string, SessionStatus> hostStatus = [];
-    VisualFixture? fixture;
+    Dictionary<string, HostSession> hostSessions => shell.HostSessions;
+    VisualFixture? fixture { get => shell.Fixture; set => shell.Fixture = value; }
     readonly string home = ClaudeRegistry.Home();
     string query = "";
     HashSet<string>? expanded;
@@ -55,8 +52,10 @@ public partial class MainWindow : Window
     static Brush B(string key) => (Brush)Application.Current.FindResource(key);
     static Style S(string key) => (Style)Application.Current.FindResource(key);
 
-    public MainWindow()
+    internal MainWindow(ShellController shell, string? windowId)
     {
+        this.shell = shell;
+        this.windowId = windowId;
         InitializeComponent();
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(40) });
         root.RowDefinitions.Add(new RowDefinition());
@@ -68,9 +67,11 @@ public partial class MainWindow : Window
         var left = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(8, 0, 0, 1), VerticalAlignment = VerticalAlignment.Center };
         left.Children.Add(ToolbarButton("plus", "New session", "New session (Ctrl+Shift+T)"));
         sessionsButton = ToolbarButton("list", "Sessions", "Sessions (Ctrl+Shift+L)");
-        sessionsButton.Click += (_, _) => ShowSidebar(sidebar.Visibility != Visibility.Visible);
+        sessionsButton.Click += (_, _) => ToggleSidebar();
         left.Children.Add(sessionsButton);
-        left.Children.Add(ToolbarButton("window", "New window", "New window (Ctrl+Shift+N)"));
+        var newWindowButton = ToolbarButton("window", "New window", "New window (Ctrl+Shift+N)");
+        newWindowButton.Click += (_, _) => NewWindow();
+        left.Children.Add(newWindowButton);
         var segmented = new StackPanel { Orientation = Orientation.Horizontal };
         AutomationProperties.SetName(segmented, "View (Ctrl+Shift+G)");
         singleButton = ToolbarButton("window", "Single window", "Single window (Ctrl+Shift+G)");
@@ -86,6 +87,12 @@ public partial class MainWindow : Window
         toolbar.Children.Add(left);
 
         var right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8 + 138, 1) };
+        // Shown in full screen only (App.tsx: ExitFullscreenIcon, before the gear).
+        exitFullscreenButton = IconButton("exit-fullscreen", "Exit full screen", "Exit full screen (F11)");
+        exitFullscreenButton.Click += (_, _) => ToggleFullscreen();
+        exitFullscreenButton.Margin = new Thickness(0, 0, 8, 0);
+        exitFullscreenButton.Visibility = Visibility.Collapsed;
+        right.Children.Add(exitFullscreenButton);
         var gearButton = IconButton("gear", "Settings", "Settings (Ctrl+,)");
         gearButton.Click += (_, _) => OpenSettings();
         right.Children.Add(gearButton);
@@ -120,6 +127,7 @@ public partial class MainWindow : Window
         root.Children.Add(workspace);
         PreviewKeyDown += (_, e) => LayoutKeys(e);
         PreviewKeyDown += (_, e) => SettingsKeys(e);
+        PreviewKeyDown += (_, e) => WindowKeys(e);
         ApplyViewMode("tiled");
         sessionsButton.BorderBrush = B("accentBrush");
 
@@ -137,27 +145,13 @@ public partial class MainWindow : Window
             _ = RefreshAsync();
         };
 
+        shell.StatusChanged += ShowStatus;
         if (App.CaptureDir is null)
         {
             Content = root;
             Loaded += async (_, _) => await StartAsync();
-            StateChanged += (_, _) => root.Margin = WindowState == System.Windows.WindowState.Maximized ? new Thickness(7) : new Thickness(0);
+            WatchWindow();
         }
-        // The newest state is on disk before the window goes (StateStore.flush on quitting, the host given 2 s).
-        Closing += async (_, e) =>
-        {
-            if (flushed || store is null) return;
-            e.Cancel = true;
-            await store.FlushAsync(2000);
-            flushed = true;
-            Close();
-        };
-        Closed += async (_, _) =>
-        {
-            // Leaves the host with every session running (never "shutdown").
-            if (connection is not null) await connection.DisposeAsync();
-            shellLock?.Dispose();
-        };
     }
 
 
@@ -246,7 +240,8 @@ public partial class MainWindow : Window
 
     async Task StartAsync()
     {
-        await AttachAsync();
+        ShowStatus();
+        ShowSidebar(Win.SidebarOpen == true);
         LayoutLoaded();
         await RefreshAsync();
         StartQuota();
@@ -255,92 +250,22 @@ public partial class MainWindow : Window
         timer.Start();
     }
 
-    void SetStatus(string text)
+    void SetStatus(string text) => shell.SetStatus(text);
+
+    void ShowStatus() => infoButton.ToolTip = $"About Reframe\n{status}";
+
+    /// <summary>The host's status of a session changed (sessions service).</summary>
+    public void HostStatusChanged(string sessionId)
     {
-        status = text;
-        infoButton.ToolTip = $"About Reframe\n{text}";
+        UpdateTileStatus(sessionId);
+        _ = RefreshAsync();
     }
 
-    /// <summary>A second launch on the profile asked for this window (SingleInstance).</summary>
-    public void BringForward()
-    {
-        Show();
-        if (WindowState == System.Windows.WindowState.Minimized) WindowState = System.Windows.WindowState.Normal;
-        Activate();
-        // Activate alone may only flash the taskbar button; the asking launch let us take the foreground.
-        SetForegroundWindow(new WindowInteropHelper(this).Handle);
-    }
-
-    [DllImport("user32.dll")]
-    static extern bool SetForegroundWindow(IntPtr hwnd);
-
-    async Task AttachAsync()
-    {
-        SetStatus($"Profile {App.ProfileDir}: attaching...");
-        var result = await ShellAttach.AttachAsync(App.ProfileDir, App.TakeOver, start: App.Starter);
-        SetStatus($"Profile {App.ProfileDir}: {result.Message}");
-        if (result.Connection is null) return;
-        connection = result.Connection;
-        shellLock = result.Lock;
-        connection.Closed += replaced => Dispatcher.InvokeAsync(() =>
-            SetStatus(replaced ? "Another client took the profile over: detached." : "The pty host connection closed."));
-        if (connection.IsObserver) SetStatus(status + " Terminals are read-only (start with --take-over to type in them).");
-        services = new HostServices(connection);
-        services.StatusChanged += changed => Dispatcher.InvokeAsync(() =>
-        {
-            hostStatus[changed.SessionId] = changed;
-            UpdateTileStatus(changed.SessionId);
-            _ = RefreshAsync();
-        });
-        foreach (var session in connection.Welcome.Sessions) hostSessions[session.SessionId] = session;
-        try
-        {
-            foreach (var listed in await services.ListSessionsAsync()) hostStatus[listed.SessionId] = listed;
-        }
-        catch (HostServiceException e)
-        {
-            SetStatus(status + $" (sessions: {e.Message})");
-        }
-        if (fixture is not null) return;
-        try
-        {
-            var file = Path.Combine(App.ProfileDir, "state.json");
-            if (connection.IsObserver) state = (await StateLoader.LoadAsync(services, file)).State;
-            else
-            {
-                var hosted = services;
-                var attached = connection;
-                store = new StateStore(file, () => attached.IsOpen && hosted.Offers("state") ? new HostStateFiles(hosted) : null,
-                    (level, message) => Dispatcher.InvokeAsync(() => SetStatus(status + $" (state {level}: {message})")));
-                var loaded = await store.LoadAsync();
-                state = loaded.State;
-                if (loaded.Rejected is not null) SetStatus(status + $" (state.json set aside: {loaded.Rejected})");
-            }
-        }
-        catch (Exception e) when (e is HostServiceException or IOException)
-        {
-            SetStatus(status + $" (state: {e.Message})");
-        }
-        // The host's sessions that reframe's state does not know (started by a test or another client) are listed too.
-        foreach (var session in hostSessions.Values.Where(s => !state.Sessions.ContainsKey(s.SessionId)))
-        {
-            hostStatus.TryGetValue(session.SessionId, out var known);
-            synthetic.Add(session.SessionId);
-            state.Sessions[session.SessionId] = new SessionRecord
-            {
-                Id = session.SessionId,
-                ClaudeSessionId = session.ClaudeSessionId ?? known?.ClaudeSessionId ?? session.SessionId,
-                Cwd = known?.Cwd ?? "",
-                Name = known?.Name ?? session.SessionId,
-                LastActiveAt = DateTimeOffset.Now.ToUnixTimeMilliseconds(),
-            };
-        }
-    }
+    /// <summary>The state changed (this or another window, Settings): listed again.</summary>
+    public void ListChanged() => _ = RefreshAsync();
 
     /// <summary>sessionView's status: the host's (background: idle with background work), else ended.</summary>
-    string StatusOf(string sessionId) =>
-        fixture?.Statuses.GetValueOrDefault(sessionId)
-        ?? (hostStatus.TryGetValue(sessionId, out var known) ? known.Status : hostSessions.ContainsKey(sessionId) ? "starting" : "ended");
+    string StatusOf(string sessionId) => shell.StatusOf(sessionId);
 
     ListSources Sources()
     {
@@ -452,10 +377,9 @@ public partial class MainWindow : Window
 
     /// <summary>Whether the shell may change reframe's state: as the primary client with a writable store (a capture
     /// changes only its fixture).</summary>
-    bool Writable => fixture is not null || store is { ReadOnly: false };
+    bool Writable => shell.Writable;
 
-    bool Runs(string sessionId) =>
-        fixture is not null ? fixture.Statuses.GetValueOrDefault(sessionId, "ended") != "ended" : hostSessions.ContainsKey(sessionId) && StatusOf(sessionId) != "ended";
+    bool Runs(string sessionId) => shell.Runs(sessionId);
 
     static bool InWsl(string cwd) =>
         cwd.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) || cwd.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase);
@@ -554,11 +478,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Writes the changed state (as reframe's save()) and lists again.</summary>
-    void Saved()
-    {
-        store?.Save(state, synthetic);
-        _ = RefreshAsync();
-    }
+    void Saved() => shell.Saved();
 
     // ---------- diagnostics ----------
 
@@ -577,7 +497,7 @@ public partial class MainWindow : Window
                 fixture = VisualFixture.Load(fixtureFile, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), DateTimeOffset.Now.ToUnixTimeMilliseconds());
                 state = fixture.State;
             }
-            if (name != "empty") await AttachAsync();
+            if (name != "empty") await shell.AttachAsync();
             await RefreshAsync();
             await DiagCapture.SettleAsync(Dispatcher, 800);
             selected = fixture?.Selected;
@@ -626,6 +546,7 @@ public partial class MainWindow : Window
                         fixture.Statuses["vs-checkout-fix"] = "idle";
                     }
                     await SaveMenusAsync(dir);
+                    await CaptureFullscreenAsync(popup, dir);
                     sidebar.Scroll.ScrollToTop();
                     Diag.SetFocused(sidebar.Search, true);
                     sidebar.Search.Text = "check";
@@ -653,10 +574,7 @@ public partial class MainWindow : Window
         finally
         {
             DiagCapture.WriteManifest(dir, status);
-            if (connection is not null) await connection.DisposeAsync();
-            connection = null;
-            shellLock?.Dispose();
-            shellLock = null;
+            await shell.DetachAsync();
         }
     }
 
@@ -684,6 +602,8 @@ public partial class MainWindow : Window
             DiagCapture.SaveElement(menu, dir, stateId);
             menu.IsOpen = false;
         }
+        // The tray's menu (native: its structure only), with the fixture's windows and sessions.
+        capturedMenus["menu-tray"] = MenuSpec.ToJson(shell.TrayMenu());
         Directory.CreateDirectory(dir);
         File.WriteAllText(Path.Combine(dir, "menus.json"), capturedMenus.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }) + "\n");
     }

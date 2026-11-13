@@ -61,12 +61,20 @@ public partial class MainWindow
     HeaderDrag? headerDrag;
     (string SplitId, int Index, List<double> Before, Box SplitBox, bool Across)? separatorDrag;
 
+    /// <summary>This window's entry of the state (a capture takes its fixture's first window).</summary>
     WindowState Win
     {
         get
         {
+            if (windowId is not null && state.Windows.FirstOrDefault(w => w.Id == windowId) is { } own) return own;
             if (state.Windows.Count == 0) state.Windows.Add(Reframe.Shell.Core.WindowState.Empty(Guid.NewGuid().ToString()));
+            windowId = state.Windows[0].Id;
             return state.Windows[0];
+        }
+        set
+        {
+            var index = state.Windows.FindIndex(w => w.Id == value.Id);
+            if (index >= 0) state.Windows[index] = value;
         }
     }
 
@@ -116,7 +124,7 @@ public partial class MainWindow
         var (settled, key) = LayoutActions.SettleGrid(next, gridKeys.GetValueOrDefault(next.Id));
         gridKeys[next.Id] = key;
         selected = ViewModes.NextShown(Layout.Leaves(before.Layout), Layout.Leaves(settled.Layout), selected);
-        state.Windows[0] = settled;
+        Win = settled;
         Saved();
         Relayout();
     }
@@ -508,7 +516,7 @@ public partial class MainWindow
                     new Snap.SplitAxis(drag.Across ? drag.SplitBox.X : drag.SplitBox.Y, drag.Across ? drag.SplitBox.Width : drag.SplitBox.Height, LayoutGeometry.SeparatorSize),
                     new Snap.GridAxis(-6, (drag.Across ? surface.ActualWidth : surface.ActualHeight) + 12, Snap.GridSteps));
             var win = Win;
-            state.Windows[0] = LayoutActions.Apply(win, new LayoutAction.SplitResize(drag.SplitId, sizes));
+            Win = LayoutActions.Apply(win, new LayoutAction.SplitResize(drag.SplitId, sizes));
             Relayout();
         };
         thumb.DragCompleted += (_, _) =>
@@ -750,11 +758,16 @@ public partial class MainWindow
                 dropPreview.Visibility = Visibility.Visible;
             }
         };
-        head.MouseLeftButtonUp += (_, _) =>
+        head.MouseLeftButtonUp += (_, e) =>
         {
             if (headerDrag is not { } drag || drag.Source != head) return;
+            // Its size as the new window's (tearOut), taken before the drag ends.
+            var size = Dragged(drag) is FrameworkElement dragged ? new Size(dragged.ActualWidth, dragged.ActualHeight) : (Size?)null;
             head.ReleaseMouseCapture();
-            if (drag.Moving && drag.Target is { } target) Act(new LayoutAction.NodeMove(drag.Key, target));
+            if (!drag.Moving) return;
+            if (drag.Target is { } target) Act(new LayoutAction.NodeMove(drag.Key, target));
+            // Let go outside the window: to another window of the shell's, or into a window of its own (dnd.ts).
+            else if (!IsInside(e.GetPosition(this))) shell.DropOutside(WindowId, drag.Key, ScreenPoint(e.GetPosition(this)), size);
         };
         head.LostMouseCapture += (_, _) => EndHeaderDrag(head);
     }
@@ -781,7 +794,8 @@ public partial class MainWindow
 
     // ---------- keys ----------
 
-    /// <summary>The layout's shortcuts (shortcuts.ts): Ctrl+Shift+G view mode, Z zoom, M collapse the focused tile.</summary>
+    /// <summary>The layout's shortcuts (shortcuts.ts): Ctrl+Shift+G view mode, Z zoom, M collapse the focused tile (or
+    /// bring the one collapsed last back), F find, the text size; the others are in MainWindow.Windows.cs.</summary>
     void LayoutKeys(KeyEventArgs e)
     {
         var target = focused ?? selected;
@@ -795,6 +809,14 @@ public partial class MainWindow
                 break;
             case Shortcut.Named { Kind: "toggleCollapse" } when target is not null && Writable:
                 Act(new LayoutAction.TileCollapse(target));
+                break;
+            case Shortcut.Named { Kind: "toggleCollapse" } when Writable && Win.Dock.LastOrDefault() is { } last:
+                if (last is DockTile tile)
+                {
+                    Act(new LayoutAction.TileExpand(tile.SessionId));
+                    FocusTile(tile.SessionId);
+                }
+                else if (last is DockGroup group) Act(new LayoutAction.GroupExpand(group.Node.Id));
                 break;
             case Shortcut.Named { Kind: "find" } when target is not null && tiles.GetValueOrDefault(target)?.Behaviour is { } behaviour:
                 behaviour.OpenFind();
