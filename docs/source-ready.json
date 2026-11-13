@@ -1,36 +1,36 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "8d648c768ee457ae6639958e97db73a7f0597ff8",
-  "scope": "0.11.0-claudegpt.32: fix release for the native WPF shell. The main window gets the DWM frame back (1px glass frame: shadow and border; Windows 11 rounded-corner preference) and the title Reframe. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.31 (6406516), the protocol and cutover docs, the version and release notes.",
+  "sourceBase": "774f692723c647d9e3ba774e12fb4f9840c8c6c5",
+  "scope": "0.11.0-claudegpt.33: fix release for the native WPF shell. Arrow keys and Tab are sent straight to the terminal window instead of WPF focus navigation; start-managed keeps the running instance's launch receipt on a second start. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.32 (c0cdf16), the protocol and cutover docs, the version and release notes.",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "7dc69cdc25a3e97ab257a04d1f7d7fe00b219a42bf32b3225cdba8fd7b6c2f06"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.32.md",
-      "sha256": "1c3e355fcde4a1e5e78101ec98873105e2b526eb9669b48780c8229396cb0c43"
+      "file": "docs/releases/v0.11.0-claudegpt.33.md",
+      "sha256": "944197a2a30be1ec35bdb9d8e1a2266bba2be4f4697cac13dfe28af3971372a1"
     },
     {
       "file": "docs/wpf-cutover.md",
       "sha256": "981946325780f61184baa82cd7a6c24393935b066c0abc6f44ad1010a694d6d7"
     },
     {
+      "file": "maintenance/windows/start-managed.ps1",
+      "sha256": "16f166e51a7fadf045032da60307fbdc1ed44151c26b970215bf184ca05989ed"
+    },
+    {
       "file": "package-lock.json",
-      "sha256": "b0c019aafdae82878391109fbec4d27127ab1aadb11a1492c02dfc488083cc65"
+      "sha256": "d50e8b1ee2106ffc8994ead158d4890fbe7dbe5c14c5d1cc381cc1ebafc38e14"
     },
     {
       "file": "package.json",
-      "sha256": "7e4aabc15403fe8143408466444e0710abb1b65c87495172ee959bc0947495d6"
+      "sha256": "6f1e6d9f5120745a57bf8d42d5c0c7865e179baee1f8a010f29365aa3a55d0a4"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.xaml",
-      "sha256": "6a94c281e74c96a2eb961e4a02e90f0c85fa04717e9eacb51abec14bb77355b1"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "18486e8a73674b6187a34a72046ad7da1b859e820f70f660a16bf62e4e490250"
+      "file": "wpf/Reframe.Shell/TerminalBehaviour.cs",
+      "sha256": "d48f62eff3ff6956079297b026816056f2d707697665dbddbff72a400c91b987"
     }
   ],
   "checksNotYetRun": [
