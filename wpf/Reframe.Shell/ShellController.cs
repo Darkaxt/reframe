@@ -104,6 +104,7 @@ sealed class ShellController
         {
             SetStatus(Status + $" (state: {e.Message})");
         }
+        await ConfigureOverviewAsync(services, connection);
         // The host's sessions that reframe's state does not know (started by a test or another client) are listed too.
         foreach (var session in HostSessions.Values.Where(s => !State.Sessions.ContainsKey(s.SessionId)))
         {
@@ -117,6 +118,21 @@ sealed class ShellController
                 Name = known?.Name ?? session.SessionId,
                 LastActiveAt = DateTimeOffset.Now.ToUnixTimeMilliseconds(),
             };
+        }
+    }
+
+    /// <summary>overview.configure as the primary client (an observer only reads what the primary configured): the
+    /// cache in the profile, Claude Code's home (the one folder reframe reads for every provider).</summary>
+    async Task ConfigureOverviewAsync(HostServices services, HostConnection connection)
+    {
+        if (connection.IsObserver || services.Overview is null) return;
+        try
+        {
+            await services.ConfigureOverviewAsync(Overview.ConfigureParameters(App.ProfileDir, ClaudeRegistry.Home()));
+        }
+        catch (HostServiceException e)
+        {
+            SetStatus(Status + $" (overview: {e.Message})");
         }
     }
 

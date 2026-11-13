@@ -102,6 +102,19 @@ public sealed class HostServices
         return ((bool?)result?["coordinator"] ?? false, result?["usage"]?.DeepClone());
     }
 
+    /// <summary>The <c>overview</c> service (Rust host only), or null without it.</summary>
+    public IOverviewSource? Overview => Offers("overview") ? new HostOverviewSource(connection) : null;
+
+    /// <summary><c>overview.configure { cache, homes }</c> (never as an observer: the host refuses it). Its status.</summary>
+    public async Task<OverviewStatus> ConfigureOverviewAsync(JsonObject parameters) =>
+        OverviewStatus.Parse(await connection.CallAsync("overview", "configure", parameters));
+
+    sealed class HostOverviewSource(HostConnection connection) : IOverviewSource
+    {
+        public Task<JsonNode?> CallAsync(string method, JsonObject? parameters = null) =>
+            connection.CallAsync("overview", method, parameters ?? new JsonObject());
+    }
+
     /// <summary><c>state.read { file }</c>: the file's text (null when it is not there) and the host's revision of it.</summary>
     public async Task<(string? Content, long? Revision)> ReadStateAsync(string file)
     {
