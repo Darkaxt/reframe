@@ -18,15 +18,17 @@ public static class ManagedShortcuts
     /// <summary>What a shortcut file has (null fields: not set).</summary>
     public sealed record Existing(string? AppUserModelId, string? ToastActivatorClsid);
 
+    static string? Get(IDictionary<string, string?> env, string key) => env.TryGetValue(key, out var v) ? v : null;
+
     /// <summary>managedShortcuts: the two shortcuts, empty without the launcher's variables.</summary>
     public static IReadOnlyList<Spec> Wanted(IDictionary<string, string?> env, string appId, string executable)
     {
-        string? fixedId = env.GetValueOrDefault("REFRAME_APP_ID"), file = env.GetValueOrDefault("REFRAME_APP_SHORTCUT"),
-            launcher = env.GetValueOrDefault("REFRAME_APP_LAUNCHER");
+        string? fixedId = Get(env, "REFRAME_APP_ID"), file = Get(env, "REFRAME_APP_SHORTCUT"),
+            launcher = Get(env, "REFRAME_APP_LAUNCHER");
         if (string.IsNullOrEmpty(fixedId) || appId != fixedId.Trim()) return [];
         if (string.IsNullOrEmpty(file) || string.IsNullOrEmpty(launcher) || !Path.IsPathFullyQualified(file) || !Path.IsPathFullyQualified(launcher)) return [];
         if (!file.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase) || !launcher.EndsWith(".vbs", StringComparison.OrdinalIgnoreCase)) return [];
-        var systemRoot = env.GetValueOrDefault("SystemRoot") is { Length: > 0 } r ? r : @"C:\Windows";
+        var systemRoot = Get(env, "SystemRoot") is { Length: > 0 } r ? r : @"C:\Windows";
         var installRoot = Path.GetDirectoryName(Path.GetDirectoryName(launcher))!;
         Spec Make(string lnk) => new(lnk, Path.Combine(systemRoot, "System32", "wscript.exe"), $"//B //Nologo \"{launcher}\"",
             installRoot, Path.GetFileNameWithoutExtension(file), executable, appId, Notifications.ToastActivatorClsid(appId));
