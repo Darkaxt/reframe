@@ -39,36 +39,37 @@ export function createTray(
   icon: string,
   icon2x: string,
   actions: TrayActions,
-): { tray: Tray; refresh: () => void; refreshTooltip: () => void } {
+): { tray: Tray; refresh: () => void; refreshTooltip: () => void; menu: () => Menu | null } {
   const image = nativeImage.createFromPath(icon);
   image.addRepresentation({ scaleFactor: 2, buffer: nativeImage.createFromPath(icon2x).toPNG() });
   const tray = new Tray(image);
+  /** The menu as built last (the visual report compares its structure with the WPF shell's tray menu). */
+  let menu: Menu | null = null;
 
   const refresh = () => {
     const labels = actions.labels();
     const update = actions.update();
     tray.setToolTip(labels.tooltip);
-    tray.setContextMenu(
-      Menu.buildFromTemplate([
-        ...actions.windows().map((w) => ({
-          label: w.label,
-          type: 'checkbox' as const,
-          checked: w.visible,
-          click: () => actions.toggleWindow(w.id, !w.visible),
-        })),
-        { type: 'separator' },
-        { label: labels.newSession, click: actions.newSession },
-        { label: labels.newWindow, click: actions.newWindow },
-        { type: 'separator' },
-        ...(update ? [{ label: update.label, click: update.install }] : []),
-        { label: labels.about, click: actions.about },
-        { label: labels.terminateAll, enabled: actions.anyRunning(), click: actions.terminateAll },
-        { label: labels.quit, click: actions.quit },
-      ]),
-    );
+    menu = Menu.buildFromTemplate([
+      ...actions.windows().map((w) => ({
+        label: w.label,
+        type: 'checkbox' as const,
+        checked: w.visible,
+        click: () => actions.toggleWindow(w.id, !w.visible),
+      })),
+      { type: 'separator' },
+      { label: labels.newSession, click: actions.newSession },
+      { label: labels.newWindow, click: actions.newWindow },
+      { type: 'separator' },
+      ...(update ? [{ label: update.label, click: update.install }] : []),
+      { label: labels.about, click: actions.about },
+      { label: labels.terminateAll, enabled: actions.anyRunning(), click: actions.terminateAll },
+      { label: labels.quit, click: actions.quit },
+    ]);
+    tray.setContextMenu(menu);
   };
   refresh();
   tray.on('click', actions.showPrimary);
   // The tooltip changes more often than the menu (sessions start and stop needing the user).
-  return { tray, refresh, refreshTooltip: () => tray.setToolTip(actions.labels().tooltip) };
+  return { tray, refresh, refreshTooltip: () => tray.setToolTip(actions.labels().tooltip), menu: () => menu };
 }

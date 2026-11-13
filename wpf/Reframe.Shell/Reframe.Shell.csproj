@@ -8,12 +8,16 @@
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- About shows reframe's version: package.json's, without the commit the SDK would append. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <InformationalVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\package.json')), '(?&lt;="version":\s*")[^"]+').Value)</InformationalVersion>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="..\..\LICENSE" LogicalName="LICENSE" />
+    <!-- The tray icon (TrayIcon.cs), Electron's resources. -->
+    <EmbeddedResource Include="..\..\resources\tray.png" LogicalName="tray.png" />
+    <EmbeddedResource Include="..\..\resources\tray@2x.png" LogicalName="tray@2x.png" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CI.Microsoft.Terminal.Wpf" Version="[1.25.260303002]" />

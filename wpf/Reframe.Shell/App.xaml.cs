@@ -21,6 +21,9 @@ public partial class App : Application
     /// <summary>Starts the profile's Rust host when none runs (from <c>--host-dir</c>, REFRAME_RUST_HOST_DIR or
     /// <c>reframe-host</c> beside the shell); null when there is none to start, and in diagnostics (which only attach).</summary>
     public static HostStarter? Starter { get; private set; }
+    /// <summary>Started by the system (<c>--autostart</c>, the login entry Settings writes): the windows stay in the tray,
+    /// as reframe's startedBySystem().</summary>
+    public static bool StartedBySystem { get; private set; }
 
     SingleInstance? instance;
 
@@ -34,15 +37,16 @@ public partial class App : Application
             else
             if (e.Args[i] == "--profile" && i + 1 < e.Args.Length) ProfileDir = Path.GetFullPath(e.Args[++i]);
             else if (e.Args[i] == "--take-over") TakeOver = true;
+            else if (e.Args[i] == Autostart.Argument) StartedBySystem = true;
             else if (e.Args[i] == "--diag-capture" && i + 1 < e.Args.Length) CaptureDir = Path.GetFullPath(e.Args[++i]);
             else if (e.Args[i] == "--diag-fixture" && i + 1 < e.Args.Length) FixtureFile = Path.GetFullPath(e.Args[++i]);
         }
         base.OnStartup(e);
         if (CaptureDir is not { } dir)
         {
-            // One shell per profile: a second launch brings the first one's window forward and exits.
-            MainWindow? shown = null;
-            instance = SingleInstance.TryAcquire(ProfileDir, () => Dispatcher.InvokeAsync(() => shown?.BringForward()));
+            // One shell per profile: a second launch shows the first one's windows (revealWindows) and exits.
+            var shell = new ShellController();
+            instance = SingleInstance.TryAcquire(ProfileDir, () => Dispatcher.InvokeAsync(shell.Reveal));
             if (instance is null)
             {
                 ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -51,11 +55,12 @@ public partial class App : Application
             }
             if (HostLauncher.FindSource(hostDir, AppContext.BaseDirectory) is { } source)
                 Starter = new HostLauncher(source, $"shell-{typeof(App).Assembly.GetName().Version}").StartAsync;
-            shown = new MainWindow();
-            shown.Show();
+            // Closing the last window leaves the shell in the tray; only the tray's Quit ends it.
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            Dispatcher.InvokeAsync(async () => await shell.StartAsync(StartedBySystem));
             return;
         }
-        var window = new MainWindow();
+        var window = new MainWindow(new ShellController(), null);
         // Diagnostics: never shown as a window; the captures run in a popup, then the shell exits.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         Dispatcher.InvokeAsync(async () =>
