@@ -322,8 +322,9 @@ public class LayoutTests
     {
         Assert.Equal("b", ViewModes.NextShown(["a", "b"], ["b", "a"], "b"));
         Assert.Equal("c", ViewModes.NextShown(["a", "b"], ["a", "b", "c"], "a"));
-        Assert.Equal("c", ViewModes.NextShown(["a", "b", "c"], ["a", "c"], "b"));
-        Assert.Equal("b", ViewModes.NextShown(["a", "b", "c"], ["a", "b"], "c"));
+        // The shown thread closed: none is shown until one is picked.
+        Assert.Null(ViewModes.NextShown(["a", "b", "c"], ["a", "c"], "b"));
+        Assert.Null(ViewModes.NextShown(["a", "b", "c"], ["a", "b"], "c"));
         Assert.Equal("a", ViewModes.NextShown([], ["a", "b"], null));
         Assert.Null(ViewModes.NextShown(["a"], [], "a"));
         Assert.Equal("a", ViewModes.Cycle(["a", "b", "c"], "c", 1));

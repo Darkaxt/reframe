@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "02f859a37bec897de447737559d93eb4d2ba1bbe",
-  "scope": "0.11.0-claudegpt.35: the native shell attaches to a running terminal host that cannot plan starts (before launch.spawnPlan) only for the sessions it runs, beside a current Rust host started for new and resumed sessions, and lets it go once it runs none of the open sessions; the Restart terminal host action of .34 is removed; attach and quota-read failures are logged. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.34, the protocol and cutover docs, the version and release notes.",
+  "sourceBase": "bee8c1b91801d5c7c7ac232226ed102994625c4f",
+  "scope": "0.11.0-claudegpt.36: in single window mode, a window whose shown session closed (or left it) shows none, with a prompt to choose one from the list, instead of showing the next. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.35, the protocol and cutover docs, the version and release notes.",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "f7aff0ebcbd81a8edc79f5800d791a322baf55b5a745a78d99bc754d1eee10e8"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.35.md",
-      "sha256": "1575c4ca604c6c20ebce9761a2be597a5b901c6f1f938a8ac34deb31e136235c"
+      "file": "docs/releases/v0.11.0-claudegpt.36.md",
+      "sha256": "f5f8c908eec472c3ba267fcd4c82abe13ae4889a53e4ad43814797317b667d96"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,67 +18,23 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "dcfdaed4bd10e7d2961c089506c02ef864158d9d5123021760c102c93725e612"
+      "sha256": "0907a707b35026c3edfc86b01886db347783212f7f0b7dae3428d863bd4da71b"
     },
     {
       "file": "package.json",
-      "sha256": "3e9fc470e3f75851f24f1cf00206076e205b4441b4d9e4faa1e053859c250d1a"
+      "sha256": "b9fdb1e4fc4954999f4a49aeb793c276e8dae0fa55ca8c76d580f9005adb0a12"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/Attach.cs",
-      "sha256": "24a6788424f9e6fe00a331a65ad9ea217d81b176cc402a4cca063c95477463b9"
+      "file": "wpf/Reframe.Shell.Core/LayoutActions.cs",
+      "sha256": "11337d0e8f407f5636c3aa07d403c29aa3564d2514971546c8e77d5d6291fa06"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/HostConnection.cs",
-      "sha256": "cb60379b7d09a2e23f650cb84c74e1e0f10cf23dbfdf3d499fdee332e33e1f57"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/NewSession.cs",
-      "sha256": "1ed7720abb3b11cada8a2f324407e47ae095dcfe8ff8174dc6be2927e9ca984e"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Services.cs",
-      "sha256": "97197f9e612e0285c73ef81410364c3ec9582716e49b0412e615448576b639ff"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Strings.cs",
-      "sha256": "7dd6126459d17227a3a16cc1dfb683c8e7f825d2bbd243468bad4c5a0c92eb7b"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/FakeHost.cs",
-      "sha256": "ff058cc0a4a259d1d788cb58921101049729540ac92f7bde1a65f83ab7c42e99"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/HostStartTests.cs",
-      "sha256": "2ab8a3260e090eff5517de767e3c8b0257698119e9c8e333aa6ca828784ab42e"
-    },
-    {
-      "file": "wpf/Reframe.Shell/App.xaml.cs",
-      "sha256": "0dff2c92f76d240adbb926a234e268ca679349dcd9b8b1284d3a1fdd622d6ecf"
+      "file": "wpf/Reframe.Shell.Tests/LayoutTests.cs",
+      "sha256": "d5b15a379df400dbaeea07e8c8ea9457ab3b8d1b5eadf1b5e32c5a1fd147ba95"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "3dab7e4633613d679506d432817f3995b04ef7d8a9ee4f31e1fe6e29e1b714bb"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.Settings.cs",
-      "sha256": "2b56ee2f23b1a4b323e54a5811fd5b9c8151634914725ac52b3159c330acd62b"
-    },
-    {
-      "file": "wpf/Reframe.Shell/NewSessionDialog.cs",
-      "sha256": "a08e202f3c5c3682f91afcea26830b83e3a4bafa9b29e6a6ad0e2286a487d870"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.Hosts.cs",
-      "sha256": "dbb74ac04d0f179c4fd6f0e7a9eb86e2f8c54996ee88a9481187aa2bc4b8f2d3"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
-      "sha256": "247675a775e1e88bd08d2a712aa0f06961bf15066253639302538093ac3ace22"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "97257d9133ef8296cfb289d06c3ce46f7292f57e26646bfb7ae4f114a9ec7db7"
+      "sha256": "404fea9606baf41fc37eaee7f05d35cdb41d42614169e43c3be0992bd4d1fbda"
     }
   ],
   "checksNotYetRun": [
