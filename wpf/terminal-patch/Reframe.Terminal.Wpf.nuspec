@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Packed by .github/workflows/terminal-wpf.yml from microsoft/terminal at the pinned tag with this folder's patch.
+     $version$ and the file paths are given by the workflow (nuget pack -Properties, -BasePath = the staging folder). -->
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>Reframe.Terminal.Wpf</id>
+    <version>$version$</version>
+    <authors>Microsoft Corporation; reframe</authors>
+    <description>Microsoft.Terminal.Wpf (Windows Terminal's WPF control) built from microsoft/terminal $terminalTag$ ($terminalCommit$) with reframe's patch: cell size and fractional font size, default scrollback, search with every match highlighted. Same namespace and assembly name as Microsoft.Terminal.Wpf.</description>
+    <license type="file">LICENSE</license>
+    <projectUrl>https://github.com/Darkaxt/reframe</projectUrl>
+    <repository type="git" url="https://github.com/microsoft/terminal" commit="$terminalCommit$" />
+  </metadata>
+  <files>
+    <file src="LICENSE" target="LICENSE" />
+    <file src="NOTICE.md" target="NOTICE.md" />
+    <file src="reframe-terminal.patch" target="reframe-terminal.patch" />
+    <file src="lib\net8.0-windows7.0\Microsoft.Terminal.Wpf.dll" target="lib\net8.0-windows7.0\" />
+    <file src="lib\net8.0-windows7.0\Microsoft.Terminal.Wpf.xml" target="lib\net8.0-windows7.0\" />
+    <file src="runtimes\win-x64\native\Microsoft.Terminal.Control.dll" target="runtimes\win-x64\native\" />
+  </files>
+</package>

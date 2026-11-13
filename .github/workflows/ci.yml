@@ -57,6 +57,9 @@ jobs:
         with:
           name: reframe-host
           path: rust/dist
+      # The patched terminal control (terminal-wpf.yml's release asset), SHA-256 checked, into the local feed.
+      - run: ./Get-TerminalPackage.ps1
+        shell: pwsh
       - run: dotnet build Reframe.Shell.sln -c Release
       - run: dotnet test Reframe.Shell.sln -c Release --no-build
         env:

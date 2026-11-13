@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Automation;
-using System.Windows.Automation.Text;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -62,10 +61,14 @@ sealed class TerminalBehaviour
     readonly TextBox findInput;
     readonly TextBlock findCount;
     HwndHost? host;
-    TerminalFind? find;
     bool hinted;
     (double X, double Y)? dragStart;
-    short points;
+    int fontPx;
+    readonly DispatcherTimer findRefresh;
+
+    /// <summary>xterm's scrollback in terminals.ts. Set before any terminal is created (it applies to those created after).</summary>
+    const int Scrollback = 5000;
+    static TerminalBehaviour() => TerminalControl.SetDefaultHistorySize(Scrollback);
 
     public TerminalBehaviour(TerminalControl control, HostTerminalConnection terminal, int fontSize, Func<PasteText.Wsl?> wsl, Action<string> notice)
     {
@@ -73,17 +76,27 @@ sealed class TerminalBehaviour
         this.terminal = terminal;
         this.wsl = wsl;
         this.notice = notice;
-        points = Shortcuts.TerminalPoints(fontSize);
+        fontPx = fontSize;
         control.PreviewKeyDown += KeyDown;
         control.Loaded += (_, _) =>
         {
-            control.SetTheme(Theme, FontFamilyName, points, Background);
+            ApplyFont();
             if (host is not null) return;
             host = FindHost(control);
             if (host is not null) host.MessageHook += Hook;
             StyleScrollbar();
         };
         (findBar, findInput, findCount) = BuildFindBar();
+        // Output moves the text under the marks: once it settles, the search runs again (keeping the view where it is),
+        // as xterm's search addon redecorates on writes.
+        findRefresh = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background, (_, _) => RefreshFind(), control.Dispatcher);
+        findRefresh.Stop();
+        terminal.TerminalOutput += (_, _) =>
+        {
+            if (!FindOpen || findInput.Text.Length == 0) return;
+            findRefresh.Stop();
+            findRefresh.Start();
+        };
     }
 
     /// <summary>The find bar (.tile-find), above the terminal while it is open.</summary>
@@ -91,13 +104,21 @@ sealed class TerminalBehaviour
 
     public bool FindOpen => findBar.Visibility == Visibility.Visible;
 
-    /// <summary>The terminals' font size (CSS px, as reframe's preferences keep it), in the control's whole points.</summary>
+    /// <summary>The terminals' font size (CSS px, as reframe's preferences keep it).</summary>
     public void SetFontSize(int px)
     {
-        var next = Shortcuts.TerminalPoints(px);
-        if (next == points) return;
-        points = next;
-        if (control.IsLoaded) control.SetTheme(Theme, FontFamilyName, points, Background);
+        if (px == fontPx) return;
+        fontPx = px;
+        if (control.IsLoaded) ApplyFont();
+    }
+
+    /// <summary>Theme and font: the patched control's TerminalSetFont takes fractional points and xterm's row height
+    /// (Shortcuts.TerminalFont); SetTheme's whole points are replaced by it at once.</summary>
+    void ApplyFont()
+    {
+        var (pt, cellHeight) = Shortcuts.TerminalFont(fontPx);
+        control.SetTheme(Theme, FontFamilyName, (short)Math.Max(1, Math.Round(pt)), Background);
+        control.SetFont(FontFamilyName, pt, "", $"{cellHeight}px");
     }
 
     // ---------- keys ----------
@@ -436,85 +457,39 @@ sealed class TerminalBehaviour
     {
         findBar.Visibility = Visibility.Collapsed;
         findInput.Text = "";
-        find = null;
         findCount.Text = "";
-        // The current match is the terminal's selection: taken off, as xterm clears its marks.
-        control.GetSelectedText();
+        findRefresh.Stop();
+        // xterm clears its marks when the find bar closes.
+        control.ClearSearch();
         if (host is not null) { Keyboard.Focus(host); }
     }
 
     Task Go(bool next) => Search(next, incremental: false);
 
-    /// <summary>Finds the text in the terminal, its scrollback too (case-insensitive, as xterm's search addon). The
-    /// control has no search of its own, so this goes through its UI Automation text pattern: the current match is
-    /// selected and scrolled into view; "n of m" counts the matches (up to 1000).</summary>
-    async Task Search(bool next, bool incremental)
+    /// <summary>Finds the text in the terminal, its scrollback too (case-insensitive, as xterm's search addon), through
+    /// the patched control's TerminalSearch: every match is marked, the current one in the focused colour and scrolled
+    /// into view. Typing keeps the current match; Enter and Shift+Enter go on and come round.</summary>
+    Task Search(bool next, bool incremental)
     {
         var text = findInput.Text;
-        if (host is null || host.Handle == IntPtr.Zero) return;
+        if (!control.IsLoaded) return Task.CompletedTask;
         if (text.Length == 0)
         {
             findCount.Text = "";
-            control.GetSelectedText();
-            find = null;
-            return;
+            control.ClearSearch();
+            return Task.CompletedTask;
         }
-        var hwnd = host.Handle;
-        find ??= new TerminalFind();
-        var current = find;
-        var result = await Task.Run(() => current.Find(hwnd, text, next, incremental));
-        if (!ReferenceEquals(find, current) || findInput.Text != text) return;
-        findCount.Text = result switch
-        {
-            null => "Find is not available",
-            { Count: 0 } => "No results",
-            { Count: >= TerminalFind.Limit } => $"{result.Value.Index + 1} of {TerminalFind.Limit}+",
-            _ => $"{result.Value.Index + 1} of {result.Value.Count}",
-        };
+        ShowCount(control.Search(text, goForward: next, caseSensitive: false, executeSearch: !incremental));
+        return Task.CompletedTask;
     }
-}
 
-/// <summary>Find through the terminal's UI Automation text pattern (the WPF control exports no search). Runs off the UI
-/// thread: the provider is the control's own, served on the UI thread.</summary>
-sealed class TerminalFind
-{
-    public const int Limit = 1000;
-    int index = -1;
-    string? last;
-
-    public (int Index, int Count)? Find(IntPtr hwnd, string text, bool next, bool incremental)
+    void RefreshFind()
     {
-        try
-        {
-            if (AutomationElement.FromHandle(hwnd).GetCurrentPattern(TextPattern.Pattern) is not TextPattern pattern) return null;
-            var matches = new List<TextPatternRange>();
-            var rest = pattern.DocumentRange.Clone();
-            while (matches.Count < Limit)
-            {
-                var match = rest.FindText(text, false, true);
-                if (match is null) break;
-                matches.Add(match);
-                rest.MoveEndpointByRange(TextPatternRangeEndpoint.Start, match, TextPatternRangeEndpoint.End);
-                if (rest.CompareEndpoints(TextPatternRangeEndpoint.Start, rest, TextPatternRangeEndpoint.End) >= 0) break;
-            }
-            if (matches.Count == 0)
-            {
-                index = -1;
-                last = text;
-                return (0, 0);
-            }
-            // Typing keeps the match where it is (or the first); Enter and Shift+Enter go on and come round.
-            index = incremental || last != text
-                ? Math.Clamp(index, 0, matches.Count - 1)
-                : ((next ? index + 1 : index - 1) % matches.Count + matches.Count) % matches.Count;
-            last = text;
-            matches[index].Select();
-            matches[index].ScrollIntoView(true);
-            return (index, matches.Count);
-        }
-        catch (Exception e) when (e is ElementNotAvailableException or InvalidOperationException or COMException or ArgumentException)
-        {
-            return null;
-        }
+        findRefresh.Stop();
+        if (!FindOpen || findInput.Text.Length == 0 || !control.IsLoaded) return;
+        ShowCount(control.Search(findInput.Text, goForward: true, caseSensitive: false, executeSearch: false, scrollIntoView: false));
     }
+
+    void ShowCount((int Current, int Total) result) =>
+        findCount.Text = result.Total == 0 || result.Current < 0 ? "No results" : $"{result.Current + 1} of {result.Total}";
 }

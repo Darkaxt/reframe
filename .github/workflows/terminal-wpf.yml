@@ -1,0 +1,133 @@
+# Builds Windows Terminal's WPF control (Microsoft.Terminal.Control.dll + Microsoft.Terminal.Wpf.dll) from the pinned
+# microsoft/terminal tag with wpf/terminal-patch/*.patch, packs it as Reframe.Terminal.Wpf (with LICENSE, NOTICE.md and
+# the patch) and publishes the package as an artifact and, once per version, as a release asset. The shell's build takes
+# it from there (wpf/Get-TerminalPackage.ps1, SHA-256 pinned). See docs/wpf-terminal.md.
+name: terminal-wpf
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - wpf/terminal-patch/**
+      - .github/workflows/terminal-wpf.yml
+  pull_request:
+    paths:
+      - wpf/terminal-patch/**
+      - .github/workflows/terminal-wpf.yml
+
+env:
+  TERMINAL_TAG: v1.25.3131.0
+  TERMINAL_COMMIT: f88b209f1e57e1d8ca35977260c3cddacccaeb31
+  # Bump the reframe.N suffix (here, in Get-TerminalPackage.ps1 and in Reframe.Shell.csproj) with every patch change.
+  PACKAGE_VERSION: 1.25.3131-reframe.2
+  RELEASE_TAG: terminal-wpf-v1.25.3131.0-reframe.2
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 240
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: reframe
+
+      - name: Fetch microsoft/terminal at the pinned tag and commit, apply the patch
+        shell: pwsh
+        run: |
+          git init -q terminal
+          cd terminal
+          git remote add origin https://github.com/microsoft/terminal
+          git fetch -q --depth 1 origin "refs/tags/${env:TERMINAL_TAG}"
+          $sha = git rev-parse 'FETCH_HEAD^{commit}'
+          if ($sha -ne $env:TERMINAL_COMMIT) { throw "$env:TERMINAL_TAG is $sha, pinned $env:TERMINAL_COMMIT" }
+          git -c advice.detachedHead=false checkout -q FETCH_HEAD
+          foreach ($p in Get-ChildItem ../reframe/wpf/terminal-patch/*.patch | Sort-Object Name) {
+            git apply --verbose $p.FullName
+            if ($LASTEXITCODE) { throw "git apply $($p.Name) failed" }
+          }
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Toolchain (vcpkg, VC tools version)
+        shell: pwsh
+        working-directory: terminal
+        run: |
+          "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+          $line = ./build/scripts/Set-LatestVCToolsVersion.ps1 | Select-String 'Latest VCToolsVersion: (.+)'
+          if ($line) { "VCToolsVersion=$($line.Matches[0].Groups[1].Value)" >> $env:GITHUB_ENV }
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property catalog_productDisplayVersion
+
+      - name: Restore
+        shell: pwsh
+        working-directory: terminal
+        run: |
+          nuget restore build/packages.config -PackagesDirectory packages -ConfigFile NuGet.config -NonInteractive
+          nuget restore dep/nuget/packages.config -PackagesDirectory packages -ConfigFile NuGet.config -NonInteractive
+          msbuild OpenConsole.slnx /t:Restore /p:Configuration=Release /p:Platform=x64 /nologo /v:m
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          msbuild OpenConsole.slnx /t:Restore /p:Configuration=Release "/p:Platform=Any CPU" /nologo /v:m
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Build Microsoft.Terminal.Control (x64)
+        shell: pwsh
+        working-directory: terminal
+        run: |
+          msbuild OpenConsole.slnx "/t:Terminal\Control\TerminalControl" /p:Configuration=Release /p:Platform=x64 /m /nologo /v:m /bl:control.binlog
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Build Microsoft.Terminal.Wpf
+        shell: pwsh
+        working-directory: terminal
+        run: |
+          msbuild OpenConsole.slnx "/t:Terminal\wpf\WpfTerminalControl" /p:Configuration=Release "/p:Platform=Any CPU" /m /nologo /v:m /bl:wpf.binlog
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Pack Reframe.Terminal.Wpf
+        shell: pwsh
+        run: |
+          $stage = "$env:RUNNER_TEMP/stage"
+          $native = Get-ChildItem terminal/bin/x64/Release -Recurse -Filter Microsoft.Terminal.Control.dll | Where-Object { $_.Directory.Name -eq 'Microsoft.Terminal.Control' } | Select-Object -First 1
+          $wpf = Get-ChildItem terminal/bin -Recurse -Filter Microsoft.Terminal.Wpf.dll | Where-Object { $_.FullName -match 'net8\.0-windows' } | Select-Object -First 1
+          if (-not $native -or -not $wpf) { Get-ChildItem terminal/bin -Recurse -Include *.dll | Select-Object -ExpandProperty FullName; throw 'build output not found' }
+          New-Item -ItemType Directory -Force "$stage/lib/net8.0-windows7.0", "$stage/runtimes/win-x64/native" | Out-Null
+          Copy-Item $native.FullName "$stage/runtimes/win-x64/native/"
+          Copy-Item $wpf.FullName, ($wpf.FullName -replace '\.dll$', '.xml') "$stage/lib/net8.0-windows7.0/"
+          Copy-Item terminal/LICENSE, terminal/NOTICE.md $stage
+          Get-Content reframe/wpf/terminal-patch/*.patch -Raw | Set-Content -NoNewline "$stage/reframe-terminal.patch"
+          nuget pack reframe/wpf/terminal-patch/Reframe.Terminal.Wpf.nuspec -BasePath $stage -OutputDirectory out -NonInteractive `
+            -Properties "version=$env:PACKAGE_VERSION;terminalTag=$env:TERMINAL_TAG;terminalCommit=$env:TERMINAL_COMMIT"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $pkg = Get-Item "out/Reframe.Terminal.Wpf.$env:PACKAGE_VERSION.nupkg"
+          $hash = (Get-FileHash -Algorithm SHA256 $pkg).Hash
+          "$hash  $($pkg.Name)" | Set-Content "out/$($pkg.Name).sha256"
+          "SHA-256 $hash  $($pkg.Name)" >> $env:GITHUB_STEP_SUMMARY
+          Write-Host "SHA-256 $hash"
+
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: reframe-terminal-wpf
+          path: out/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7.0.2
+        if: failure()
+        with:
+          name: terminal-wpf-binlogs
+          path: terminal/*.binlog
+          if-no-files-found: ignore
+
+      # A version is published once and never replaced: the shell pins its SHA-256. A changed patch needs a new reframe.N.
+      - name: Release asset
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { Write-Host "$env:RELEASE_TAG already published; not replaced"; exit 0 }
+          gh release create $env:RELEASE_TAG (Get-ChildItem out/*).FullName --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --prerelease `
+            --title "Reframe.Terminal.Wpf $env:PACKAGE_VERSION" `
+            --notes "Windows Terminal's WPF control from microsoft/terminal $env:TERMINAL_TAG ($env:TERMINAL_COMMIT) with wpf/terminal-patch. MIT (LICENSE and NOTICE.md in the package)."
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }

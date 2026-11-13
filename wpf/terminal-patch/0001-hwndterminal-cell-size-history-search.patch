@@ -1,0 +1,328 @@
+diff --git a/src/cascadia/TerminalControl/HwndTerminal.cpp b/src/cascadia/TerminalControl/HwndTerminal.cpp
+index 2b32d77..8d01a19 100644
+--- a/src/cascadia/TerminalControl/HwndTerminal.cpp
++++ b/src/cascadia/TerminalControl/HwndTerminal.cpp
+@@ -19,6 +19,9 @@ using namespace ::Microsoft::Terminal::Core;
+ 
+ static LPCWSTR term_window_class = L"HwndTerminalClass";
+ 
++// reframe: the scrollback of terminals created from now on (TerminalSetDefaultHistorySize); 9001 as before by default.
++static til::CoordType s_defaultHistorySize = 9001;
++
+ STDMETHODIMP HwndTerminal::TsfDataProvider::QueryInterface(REFIID, void**) noexcept
+ {
+     return E_NOTIMPL;
+@@ -303,7 +306,7 @@ HRESULT HwndTerminal::Initialize()
+ 
+     _renderEngine = std::move(engine);
+ 
+-    _terminal->Create({ 80, 25 }, 9001, *_renderer);
++    _terminal->Create({ 80, 25 }, s_defaultHistorySize, *_renderer);
+     _terminal->SetWriteInputCallback([=](std::wstring_view input) noexcept { _WriteTextToConnection(input); });
+     _terminal->SetCopyToClipboardCallback([=](wil::zwstring_view text) noexcept { _CopyTextToSystemClipboard(text, {}, {}); });
+     _renderer->EnablePainting();
+@@ -971,6 +974,7 @@ void _stdcall TerminalSetTheme(void* terminal, TerminalTheme theme, LPCWSTR font
+ 
+         publicTerminal->_desiredFont = { fontFamily, 0, DEFAULT_FONT_WEIGHT, static_cast<float>(fontSize), CP_UTF8 };
+         publicTerminal->_desiredFont.SetEnableBuiltinGlyphs(true);
++        publicTerminal->_desiredFont.SetCellSize(publicTerminal->_cellWidth, publicTerminal->_cellHeight);
+         publicTerminal->_UpdateFont(newDpi);
+     }
+ 
+@@ -984,6 +988,115 @@ void _stdcall TerminalSetTheme(void* terminal, TerminalTheme theme, LPCWSTR font
+     publicTerminal->Refresh(windowSize, &dimensions);
+ }
+ 
++void _stdcall TerminalSetDefaultHistorySize(til::CoordType lines)
++{
++    s_defaultHistorySize = std::clamp<til::CoordType>(lines, 0, 1000000);
++}
++
++// reframe: like TerminalSetTheme's font part, but with a fractional point size and a cell size. The cell size is
++// kept, so a later TerminalSetTheme keeps it too; empty strings leave the font's own cell width/height.
++void _stdcall TerminalSetFont(void* terminal, LPCWSTR fontFamily, float fontSize, LPCWSTR cellWidth, LPCWSTR cellHeight, int newDpi)
++try
++{
++    const auto publicTerminal = static_cast<HwndTerminal*>(terminal);
++    if (!publicTerminal || !publicTerminal->_terminal)
++    {
++        return;
++    }
++
++    {
++        const auto lock = publicTerminal->_terminal->LockForWriting();
++        publicTerminal->_cellWidth = CSSLengthPercentage::FromString(cellWidth ? cellWidth : L"");
++        publicTerminal->_cellHeight = CSSLengthPercentage::FromString(cellHeight ? cellHeight : L"");
++        publicTerminal->_desiredFont = { fontFamily, 0, DEFAULT_FONT_WEIGHT, fontSize, CP_UTF8 };
++        publicTerminal->_desiredFont.SetEnableBuiltinGlyphs(true);
++        publicTerminal->_desiredFont.SetCellSize(publicTerminal->_cellWidth, publicTerminal->_cellHeight);
++        publicTerminal->_UpdateFont(newDpi);
++    }
++
++    RECT windowRect;
++    GetWindowRect(publicTerminal->_hwnd.get(), &windowRect);
++
++    til::size dimensions;
++    const til::size windowSize{ windowRect.right - windowRect.left, windowRect.bottom - windowRect.top };
++    publicTerminal->Refresh(windowSize, &dimensions);
++}
++CATCH_LOG()
++
++// reframe: ControlCore::Search for the HWND terminal. Every match is highlighted, the current one in the focused
++// highlight, scrolled into view when scrollIntoView is set. Returns the number of matches; currentMatch is the current one's index or -1.
++int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView, _Out_ int* currentMatch)
++try
++{
++    *currentMatch = -1;
++    const auto publicTerminal = static_cast<HwndTerminal*>(terminal);
++    if (!publicTerminal || !publicTerminal->_terminal)
++    {
++        return 0;
++    }
++
++    const auto lock = publicTerminal->_terminal->LockForWriting();
++    auto& core = *publicTerminal->_terminal;
++    auto& searcher = publicTerminal->_searcher;
++
++    SearchFlag flags{};
++    WI_SetFlagIf(flags, SearchFlag::CaseInsensitive, !caseSensitive);
++    const std::wstring_view needle{ text ? text : L"" };
++
++    const auto searchInvalidated = searcher.IsStale(core, needle, flags);
++    if (searchInvalidated || executeSearch)
++    {
++        std::vector<til::point_span> oldResults;
++        if (searchInvalidated)
++        {
++            oldResults = searcher.ExtractResults();
++            searcher.Reset(core, needle, flags, !goForward);
++            core.SetSearchHighlights(searcher.Results());
++        }
++        if (executeSearch)
++        {
++            searcher.FindNext(!goForward);
++        }
++        core.SetSearchHighlightFocused(gsl::narrow<size_t>(std::max<ptrdiff_t>(0, searcher.CurrentMatch())));
++        publicTerminal->_renderer->TriggerSearchHighlight(oldResults);
++    }
++
++    const auto index = searcher.CurrentMatch();
++    if (index < 0)
++    {
++        return 0;
++    }
++    if (scrollIntoView)
++    {
++        core.ScrollToSearchHighlight(0);
++    }
++    *currentMatch = gsl::narrow<int>(index);
++    return gsl::narrow<int>(searcher.Results().size());
++}
++catch (...)
++{
++    LOG_CAUGHT_EXCEPTION();
++    return 0;
++}
++
++// reframe: ControlCore::ClearSearch without selecting the current match.
++void _stdcall TerminalClearSearch(void* terminal)
++try
++{
++    const auto publicTerminal = static_cast<HwndTerminal*>(terminal);
++    if (!publicTerminal || !publicTerminal->_terminal)
++    {
++        return;
++    }
++
++    const auto lock = publicTerminal->_terminal->LockForWriting();
++    publicTerminal->_terminal->SetSearchHighlights({});
++    publicTerminal->_terminal->SetSearchHighlightFocused(0);
++    publicTerminal->_renderer->TriggerSearchHighlight(publicTerminal->_searcher.Results());
++    publicTerminal->_searcher = {};
++}
++CATCH_LOG()
++
+ void __stdcall TerminalSetFocused(void* terminal, bool focused)
+ {
+     const auto publicTerminal = static_cast<HwndTerminal*>(terminal);
+diff --git a/src/cascadia/TerminalControl/HwndTerminal.hpp b/src/cascadia/TerminalControl/HwndTerminal.hpp
+index 68ffc73..73fac6d 100644
+--- a/src/cascadia/TerminalControl/HwndTerminal.hpp
++++ b/src/cascadia/TerminalControl/HwndTerminal.hpp
+@@ -4,6 +4,7 @@
+ #pragma once
+ 
+ #include "../../buffer/out/textBuffer.hpp"
++#include "../../buffer/out/search.h"
+ #include "../../renderer/inc/FontInfoDesired.hpp"
+ #include "../../types/IControlAccessibilityInfo.h"
+ #include "../../tsf/Handle.h"
+@@ -58,6 +59,12 @@ __declspec(dllexport) void _stdcall TerminalRegisterWriteCallback(void* terminal
+ __declspec(dllexport) void _stdcall TerminalSendKeyEvent(void* terminal, WORD vkey, WORD scanCode, WORD flags, bool keyDown);
+ __declspec(dllexport) void _stdcall TerminalSendCharEvent(void* terminal, wchar_t ch, WORD flags, WORD scanCode);
+ __declspec(dllexport) void _stdcall TerminalSetFocused(void* terminal, bool focused);
++// reframe: scrollback for terminals created after this call, font size in fractional points with a cell size
++// (CSS lengths as Windows Terminal's font.cellWidth/cellHeight), and search with every match highlighted.
++__declspec(dllexport) void _stdcall TerminalSetDefaultHistorySize(til::CoordType lines);
++__declspec(dllexport) void _stdcall TerminalSetFont(void* terminal, LPCWSTR fontFamily, float fontSize, LPCWSTR cellWidth, LPCWSTR cellHeight, int newDpi);
++__declspec(dllexport) int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView, _Out_ int* currentMatch);
++__declspec(dllexport) void _stdcall TerminalClearSearch(void* terminal);
+ };
+ 
+ struct HwndTerminal : ::Microsoft::Console::Types::IControlAccessibilityInfo
+@@ -101,6 +108,9 @@ private:
+     wil::unique_hwnd _hwnd;
+     FontInfoDesired _desiredFont;
+     FontInfo _actualFont;
++    CSSLengthPercentage _cellWidth;
++    CSSLengthPercentage _cellHeight;
++    ::Search _searcher;
+     int _currentDpi;
+     std::function<void(wchar_t*)> _pfnWriteCallback;
+     ::Microsoft::WRL::ComPtr<HwndTerminalAutomationPeer> _uiaProvider;
+@@ -135,6 +145,9 @@ private:
+     friend void _stdcall TerminalSendCharEvent(void* terminal, wchar_t ch, WORD scanCode, WORD flags);
+     friend void _stdcall TerminalSetTheme(void* terminal, TerminalTheme theme, LPCWSTR fontFamily, til::CoordType fontSize, int newDpi);
+     friend void _stdcall TerminalSetFocused(void* terminal, bool focused);
++    friend void _stdcall TerminalSetFont(void* terminal, LPCWSTR fontFamily, float fontSize, LPCWSTR cellWidth, LPCWSTR cellHeight, int newDpi);
++    friend int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView, _Out_ int* currentMatch);
++    friend void _stdcall TerminalClearSearch(void* terminal);
+ 
+     void _UpdateFont(int newDpi);
+     void _WriteTextToConnection(const std::wstring_view text) noexcept;
+diff --git a/src/cascadia/WpfTerminalControl/NativeMethods.cs b/src/cascadia/WpfTerminalControl/NativeMethods.cs
+index d5839ac..6407f4b 100644
+--- a/src/cascadia/WpfTerminalControl/NativeMethods.cs
++++ b/src/cascadia/WpfTerminalControl/NativeMethods.cs
+@@ -224,6 +224,18 @@ namespace Microsoft.Terminal.Wpf
+         [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
+         public static extern void TerminalSetFocused(IntPtr terminal, bool focused);
+ 
++        [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
++        public static extern void TerminalSetDefaultHistorySize(int lines);
++
++        [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
++        public static extern void TerminalSetFont(IntPtr terminal, string fontFamily, float fontSize, string cellWidth, string cellHeight, int newDpi);
++
++        [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
++        public static extern int TerminalSearch(IntPtr terminal, string text, [MarshalAs(UnmanagedType.U1)] bool goForward, [MarshalAs(UnmanagedType.U1)] bool caseSensitive, [MarshalAs(UnmanagedType.U1)] bool executeSearch, [MarshalAs(UnmanagedType.U1)] bool scrollIntoView, out int currentMatch);
++
++        [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
++        public static extern void TerminalClearSearch(IntPtr terminal);
++
+         [DllImport("user32.dll", SetLastError = true)]
+         public static extern IntPtr SetFocus(IntPtr hWnd);
+ 
+diff --git a/src/cascadia/WpfTerminalControl/TerminalContainer.cs b/src/cascadia/WpfTerminalControl/TerminalContainer.cs
+index 13a458d..0b0b97d 100644
+--- a/src/cascadia/WpfTerminalControl/TerminalContainer.cs
++++ b/src/cascadia/WpfTerminalControl/TerminalContainer.cs
+@@ -149,6 +149,49 @@ namespace Microsoft.Terminal.Wpf
+             }
+         }
+ 
++        /// <summary>
++        /// Sets the font with a fractional point size and a cell size (CSS lengths such as "16px" or "1.2"; empty for the font's own).
++        /// </summary>
++        /// <param name="fontFamily">The font family to use in the terminal.</param>
++        /// <param name="fontSize">The font size in points.</param>
++        /// <param name="cellWidth">The cell width.</param>
++        /// <param name="cellHeight">The cell height.</param>
++        internal void SetFont(string fontFamily, float fontSize, string cellWidth, string cellHeight)
++        {
++            var dpiScale = VisualTreeHelper.GetDpi(this);
++
++            NativeMethods.TerminalSetFont(this.terminal, fontFamily, fontSize, cellWidth ?? string.Empty, cellHeight ?? string.Empty, (int)dpiScale.PixelsPerInchX);
++
++            if (!this.RenderSize.IsEmpty && !this.TerminalControlSize.IsEmpty
++                && this.TerminalControlSize.Width != 0 && this.TerminalControlSize.Height != 0)
++            {
++                this.Resize(this.TerminalControlSize);
++            }
++        }
++
++        /// <summary>
++        /// Searches the buffer, highlighting every match and scrolling the current one into view.
++        /// </summary>
++        /// <param name="text">The text to find.</param>
++        /// <param name="goForward">Whether to search towards the end of the buffer.</param>
++        /// <param name="caseSensitive">Whether the search is case sensitive.</param>
++        /// <param name="executeSearch">Whether to move to the next match (false keeps the current one).</param>
++        /// <param name="scrollIntoView">Whether to scroll the current match into view.</param>
++        /// <returns>The current match's index (-1 without matches) and the number of matches.</returns>
++        internal (int current, int total) Search(string text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView = true)
++        {
++            var total = NativeMethods.TerminalSearch(this.terminal, text ?? string.Empty, goForward, caseSensitive, executeSearch, scrollIntoView, out var current);
++            return (current, total);
++        }
++
++        /// <summary>
++        /// Clears the search highlights.
++        /// </summary>
++        internal void ClearSearch()
++        {
++            NativeMethods.TerminalClearSearch(this.terminal);
++        }
++
+         /// <summary>
+         /// Gets the selected text from the terminal renderer and clears the selection.
+         /// </summary>
+diff --git a/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs b/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
+index 611cde5..d1ad07b 100644
+--- a/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
++++ b/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
+@@ -102,6 +102,54 @@ namespace Microsoft.Terminal.Wpf
+             }
+         }
+ 
++        /// <summary>
++        /// Sets the scrollback (in lines) of terminals created after this call.
++        /// </summary>
++        /// <param name="lines">The number of scrollback lines.</param>
++        public static void SetDefaultHistorySize(int lines)
++        {
++            NativeMethods.TerminalSetDefaultHistorySize(lines);
++        }
++
++        /// <summary>
++        /// Sets the font with a fractional point size and a cell size, kept by later <see cref="SetTheme"/> calls.
++        /// </summary>
++        /// <param name="fontFamily">The font family to use in the terminal.</param>
++        /// <param name="fontSize">The font size in points.</param>
++        /// <param name="cellWidth">The cell width as a CSS length ("8px", "1.1" of the font size, "1ch"), empty for the font's own.</param>
++        /// <param name="cellHeight">The cell height as a CSS length, empty for the font's own.</param>
++        public void SetFont(string fontFamily, float fontSize, string cellWidth, string cellHeight)
++        {
++            if (PresentationSource.FromVisual(this) == null)
++            {
++                return;
++            }
++
++            this.termContainer.SetFont(fontFamily, fontSize, cellWidth, cellHeight);
++        }
++
++        /// <summary>
++        /// Searches the terminal and its scrollback, highlighting every match; the current one is scrolled into view.
++        /// </summary>
++        /// <param name="text">The text to find.</param>
++        /// <param name="goForward">Whether to search towards the end of the buffer.</param>
++        /// <param name="caseSensitive">Whether the search is case sensitive.</param>
++        /// <param name="executeSearch">Whether to move to the next match (false keeps the current one).</param>
++        /// <param name="scrollIntoView">Whether to scroll the current match into view.</param>
++        /// <returns>The current match's index (-1 without matches) and the number of matches.</returns>
++        public (int current, int total) Search(string text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView = true)
++        {
++            return this.termContainer.Search(text, goForward, caseSensitive, executeSearch, scrollIntoView);
++        }
++
++        /// <summary>
++        /// Clears the search highlights.
++        /// </summary>
++        public void ClearSearch()
++        {
++            this.termContainer.ClearSearch();
++        }
++
+         /// <summary>
+         /// Gets the selected text in the terminal, clearing the selection. Otherwise, returns an empty string.
+         /// </summary>
