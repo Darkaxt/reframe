@@ -284,7 +284,8 @@ public partial class MainWindow : Window
 
     ListSources Sources()
     {
-        if (fixture is not null) return fixture.Sources();
+        // A capture lists its fixture with the statuses the shell gives them (a failed start's "error" too).
+        if (fixture is not null) return fixture.Sources() with { StatusOf = r => StatusOf(r.Id) };
         var (wsl, wslStopped) = shell.Wsl(ListChanged);
         ITranscriptSource transcripts = connection is not null && services?.Offers("transcripts") == true
             ? new HostTranscriptSource(connection, home)
@@ -350,8 +351,15 @@ public partial class MainWindow : Window
     /// other session of reframe's added to the window (only one the host runs, or a capture's).</summary>
     void OpenChat(ChatRow chat)
     {
-        if (chat.Ref.Kind != ListItemKind.App || chat.Ref.SessionId is not { } id) return;
-        ShowSession(id);
+        if (chat.Ref.Kind == ListItemKind.App && chat.Ref.SessionId is { } id) ShowSession(id);
+        else if (chat.Ref.Kind != ListItemKind.App && Writable) _ = OpenListItemAsync(chat.Ref);
+    }
+
+    /// <summary>openSession for a past chat or a claude running elsewhere: adopted (taken over after asking), then
+    /// placed and resumed.</summary>
+    async Task OpenListItemAsync(ListItemRef item)
+    {
+        if (await shell.RecordForAsync(WindowId, item) is { } id) ShowSession(id);
     }
 
     /// <summary>Brings a reframe session forward: its tile selected, expanded from the dock, or added to the layout.</summary>

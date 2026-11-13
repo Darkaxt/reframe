@@ -198,4 +198,29 @@ public class NewSessionTests
             Assert.Equal(match.Groups[2].Value.Replace("\\'", "'").Replace(@"\\", @"\"), Strings.En[key]);
         }
     }
+
+    [Fact]
+    public void Model_suggestions_match_MODEL_SUGGESTIONS_and_filter_as_the_datalist()
+    {
+        var launch = File.ReadAllText(Path.Combine(TokenTestsRoot.Root, "src", "shared", "launch.ts"));
+        var list = Regex.Match(launch, @"MODEL_SUGGESTIONS = \[([^\]]*)\]").Groups[1].Value;
+        Assert.Equal(Regex.Matches(list, "'([^']+)'").Select(m => m.Groups[1].Value), NewSession.ModelSuggestions);
+        Assert.Equal(NewSession.ModelSuggestions, NewSession.MatchingModels(""));
+        Assert.Equal(["opus"], NewSession.MatchingModels("OP"));
+        Assert.Equal(["fable", "haiku"], NewSession.MatchingModels("a"));
+        Assert.Empty(NewSession.MatchingModels("opus"));
+        Assert.Empty(NewSession.MatchingModels("gpt-5"));
+    }
+
+    [Fact]
+    public void At_start_resumes_open_sessions_in_a_window_the_host_lost_attaches_the_rest_and_ends_those_in_none()
+    {
+        SessionRecord R(string id, string lifecycle = "open") => new() { Id = id, ClaudeSessionId = id, Cwd = @"C:\p", Lifecycle = lifecycle };
+        var sessions = new[] { R("lost"), R("alive"), R("docked-lost"), R("windowless"), R("ended", "ended"), R("synthetic") };
+        var inWindow = new HashSet<string> { "lost", "alive", "docked-lost", "ended", "synthetic" };
+        var hostRuns = new HashSet<string> { "alive", "synthetic" };
+        var (resume, ended) = NewSession.AtStart(sessions, inWindow.Contains, hostRuns.Contains, new HashSet<string> { "synthetic" });
+        Assert.Equal(["lost", "docked-lost"], resume);
+        Assert.Equal(["windowless"], ended);
+    }
 }

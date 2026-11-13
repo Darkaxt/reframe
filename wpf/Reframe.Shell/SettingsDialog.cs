@@ -277,7 +277,7 @@ sealed class SettingsDialog
     {
         var input = new TextBox { Style = S("SettingInput"), Text = model, Tag = T("dialog.modelPlaceholder") };
         AutomationProperties.SetName(input, T("settings.defaultModel"));
-        input.ToolTip = string.Join(", ", Settings.ModelSuggestions);
+        Suggestions.Attach(input);
         input.TextChanged += (_, _) => model = input.Text;
         input.LostKeyboardFocus += (_, _) =>
         {

@@ -31,9 +31,6 @@ public sealed record PreferencesPatch
 /// </summary>
 public static class Settings
 {
-    /// <summary>MODEL_SUGGESTIONS (src/shared/launch.ts): what the model field offers.</summary>
-    public static readonly IReadOnlyList<string> ModelSuggestions = ["fable", "opus", "sonnet", "haiku"];
-
     /// <summary>The languages Settings offers, with their names (src/shared/i18n.ts; the shell speaks English only for now).</summary>
     public static readonly IReadOnlyList<(string Value, string Name)> LanguageNames = [("en", "English"), ("de", "Deutsch")];
 

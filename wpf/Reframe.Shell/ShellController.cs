@@ -52,12 +52,17 @@ sealed partial class ShellController
     /// changes only its fixture).</summary>
     public bool Writable => Fixture is not null || Store is { ReadOnly: false };
 
+    /// <summary>The session's status; one whose start failed (its tile shows the error) is "error", as Electron's
+    /// runtime status is then (the list's red dot, the project's "!").</summary>
     public string StatusOf(string sessionId) =>
+        RunStatus(sessionId) is var status && status == "ended" && startErrors.ContainsKey(sessionId) ? "error" : status;
+
+    string RunStatus(string sessionId) =>
         Fixture?.Statuses.GetValueOrDefault(sessionId)
         ?? (HostStatus.TryGetValue(sessionId, out var known) ? known.Status : HostSessions.ContainsKey(sessionId) ? "starting" : "ended");
 
     public bool Runs(string sessionId) =>
-        Fixture is not null ? Fixture.Statuses.GetValueOrDefault(sessionId, "ended") != "ended" : HostSessions.ContainsKey(sessionId) && StatusOf(sessionId) != "ended";
+        Fixture is not null ? Fixture.Statuses.GetValueOrDefault(sessionId, "ended") != "ended" : HostSessions.ContainsKey(sessionId) && RunStatus(sessionId) != "ended";
 
     // ---------- chat history and WSL (shared by the windows) ----------
 
@@ -140,6 +145,7 @@ sealed partial class ShellController
     public void ListChanged()
     {
         foreach (var window in windows.Values) window.ListChanged();
+        CaptureWindow?.ListChanged();
     }
 
     // ---------- attaching ----------
@@ -223,6 +229,26 @@ sealed partial class ShellController
         }
     }
 
+    /// <summary>resumeSessions: the open sessions in a window that the host does not run (any more: after a reboot, say)
+    /// are resumed as Resume would (one running in another terminal waits for Take over: nobody is asked on the start);
+    /// those it still runs are attached, never started again; open ones in no window are ended. An exited one the host
+    /// still holds is let go first.</summary>
+    void ResumeSessions()
+    {
+        if (Fixture is not null || !Writable) return;
+        bool HostRuns(string id) => HostSessions.TryGetValue(id, out var hosted) && hosted.ExitCode is null && RunStatus(id) != "ended";
+        var (resume, ended) = NewSession.AtStart(State.Sessions.Values, id => State.Windows.Any(w => LayoutActions.WindowHasSession(w, id)), HostRuns, Synthetic);
+        foreach (var id in ended) State.Sessions[id].Lifecycle = "ended";
+        if (ended.Count > 0) Save();
+        foreach (var id in resume)
+        {
+            if (HostSessions.Remove(id, out var gone) && Connection is { IsOpen: true } connection) _ = connection.DisposeSessionAsync(id, gone.Instance);
+            HostStatus.Remove(id);
+            Log($"session resumed at start: {id}");
+            _ = StartOrTakeOverAsync(id, "resume", null);
+        }
+    }
+
     /// <summary>app.ts start: attaches, brings the windows back (empty ones are not, one stays) and opens them, shown
     /// unless started by the system (<c>--autostart</c>: in the tray, as reframe), then the tray.</summary>
     public async Task StartAsync(bool hidden)
@@ -238,6 +264,7 @@ sealed partial class ShellController
         }
         var shown = ShellWindows.WindowsToShow(State.Windows).Select(w => w.Id).ToHashSet();
         foreach (var w in State.Windows.ToList()) Open(w, !hidden && shown.Contains(w.Id));
+        ResumeSessions();
         tray = new TrayIcon(Tooltip(), TrayMenu, RunTray, () => Show(State.Windows[0].Id));
         toasts = new Toasts(id => Ui.InvokeAsync(() => FocusFromNotification(id)));
         RefreshTray();

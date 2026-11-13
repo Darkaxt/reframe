@@ -25,7 +25,7 @@ public interface ITranscriptSource
 
 /// <summary>What the session list is made of: reframe's state, how its sessions are doing, what runs outside reframe
 /// and the transcripts.</summary>
-public sealed class ListSources
+public sealed record ListSources
 {
     public required AppState State { get; init; }
     /// <summary>A session's status (sessionView's status): the host's, else ended.</summary>

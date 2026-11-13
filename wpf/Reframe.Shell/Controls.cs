@@ -168,3 +168,102 @@ public sealed class SpacedText : FrameworkElement
         }
     }
 }
+
+/// <summary>
+/// An input's <c>&lt;datalist&gt;</c> (the model field's MODEL_SUGGESTIONS) as Chromium shows it: a list under the
+/// field with the suggestions that match what is typed (<see cref="NewSession.MatchingModels"/>), opened by typing, a
+/// click in the field or Down; Up/Down move through it, Enter or a click takes one, Escape or leaving the field closes
+/// it. Drawn like the dialogs' select lists; focus stays in the field.
+/// </summary>
+public static class Suggestions
+{
+    static Brush B(string key) => (Brush)Application.Current.FindResource(key);
+
+    public static void Attach(System.Windows.Controls.TextBox box)
+    {
+        var list = new System.Windows.Controls.StackPanel();
+        var popup = new System.Windows.Controls.Primitives.Popup
+        {
+            PlacementTarget = box, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom, AllowsTransparency = true,
+            Focusable = false, StaysOpen = true, VerticalOffset = 2,
+            Child = new System.Windows.Controls.Border
+            {
+                Background = B("surfaceBrush"), BorderBrush = B("border-strongBrush"), BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4), Padding = new Thickness(0, 4, 0, 4), Child = list,
+            },
+        };
+        System.Windows.Automation.AutomationProperties.SetName(popup.Child, "Suggestions");
+        var shown = new List<string>();
+        var highlighted = -1;
+        var picking = false;
+
+        void Paint()
+        {
+            for (var i = 0; i < list.Children.Count; i++)
+                ((System.Windows.Controls.Border)list.Children[i]).Background = i == highlighted ? B("border-strongBrush") : Brushes.Transparent;
+        }
+        void Pick(string value)
+        {
+            picking = true;
+            box.Text = value;
+            box.CaretIndex = value.Length;
+            picking = false;
+            popup.IsOpen = false;
+        }
+        void Open()
+        {
+            shown = NewSession.MatchingModels(box.Text);
+            highlighted = -1;
+            list.Children.Clear();
+            foreach (var value in shown)
+            {
+                var row = new System.Windows.Controls.Border
+                {
+                    Padding = new Thickness(8, 3, 8, 3), Background = Brushes.Transparent, Cursor = System.Windows.Input.Cursors.Hand,
+                    Child = new System.Windows.Controls.TextBlock { Text = value, FontSize = 13, Foreground = B("textBrush") },
+                };
+                System.Windows.Automation.AutomationProperties.SetName(row, value);
+                row.MouseEnter += (_, _) => { highlighted = list.Children.IndexOf(row); Paint(); };
+                row.PreviewMouseLeftButtonDown += (_, e) => { e.Handled = true; Pick(value); };
+                list.Children.Add(row);
+            }
+            popup.MinWidth = box.ActualWidth;
+            popup.IsOpen = shown.Count > 0 && box.IsKeyboardFocusWithin && box.IsEnabled;
+        }
+
+        box.TextChanged += (_, _) =>
+        {
+            if (!picking && box.IsKeyboardFocusWithin) Open();
+        };
+        box.PreviewMouseLeftButtonUp += (_, _) =>
+        {
+            if (!popup.IsOpen) Open();
+        };
+        box.LostKeyboardFocus += (_, _) => popup.IsOpen = false;
+        box.IsEnabledChanged += (_, _) => popup.IsOpen = false;
+        box.PreviewKeyDown += (_, e) =>
+        {
+            switch (e.Key)
+            {
+                case System.Windows.Input.Key.Down when !popup.IsOpen:
+                    Open();
+                    e.Handled = popup.IsOpen;
+                    break;
+                case System.Windows.Input.Key.Down or System.Windows.Input.Key.Up when popup.IsOpen:
+                    var step = e.Key == System.Windows.Input.Key.Down ? 1 : -1;
+                    highlighted = highlighted < 0 ? (step > 0 ? 0 : shown.Count - 1) : (highlighted + step + shown.Count) % shown.Count;
+                    Paint();
+                    e.Handled = true;
+                    break;
+                case System.Windows.Input.Key.Enter when popup.IsOpen && highlighted >= 0:
+                    Pick(shown[highlighted]);
+                    e.Handled = true;
+                    break;
+                case System.Windows.Input.Key.Escape when popup.IsOpen:
+                    popup.IsOpen = false;
+                    e.Handled = true;
+                    break;
+            }
+        };
+    }
+}

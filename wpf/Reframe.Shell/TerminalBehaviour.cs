@@ -394,8 +394,9 @@ sealed class TerminalBehaviour
             Width = 180, Padding = new Thickness(5, 2, 5, 2), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1),
             Background = B("terminalBrush"), Foreground = B("textBrush"), CaretBrush = B("textBrush"), FontSize = 12, VerticalContentAlignment = VerticalAlignment.Center,
         };
-        input.Template = InputTemplate(B("borderBrush"), B("accentBrush"));
-        AutomationProperties.SetName(input, "Find");
+        input.Template = InputTemplate(B("borderBrush"), B("accentBrush"), B("placeholderBrush"));
+        input.Tag = Strings.T("find.placeholder");
+        AutomationProperties.SetName(input, Strings.T("find.placeholder"));
         var count = new TextBlock { MinWidth = 64, Padding = new Thickness(6, 0, 6, 0), Foreground = B("mutedBrush"), FontSize = 12, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
         Button Icon(string kind, string name, Action click)
         {
@@ -427,7 +428,8 @@ sealed class TerminalBehaviour
         return (bar, input, count);
     }
 
-    static ControlTemplate InputTemplate(Brush border, Brush focus)
+    /// <summary>The find field: its frame, the text and, while empty, the placeholder (the Tag) dimmed.</summary>
+    static ControlTemplate InputTemplate(Brush border, Brush focus, Brush placeholder)
     {
         var frame = new FrameworkElementFactory(typeof(Border), "Frame");
         frame.SetValue(Border.BorderBrushProperty, border);
@@ -435,9 +437,22 @@ sealed class TerminalBehaviour
         frame.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
         frame.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
         frame.SetValue(Border.PaddingProperty, new TemplateBindingExtension(Control.PaddingProperty));
+        var grid = new FrameworkElementFactory(typeof(Grid));
+        var hint = new FrameworkElementFactory(typeof(TextBlock), "Placeholder");
+        hint.SetValue(TextBlock.TextProperty, new TemplateBindingExtension(FrameworkElement.TagProperty));
+        hint.SetValue(TextBlock.ForegroundProperty, placeholder);
+        hint.SetValue(TextBlock.MarginProperty, new Thickness(2, 0, 0, 0));
+        hint.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+        hint.SetValue(UIElement.IsHitTestVisibleProperty, false);
+        hint.SetValue(UIElement.VisibilityProperty, Visibility.Collapsed);
+        grid.AppendChild(hint);
         var content = new FrameworkElementFactory(typeof(ScrollViewer), "PART_ContentHost");
-        frame.AppendChild(content);
+        grid.AppendChild(content);
+        frame.AppendChild(grid);
         var template = new ControlTemplate(typeof(TextBox)) { VisualTree = frame };
+        var empty = new Trigger { Property = TextBox.TextProperty, Value = "" };
+        empty.Setters.Add(new Setter(UIElement.VisibilityProperty, Visibility.Visible, "Placeholder"));
+        template.Triggers.Add(empty);
         var focused = new Trigger { Property = UIElement.IsKeyboardFocusedProperty, Value = true };
         focused.Setters.Add(new Setter(Border.BorderBrushProperty, focus, "Frame"));
         template.Triggers.Add(focused);
