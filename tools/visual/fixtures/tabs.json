@@ -1,0 +1,15 @@
+{
+  "comment": "e2e/visual-reference.spec.ts 'starting status, tabs, zoom, group and collapsed' (state 'tabs': single window showing docs-refresh, android-push collapsed in the dock). Here the shown tab and the other open tab (the dock strip).",
+  "sessions": [
+    { "id": "vt-checkout-fix", "claudeSessionId": "4f3a9c3b-7f4d-4d84-8d84-3f9d4a3b3d01", "name": "checkout-fix", "project": "webshop", "status": "idle", "usedSecondsAgo": 5 },
+    { "id": "vt-payment-webhooks", "claudeSessionId": "4f3a9c3b-7f4d-4d84-8d84-3f9d4a3b3d02", "name": "payment-webhooks", "project": "api-gateway", "status": "idle", "usedSecondsAgo": 4 },
+    { "id": "vt-docs-refresh", "claudeSessionId": "4f3a9c3b-7f4d-4d84-8d84-3f9d4a3b3d03", "name": "docs-refresh", "project": "docs-site", "status": "busy", "usedSecondsAgo": 2 },
+    { "id": "vt-ios-crash", "claudeSessionId": "4f3a9c3b-7f4d-4d84-8d84-3f9d4a3b3d04", "name": "ios-crash", "project": "mobile-app", "status": "idle", "usedSecondsAgo": 3 },
+    { "id": "vt-android-push", "claudeSessionId": "4f3a9c3b-7f4d-4d84-8d84-3f9d4a3b3d05", "name": "android-push", "project": "mobile-app", "status": "busy", "usedSecondsAgo": 1, "docked": true }
+  ],
+  "past": [],
+  "running": [],
+  "viewMode": "single",
+  "tabs": ["vt-android-push", "vt-docs-refresh"],
+  "selected": "vt-docs-refresh"
+}

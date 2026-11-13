@@ -14,6 +14,9 @@ public partial class App : Application
     /// as &lt;state id&gt;.png in the folder (PrintWindow, so the native terminal shows too) and exits. For the visual
     /// parity report (tools/visual); never used by a normal start.</summary>
     public static string? CaptureDir { get; private set; }
+    /// <summary>With --diag-capture: a visual fixture (tools/visual/fixtures/*.json) to render instead of the profile's
+    /// state, with the host's sessions of the same ids as its terminals.</summary>
+    public static string? FixtureFile { get; private set; }
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -23,8 +26,32 @@ public partial class App : Application
             if (e.Args[i] == "--profile" && i + 1 < e.Args.Length) ProfileDir = Path.GetFullPath(e.Args[++i]);
             else if (e.Args[i] == "--take-over") TakeOver = true;
             else if (e.Args[i] == "--diag-capture" && i + 1 < e.Args.Length) CaptureDir = Path.GetFullPath(e.Args[++i]);
+            else if (e.Args[i] == "--diag-fixture" && i + 1 < e.Args.Length) FixtureFile = Path.GetFullPath(e.Args[++i]);
         }
         base.OnStartup(e);
-        new MainWindow().Show();
+        var window = new MainWindow();
+        if (CaptureDir is not { } dir)
+        {
+            window.Show();
+            return;
+        }
+        // Diagnostics: never shown as a window; the captures run in a popup, then the shell exits.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        Dispatcher.InvokeAsync(async () =>
+        {
+            try
+            {
+                await window.CaptureAsync(dir, FixtureFile);
+            }
+            catch (Exception error)
+            {
+                Directory.CreateDirectory(dir);
+                File.AppendAllText(Path.Combine(dir, "capture-error.txt"), error + Environment.NewLine);
+            }
+            finally
+            {
+                Shutdown();
+            }
+        });
     }
 }
