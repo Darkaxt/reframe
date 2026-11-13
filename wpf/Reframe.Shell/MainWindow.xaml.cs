@@ -57,6 +57,7 @@ public partial class MainWindow : Window
         this.shell = shell;
         this.windowId = windowId;
         InitializeComponent();
+        if (windowId is not null) WatchForeignDrags();
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(40) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition());
@@ -584,6 +585,7 @@ public partial class MainWindow : Window
                     }
                     break;
                 case "hidden":
+                    await CaptureTakeoverAsync(popup, dir);
                     await CaptureHiddenAsync(popup, dir);
                     break;
                 case "overview":

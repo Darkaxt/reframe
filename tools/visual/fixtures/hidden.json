@@ -1,5 +1,5 @@
 {
-  "comment": "e2e/visual-reference.spec.ts 'New Session dialog ... hidden threads': checkout-fix (webshop) in the window, and a past chat of webshop hidden an hour ago; Settings scrolled to its Hidden threads.",
+  "comment": "e2e/visual-reference.spec.ts 'New Session dialog ... hidden threads': checkout-fix (webshop) in the window, and a past chat of webshop hidden an hour ago; the takeover dialog for a terminal window with rate-limiter (preselected) and docs-refresh; Settings scrolled to its Hidden threads.",
   "sessions": [
     {
       "id": "vs-checkout-fix",
@@ -14,6 +14,20 @@
   "running": [],
   "selected": "vs-checkout-fix",
   "hosted": ["vs-checkout-fix"],
+  "takeover": [
+    {
+      "id": "7a1e2b3c-4d5e-4f60-8a71-b2c3d4e5f601",
+      "name": "rate-limiter",
+      "project": "api-gateway",
+      "preselected": true
+    },
+    {
+      "id": "7a1e2b3c-4d5e-4f60-8a71-b2c3d4e5f602",
+      "name": "docs-refresh",
+      "project": "docs-site",
+      "preselected": false
+    }
+  ],
   "hidden": [
     {
       "id": "5d2c9a10-7b3e-4f61-8a2d-3e9f0c1b7a55",

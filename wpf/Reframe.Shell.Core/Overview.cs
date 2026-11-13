@@ -193,12 +193,15 @@ public static class Overview
         return bars;
     }
 
-    /// <summary>Tool kinds in the host's order (every kind, zeros included), as "Edit", "Bash", "Read", "Web", "Other".</summary>
+    /// <summary>Every tool kind (zeros included) as "Edit", "Bash", "Read", "Web" largest share first, as the other bars
+    /// are, and "Other" always last. The host sends a map (no order of its own); ties keep edit, bash, read, web.</summary>
     public static IReadOnlyList<BreakdownBar> ToolBars(IReadOnlyDictionary<string, long> tools)
     {
         var total = tools.Values.Where(v => v > 0).Sum();
-        string[] kinds = ["edit", "bash", "read", "web", "other"];
-        return kinds.Select(k => (k, n: tools.GetValueOrDefault(k)))
+        string[] kinds = ["edit", "bash", "read", "web"];
+        return kinds.Select((k, i) => (k, i, n: tools.GetValueOrDefault(k))).OrderByDescending(p => p.n).ThenBy(p => p.i)
+            .Select(p => p.k).Append("other")
+            .Select(k => (k, n: tools.GetValueOrDefault(k)))
             .Select(p => new BreakdownBar(char.ToUpperInvariant(p.k[0]) + p.k[1..], p.n, total == 0 ? 0 : (double)p.n / total)).ToList();
     }
 

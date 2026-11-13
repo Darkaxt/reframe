@@ -20,23 +20,50 @@ public static class ClaudeRegistry
         var dir = Path.Combine(home, "sessions");
         if (!Directory.Exists(dir)) return result;
         foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
-        {
-            try
-            {
-                var entry = JsonNode.Parse(File.ReadAllText(file));
-                if (entry is null || (int?)entry["pid"] is not { } pid || (string?)entry["sessionId"] is not { } sessionId) continue;
-                if (!Alive(pid)) continue;
-                result.Add(new RunningClaude(pid, sessionId, (string?)entry["cwd"], (string?)entry["name"], (double?)entry["startedAt"]));
-            }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or FormatException or InvalidOperationException)
-            {
-                // Being written, or not an entry: skipped this time.
-            }
-        }
+            if (Read(file) is { } entry && Alive(entry.Pid)) result.Add(entry);
         return result;
     }
 
-    static bool Alive(int pid)
+    /// <summary>The registry's entry of process <paramref name="pid"/> as it is now (its name may have changed).</summary>
+    public static RunningClaude? Entry(string home, int pid) => Read(Path.Combine(home, "sessions", $"{pid}.json"));
+
+    static RunningClaude? Read(string file)
+    {
+        try
+        {
+            if (!File.Exists(file)) return null;
+            var entry = JsonNode.Parse(File.ReadAllText(file));
+            if (entry is null || (int?)entry["pid"] is not { } pid || (string?)entry["sessionId"] is not { } sessionId) return null;
+            return new RunningClaude(pid, sessionId, (string?)entry["cwd"], (string?)entry["name"], (double?)entry["startedAt"], (string?)entry["nameSource"]);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or FormatException or InvalidOperationException)
+        {
+            // Being written, or not an entry: skipped this time.
+            return null;
+        }
+    }
+
+    /// <summary>When the session's transcript (<c>&lt;home&gt;/projects/&lt;folder&gt;/&lt;id&gt;.jsonl</c>) was last written, in
+    /// ms since the epoch; null without one (transcriptModifiedAsync).</summary>
+    public static double? TranscriptModifiedAt(string home, string claudeSessionId)
+    {
+        var projects = Path.Combine(home, "projects");
+        try
+        {
+            if (!Directory.Exists(projects)) return null;
+            foreach (var folder in Directory.EnumerateDirectories(projects))
+            {
+                var file = Path.Combine(folder, claudeSessionId + ".jsonl");
+                if (File.Exists(file)) return new DateTimeOffset(File.GetLastWriteTimeUtc(file)).ToUnixTimeMilliseconds();
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+        }
+        return null;
+    }
+
+    public static bool Alive(int pid)
     {
         try
         {

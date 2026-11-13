@@ -1,6 +1,6 @@
 # Visual parity, WPF side (CI): runs `Reframe.Shell.exe --diag-capture --diag-fixture` once per visual fixture
 # (tools/visual/fixtures) into one folder: "empty" without a host (main-empty, quota, quota-panel, about, settings-*), then "sessions" (main-sessions, grid-2x2, sidebar,
-# sidebar-row-*, sidebar-search), "hidden" (hidden-threads, hidden-threads-component), "history" (history-selection,
+# sidebar-row-*, sidebar-search), "hidden" (takeover, hidden-threads, hidden-threads-component), "history" (history-selection,
 # history-model-editor, history-results), "wsl" (sidebar-wsl, sidebar-row-wsl-*) and "tabs" (group, group-frame, collapsed, dock-strip, zoomed, tabs) against one Rust PTY host that runs the fixtures' open
 # sessions with demo-claude (Start-CaptureHost.ps1). Each run saves its PNGs and adds itself to capture.json. The host
 # is ended afterwards.

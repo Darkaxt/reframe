@@ -27,6 +27,9 @@ public sealed class VisualFixture
     public List<string> WslStopped { get; init; } = [];
     /// <summary>The chats (labels) the capture selects with Ctrl+click, in order.</summary>
     public List<string> Select { get; init; } = [];
+    /// <summary>The sessions of a terminal window dropped on the window, as the takeover dialog offers them (Electron's
+    /// capture sends the same request); none by default.</summary>
+    public List<ForeignCandidate> Takeover { get; init; } = [];
 
     public ListSources Sources() => new()
     {
@@ -120,12 +123,15 @@ public sealed class VisualFixture
                 Id = (string)a!["id"]!, Label = (string?)a["title"] ?? "", Cwd = Folder(a), Provider = (string?)a["provider"] ?? "chatgpt",
                 Archive = $@"D:\Reframe\archives\{(string)a["id"]!}.zip", Sha256 = new string('0', 64), Operation = $@"D:\Reframe\archives\operations\{(string)a["id"]!}",
             });
+        var takeover = (root["takeover"]?.AsArray() ?? []).Select(t => new ForeignCandidate(
+            (string)t!["id"]!, Folder(t), (string?)t["name"], (bool?)t["preselected"] ?? false)).ToList();
 
         return new VisualFixture
         {
             Wsl = wsl,
             WslStopped = wslStopped,
             Select = (root["select"]?.AsArray() ?? []).Select(t => (string)t!).ToList(),
+            Takeover = takeover,
             State = state,
             Statuses = statuses,
             Running = running,

@@ -29,6 +29,13 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // A console helper (ConsoleHelper.cs): one request in another console, no window, then gone.
+        if (e.Args.Length == 2 && e.Args[0] == ConsoleHelperClient.Argument)
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            Shutdown(ConsoleHelperMain.Run(e.Args[1]));
+            return;
+        }
         ProfileDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Reframe Shell Test");
         string? hostDir = null;
         for (var i = 0; i < e.Args.Length; i++)
