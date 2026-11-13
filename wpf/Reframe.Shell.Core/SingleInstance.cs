@@ -80,7 +80,7 @@ public sealed class SingleInstance : IDisposable
             await using var pipe = new NamedPipeClientStream(".", PipeName(profileDir), PipeDirection.Out, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
             using var cancel = new CancellationTokenSource(timeout);
             await pipe.ConnectAsync(cancel.Token);
-            var line = Encoding.UTF8.GetBytes(Activate + "\n");
+            var line = Encoding.UTF8.GetBytes(message + "\n");
             await pipe.WriteAsync(line, cancel.Token);
             await pipe.FlushAsync(cancel.Token);
             return true;
