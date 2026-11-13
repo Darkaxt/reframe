@@ -217,19 +217,15 @@ public static class ViewModes
 {
     /// <summary>The thread to show after the window's threads went from <paramref name="before"/> to
     /// <paramref name="after"/>: one that just came is shown; otherwise the selected one while it is there; when it
-    /// closed, the one that took its place (else the last); else the first.</summary>
+    /// closed (or left the window), none: the window stays blank until the user picks the next one (an improvement on
+    /// view-mode.ts, which showed the one that took its place, where a second click on × could end that one too);
+    /// else the first.</summary>
     public static string? NextShown(IReadOnlyList<string> before, IReadOnlyList<string> after, string? selected)
     {
         var added = after.Where(id => !before.Contains(id)).ToList();
         if (added.Count == 1 && before.Count > 0) return added[0];
         if (selected is not null && after.Contains(selected)) return selected;
-        var index = selected is null ? -1 : before.ToList().IndexOf(selected);
-        if (index >= 0)
-        {
-            var rest = before.Where(after.Contains).ToList();
-            var following = before.Skip(index + 1).FirstOrDefault(after.Contains);
-            return following ?? (rest.Count > 0 ? rest[^1] : null) ?? after.FirstOrDefault();
-        }
+        if (selected is not null && before.Contains(selected)) return null;
         return after.FirstOrDefault();
     }
 

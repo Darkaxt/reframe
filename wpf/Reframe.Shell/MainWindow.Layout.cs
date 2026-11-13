@@ -55,6 +55,9 @@ public partial class MainWindow
     (string SessionId, string Layout)? zoom;
     /// <summary>The selected thread: the one a single window shows (ViewModes.NextShown keeps it).</summary>
     string? selected;
+    /// <summary>A single window whose shown thread closed shows none (<see cref="pick"/>) until one is picked.</summary>
+    bool blank;
+    readonly FrameworkElement pick = PickState();
     /// <summary>The tile the user types in (its accent ring).</summary>
     string? focused;
     LayoutPlaces places = new([], [], []);
@@ -106,6 +109,7 @@ public partial class MainWindow
         var area = new Grid();
         area.Children.Add(new Border { Padding = new Thickness(6), Child = surface });
         area.Children.Add(empty);
+        area.Children.Add(pick);
         var column = new DockPanel();
         column.Children.Add(dockStrip);
         column.Children.Add(area);
@@ -123,7 +127,9 @@ public partial class MainWindow
         if (ReferenceEquals(next, before)) return;
         var (settled, key) = LayoutActions.SettleGrid(next, gridKeys.GetValueOrDefault(next.Id));
         gridKeys[next.Id] = key;
+        var shownBefore = selected;
         selected = ViewModes.NextShown(Layout.Leaves(before.Layout), Layout.Leaves(settled.Layout), selected);
+        if (shownBefore is not null && selected is null) blank = true;
         Win = settled;
         Saved();
         Relayout();
@@ -162,11 +168,13 @@ public partial class MainWindow
 
         var single = LayoutActions.ViewModeOf(win) == "single";
         ApplyViewMode(LayoutActions.ViewModeOf(win));
-        var shown = single ? (selected is not null && leaves.Contains(selected) ? selected : leaves.FirstOrDefault()) : null;
+        if (selected is not null || !single) blank = false;
+        var shown = single ? (selected is not null && leaves.Contains(selected) ? selected : blank ? null : leaves.FirstOrDefault()) : null;
         if (zoom is { } z && (z.Layout != LayoutKey(win) || !leaves.Contains(z.SessionId))) zoom = null;
         var one = shown ?? zoom?.SessionId;
         var area = new Box(0, 0, surface.ActualWidth, surface.ActualHeight);
-        places = one is not null ? new([new TilePlace(one, area, null)], [], []) : LayoutGeometry.Compute(win.Layout, area);
+        places = one is not null ? new([new TilePlace(one, area, null)], [], [])
+            : single ? new([], [], []) : LayoutGeometry.Compute(win.Layout, area);
 
         foreach (var view in tiles.Values)
         {
@@ -229,7 +237,15 @@ public partial class MainWindow
         var any = win.Layout is not null;
         surface.Visibility = any ? Visibility.Visible : Visibility.Hidden;
         empty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
+        pick.Visibility = any && single && one is null ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    /// <summary>A single window showing no thread: the next one is the user's choice.</summary>
+    static FrameworkElement PickState() => new TextBlock
+    {
+        Text = "Choose a session from the list.", Style = S("Text13"), Foreground = B("mutedBrush"),
+        HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed,
+    };
 
     static void Put(FrameworkElement element, Box box)
     {
