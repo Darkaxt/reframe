@@ -113,7 +113,7 @@ static class DiagCapture
             }
             var full = new RenderTargetBitmap(w, h, 96 * dpi.DpiScaleX, 96 * dpi.DpiScaleY, System.Windows.Media.PixelFormats.Pbgra32);
             full.Render(scene);
-            var image = crop.X == 0 && crop.Y == 0 && crop.Width == w && crop.Height == h ? full : new CroppedBitmap(full, crop);
+            BitmapSource image = crop.X == 0 && crop.Y == 0 && crop.Width == w && crop.Height == h ? full : new CroppedBitmap(full, crop);
             var encoder = new PngBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(image));
             Directory.CreateDirectory(dir);
