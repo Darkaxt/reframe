@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "sessions": {
+    "s1": {
+      "id": "s1",
+      "claudeSessionId": "c1",
+      "cwd": "C:\\a",
+      "name": "Kept",
+      "claudeName": null,
+      "launch": {},
+      "lifecycle": "open",
+      "createdAt": 1,
+      "lastActiveAt": 1
+    }
+  },
+  "windows": [
+    {
+      "id": "w",
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 1
+      },
+      "maximized": false,
+      "hidden": false,
+      "layout": {
+        "kind": "tile",
+        "sessionId": "s1"
+      },
+      "dock": []
+    }
+  ],
+  "recentFolders": [],
+  "preferences": {
+    "nameFromFolder": false,
+    "language": "system",
+    "fontSize": 13,
+    "snapToGrid": true,
+    "checkForUpdates": true,
+    "lookInWsl": false,
+    "closeWindow": "ask",
+    "gpuAcceleration": false,
+    "ptyHost": "node",
+    "providerDefaults": {
+      "anthropic": {
+        "model": "m"
+      }
+    }
+  },
+  "hiddenThreads": [
+    {
+      "claudeSessionId": "h",
+      "label": "l",
+      "cwd": "c",
+      "hiddenAt": 1
+    }
+  ]
+}

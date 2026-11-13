@@ -29,13 +29,17 @@ const SKIPPED: Record<string, string> = {
   'sidebar-row-wsl-stopped': 'needs a real WSL distribution',
   'new-session-wsl-folder': 'needs a real WSL distribution',
   'history-results': 'bulk results run maintenance/history_backend.py (pinned Python helper)',
-  'context-menus': 'native Electron menus (menus.ts): not in the page; to be specified as structured item lists',
+  'context-menus': 'native Electron menus (menus.ts): not in the page; dumped as structured item lists in menus.json',
   'tray-menu': 'native tray menu: not in the page',
   toasts: 'Windows toasts: not in the page',
   'dpi-150': 'only 100% here: the runner has one display scale',
 };
 
 const captured: { state: string; file: string; width: number; height: number; component?: boolean }[] = [];
+/** The native context menus as structured specs (items, order, separators, enabled), by state id. */
+const menus: Record<string, unknown> = {};
+/** The window's real content size and the title bar overlay's area, per test (the page must not be squeezed). */
+const windows: { test: string; contentSize: number[]; titlebarArea: unknown }[] = [];
 
 /** A throwaway home with demo projects, Claude Code's files for them, and reframe's profile (as screenshots/). */
 class Fixture {
@@ -178,8 +182,25 @@ function windowState(
 /** reframe on the fixture at scale 1, its page rendered at SIZE whatever its window's size on the runner. */
 async function start(fixture: Fixture): Promise<{ app: ElectronApplication; page: Page; shoot: Shoot }> {
   const { app, page } = await launch(fixture.env, ['--force-device-scale-factor=1']);
+  // The window itself at SIZE (the CI job sets a large enough display), so the title bar overlay and what is laid
+  // out by the window's real size (the gear and info icons at the right) are where they are at 1280×800.
+  const contentSize = await app.evaluate(({ BrowserWindow }, size) => {
+    const win = BrowserWindow.getAllWindows()[0]!;
+    if (win.isMaximized()) win.unmaximize();
+    win.setContentSize(size.width, size.height);
+    return win.getContentSize();
+  }, SIZE);
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Emulation.setDeviceMetricsOverride', { ...SIZE, deviceScaleFactor: 1, mobile: false });
+  // Still status dots (the pulse would be caught half way); the WPF captures draw them still as well.
+  await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await page.waitForTimeout(300);
+  const titlebarArea = await page.evaluate(() => {
+    const overlay = (navigator as { windowControlsOverlay?: { getTitlebarAreaRect(): DOMRect } }).windowControlsOverlay;
+    const r = overlay?.getTitlebarAreaRect();
+    return r ? { x: r.x, y: r.y, width: r.width, height: r.height } : null;
+  });
+  windows.push({ test: test.info().title, contentSize, titlebarArea });
   const shoot: Shoot = async (state, component) => {
     // No caret blink or transition half way.
     await page.waitForTimeout(400);
@@ -228,10 +249,12 @@ test.afterAll(() => {
     size: SIZE,
     scale: 1,
     app: process.env.REFRAME_E2E_APP ? 'packaged' : 'dev build',
+    windows,
     states: captured.sort((a, b) => a.state.localeCompare(b.state)),
     skipped: SKIPPED,
   };
   fs.writeFileSync(path.join(out, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  if (Object.keys(menus).length) fs.writeFileSync(path.join(out, 'menus.json'), JSON.stringify(menus, null, 2) + '\n');
 });
 
 test('main window empty, About, settings pages and quota', async () => {
@@ -297,7 +320,7 @@ test('main window with sessions: sidebar rows in each status, search, error tile
     fixture.extra = { pinnedChats: [chatKey(pinned)] };
     const layout = split('row', [split('col', [tile(idle), tile(busy)]), split('col', [tile(waiting), tile(ended)])]);
     fixture.write([windowState(layout)]);
-    const { page, shoot } = await start(fixture);
+    const { app, page, shoot } = await start(fixture);
     await settle(page, 4);
     await sidebarOpen(page);
     await page.waitForTimeout(3500); // the list has loaded once
@@ -319,6 +342,26 @@ test('main window with sessions: sidebar rows in each status, search, error tile
       const row = page.locator('.sidebar-row', { hasText: label }).first();
       if (await row.isVisible()) await shoot(state, row);
     }
+
+    // The context menus (native: their structure, as main built them for the click).
+    const menuOf = async (state: string, target: Locator) => {
+      await target.click({ button: 'right' });
+      await expect.poll(() => callMain<unknown>(app, 'lastMenuSpec'), { timeout: 5000 }).not.toBeNull();
+      await page.waitForTimeout(300);
+      menus[state] = await callMain<unknown>(app, 'lastMenuSpec');
+      await page.keyboard.press('Escape');
+    };
+    for (const [state, label] of [
+      ['menu-list-idle', 'checkout-fix'],
+      ['menu-list-ended', 'release-notes'],
+      ['menu-list-found', 'Add dark mode to the account settings'],
+      ['menu-list-running', 'ci-pipeline'],
+      ['menu-list-pinned', 'Pinned: plan the Q3 roadmap'],
+    ] as const) {
+      const row = page.locator('.sidebar-row', { hasText: label }).first();
+      if (await row.isVisible()) await menuOf(state, row);
+    }
+    await menuOf('menu-tile', tileByLabel(page, 'checkout-fix').locator('.tile-header'));
 
     await page.getByRole('searchbox', { name: 'Search sessions' }).fill('check');
     await shoot('sidebar-search');

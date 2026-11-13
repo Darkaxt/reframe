@@ -12,7 +12,7 @@ namespace Reframe.Shell;
 /// <summary>
 /// SessionSidebar.tsx: the search field and the PINNED, PROJECTS and RECENTS sections, drawn as styles.css draws them
 /// (.sidebar, .sidebar-row, .folder-workspace, …). Each section's rows are a ListBox, so keyboard and UI automation see
-/// list items named after the chats. Read-only: a click selects a row and asks to open it (<see cref="Open"/>); a
+/// list items named after the chats. A click selects a row and asks to open it (<see cref="Open"/>), a right click asks for its menu (<see cref="RowMenu"/>); a
 /// project opens or closes locally (<see cref="ProjectToggled"/>); the per-project + is inert.
 /// </summary>
 sealed class SessionSidebar : Border
@@ -24,6 +24,8 @@ sealed class SessionSidebar : Border
     string? selected;
 
     public event Action<ChatRow>? Open;
+    /// <summary>The row's context menu is asked for (right click, the menu key or Shift+F10): the chat and its item.</summary>
+    public event Action<ChatRow, FrameworkElement>? RowMenu;
     public event Action<string>? ProjectToggled;
     public event Action<string>? QueryChanged;
 
@@ -57,6 +59,9 @@ sealed class SessionSidebar : Border
         panel.Children.Add(Scroll);
         Child = panel;
     }
+
+    /// <summary>The chat row (its tag) of a visible row by label.</summary>
+    public ChatRow? ChatOf(string label) => RowOf(label)?.Tag as ChatRow;
 
     /// <summary>The row of a chat in a section ("pinned", "recents", "project:&lt;id&gt;"), or its first one.</summary>
     public FrameworkElement? RowOf(string label) =>
@@ -122,8 +127,21 @@ sealed class SessionSidebar : Border
             Choose(chat);
             e.Handled = true;
         };
+        item.MouseRightButtonUp += (_, e) =>
+        {
+            selected = chat.Key;
+            UpdateSelection();
+            RowMenu?.Invoke(chat, item);
+            e.Handled = true;
+        };
         item.KeyDown += (_, e) =>
         {
+            if (e.Key == Key.Apps || (Keyboard.Modifiers == ModifierKeys.Shift && (e.Key == Key.F10 || e.SystemKey == Key.F10)))
+            {
+                RowMenu?.Invoke(chat, item);
+                e.Handled = true;
+                return;
+            }
             if (e.Key is not (Key.Enter or Key.Space)) return;
             Choose(chat);
             e.Handled = true;

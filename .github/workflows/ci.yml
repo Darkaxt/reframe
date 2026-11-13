@@ -94,6 +94,14 @@ jobs:
           path: wpf-shell
       - name: Package (unpacked app)
         run: npm run dist:dir
+      # The runner's screen is 1024x768: Electron's window (sized to 1280x800 by the spec) must fit on it.
+      - name: Display at 1920x1080
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Add-Type -AssemblyName System.Windows.Forms
+          [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
       - name: Electron reference set
         shell: bash
         run: >-

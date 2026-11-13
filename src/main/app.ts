@@ -1832,6 +1832,24 @@ export class ReframeApp {
     return this.store.flush(STATE_FLUSH_MS);
   }
 
+  /** Test hook (REFRAME_E2E): the menu shown last as a structured spec (the visual report compares it with the shell's). */
+  lastMenuSpec(): unknown[] | null {
+    const spec = (items: MenuItem[]): unknown[] =>
+      items.map((item) =>
+        item.type === 'separator'
+          ? { type: 'separator' }
+          : {
+              type: item.type,
+              label: item.label,
+              enabled: item.enabled,
+              ...(item.type === 'checkbox' || item.type === 'radio' ? { checked: item.checked } : {}),
+              ...(item.accelerator ? { accelerator: String(item.accelerator) } : {}),
+              ...(item.submenu ? { submenu: spec(item.submenu.items) } : {}),
+            },
+      );
+    return this.lastMenu ? spec(this.lastMenu.items) : null;
+  }
+
   /** Test hook (REFRAME_E2E): clicks the item labeled `label` in the menu shown last. */
   clickMenuItem(label: string): boolean {
     const find = (items: MenuItem[]): MenuItem | undefined =>

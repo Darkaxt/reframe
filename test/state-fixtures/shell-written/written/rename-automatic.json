@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "sessions": {
+    "s1": {
+      "id": "s1",
+      "claudeSessionId": "c1",
+      "cwd": "C:\\work\\one",
+      "name": "Build fix",
+      "claudeName": null,
+      "launch": {
+        "provider": "anthropic",
+        "model": "opus",
+        "effort": "xhigh",
+        "permissionMode": "plan",
+        "worktree": true,
+        "worktreeName": "wt",
+        "addDirs": [
+          "C:\\x"
+        ],
+        "initialPrompt": "hi",
+        "worktreeCreated": true
+      },
+      "lifecycle": "open",
+      "createdAt": 1700000000000,
+      "lastActiveAt": 1700000500000.5,
+      "pid": 100,
+      "linuxPid": 200,
+      "used": true
+    },
+    "s2": {
+      "id": "s2",
+      "claudeSessionId": "c2",
+      "cwd": "/home/u/p",
+      "claudeName": "Named",
+      "launch": {
+        "provider": "chatgpt"
+      },
+      "lifecycle": "ended",
+      "createdAt": 1,
+      "lastActiveAt": 2,
+      "used": false
+    },
+    "s3": {
+      "id": "s3",
+      "claudeSessionId": "c3",
+      "cwd": "C:\\three",
+      "launch": {},
+      "lifecycle": "open",
+      "createdAt": 3,
+      "lastActiveAt": 4
+    }
+  },
+  "windows": [
+    {
+      "id": "w1",
+      "bounds": {
+        "x": -5,
+        "y": 0,
+        "width": 1280.5,
+        "height": 720
+      },
+      "maximized": false,
+      "fullscreen": true,
+      "hidden": false,
+      "layout": {
+        "kind": "split",
+        "id": "sp1",
+        "dir": "row",
+        "children": [
+          {
+            "kind": "tile",
+            "sessionId": "s1"
+          },
+          {
+            "kind": "group",
+            "id": "g1",
+            "name": "Group",
+            "color": "#ff0000",
+            "child": {
+              "kind": "split",
+              "id": "sp2",
+              "dir": "col",
+              "children": [
+                {
+                  "kind": "tile",
+                  "sessionId": "s2"
+                },
+                {
+                  "kind": "tile",
+                  "sessionId": "s3"
+                },
+                {
+                  "kind": "tile",
+                  "sessionId": "s4"
+                }
+              ],
+              "sizes": [
+                1,
+                2,
+                3
+              ]
+            }
+          }
+        ],
+        "sizes": [
+          0.5,
+          0.5
+        ]
+      },
+      "dock": [
+        {
+          "kind": "tile",
+          "sessionId": "s5",
+          "hint": {
+            "anchor": "s1",
+            "side": "left",
+            "ratio": 0.3,
+            "share": 0.2
+          }
+        },
+        {
+          "kind": "tile",
+          "sessionId": "s6",
+          "hint": null
+        },
+        {
+          "kind": "group",
+          "node": {
+            "kind": "group",
+            "id": "g2",
+            "name": "Docked",
+            "color": "blue",
+            "child": {
+              "kind": "tile",
+              "sessionId": "s7"
+            }
+          },
+          "hint": {
+            "anchor": "g1",
+            "side": "bottom",
+            "ratio": 1
+          }
+        }
+      ],
+      "sidebarOpen": true,
+      "activeProject": "C:\\work\\one",
+      "viewMode": "single"
+    },
+    {
+      "id": "w2",
+      "bounds": null,
+      "maximized": false,
+      "hidden": true,
+      "layout": {
+        "kind": "tile",
+        "sessionId": "s3"
+      },
+      "dock": [],
+      "viewMode": "tiled"
+    }
+  ],
+  "recentFolders": [
+    "C:\\work\\one"
+  ],
+  "preferences": {
+    "archiveRoot": "D:\\arch",
+    "nameFromFolder": true,
+    "language": "en",
+    "fontSize": 8,
+    "sidebarWidth": 9999,
+    "snapToGrid": false,
+    "checkForUpdates": false,
+    "lookInWsl": true,
+    "closeWindow": "keep",
+    "gpuAcceleration": true,
+    "ptyHost": "rust",
+    "claudeBin": "C:\\bin\\claude.exe",
+    "defaultModel": "sonnet",
+    "defaultEffort": "low",
+    "defaultPermissionMode": "auto",
+    "providerDefaults": {
+      "chatgpt": {
+        "model": "gpt",
+        "effort": "max",
+        "permissionMode": "dontAsk",
+        "addDirs": []
+      },
+      "anthropic": {}
+    }
+  },
+  "pinnedChats": [
+    "c1",
+    "c9"
+  ],
+  "expandedProjects": [
+    "C:\\work\\one"
+  ],
+  "archives": [
+    {
+      "id": "a1",
+      "label": "Old",
+      "cwd": "C:\\old",
+      "provider": "anthropic",
+      "archive": "D:\\arch\\a1.zip",
+      "sha256": "abc",
+      "operation": "archive",
+      "partial": true
+    },
+    {
+      "id": "a2",
+      "label": "Older",
+      "cwd": "C:\\older",
+      "archive": "D:\\arch\\a2.zip",
+      "sha256": "def",
+      "operation": "retire"
+    }
+  ],
+  "wslDistros": [
+    "Ubuntu"
+  ],
+  "hiddenThreads": [
+    {
+      "claudeSessionId": "h1",
+      "label": "Elsewhere",
+      "cwd": "C:\\h",
+      "distro": "Ubuntu",
+      "hiddenAt": 5
+    },
+    {
+      "claudeSessionId": "h2",
+      "label": "Other",
+      "cwd": "C:\\h2",
+      "hiddenAt": 6
+    }
+  ]
+}

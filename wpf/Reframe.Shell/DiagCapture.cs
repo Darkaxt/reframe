@@ -128,6 +128,22 @@ static class DiagCapture
         }
     }
 
+    /// <summary>Saves an element WPF draws entirely (an open context menu, in its own popup window) as
+    /// <paramref name="state"/>.png, rendered by WPF at its size.</summary>
+    public static void SaveElement(FrameworkElement element, string dir, string state)
+    {
+        var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(element);
+        int w = (int)Math.Ceiling(element.ActualWidth * dpi.DpiScaleX), h = (int)Math.Ceiling(element.ActualHeight * dpi.DpiScaleY);
+        if (w <= 0 || h <= 0) return;
+        var image = new RenderTargetBitmap(w, h, 96 * dpi.DpiScaleX, 96 * dpi.DpiScaleY, System.Windows.Media.PixelFormats.Pbgra32);
+        image.Render(element);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(image));
+        Directory.CreateDirectory(dir);
+        using (var file = File.Create(Path.Combine(dir, state + ".png"))) encoder.Save(file);
+        Captured.Add(new { state, width = w, height = h, client = "popup", printWindow = false, native = 0 });
+    }
+
     /// <summary>The bounds (in the popup) of the visible native children under <paramref name="parent"/>.</summary>
     static void NativeChildren(System.Windows.Media.Visual root, System.Windows.Media.Visual parent, List<System.Windows.Rect> found)
     {

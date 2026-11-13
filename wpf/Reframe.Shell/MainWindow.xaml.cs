@@ -27,9 +27,10 @@ sealed class OpenSession
 
 /// <summary>
 /// The main window as App.tsx lays it out: the toolbar (also the title bar), the session sidebar, the dock strip and
-/// the layout area with the shown session's tile, or the empty state. Read-only for now: reframe's state is read
-/// (never written), sessions are opened as views of the host's sessions, and New session, New window, the view mode,
-/// settings and about are not wired yet.
+/// the layout area with the shown session's tile, or the empty state. reframe's state is read and, as the primary
+/// client, written through the host's <c>state</c> service (StateStore; never as an observer, while reframe owns it);
+/// the context menus of rows and tiles (src/main/menus.ts) rename, pin and hide. Sessions are opened as views of the
+/// host's sessions; New session, New window, the view mode, settings and about are not wired yet.
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -68,6 +69,12 @@ public partial class MainWindow : Window
     HostServices? services;
     IDisposable? shellLock;
     AppState state = AppState.CreateDefault();
+    StateStore? store;
+    /// <summary>Host sessions listed though reframe's state does not have them: never written to it.</summary>
+    readonly HashSet<string> synthetic = [];
+    bool flushed;
+    /// <summary>Menus as built for the capture (menus.json), by state id.</summary>
+    readonly System.Text.Json.Nodes.JsonObject capturedMenus = [];
     readonly Dictionary<string, HostSession> hostSessions = [];
     readonly Dictionary<string, SessionStatus> hostStatus = [];
     VisualFixture? fixture;
@@ -153,6 +160,7 @@ public partial class MainWindow : Window
         sessionsButton.BorderBrush = B("accentBrush");
 
         sidebar.Open += OpenChat;
+        sidebar.RowMenu += (chat, target) => ShowMenu(ListMenuOf(chat), target, chat);
         sidebar.ProjectToggled += id =>
         {
             if (expanded is null) return;
@@ -171,6 +179,15 @@ public partial class MainWindow : Window
             Loaded += async (_, _) => await StartAsync();
             StateChanged += (_, _) => root.Margin = WindowState == System.Windows.WindowState.Maximized ? new Thickness(7) : new Thickness(0);
         }
+        // The newest state is on disk before the window goes (StateStore.flush on quitting, the host given 2 s).
+        Closing += async (_, e) =>
+        {
+            if (flushed || store is null) return;
+            e.Cancel = true;
+            await store.FlushAsync(2000);
+            flushed = true;
+            Close();
+        };
         Closed += async (_, _) =>
         {
             // Leaves the host with every session running (never "shutdown").
@@ -338,7 +355,18 @@ public partial class MainWindow : Window
         if (fixture is not null) return;
         try
         {
-            state = (await StateLoader.LoadAsync(services, Path.Combine(App.ProfileDir, "state.json"))).State;
+            var file = Path.Combine(App.ProfileDir, "state.json");
+            if (connection.IsObserver) state = (await StateLoader.LoadAsync(services, file)).State;
+            else
+            {
+                var hosted = services;
+                var attached = connection;
+                store = new StateStore(file, () => attached.IsOpen && hosted.Offers("state") ? new HostStateFiles(hosted) : null,
+                    (level, message) => Dispatcher.InvokeAsync(() => SetStatus(status + $" (state {level}: {message})")));
+                var loaded = await store.LoadAsync();
+                state = loaded.State;
+                if (loaded.Rejected is not null) SetStatus(status + $" (state.json set aside: {loaded.Rejected})");
+            }
         }
         catch (Exception e) when (e is HostServiceException or IOException)
         {
@@ -348,6 +376,7 @@ public partial class MainWindow : Window
         foreach (var session in hostSessions.Values.Where(s => !state.Sessions.ContainsKey(s.SessionId)))
         {
             hostStatus.TryGetValue(session.SessionId, out var known);
+            synthetic.Add(session.SessionId);
             state.Sessions[session.SessionId] = new SessionRecord
             {
                 Id = session.SessionId,
@@ -479,7 +508,7 @@ public partial class MainWindow : Window
         };
         // The tiles stay in one panel and are only hidden: a tab's content would be unloaded on every switch, and
         // the terminal's HwndHost does not survive being destroyed and rebuilt (a native crash).
-        var tile = Tile(label, cwd, provider, tileDot, close, control);
+        var tile = Tile(sessionId, label, cwd, provider, tileDot, close, control);
         tile.Visibility = Visibility.Hidden;
         tabs.ApplyTemplate();
         TileHost()?.Children.Add(tile);
@@ -497,10 +526,14 @@ public partial class MainWindow : Window
     {
         var panel = new StackPanel();
         panel.Children.Add(dot);
-        panel.Children.Add(new TextBlock
+        panel.Children.Add(new Unbounded
         {
-            Text = label, Style = S("Text12"), MaxWidth = 160, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 6, 0, 0),
-            HorizontalAlignment = HorizontalAlignment.Center, LayoutTransform = new RotateTransform(-90),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = label, Style = S("Text12"), MaxWidth = 160, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 6, 0, 0),
+                LayoutTransform = new RotateTransform(-90),
+            },
         });
         return panel;
     }
@@ -513,7 +546,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Tile.tsx: the header (collapse, grip, status, provider, label, folder, zoom, close) over the terminal.</summary>
-    FrameworkElement Tile(string label, string cwd, string? provider, StatusDot dot, Button close, TerminalControl terminal)
+    FrameworkElement Tile(string sessionId, string label, string cwd, string? provider, StatusDot dot, Button close, TerminalControl terminal)
     {
         var header = new DockPanel { LastChildFill = true };
         void Left(UIElement element)
@@ -558,6 +591,11 @@ public partial class MainWindow : Window
             BorderThickness = new Thickness(0, 0, 0, 1), CornerRadius = new CornerRadius(5, 5, 0, 0), Child = header,
         };
         DockPanel.SetDock(head, Dock.Top);
+        head.MouseRightButtonUp += (_, e) =>
+        {
+            ShowMenu(TileMenuOf(sessionId), head, null, sessionId);
+            e.Handled = true;
+        };
         var body = new DockPanel();
         body.Children.Add(head);
         // .tile-terminal: inset 4px 2px 2px 6px.
@@ -592,6 +630,103 @@ public partial class MainWindow : Window
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
             if (FindHost(VisualTreeHelper.GetChild(parent, i)) is { } found) return found;
         return null;
+    }
+
+    // ---------- context menus and state writes ----------
+
+    /// <summary>Whether the shell may change reframe's state: as the primary client with a writable store (a capture
+    /// changes only its fixture).</summary>
+    bool Writable => fixture is not null || store is { ReadOnly: false };
+
+    bool Runs(string sessionId) =>
+        fixture is not null ? fixture.Statuses.GetValueOrDefault(sessionId, "ended") != "ended" : hostSessions.ContainsKey(sessionId) && StatusOf(sessionId) != "ended";
+
+    static bool InWsl(string cwd) =>
+        cwd.StartsWith(@"\\wsl$\", StringComparison.OrdinalIgnoreCase) || cwd.StartsWith(@"\\wsl.localhost\", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>chatActions' view of a list entry (or a tile's session).</summary>
+    ChatMenuContext MenuContext(ListItemRef item, string key)
+    {
+        var record = item.Kind == ListItemKind.App && item.SessionId is { } id ? state.Sessions.GetValueOrDefault(id) : null;
+        var ended = record is null || (!Runs(record.Id) && record.Lifecycle == "ended");
+        var wsl = item.Kind == ListItemKind.Found && !string.IsNullOrEmpty(item.Distro) || record is not null && InWsl(record.Cwd);
+        return new ChatMenuContext(item.Kind, record, key, ShellActions.IsPinned(state, key), ended, wsl, ended);
+    }
+
+    List<MenuSpec> ListMenuOf(ChatRow chat) =>
+        ContextMenus.ListMenu(1, chat.Ref.Kind == ListItemKind.App, ContextMenus.ChatActions(MenuContext(chat.Ref, chat.Key)));
+
+    List<MenuSpec> TileMenuOf(string sessionId) =>
+        ContextMenus.TileMenu(ContextMenus.ChatActions(MenuContext(new ListItemRef(ListItemKind.App, sessionId), ChatKeyOf(sessionId))), false, []);
+
+    /// <summary>The actions the shell does so far; the others (groups: S7, provider/model/archive/delete: S11) show disabled.</summary>
+    bool Supported(string action) => action == "open" || (Writable && action is "rename" or "pin" or "hide");
+
+    ContextMenu BuildMenu(IEnumerable<MenuSpec> items, ChatRow? chat, string? sessionId) =>
+        ShellMenus.Build(items, Supported, action => Run(action, chat, sessionId));
+
+    void ShowMenu(List<MenuSpec> items, FrameworkElement target, ChatRow? chat, string? sessionId = null)
+    {
+        var menu = BuildMenu(items, chat, sessionId);
+        menu.PlacementTarget = target;
+        menu.Placement = PlacementMode.MousePoint;
+        menu.IsOpen = true;
+    }
+
+    void Run(string action, ChatRow? chat, string? sessionId)
+    {
+        sessionId ??= chat?.Ref.Kind == ListItemKind.App ? chat.Ref.SessionId : null;
+        var key = chat?.Key ?? (sessionId is null ? "" : ChatKeyOf(sessionId));
+        switch (action)
+        {
+            case "open" when chat is not null:
+                OpenChat(chat);
+                break;
+            case "rename" when sessionId is not null && state.Sessions.TryGetValue(sessionId, out var record):
+                var current = StateValues.SessionLabel(record.Name, record.ClaudeName, record.Cwd);
+                if (RenameDialog.Ask(this, current) is { } name && ShellActions.Rename(state, sessionId, name)) Saved();
+                break;
+            case "pin" when key != "":
+                if (ShellActions.TogglePin(state, key)) Saved();
+                break;
+            case "hide":
+                Hide(chat, sessionId, key);
+                break;
+        }
+    }
+
+    /// <summary>hideFromList: asks (Electron's native question box), then adds the thread to the hidden ones.</summary>
+    void Hide(ChatRow? chat, string? sessionId, string key)
+    {
+        var record = sessionId is null ? null : state.Sessions.GetValueOrDefault(sessionId);
+        bool Busy() => record is not null && (Runs(record.Id) || record.Lifecycle != "ended");
+        if (Busy())
+        {
+            MessageBox.Show(this, "End this chat in Reframe before hiding it.", "Reframe", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var claudeSessionId = record?.ClaudeSessionId ?? chat?.Ref.ClaudeSessionId ?? SidebarChats.ParseChatKey(key)?.Id;
+        if (claudeSessionId is null) return;
+        var label = chat?.Label ?? (record is null ? claudeSessionId : StateValues.SessionLabel(record.Name, record.ClaudeName, record.Cwd));
+        var cwd = record?.Cwd ?? chat?.Chat.Cwd ?? "";
+        var answer = MessageBox.Show(this,
+            $"Hide “{label}” from Reframe?\n\nReframe will not list it, offer to take it over or resume it, or notify about it. The session itself is not changed. To show it again, use Settings › Hidden threads › Restore.",
+            "Hide thread?", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.OK);
+        if (answer != MessageBoxResult.OK || Busy()) return;
+        var thread = new HiddenThread
+        {
+            ClaudeSessionId = claudeSessionId, Label = label, Cwd = cwd,
+            Distro = chat?.Ref.Distro is { Length: > 0 } distro ? distro : null,
+            HiddenAt = DateTimeOffset.Now.ToUnixTimeMilliseconds(),
+        };
+        if (ShellActions.Hide(state, thread)) Saved();
+    }
+
+    /// <summary>Writes the changed state (as reframe's save()) and lists again.</summary>
+    void Saved()
+    {
+        store?.Save(state, synthetic);
+        _ = RefreshAsync();
     }
 
     // ---------- diagnostics ----------
@@ -649,6 +784,7 @@ public partial class MainWindow : Window
                         }
                         fixture.Statuses["vs-checkout-fix"] = "idle";
                     }
+                    await SaveMenusAsync(dir);
                     sidebar.Scroll.ScrollToTop();
                     Diag.SetFocused(sidebar.Search, true);
                     sidebar.Search.Text = "check";
@@ -669,6 +805,34 @@ public partial class MainWindow : Window
             shellLock?.Dispose();
             shellLock = null;
         }
+    }
+
+    /// <summary>The context menus of e2e/visual-reference.spec.ts's menu states: their structure (menus.json, which the
+    /// report compares with Electron's) and each menu as the shell draws it, open beside its row.</summary>
+    async Task SaveMenusAsync(string dir)
+    {
+        var menus = new List<(string State, List<MenuSpec> Items, FrameworkElement? Target)>();
+        foreach (var (stateId, label) in new[]
+        {
+            ("menu-list-idle", "checkout-fix"), ("menu-list-ended", "release-notes"), ("menu-list-found", "Add dark mode to the account settings"),
+            ("menu-list-running", "ci-pipeline"), ("menu-list-pinned", "Pinned: plan the Q3 roadmap"),
+        })
+            if (sidebar.ChatOf(label) is { } chat) menus.Add((stateId, ListMenuOf(chat), sidebar.RowOf(label)));
+        if (state.Sessions.ContainsKey("vs-checkout-fix")) menus.Add(("menu-tile", TileMenuOf("vs-checkout-fix"), null));
+        foreach (var (stateId, items, target) in menus)
+        {
+            capturedMenus[stateId] = MenuSpec.ToJson(items);
+            var menu = BuildMenu(items, null, null);
+            menu.Placement = PlacementMode.Absolute;
+            menu.HorizontalOffset = 300;
+            menu.VerticalOffset = 100;
+            menu.IsOpen = true;
+            await DiagCapture.SettleAsync(Dispatcher, 300);
+            DiagCapture.SaveElement(menu, dir, stateId);
+            menu.IsOpen = false;
+        }
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "menus.json"), capturedMenus.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }) + "\n");
     }
 
     async Task SaveRowAsync(HwndSource popup, string dir, string stateId, string label)
