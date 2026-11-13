@@ -12,7 +12,7 @@
   <ItemGroup>
     <!-- Windows Terminal's WPF control built with reframe's patch (.github/workflows/terminal-wpf.yml); restored from
          packages-local, which wpf/Get-TerminalPackage.ps1 fills after checking the pinned SHA-256. -->
-    <PackageReference Include="Reframe.Terminal.Wpf" Version="[1.25.3131-reframe.1]" />
+    <PackageReference Include="Reframe.Terminal.Wpf" Version="[1.25.3131-reframe.2]" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Reframe.Shell.Core\Reframe.Shell.Core.csproj" />

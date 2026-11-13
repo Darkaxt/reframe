@@ -19,8 +19,8 @@ env:
   TERMINAL_TAG: v1.25.3131.0
   TERMINAL_COMMIT: f88b209f1e57e1d8ca35977260c3cddacccaeb31
   # Bump the reframe.N suffix (here, in Get-TerminalPackage.ps1 and in Reframe.Shell.csproj) with every patch change.
-  PACKAGE_VERSION: 1.25.3131-reframe.1
-  RELEASE_TAG: terminal-wpf-v1.25.3131.0-reframe.1
+  PACKAGE_VERSION: 1.25.3131-reframe.2
+  RELEASE_TAG: terminal-wpf-v1.25.3131.0-reframe.2
 
 jobs:
   build:

@@ -1,5 +1,5 @@
 diff --git a/src/cascadia/TerminalControl/HwndTerminal.cpp b/src/cascadia/TerminalControl/HwndTerminal.cpp
-index 2b32d77..458106f 100644
+index 2b32d77..8d01a19 100644
 --- a/src/cascadia/TerminalControl/HwndTerminal.cpp
 +++ b/src/cascadia/TerminalControl/HwndTerminal.cpp
 @@ -19,6 +19,9 @@ using namespace ::Microsoft::Terminal::Core;
@@ -29,7 +29,7 @@ index 2b32d77..458106f 100644
          publicTerminal->_UpdateFont(newDpi);
      }
  
-@@ -984,6 +988,112 @@ void _stdcall TerminalSetTheme(void* terminal, TerminalTheme theme, LPCWSTR font
+@@ -984,6 +988,115 @@ void _stdcall TerminalSetTheme(void* terminal, TerminalTheme theme, LPCWSTR font
      publicTerminal->Refresh(windowSize, &dimensions);
  }
  
@@ -69,8 +69,8 @@ index 2b32d77..458106f 100644
 +CATCH_LOG()
 +
 +// reframe: ControlCore::Search for the HWND terminal. Every match is highlighted, the current one in the focused
-+// highlight, and scrolled into view. Returns the number of matches; currentMatch is the current one's index or -1.
-+int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, _Out_ int* currentMatch)
++// highlight, scrolled into view when scrollIntoView is set. Returns the number of matches; currentMatch is the current one's index or -1.
++int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView, _Out_ int* currentMatch)
 +try
 +{
 +    *currentMatch = -1;
@@ -111,7 +111,10 @@ index 2b32d77..458106f 100644
 +    {
 +        return 0;
 +    }
-+    core.ScrollToSearchHighlight(0);
++    if (scrollIntoView)
++    {
++        core.ScrollToSearchHighlight(0);
++    }
 +    *currentMatch = gsl::narrow<int>(index);
 +    return gsl::narrow<int>(searcher.Results().size());
 +}
@@ -143,7 +146,7 @@ index 2b32d77..458106f 100644
  {
      const auto publicTerminal = static_cast<HwndTerminal*>(terminal);
 diff --git a/src/cascadia/TerminalControl/HwndTerminal.hpp b/src/cascadia/TerminalControl/HwndTerminal.hpp
-index 68ffc73..3c9c678 100644
+index 68ffc73..73fac6d 100644
 --- a/src/cascadia/TerminalControl/HwndTerminal.hpp
 +++ b/src/cascadia/TerminalControl/HwndTerminal.hpp
 @@ -4,6 +4,7 @@
@@ -162,7 +165,7 @@ index 68ffc73..3c9c678 100644
 +// (CSS lengths as Windows Terminal's font.cellWidth/cellHeight), and search with every match highlighted.
 +__declspec(dllexport) void _stdcall TerminalSetDefaultHistorySize(til::CoordType lines);
 +__declspec(dllexport) void _stdcall TerminalSetFont(void* terminal, LPCWSTR fontFamily, float fontSize, LPCWSTR cellWidth, LPCWSTR cellHeight, int newDpi);
-+__declspec(dllexport) int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, _Out_ int* currentMatch);
++__declspec(dllexport) int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView, _Out_ int* currentMatch);
 +__declspec(dllexport) void _stdcall TerminalClearSearch(void* terminal);
  };
  
@@ -182,13 +185,13 @@ index 68ffc73..3c9c678 100644
      friend void _stdcall TerminalSetTheme(void* terminal, TerminalTheme theme, LPCWSTR fontFamily, til::CoordType fontSize, int newDpi);
      friend void _stdcall TerminalSetFocused(void* terminal, bool focused);
 +    friend void _stdcall TerminalSetFont(void* terminal, LPCWSTR fontFamily, float fontSize, LPCWSTR cellWidth, LPCWSTR cellHeight, int newDpi);
-+    friend int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, _Out_ int* currentMatch);
++    friend int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView, _Out_ int* currentMatch);
 +    friend void _stdcall TerminalClearSearch(void* terminal);
  
      void _UpdateFont(int newDpi);
      void _WriteTextToConnection(const std::wstring_view text) noexcept;
 diff --git a/src/cascadia/WpfTerminalControl/NativeMethods.cs b/src/cascadia/WpfTerminalControl/NativeMethods.cs
-index d5839ac..af1a1c0 100644
+index d5839ac..6407f4b 100644
 --- a/src/cascadia/WpfTerminalControl/NativeMethods.cs
 +++ b/src/cascadia/WpfTerminalControl/NativeMethods.cs
 @@ -224,6 +224,18 @@ namespace Microsoft.Terminal.Wpf
@@ -202,7 +205,7 @@ index d5839ac..af1a1c0 100644
 +        public static extern void TerminalSetFont(IntPtr terminal, string fontFamily, float fontSize, string cellWidth, string cellHeight, int newDpi);
 +
 +        [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
-+        public static extern int TerminalSearch(IntPtr terminal, string text, [MarshalAs(UnmanagedType.U1)] bool goForward, [MarshalAs(UnmanagedType.U1)] bool caseSensitive, [MarshalAs(UnmanagedType.U1)] bool executeSearch, out int currentMatch);
++        public static extern int TerminalSearch(IntPtr terminal, string text, [MarshalAs(UnmanagedType.U1)] bool goForward, [MarshalAs(UnmanagedType.U1)] bool caseSensitive, [MarshalAs(UnmanagedType.U1)] bool executeSearch, [MarshalAs(UnmanagedType.U1)] bool scrollIntoView, out int currentMatch);
 +
 +        [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
 +        public static extern void TerminalClearSearch(IntPtr terminal);
@@ -211,10 +214,10 @@ index d5839ac..af1a1c0 100644
          public static extern IntPtr SetFocus(IntPtr hWnd);
  
 diff --git a/src/cascadia/WpfTerminalControl/TerminalContainer.cs b/src/cascadia/WpfTerminalControl/TerminalContainer.cs
-index 13a458d..6a2b623 100644
+index 13a458d..0b0b97d 100644
 --- a/src/cascadia/WpfTerminalControl/TerminalContainer.cs
 +++ b/src/cascadia/WpfTerminalControl/TerminalContainer.cs
-@@ -149,6 +149,48 @@ namespace Microsoft.Terminal.Wpf
+@@ -149,6 +149,49 @@ namespace Microsoft.Terminal.Wpf
              }
          }
  
@@ -245,10 +248,11 @@ index 13a458d..6a2b623 100644
 +        /// <param name="goForward">Whether to search towards the end of the buffer.</param>
 +        /// <param name="caseSensitive">Whether the search is case sensitive.</param>
 +        /// <param name="executeSearch">Whether to move to the next match (false keeps the current one).</param>
++        /// <param name="scrollIntoView">Whether to scroll the current match into view.</param>
 +        /// <returns>The current match's index (-1 without matches) and the number of matches.</returns>
-+        internal (int current, int total) Search(string text, bool goForward, bool caseSensitive, bool executeSearch)
++        internal (int current, int total) Search(string text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView = true)
 +        {
-+            var total = NativeMethods.TerminalSearch(this.terminal, text ?? string.Empty, goForward, caseSensitive, executeSearch, out var current);
++            var total = NativeMethods.TerminalSearch(this.terminal, text ?? string.Empty, goForward, caseSensitive, executeSearch, scrollIntoView, out var current);
 +            return (current, total);
 +        }
 +
@@ -264,10 +268,10 @@ index 13a458d..6a2b623 100644
          /// Gets the selected text from the terminal renderer and clears the selection.
          /// </summary>
 diff --git a/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs b/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
-index 611cde5..a490ae7 100644
+index 611cde5..d1ad07b 100644
 --- a/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
 +++ b/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
-@@ -102,6 +102,53 @@ namespace Microsoft.Terminal.Wpf
+@@ -102,6 +102,54 @@ namespace Microsoft.Terminal.Wpf
              }
          }
  
@@ -304,10 +308,11 @@ index 611cde5..a490ae7 100644
 +        /// <param name="goForward">Whether to search towards the end of the buffer.</param>
 +        /// <param name="caseSensitive">Whether the search is case sensitive.</param>
 +        /// <param name="executeSearch">Whether to move to the next match (false keeps the current one).</param>
++        /// <param name="scrollIntoView">Whether to scroll the current match into view.</param>
 +        /// <returns>The current match's index (-1 without matches) and the number of matches.</returns>
-+        public (int current, int total) Search(string text, bool goForward, bool caseSensitive, bool executeSearch)
++        public (int current, int total) Search(string text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView = true)
 +        {
-+            return this.termContainer.Search(text, goForward, caseSensitive, executeSearch);
++            return this.termContainer.Search(text, goForward, caseSensitive, executeSearch, scrollIntoView);
 +        }
 +
 +        /// <summary>
