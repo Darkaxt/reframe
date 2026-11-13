@@ -20,6 +20,9 @@ sealed partial class ShellController
     int instances;
 
     /// <summary>Why the session's last start failed (tile.error.*), or null.</summary>
+    /// <summary>A fixture capture's window, which is not one of the profile's windows.</summary>
+    internal MainWindow? CaptureWindow { get; set; }
+
     public string? ErrorOf(string sessionId) => startErrors.GetValueOrDefault(sessionId);
 
     /// <summary>A capture's error tile: the error a start would end in.</summary>
@@ -74,6 +77,7 @@ sealed partial class ShellController
     void SessionChanged(string sessionId)
     {
         foreach (var window in windows.Values) window.SessionChanged(sessionId);
+        CaptureWindow?.SessionChanged(sessionId);
         ListChanged();
         RefreshTray();
     }

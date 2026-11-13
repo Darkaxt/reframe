@@ -530,6 +530,7 @@ public partial class MainWindow : Window
             {
                 fixture = VisualFixture.Load(fixtureFile, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), DateTimeOffset.Now.ToUnixTimeMilliseconds());
                 state = fixture.State;
+                shell.CaptureWindow = this;
             }
             if (name is not ("empty" or "overview")) await shell.AttachAsync();
             await RefreshAsync();
