@@ -173,6 +173,10 @@ public sealed class HostConnection : IAsyncDisposable
 
     public bool IsOpen => Volatile.Read(ref closed) == 0;
 
+    /// <summary>Whether the host can start sessions for the shell: it plans them (<c>launch</c> version 2,
+    /// launch.spawnPlan, since 0.11.0-claudegpt.31).</summary>
+    public bool CanStartSessions => Welcome.Services.GetValueOrDefault("launch") >= 2;
+
     /// <summary>A read-only observer: its views send no input or resizes (the host would ignore them).</summary>
     public bool IsObserver => Welcome.Observer;
 
@@ -199,10 +203,6 @@ public sealed class HostConnection : IAsyncDisposable
     /// is ignored by the host, so none is sent.</summary>
     public Task DisposeSessionAsync(string sessionId, int instance) => IsObserver ? Task.CompletedTask :
         SendAsync(new JsonObject { ["type"] = "dispose", ["sessionId"] = sessionId, ["instance"] = instance });
-
-    /// <summary>Ends every session and the host (protocol <c>shutdown</c>); never as an observer. The connection closes
-    /// once the host is gone.</summary>
-    public Task ShutdownAsync() => IsObserver ? Task.CompletedTask : SendAsync(new JsonObject { ["type"] = "shutdown" });
 
     /// <summary>Sends <c>spawn</c> (a session started from a <c>launch.spawnPlan</c> answer); never as an observer.</summary>
     public Task SpawnAsync(JsonObject spawn) => IsObserver ? Task.CompletedTask : SendAsync(spawn);

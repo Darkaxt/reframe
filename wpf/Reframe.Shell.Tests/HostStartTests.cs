@@ -49,13 +49,52 @@ public class HostStartTests
     [Fact]
     public async Task Attaches_to_a_running_host_of_an_older_release_instead_of_starting_one()
     {
-        await using var host = new FakeHost();
+        await using var host = new FakeHost(launch: true);
         var result = await ShellAttach.AttachAsync(host.ProfileDir, takeOver: false,
             start: (_, _, _) => throw new InvalidOperationException("started a second host"));
         Assert.Equal(AttachOutcome.Attached, result.Outcome);
         Assert.StartsWith("attached to", result.Message);
         await result.Connection!.DisposeAsync();
         result.Lock!.Dispose();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_host_that_cannot_start_sessions_keeps_its_own_beside_a_started_one(bool running)
+    {
+        // A host from before launch.spawnPlan (an earlier release's, kept running across the update).
+        await using var old = new FakeHost(session: running);
+        FakeHost? started = null;
+        try
+        {
+            var result = await ShellAttach.AttachAsync(old.ProfileDir, takeOver: false, isAlive: _ => true, start: (_, _, _) =>
+            {
+                started = new FakeHost(profileDir: old.ProfileDir, launch: true, session: false, pid: 1);
+                return Task.FromResult(started.Descriptor);
+            });
+            Assert.True(result.Outcome == AttachOutcome.Attached, result.Message);
+            Assert.StartsWith("started and attached", result.Message);
+            Assert.True(result.Connection!.CanStartSessions);
+            Assert.Empty(result.Connection.Welcome.Sessions);
+            if (running)
+            {
+                // Its sessions stay where they run: attached, never ended.
+                var older = Assert.Single(result.Older!);
+                Assert.True(older.IsOpen);
+                Assert.Equal("s1", Assert.Single(older.Welcome.Sessions).SessionId);
+                Assert.Contains("keeps its 1 sessions", result.Message);
+                await older.DisposeAsync();
+            }
+            else Assert.Empty(result.Older!);
+            Assert.DoesNotContain(old.Requests, r => (string?)r["type"] is "shutdown" or "dispose");
+            await result.Connection.DisposeAsync();
+            result.Lock!.Dispose();
+        }
+        finally
+        {
+            if (started is not null) await started.DisposeAsync();
+        }
     }
 
     [Fact]

@@ -43,7 +43,7 @@ sealed partial class ShellController
 
     void FollowSpawns(HostConnection connection)
     {
-        instances = connection.Welcome.Sessions.Select(s => s.Instance).DefaultIfEmpty(0).Max();
+        instances = connection.Welcome.Sessions.Select(s => s.Instance).Append(instances).Max();
         connection.HostEvent += message => Ui.InvokeAsync(() => HostEventReceived(message));
     }
 
@@ -69,6 +69,7 @@ sealed partial class ShellController
         }
         // The tile shows the card over the ended session (its terminal stays readable until then).
         HostSessions.Remove(id);
+        LeaveOlderHost(id);
         HostStatus.Remove(id);
         SessionChanged(id);
     }
@@ -100,7 +101,6 @@ sealed partial class ShellController
         catch (Exception e) when (e is HostServiceException or FormatException or IOException)
         {
             SetStatus(Status + $" (new session: {e.Message})");
-            if (e is HostServiceException { Code: HostTooOld }) return (HostTooOld, null);
             return ("claudeNotFound", wsl?.Distro);
         }
         if (!plan.Ok) return (plan.Error == "folderMissing" ? "folderMissing" : "claudeNotFound", plan.Error == "claudeNotFound" ? wsl?.Distro : null);
@@ -209,7 +209,7 @@ sealed partial class ShellController
         catch (Exception e) when (e is HostServiceException or FormatException or IOException or UnauthorizedAccessException)
         {
             Log($"session could not start: {sessionId} {e.Message}");
-            startErrors[sessionId] = e is HostServiceException { Code: HostTooOld } ? HostTooOld : "spawnFailed";
+            startErrors[sessionId] = "spawnFailed";
             SessionChanged(sessionId);
         }
         finally
@@ -359,9 +359,6 @@ sealed partial class ShellController
     {
         if (Connection is not { IsOpen: true } connection || Services is not { } services || connection.Welcome.Hooks is not { } hooks)
             throw new HostServiceException("unavailable", "no pty host attached");
-        // launch.spawnPlan is launch version 2: a host from before it (one Electron started and the sessions kept
-        // running across the update) cannot plan a start; its restart (RestartHostAsync) brings the current one.
-        if (services.VersionOf("launch") < 2) throw new HostServiceException(HostTooOld, $"the terminal host {connection.Welcome.Version} has no launch.spawnPlan");
         var env = new Dictionary<string, string>();
         foreach (System.Collections.DictionaryEntry e in Environment.GetEnvironmentVariables())
             if (e.Key is string key && e.Value is string value) env[key] = value;
@@ -414,6 +411,7 @@ sealed partial class ShellController
         }
         var instance = ++instances;
         startErrors.Remove(record.Id);
+        LeaveOlderHost(record.Id);
         HostSessions[record.Id] = new HostSession(record.Id, instance, 0, null, (string?)plan.Meta["claudeHome"], record.ClaudeSessionId);
         HostStatus.Remove(record.Id);
         Synthetic.Remove(record.Id);

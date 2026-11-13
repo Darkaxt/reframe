@@ -157,6 +157,7 @@ sealed partial class ShellController
         SetStatus($"Profile {App.ProfileDir}: attaching...");
         var result = await ShellAttach.AttachAsync(App.ProfileDir, App.TakeOver, start: App.Starter);
         SetStatus($"Profile {App.ProfileDir}: {result.Message}");
+        System.Diagnostics.Trace.WriteLine($"terminal host: {result.Message}");
         if (result.Connection is null) return;
         var connection = Connection = result.Connection;
         shellLock = result.Lock;
@@ -164,22 +165,13 @@ sealed partial class ShellController
             SetStatus(replaced ? "Another client took the profile over: detached." : "The pty host connection closed."));
         if (connection.IsObserver) SetStatus(Status + " Terminals are read-only (start with --take-over to type in them).");
         var services = Services = new HostServices(connection);
-        FollowSpawns(connection);
-        services.StatusChanged += changed => Ui.InvokeAsync(() =>
+        await FollowHostAsync(connection, services);
+        foreach (var older in result.Older ?? [])
         {
-            HostStatus[changed.SessionId] = changed;
-            foreach (var window in windows.Values) window.HostStatusChanged(changed.SessionId);
-            if (changed.Notify is "done" or "waiting") Notify(changed.SessionId, changed.Notify);
-            RefreshTray();
-        });
-        foreach (var session in connection.Welcome.Sessions) HostSessions[session.SessionId] = session;
-        try
-        {
-            foreach (var listed in await services.ListSessionsAsync()) HostStatus[listed.SessionId] = listed;
-        }
-        catch (HostServiceException e)
-        {
-            SetStatus(Status + $" (sessions: {e.Message})");
+            System.Diagnostics.Trace.WriteLine($"pty host {older.Welcome.Kind} {older.Welcome.Version} (pid {older.Welcome.Pid}) keeps its {older.Welcome.Sessions.Count} sessions");
+            foreach (var session in older.Welcome.Sessions) olderHosts[session.SessionId] = older;
+            older.Closed += _ => Ui.InvokeAsync(() => OlderHostClosed(older));
+            await FollowHostAsync(older, new HostServices(older));
         }
         if (Fixture is not null) return;
         try
@@ -216,6 +208,28 @@ sealed partial class ShellController
         }
     }
 
+    /// <summary>A host's sessions, their statuses and events (the current host's, and an older host's).</summary>
+    async Task FollowHostAsync(HostConnection connection, HostServices services)
+    {
+        FollowSpawns(connection);
+        services.StatusChanged += changed => Ui.InvokeAsync(() =>
+        {
+            HostStatus[changed.SessionId] = changed;
+            foreach (var window in windows.Values) window.HostStatusChanged(changed.SessionId);
+            if (changed.Notify is "done" or "waiting") Notify(changed.SessionId, changed.Notify);
+            RefreshTray();
+        });
+        foreach (var session in connection.Welcome.Sessions) HostSessions[session.SessionId] = session;
+        try
+        {
+            foreach (var listed in await services.ListSessionsAsync()) HostStatus[listed.SessionId] = listed;
+        }
+        catch (HostServiceException e)
+        {
+            SetStatus(Status + $" (sessions: {e.Message})");
+        }
+    }
+
     /// <summary>overview.configure as the primary client (an observer only reads what the primary configured): the
     /// cache in the profile, Claude Code's home (the one folder reframe reads for every provider).</summary>
     async Task ConfigureOverviewAsync(HostServices services, HostConnection connection)
@@ -244,7 +258,7 @@ sealed partial class ShellController
         if (ended.Count > 0) Save();
         foreach (var id in resume)
         {
-            if (HostSessions.Remove(id, out var gone) && Connection is { IsOpen: true } connection) _ = connection.DisposeSessionAsync(id, gone.Instance);
+            if (HostSessions.Remove(id, out var gone)) EndInHost(id, gone);
             HostStatus.Remove(id);
             Log($"session resumed at start: {id}");
             _ = StartOrTakeOverAsync(id, "resume", null);
@@ -424,8 +438,7 @@ sealed partial class ShellController
     public void EndSession(string windowId, string sessionId, bool closeIfEmpty = true)
     {
         if (!Writable || !State.Sessions.TryGetValue(sessionId, out var record)) return;
-        if (HostSessions.Remove(sessionId, out var hosted) && Connection is { IsOpen: true } connection)
-            _ = connection.DisposeSessionAsync(sessionId, hosted.Instance);
+        if (HostSessions.Remove(sessionId, out var hosted)) EndInHost(sessionId, hosted);
         HostStatus.Remove(sessionId);
         record.Lifecycle = "ended";
         startErrors.Remove(sessionId);
@@ -479,6 +492,7 @@ sealed partial class ShellController
                 // The host ends its keepers when it ends.
             }
         }
+        await LetGoOfOlderHostsAsync();
         if (Connection is not null) await Connection.DisposeAsync();
         shellLock?.Dispose();
         Application.Current.Shutdown();
@@ -487,6 +501,7 @@ sealed partial class ShellController
     /// <summary>Lets the host go (diagnostics), its sessions running.</summary>
     public async Task DetachAsync()
     {
+        await LetGoOfOlderHostsAsync();
         if (Connection is not null) await Connection.DisposeAsync();
         Connection = null;
         shellLock?.Dispose();

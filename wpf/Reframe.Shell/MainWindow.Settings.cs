@@ -132,6 +132,7 @@ public partial class MainWindow
         try
         {
             var (coordinator, usage) = await services.QuotaCodexAsync(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+            if (usage is null) System.Diagnostics.Trace.WriteLine($"quota: no usage read (Coordinator installed: {coordinator})");
             if (!coordinator)
             {
                 // No Coordinator: nothing to watch (as app.ts, which watches only an installed one).
@@ -142,6 +143,7 @@ public partial class MainWindow
         }
         catch (HostServiceException e)
         {
+            System.Diagnostics.Trace.WriteLine($"quota: {e.Code} {e.Message}");
             SetStatus(status + $" (quota: {e.Message})");
         }
         ShowQuota();
