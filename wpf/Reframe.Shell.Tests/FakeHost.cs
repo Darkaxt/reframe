@@ -28,6 +28,8 @@ sealed class FakeHost : IAsyncDisposable
     /// <summary>Every hello, in order.</summary>
     public ConcurrentQueue<JsonObject> Hellos { get; } = new();
     readonly bool observers;
+    readonly bool launch;
+    readonly bool session;
     /// <summary>What <c>state.read</c> serves, by file name (the text, or none there).</summary>
     public ConcurrentDictionary<string, string> StateFiles { get; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -35,22 +37,27 @@ sealed class FakeHost : IAsyncDisposable
 
     /// <param name="profileDir">A profile whose token is there already (a host the shell starts); by default a new
     /// one with <see cref="Token"/>.</param>
-    public FakeHost(bool observers = false, string? profileDir = null)
+    /// <param name="launch">It plans starts (launch.spawnPlan, launch version 2), as a current host does.</param>
+    /// <param name="session">It runs the session s1.</param>
+    /// <param name="pid">The pid its descriptor gives (a second host in the profile needs its own).</param>
+    public FakeHost(bool observers = false, string? profileDir = null, bool launch = false, bool session = true, int? pid = null)
     {
         this.observers = observers;
+        this.launch = launch;
+        this.session = session;
         ProfileDir = profileDir ?? Path.Combine(Path.GetTempPath(), "reframe-shell-tests", Guid.NewGuid().ToString("N"));
         var hostDir = Path.Combine(ProfileDir, "ptyhost");
         Directory.CreateDirectory(Path.Combine(hostDir, "hosts"));
         if (profileDir is null) File.WriteAllText(Path.Combine(hostDir, "token"), Token);
         token = File.ReadAllText(Path.Combine(hostDir, "token")).Trim();
-        var pid = Environment.ProcessId;
-        File.WriteAllText(Path.Combine(hostDir, "hosts", $"{pid}.json"), new JsonObject
+        var descriptorPid = pid ?? Environment.ProcessId;
+        File.WriteAllText(Path.Combine(hostDir, "hosts", $"{descriptorPid}.json"), new JsonObject
         {
-            ["pid"] = pid, ["pipe"] = $@"\\.\pipe\{PipeName}", ["protocol"] = 1, ["version"] = "test",
+            ["pid"] = descriptorPid, ["pipe"] = $@"\\.\pipe\{PipeName}", ["protocol"] = 1, ["version"] = "test",
             ["startedAt"] = 0, ["sessionPids"] = new JsonArray(), ["kind"] = "rust",
             ["observer"] = observers ? 1 : null,
         }.ToJsonString());
-        Descriptor = new HostDescriptor(pid, $@"\\.\pipe\{PipeName}", 1, "test", "rust", observers ? 1 : 0);
+        Descriptor = new HostDescriptor(descriptorPid, $@"\\.\pipe\{PipeName}", 1, "test", "rust", observers ? 1 : 0);
         serving = Task.Run(ServeAsync);
     }
 
@@ -96,16 +103,17 @@ sealed class FakeHost : IAsyncDisposable
                     }
                     var services = new JsonObject { ["transcripts"] = 1, ["sessions"] = 1, ["state"] = 1 };
                     if (observers) services["observer"] = 1;
+                    if (launch) services["launch"] = 2;
                     await SendAsync(pipe, new JsonObject
                     {
                         ["type"] = "welcome", ["protocol"] = 1, ["version"] = "test", ["pid"] = Environment.ProcessId,
                         ["hooks"] = new JsonObject { ["port"] = 1, ["token"] = "h" }, ["kind"] = "rust",
-                        ["sessions"] = new JsonArray(new JsonObject
+                        ["sessions"] = session ? new JsonArray(new JsonObject
                         {
                             ["sessionId"] = "s1", ["instance"] = 3, ["pid"] = 42, ["exitCode"] = null,
                             // Started directly (no meta.launched): the host tells Claude Code's id itself.
                             ["meta"] = new JsonObject { ["claudeHome"] = @"C:\claude" }, ["claudeSessionId"] = "c1",
-                        }),
+                        }) : new JsonArray(),
                         ["services"] = services,
                         ["role"] = observer ? "observer" : "primary", ["primary"] = true,
                     });

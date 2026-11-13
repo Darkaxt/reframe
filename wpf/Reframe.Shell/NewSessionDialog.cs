@@ -336,8 +336,7 @@ sealed class NewSessionDialog
             error.Visibility = Visibility.Collapsed;
             return;
         }
-        var text = distro is not null ? Strings.T("error.claudeNotFoundInWsl", ("distro", distro))
-            : code == "hostTooOld" ? Strings.T("host.tooOld.dialog") : T($"dialog.error.{code}");
+        var text = distro is not null ? Strings.T("error.claudeNotFoundInWsl", ("distro", distro)) : T($"dialog.error.{code}");
         if (code == "claudeNotFound" && distro is null) text += " " + T("error.claudeOnlyInWsl");
         error.Text = text;
         error.Visibility = Visibility.Visible;

@@ -271,10 +271,10 @@ public partial class MainWindow
             noticeTimer.Stop();
             noticeTimer.Start();
         }
-        if (connection is { IsOpen: true } && hostSessions.ContainsKey(sessionId) && shell.ErrorOf(sessionId) is null)
+        if (shell.ConnectionOf(sessionId) is { IsOpen: true } host && hostSessions.ContainsKey(sessionId) && shell.ErrorOf(sessionId) is null)
         {
             control = new TerminalControl { AutoResize = true };
-            terminal = new HostTerminalConnection(connection.CreateView(sessionId), control);
+            terminal = new HostTerminalConnection(host.CreateView(sessionId), control);
             behaviour = new TerminalBehaviour(control, terminal, fontSize.Size, () => WslOf(sessionId), ShowNotice);
             var connected = false;
             var c = control;
@@ -426,13 +426,7 @@ public partial class MainWindow
             buttons.Children.Add(button);
             return button;
         }
-        var tooOld = shell.ErrorOf(sessionId) == ShellController.HostTooOld;
-        if (card.Primary is { } primary) Add(primary, S("PrimaryButton"), () =>
-        {
-            if (!Writable) return;
-            if (tooOld) _ = shell.RestartHostAsync(this);
-            else shell.RestartSession(WindowId, sessionId, false);
-        });
+        if (card.Primary is { } primary) Add(primary, S("PrimaryButton"), () => { if (Writable) shell.RestartSession(WindowId, sessionId, false); });
         if (card.StartFresh) Add(Strings.T("tile.startFresh"), S("ButtonBaseStyle"), () => { if (Writable) shell.RestartSession(WindowId, sessionId, true); });
         Add(card.Close, S("ButtonBaseStyle"), () => CloseTile(sessionId));
         var panel = new StackPanel();

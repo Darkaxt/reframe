@@ -329,3 +329,8 @@ a new host (at most 3 times in a minute).
 whose `kind` is the one it is configured for, and takes its sessions over. A running host of the other kind (or of
 another protocol) is left alone: it keeps serving its sessions, which stay out of this reframe, and exits when its
 last session ended. New sessions go to the configured host, started if none runs.
+
+The native shell (`wpf/`, `ShellAttach`) attaches to every running host of the profile's protocol. One that plans
+starts (`launch` version 2) is its host, as above; one that does not (a host from before 0.11.0-claudegpt.31, kept
+running across the update) is attached only for the sessions it runs, beside a Rust host started for new and resumed
+sessions, and is let go (closing the connection) once it runs none of the open sessions, so that it exits by itself.
