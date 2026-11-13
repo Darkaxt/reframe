@@ -1088,6 +1088,9 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         sessions: 2,
         state: 1,
         observer: 1,
+        cleanup: 1,
+        wsl: 1,
+        history: 1,
         // The Overview's activity index is the Rust host's only (the WPF shell's feature).
         ...(kind === 'rust' ? { overview: 1 } : {}),
       });
