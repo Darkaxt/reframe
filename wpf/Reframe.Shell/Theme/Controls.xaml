@@ -324,62 +324,6 @@
       </Setter.Value>
     </Setter>
   </Style>
-  <!-- Open sessions: the shown one as a tile (.layout > .tile) and the others in the dock strip (.dock, .dock-item), as
-       Electron's single-window view shows them. The shown tab keeps no space in the strip but stays a named TabItem. -->
-  <Style x:Key="DockTabs" TargetType="TabControl">
-    <Setter Property="Focusable" Value="False" />
-    <Setter Property="Template">
-      <Setter.Value>
-        <ControlTemplate TargetType="TabControl">
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Border x:Name="Dock" Width="{StaticResource Dock.Width}" Background="{StaticResource surfaceBrush}"
-                    BorderBrush="{StaticResource borderBrush}" BorderThickness="0,0,1,0" Padding="4,6"
-                    Visibility="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, FallbackValue=Collapsed, TargetNullValue=Collapsed}">
-              <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
-            </Border>
-            <Border Grid.Column="1" Padding="6">
-              <Grid x:Name="Tiles" />
-            </Border>
-          </Grid>
-        </ControlTemplate>
-      </Setter.Value>
-    </Setter>
-    <Setter Property="ItemContainerStyle">
-      <Setter.Value>
-        <Style TargetType="TabItem">
-          <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-          <Setter Property="Foreground" Value="{StaticResource textBrush}" />
-          <Setter Property="Cursor" Value="Hand" />
-          <Setter Property="Template">
-            <Setter.Value>
-              <ControlTemplate TargetType="TabItem">
-                <Border x:Name="Item" Margin="0,0,0,4" Padding="0,8" BorderThickness="1" BorderBrush="{StaticResource borderBrush}"
-                        CornerRadius="{StaticResource radiusCorner}" Background="{StaticResource surface-2Brush}">
-                  <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" />
-                </Border>
-                <ControlTemplate.Triggers>
-                  <Trigger Property="IsMouseOver" Value="True">
-                    <Setter TargetName="Item" Property="BorderBrush" Value="{StaticResource border-strongBrush}" />
-                  </Trigger>
-                  <Trigger Property="IsKeyboardFocused" Value="True">
-                    <Setter TargetName="Item" Property="BorderBrush" Value="{StaticResource accentBrush}" />
-                  </Trigger>
-                  <Trigger Property="IsSelected" Value="True">
-                    <Setter TargetName="Item" Property="Visibility" Value="Hidden" />
-                    <Setter Property="Height" Value="0" />
-                  </Trigger>
-                </ControlTemplate.Triggers>
-              </ControlTemplate>
-            </Setter.Value>
-          </Setter>
-        </Style>
-      </Setter.Value>
-    </Setter>
-  </Style>
   <!-- Context menus. Electron's (src/main/menus.ts) are native Win32 menus, which Windows 11 draws dark for a dark app:
        #2b2b2b with a 1 px #3d3d3d border and 8 px corners, 4 px inside; items 28 px with 4 px rounded #3d3d3d
        hover, white 12 px Segoe UI text from 32 px (the check column), disabled #7a7a7a; separators 1 px #3d3d3d with

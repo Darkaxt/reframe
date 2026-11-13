@@ -64,6 +64,19 @@ public sealed class StateStore(string file, Func<IStateFiles?> host, Action<stri
     /// sessions in <paramref name="exclude"/> (ones the shell lists but reframe's state does not have).</summary>
     public static string Serialize(AppState state, IReadOnlySet<string>? exclude = null)
     {
+        if (exclude is { Count: > 0 } && state.Windows.Any(w => exclude.Any(id => LayoutActions.WindowHasSession(w, id))))
+        {
+            // Their tiles go too: a window of reframe's never shows a session its state does not have.
+            var copy = new AppState
+            {
+                Version = state.Version, Sessions = state.Sessions, RecentFolders = state.RecentFolders, Preferences = state.Preferences,
+                PinnedChats = state.PinnedChats, ExpandedProjects = state.ExpandedProjects, FolderWorkspaces = state.FolderWorkspaces,
+                Archives = state.Archives, WslDistros = state.WslDistros, HiddenThreads = state.HiddenThreads,
+                Windows = [.. state.Windows.Select(w => exclude.Aggregate(w, LayoutActions.DropSession))],
+            };
+            foreach (var (key, value) in state.Extra) copy.Extra[key] = value;
+            state = copy;
+        }
         var json = StateJson.Write(state);
         if (exclude is { Count: > 0 } && json["sessions"] is JsonObject sessions)
             foreach (var id in exclude) sessions.Remove(id);

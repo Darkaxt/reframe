@@ -210,7 +210,7 @@ public class SidebarTests
         Assert.Equal(new ProjectActivity(2, "waiting"), projects["webshop"].Activity);
         Assert.Null(projects["docs-site"].Activity);
         // ci-pipeline has no time (no transcript, no start time in the registry entry), so it comes last.
-        Assert.Equal(["rate-limiter", "db-migration", "old-checkout", "checkout-fix", "release-notes", "Add dark mode to the account settings",
+        Assert.Equal(["db-migration", "rate-limiter", "old-checkout", "checkout-fix", "release-notes", "Add dark mode to the account settings",
             "Pinned: plan the Q3 roadmap", "Bump dependencies and fix the deprecation warnings", "ci-pipeline"], view.Recents.Select(r => r.Label));
         var rows = view.Recents.ToDictionary(r => r.Label);
         Assert.Equal("api-gateway · window 1", rows["rate-limiter"].Meta);

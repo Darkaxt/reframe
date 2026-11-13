@@ -15,8 +15,9 @@ public sealed class VisualFixture
     public required Dictionary<string, string> Statuses { get; init; }
     public required List<RunningClaude> Running { get; init; }
     public required MemoryTranscriptSource Transcripts { get; init; }
-    /// <summary>Sessions opened as tabs, in order, and the one shown.</summary>
-    public required List<string> Tabs { get; init; }
+    /// <summary>The sessions the capture host runs (their tiles show terminals; the others the ended card), and the
+    /// thread a single window shows.</summary>
+    public required List<string> Hosted { get; init; }
     public string? Selected { get; init; }
     public required double Now { get; init; }
 
@@ -62,7 +63,10 @@ public sealed class VisualFixture
         window.SidebarOpen = true;
         window.ViewMode = (string?)root["viewMode"];
         window.Dock = dock;
-        window.Layout = tiles.Count switch
+        // The window as state.json has it (Electron's capture builds the same layout), else the open sessions in a row.
+        static System.Text.Json.JsonElement Element(JsonNode n) => System.Text.Json.JsonDocument.Parse(n.ToJsonString()).RootElement;
+        if (root["dock"] is JsonArray dockJson) window.Dock = [.. dockJson.Select(d => StateParser.DockOf(Element(d!)))];
+        window.Layout = root["layout"] is JsonNode layoutJson ? StateParser.LayoutOf(Element(layoutJson)) : tiles.Count switch
         {
             0 => null,
             1 => tiles[0],
@@ -89,7 +93,7 @@ public sealed class VisualFixture
             Statuses = statuses,
             Running = running,
             Transcripts = new MemoryTranscriptSource(transcripts),
-            Tabs = (root["tabs"]?.AsArray() ?? []).Select(t => (string)t!).ToList(),
+            Hosted = (root["hosted"]?.AsArray() ?? []).Select(t => (string)t!).ToList(),
             Selected = (string?)root["selected"],
             Now = now,
         };

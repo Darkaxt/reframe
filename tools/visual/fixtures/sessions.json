@@ -1,5 +1,5 @@
 {
-  "comment": "e2e/visual-reference.spec.ts 'main window with sessions': the same sessions, statuses (demo-claude's scenes), past chats, pinned chat and claude found running in another terminal. usedSecondsAgo orders the sessions used 'now' as Electron's capture lists them.",
+  "comment": "e2e/visual-reference.spec.ts 'main window with sessions': the same sessions, statuses (demo-claude's scenes), past chats, pinned chat and claude found running in another terminal, in the same 2x2 layout. usedSecondsAgo orders the sessions used 'now' as Electron's capture lists them (db-migration's question bumps its lastActiveAt, so it comes before rate-limiter). hosted: the sessions the capture host runs (release-notes has ended: its tile shows the ended card).",
   "sessions": [
     {
       "id": "vs-checkout-fix",
@@ -23,7 +23,7 @@
       "name": "db-migration",
       "project": "webshop",
       "status": "waiting",
-      "usedSecondsAgo": 20
+      "usedSecondsAgo": 5
     },
     {
       "id": "vs-release-notes",
@@ -66,8 +66,53 @@
     }
   ],
   "running": [
-    { "pid": 4242, "id": "3e2f8b2a-6e3c-4c73-9c73-2e8c3f2a2c01", "name": "ci-pipeline", "project": "webshop" }
+    {
+      "pid": 4242,
+      "id": "3e2f8b2a-6e3c-4c73-9c73-2e8c3f2a2c01",
+      "name": "ci-pipeline",
+      "project": "webshop"
+    }
   ],
-  "tabs": ["vs-checkout-fix"],
-  "selected": "vs-checkout-fix"
+  "selected": "vs-checkout-fix",
+  "layout": {
+    "kind": "split",
+    "id": "visual-grid",
+    "dir": "row",
+    "children": [
+      {
+        "kind": "split",
+        "id": "visual-left",
+        "dir": "col",
+        "children": [
+          {
+            "kind": "tile",
+            "sessionId": "vs-checkout-fix"
+          },
+          {
+            "kind": "tile",
+            "sessionId": "vs-rate-limiter"
+          }
+        ],
+        "sizes": [50.0, 50.0]
+      },
+      {
+        "kind": "split",
+        "id": "visual-right",
+        "dir": "col",
+        "children": [
+          {
+            "kind": "tile",
+            "sessionId": "vs-db-migration"
+          },
+          {
+            "kind": "tile",
+            "sessionId": "vs-release-notes"
+          }
+        ],
+        "sizes": [50.0, 50.0]
+      }
+    ],
+    "sizes": [50.0, 50.0]
+  },
+  "hosted": ["vs-checkout-fix", "vs-rate-limiter", "vs-db-migration"]
 }

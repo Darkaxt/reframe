@@ -14,20 +14,9 @@ using Reframe.Shell.Core;
 
 namespace Reframe.Shell;
 
-/// <summary>An open session: its tab (a dock item while another is shown) and its tile.</summary>
-sealed class OpenSession
-{
-    public required string SessionId { get; init; }
-    public required TabItem Tab { get; init; }
-    public required StatusDot TileDot { get; init; }
-    public required StatusDot DockDot { get; init; }
-    public required HostTerminalConnection Terminal { get; init; }
-    public required FrameworkElement Tile { get; init; }
-}
-
 /// <summary>
 /// The main window as App.tsx lays it out: the toolbar (also the title bar), the session sidebar, the dock strip and
-/// the layout area with the shown session's tile, or the empty state. reframe's state is read and, as the primary
+/// the layout area with the window's tiles (MainWindow.Layout.cs), or the empty state. reframe's state is read and, as the primary
 /// client, written through the host's <c>state</c> service (StateStore; never as an observer, while reframe owns it);
 /// the context menus of rows and tiles (src/main/menus.ts) rename, pin and hide. Sessions are opened as views of the
 /// host's sessions; New session, New window, the view mode, settings and about are not wired yet.
@@ -58,11 +47,9 @@ public partial class MainWindow : Window
 
     readonly Grid root = new();
     readonly SessionSidebar sidebar = new();
-    readonly TabControl tabs = new();
     readonly FrameworkElement empty;
     readonly Button sessionsButton, singleButton, tiledButton, infoButton;
     readonly StackPanel captionButtons = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top };
-    readonly Dictionary<string, OpenSession> open = [];
 
     string status = "";
     HostConnection? connection;
@@ -110,6 +97,8 @@ public partial class MainWindow : Window
         tiledButton = ToolbarButton("grid", "Tiled view", "Tiled view (Ctrl+Shift+G)");
         tiledButton.Tag = new CornerRadius(0, 6, 6, 0);
         tiledButton.Margin = new Thickness(-1, 0, 0, 0);
+        singleButton.Click += (_, _) => Act(new LayoutAction.WindowViewMode("single"));
+        tiledButton.Click += (_, _) => Act(new LayoutAction.WindowViewMode("tiled"));
         segmented.Children.Add(singleButton);
         segmented.Children.Add(tiledButton);
         left.Children.Add(segmented);
@@ -140,22 +129,12 @@ public partial class MainWindow : Window
         Panel.SetZIndex(resizer, 2);
         AutomationProperties.SetName(resizer, "Resize the session list");
         workspace.Children.Add(resizer);
-        tabs.Style = S("DockTabs");
-        AutomationProperties.SetName(tabs, "Open sessions");
-        tabs.SelectionChanged += (_, e) =>
-        {
-            if (e.Source != tabs) return;
-            UpdateDock();
-            ShowSelectedTile();
-            if (tabs.SelectedItem is TabItem { Tag: OpenSession shown }) sidebar.Select(ChatKeyOf(shown.SessionId));
-        };
-        Grid.SetColumn(tabs, 1);
-        workspace.Children.Add(tabs);
         empty = EmptyState();
-        Grid.SetColumn(empty, 1);
-        workspace.Children.Add(empty);
+        var layoutColumn = LayoutColumn();
+        Grid.SetColumn(layoutColumn, 1);
+        workspace.Children.Add(layoutColumn);
         root.Children.Add(workspace);
-        UpdateDock();
+        PreviewKeyDown += (_, e) => LayoutKeys(e);
         ApplyViewMode("tiled");
         sessionsButton.BorderBrush = B("accentBrush");
 
@@ -279,27 +258,12 @@ public partial class MainWindow : Window
         Panel.SetZIndex(tiledButton, mode == "tiled" ? 1 : 0);
     }
 
-    Grid? TileHost() => tabs.Template.FindName("Tiles", tabs) as Grid;
-
-    void ShowSelectedTile()
-    {
-        foreach (var session in open.Values)
-            session.Tile.Visibility = tabs.SelectedItem == session.Tab ? Visibility.Visible : Visibility.Hidden;
-    }
-
-    void UpdateDock()
-    {
-        tabs.Tag = tabs.Items.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
-        var any = tabs.Items.Count > 0;
-        tabs.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
-        empty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
-    }
-
     // ---------- data ----------
 
     async Task StartAsync()
     {
         await AttachAsync();
+        LayoutLoaded();
         await RefreshAsync();
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         timer.Tick += async (_, _) => await RefreshAsync();
@@ -340,7 +304,7 @@ public partial class MainWindow : Window
         services.StatusChanged += changed => Dispatcher.InvokeAsync(() =>
         {
             hostStatus[changed.SessionId] = changed;
-            if (open.TryGetValue(changed.SessionId, out var shown)) shown.TileDot.Status = shown.DockDot.Status = StatusOf(changed.SessionId);
+            UpdateTileStatus(changed.SessionId);
             _ = RefreshAsync();
         });
         foreach (var session in connection.Welcome.Sessions) hostSessions[session.SessionId] = session;
@@ -454,164 +418,31 @@ public partial class MainWindow : Window
 
     // ---------- sessions ----------
 
+    /// <summary>A list row's click (openSession): a tile of the window is selected, a collapsed one put back, any
+    /// other session of reframe's added to the window (only one the host runs, or a capture's).</summary>
     void OpenChat(ChatRow chat)
     {
         if (chat.Ref.Kind != ListItemKind.App || chat.Ref.SessionId is not { } id) return;
-        OpenTab(id, chat.Label, chat.Chat.Cwd, chat.Provider);
-    }
-
-    /// <summary>Shows a host session in a tab (its tile), creating it the first time. Nothing without a host session.</summary>
-    void OpenTab(string sessionId, string label, string cwd, string? provider)
-    {
-        if (connection is not { IsOpen: true } || !hostSessions.ContainsKey(sessionId)) return;
-        if (open.TryGetValue(sessionId, out var existing))
+        var win = Win;
+        if (Layout.Leaves(win.Layout).Contains(id)) SelectTile(id);
+        else if (LayoutActions.IsCollapsed(win, id))
         {
-            tabs.SelectedItem = existing.Tab;
-            if (FindHost(existing.Tile) is { } shownHost) FocusTerminal(shownHost);
-            return;
+            if (Writable) Act(new LayoutAction.TileExpand(id));
         }
-        var control = new TerminalControl { AutoResize = true };
-        var terminal = new HostTerminalConnection(connection.CreateView(sessionId), control);
-        var connected = false;
-        control.Loaded += (_, _) =>
+        else if (CanShow(id) && Writable)
         {
-            control.SetTheme(Theme, FontFamilyName, TerminalFontSize, Color.FromRgb(0x17, 0x18, 0x1c));
-            if (FindHost(control) is { } host) FocusTerminal(host);
-            if (connected) return; // a tab switch unloads and loads the control again
-            connected = true;
-            control.Connection = terminal;
-        };
-        var paste = new MenuItem { Header = "Paste" };
-        paste.Click += (_, _) => terminal.Paste();
-        control.ContextMenu = new ContextMenu { Items = { paste } };
-        control.PreviewKeyDown += (_, e) =>
-        {
-            if (e.Key == Key.V && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
-            {
-                terminal.Paste();
-                e.Handled = true;
-            }
-        };
-
-        var initial = StatusOf(sessionId);
-        var tileDot = new StatusDot { Status = initial, VerticalAlignment = VerticalAlignment.Center };
-        var dockDot = new StatusDot { Status = initial, HorizontalAlignment = HorizontalAlignment.Center };
-        var tab = new TabItem { Header = DockHeader(label, dockDot), ToolTip = label };
-        AutomationProperties.SetName(tab, label);
-        var close = TileButton("close", $"Close {label}", $"Close {label}");
-        close.Click += (_, _) =>
-        {
-            terminal.Close(); // detaches the view only; the session goes on
-            if (open.Remove(sessionId, out var closed)) TileHost()?.Children.Remove(closed.Tile);
-            tabs.Items.Remove(tab);
-            UpdateDock();
-        };
-        // The tiles stay in one panel and are only hidden: a tab's content would be unloaded on every switch, and
-        // the terminal's HwndHost does not survive being destroyed and rebuilt (a native crash).
-        var tile = Tile(sessionId, label, cwd, provider, tileDot, close, control);
-        tile.Visibility = Visibility.Hidden;
-        tabs.ApplyTemplate();
-        TileHost()?.Children.Add(tile);
-        var session = new OpenSession { SessionId = sessionId, Tab = tab, TileDot = tileDot, DockDot = dockDot, Terminal = terminal, Tile = tile };
-        tab.Tag = session;
-        open[sessionId] = session;
-        tabs.Items.Add(tab);
-        tabs.SelectedItem = tab;
-        ShowSelectedTile();
-        UpdateDock();
+            Dispatch(w => LayoutActions.AddTile(w, id));
+            SelectTile(id);
+        }
     }
 
-    /// <summary>.dock-item: the status dot and the label written bottom to top.</summary>
-    static FrameworkElement DockHeader(string label, StatusDot dot)
-    {
-        var panel = new StackPanel();
-        panel.Children.Add(dot);
-        panel.Children.Add(new Unbounded
-        {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Child = new TextBlock
-            {
-                Text = label, Style = S("Text12"), MaxWidth = 160, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 6, 0, 0),
-                LayoutTransform = new RotateTransform(-90),
-            },
-        });
-        return panel;
-    }
+    bool CanShow(string sessionId) => fixture is not null ? state.Sessions.ContainsKey(sessionId) : hostSessions.ContainsKey(sessionId);
 
     static Button TileButton(string icon, string name, string tooltip)
     {
         var button = new Button { Style = S("IconButton"), Content = new VectorIcon { Kind = icon, Size = 14 }, ToolTip = tooltip, VerticalAlignment = VerticalAlignment.Center };
         AutomationProperties.SetName(button, name);
         return button;
-    }
-
-    /// <summary>Tile.tsx: the header (collapse, grip, status, provider, label, folder, zoom, close) over the terminal.</summary>
-    FrameworkElement Tile(string sessionId, string label, string cwd, string? provider, StatusDot dot, Button close, TerminalControl terminal)
-    {
-        var header = new DockPanel { LastChildFill = true };
-        void Left(UIElement element)
-        {
-            DockPanel.SetDock(element, Dock.Left);
-            header.Children.Add(element);
-        }
-        void Right(UIElement element)
-        {
-            DockPanel.SetDock(element, Dock.Right);
-            header.Children.Add(element);
-        }
-        Left(TileButton("collapse", $"Collapse {label}", "Collapse to the side"));
-        Left(new VectorIcon { Kind = "grip", Size = 14, Foreground = B("mutedBrush"), Opacity = 0.6, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
-        dot.Margin = new Thickness(6, 0, 0, 0);
-        Left(dot);
-        var icon = new VectorIcon
-        {
-            Kind = provider == "anthropic" ? "anthropic" : "chatgpt", Size = 16, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
-            Foreground = B(provider == "anthropic" ? "providerAnthropicBrush" : "providerChatgptBrush"),
-        };
-        Left(icon);
-        Left(new TextBlock
-        {
-            Text = label, Style = S("Text13"), Foreground = B("textBrush"), FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
-            MaxWidth = 400, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
-        });
-        close.Margin = new Thickness(6, 0, 0, 0);
-        Right(close);
-        var zoom = TileButton("zoom", $"Zoom {label}", "Zoom");
-        zoom.Margin = new Thickness(6, 0, 0, 0);
-        Right(zoom);
-        header.Children.Add(new TextBlock
-        {
-            Text = RelativeTime.HomeRelative(cwd, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)), Style = S("Text12"),
-            Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
-        });
-
-        var head = new Border
-        {
-            Height = 30, Padding = new Thickness(4, 0, 4, 0), Background = B("surfaceBrush"), BorderBrush = B("borderBrush"),
-            BorderThickness = new Thickness(0, 0, 0, 1), CornerRadius = new CornerRadius(5, 5, 0, 0), Child = header,
-        };
-        DockPanel.SetDock(head, Dock.Top);
-        head.MouseRightButtonUp += (_, e) =>
-        {
-            ShowMenu(TileMenuOf(sessionId), head, null, sessionId);
-            e.Handled = true;
-        };
-        var body = new DockPanel();
-        body.Children.Add(head);
-        // .tile-terminal: inset 4px 2px 2px 6px.
-        body.Children.Add(new Border { Margin = new Thickness(6, 4, 2, 2), Child = terminal });
-        var tile = new Border
-        {
-            BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
-            Background = B("terminalBrush"), Child = body, SnapsToDevicePixels = true,
-        };
-        // .tile:focus-within: the accent border and a lighter header.
-        tile.IsKeyboardFocusWithinChanged += (_, _) =>
-        {
-            tile.BorderBrush = tile.IsKeyboardFocusWithin ? B("accentBrush") : B("borderBrush");
-            head.Background = tile.IsKeyboardFocusWithin ? B("surface-2Brush") : B("surfaceBrush");
-        };
-        return tile;
     }
 
     /// <summary>Moves keyboard focus into the terminal once its native window exists, so typing goes to the session
@@ -656,11 +487,19 @@ public partial class MainWindow : Window
     List<MenuSpec> ListMenuOf(ChatRow chat) =>
         ContextMenus.ListMenu(1, chat.Ref.Kind == ListItemKind.App, ContextMenus.ChatActions(MenuContext(chat.Ref, chat.Key)));
 
-    List<MenuSpec> TileMenuOf(string sessionId) =>
-        ContextMenus.TileMenu(ContextMenus.ChatActions(MenuContext(new ListItemRef(ListItemKind.App, sessionId), ChatKeyOf(sessionId))), false, []);
+    List<MenuSpec> TileMenuOf(string sessionId)
+    {
+        var layout = Win.Layout;
+        var own = Layout.GroupOf(layout, sessionId);
+        return ContextMenus.TileMenu(ContextMenus.ChatActions(MenuContext(new ListItemRef(ListItemKind.App, sessionId), ChatKeyOf(sessionId))),
+            own is not null, [.. Layout.Groups(layout).Where(g => g.Id != own?.Id)]);
+    }
 
-    /// <summary>The actions the shell does so far; the others (groups: S7, provider/model/archive/delete: S11) show disabled.</summary>
-    bool Supported(string action) => action == "open" || (Writable && action is "rename" or "pin" or "hide");
+    /// <summary>The actions the shell does so far; the others (a new window's group: windows, provider/model/archive/
+    /// delete: S11) show disabled.</summary>
+    bool Supported(string action) =>
+        action == "open" || (Writable && (action is "rename" or "pin" or "hide" or "newGroup" or "removeFromGroup" or "group"
+            || action.StartsWith("addToGroup:", StringComparison.Ordinal)));
 
     ContextMenu BuildMenu(IEnumerable<MenuSpec> items, ChatRow? chat, string? sessionId) =>
         ShellMenus.Build(items, Supported, action => Run(action, chat, sessionId));
@@ -684,13 +523,20 @@ public partial class MainWindow : Window
                 break;
             case "rename" when sessionId is not null && state.Sessions.TryGetValue(sessionId, out var record):
                 var current = StateValues.SessionLabel(record.Name, record.ClaudeName, record.Cwd);
-                if (RenameDialog.Ask(this, current) is { } name && ShellActions.Rename(state, sessionId, name)) Saved();
+                if (RenameDialog.Ask(this, current) is { } name && ShellActions.Rename(state, sessionId, name))
+                {
+                    if (tiles.TryGetValue(sessionId, out var view)) view.Label.Text = LabelOf(sessionId);
+                    Saved();
+                }
                 break;
             case "pin" when key != "":
                 if (ShellActions.TogglePin(state, key)) Saved();
                 break;
             case "hide":
                 Hide(chat, sessionId, key);
+                break;
+            default:
+                RunGroupAction(action, sessionId);
                 break;
         }
     }
@@ -745,27 +591,37 @@ public partial class MainWindow : Window
             {
                 fixture = VisualFixture.Load(fixtureFile, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), DateTimeOffset.Now.ToUnixTimeMilliseconds());
                 state = fixture.State;
-                ApplyViewMode(fixture.State.Windows.FirstOrDefault()?.ViewMode ?? "tiled");
             }
             if (name != "empty") await AttachAsync();
             await RefreshAsync();
             await DiagCapture.SettleAsync(Dispatcher, 800);
-            var tabIds = fixture?.Tabs ?? [];
-            foreach (var id in tabIds)
-                if (state.Sessions.TryGetValue(id, out var record))
-                    OpenTab(id, StateValues.SessionLabel(record.Name, record.ClaudeName, record.Cwd), record.Cwd, record.Launch.Provider ?? "chatgpt");
-            if (fixture?.Selected is { } selected && open.TryGetValue(selected, out var shown)) tabs.SelectedItem = shown.Tab;
+            selected = fixture?.Selected;
+            LayoutLoaded();
             sidebar.Select(null);
-            await DiagCapture.SettleAsync(Dispatcher, tabIds.Count > 0 ? 3500 : 500);
+            await DiagCapture.SettleAsync(Dispatcher, fixture?.Hosted.Count > 0 ? 3500 : 500);
 
             switch (name)
             {
                 case "tabs":
+                    DiagCapture.Save(popup, root, dir, "group");
+                    if (frames.Values.FirstOrDefault() is { } frame) DiagCapture.Save(popup, frame, dir, "group-frame");
+                    DiagCapture.Save(popup, root, dir, "collapsed");
+                    if (dockStrip.IsVisible) DiagCapture.Save(popup, dockStrip, dir, "dock-strip");
+                    // Ctrl+Shift+Z in docs-refresh, then Ctrl+Shift+G: a single window showing it.
+                    focused = "vt-docs-refresh";
+                    ToggleZoom("vt-docs-refresh");
+                    await DiagCapture.SettleAsync(Dispatcher, 800);
+                    DiagCapture.Save(popup, root, dir, "zoomed");
+                    ToggleZoom("vt-docs-refresh");
+                    focused = null;
+                    selected = "vt-docs-refresh";
+                    Act(new LayoutAction.WindowViewMode("single"));
+                    await DiagCapture.SettleAsync(Dispatcher, 1200);
                     DiagCapture.Save(popup, root, dir, "tabs");
-                    if (tabs.Template.FindName("Dock", tabs) is FrameworkElement dock && dock.IsVisible) DiagCapture.Save(popup, dock, dir, "dock-strip");
                     break;
                 case "sessions":
                     DiagCapture.Save(popup, root, dir, "main-sessions");
+                    DiagCapture.Save(popup, root, dir, "grid-2x2");
                     DiagCapture.Save(popup, sidebar, dir, "sidebar");
                     foreach (var (stateId, label) in new[]
                     {
@@ -793,7 +649,7 @@ public partial class MainWindow : Window
                     DiagCapture.Save(popup, root, dir, "sidebar-search");
                     break;
                 default:
-                    DiagCapture.Save(popup, root, dir, open.Count > 0 ? "main-sessions" : "main-empty");
+                    DiagCapture.Save(popup, root, dir, Win.Layout is not null ? "main-sessions" : "main-empty");
                     break;
             }
         }
