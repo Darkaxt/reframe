@@ -2,7 +2,7 @@
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
   "sourceBase": "4cca47b9757bd4c2cb3b1c2cc68a81342f8c0208",
-  "scope": "0.11.0-claudegpt.34: faster managed start (one release folder walk, launch hash stamps) and the WPF shell's Trace output in the profile's logs\\main.log. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.33, the protocol and cutover docs, the version and release notes.",
+  "scope": "0.11.0-claudegpt.34: faster managed start (one release folder walk, launch hash stamps) and the WPF shell's Trace output in the profile's logs\\main.log; a press on a tile's header button no longer moves the focus into the terminal (lost clicks on \u00d7). PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.33, the protocol and cutover docs, the version and release notes.",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.34.md",
-      "sha256": "6970122705aa58c13eee4a417c296f6eafaaff061d54bbd4b01cd497b33adf90"
+      "sha256": "7a9e3b9800e96d7a68b62decd6cbcda0b5ce97ed946b464cc089a98fe679e842"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -47,6 +47,10 @@
     {
       "file": "wpf/Reframe.Shell/FileLog.cs",
       "sha256": "d1e28d6fb046b57ecefda05096d401d3ae94d2b99248715e620b79ab15836e0d"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "1f136c7ee77022c1dae37affbd14c917b6ee735cfae108818433e914b5d43ef1"
     }
   ],
   "checksNotYetRun": [

@@ -395,9 +395,13 @@ public partial class MainWindow
             else if (focused == sessionId) focused = null;
             ShowFocus(view);
         };
-        body.PreviewMouseDown += (_, _) =>
+        body.PreviewMouseDown += (_, e) =>
         {
             selected = sessionId;
+            // A press on a button (×, zoom, collapse, the ended card's) stays with it: moving the focus into the
+            // terminal's native window took the press away, so the click was lost and the header flickered.
+            for (var at = e.OriginalSource as DependencyObject; at is not null && at != body; at = at is Visual ? VisualTreeHelper.GetParent(at) : LogicalTreeHelper.GetParent(at))
+                if (at is ButtonBase) return;
             if (control is not null && FindHost(control) is { } host) FocusTerminal(host);
         };
         tiles[sessionId] = view;
