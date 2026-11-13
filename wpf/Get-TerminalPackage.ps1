@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 # Keep in step with Reframe.Shell.csproj's PackageReference and the workflow's PACKAGE_VERSION / RELEASE_TAG.
 $Version = '1.25.3131-reframe.2'
 $Tag = 'terminal-wpf-v1.25.3131.0-reframe.2'
-$Sha256 = '999F5F134323EE1569DFECCC1D587A7C37B1DEEEE471F9199123FCAC72391498'
+$Sha256 = 'E9951B082D5C279077119C1A55D6AC4A1E315FDD18A0BE22FFD4DDEDF547C86C'
 
 $name = "Reframe.Terminal.Wpf.$Version.nupkg"
 $file = Join-Path $Out $name
