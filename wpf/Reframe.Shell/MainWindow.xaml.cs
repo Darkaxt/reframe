@@ -27,6 +27,21 @@ public partial class MainWindow : Window
 {
     [DllImport("user32.dll")]
     static extern IntPtr SetFocus(IntPtr hwnd);
+    [DllImport("dwmapi.dll")]
+    static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+    const int DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2;
+
+    /// <summary>
+    /// The system frame, as Electron's frameless window with a title bar overlay keeps it: shadow, 1px border and, on
+    /// Windows 11, rounded corners (WindowChrome's 1px glass frame keeps DWM's non-client rendering; Windows 10 ignores
+    /// the corner preference).
+    /// </summary>
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        var round = DWMWCP_ROUND;
+        _ = DwmSetWindowAttribute(new WindowInteropHelper(this).Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref round, sizeof(int));
+    }
 
     readonly Grid root = new();
     readonly SessionSidebar sidebar = new();
