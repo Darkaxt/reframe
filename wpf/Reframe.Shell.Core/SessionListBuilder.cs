@@ -34,12 +34,28 @@ public sealed class ListSources
     public Func<SessionRecord, string>? LabelOf { get; init; }
     public IReadOnlyList<RunningClaude> Running { get; init; } = [];
     public required ITranscriptSource Transcripts { get; init; }
+    /// <summary>Claude Code in each running WSL distribution that has it (claudeSources' WSL sources).</summary>
+    public IReadOnlyList<WslSource> Wsl { get; init; } = [];
+    /// <summary>The distributions Claude Code was found in before that do not run now (wslStopped).</summary>
+    public IReadOnlyList<string> WslStopped { get; init; } = [];
+}
+
+/// <summary>A running WSL distribution's Claude Code: its transcripts (Linux folders) and the share its folders are
+/// reached under from Windows (<c>wslWindowsPath</c>).</summary>
+public sealed record WslSource(string Distro, ITranscriptSource Transcripts, string Share)
+{
+    /// <summary>wslWindowsPath (src/shared/wsl.ts): a Linux path as Windows reaches it under the share.</summary>
+    public static string WindowsPath(string distro, string linuxPath, string share) =>
+        string.Join('\\', new[] { share.TrimEnd('\\', '/'), distro }.Concat(linuxPath.Split('/').Where(p => p != "")));
+
+    public string WindowsPath(string linuxPath) => WindowsPath(Distro, linuxPath, Share);
 }
 
 /// <summary>
 /// The session list as main assembles it (<c>sessionList</c> in src/main/app.ts) for Claude Code on Windows: reframe's
 /// sessions (not hidden), claudes running elsewhere, past sessions from the transcripts, pinned chats, and the
-/// projects all of them make. WSL sources are not followed yet (stopped distributions are never listed).
+/// projects all of them make; past sessions in running WSL distributions (<see cref="ListSources.Wsl"/>) too. Claudes
+/// running in WSL are not listed yet (the shell has no WSL registry reader; stage S12).
 /// </summary>
 public static class SessionListBuilder
 {
@@ -124,7 +140,26 @@ public static class SessionListBuilder
             })
             .OrderByDescending(i => i.ModifiedAt)
             .ToList();
-        var hasMore = found.Count > limit || page.HasMore;
+        var wslPages = new List<(WslSource Source, TranscriptPage Page)>();
+        foreach (var source in sources.Wsl)
+        {
+            var wslPage = await source.Transcripts.ListAsync(query, limit, exclude, null);
+            wslPages.Add((source, wslPage));
+            found.AddRange(wslPage.Items.Where(i => !string.IsNullOrEmpty(i.Cwd))
+                .Select(i => new ListItem
+                {
+                    Kind = ListItemKind.Found,
+                    ClaudeSessionId = i.SessionId,
+                    Cwd = source.WindowsPath(i.Cwd!),
+                    Title = i.Title,
+                    ModifiedAt = i.ModifiedAt,
+                    Distro = source.Distro,
+                    Provider = KnownProvider(i.SessionId),
+                })
+                .Where(i => InFolder(i.Cwd)));
+        }
+        found = found.OrderByDescending(i => i.ModifiedAt).ToList();
+        var hasMore = found.Count > limit || page.HasMore || wslPages.Any(p => p.Page.HasMore);
 
         var pinnedItems = new List<ListItem>();
         var knownKeys = records.Select(r => SidebarChats.ChatKey(r.ClaudeSessionId))
@@ -134,20 +169,25 @@ public static class SessionListBuilder
             if (SidebarChats.ParseChatKey(key) is not { } pin || hidden.Contains(pin.Id) || knownKeys.Contains(key) ||
                 found.Any(item => SidebarChats.ChatKey(item.ClaudeSessionId, item.Distro) == key))
                 continue;
-            if (pin.Distro is not null) continue; // a WSL chat: no WSL source here
-            var info = await sources.Transcripts.FindAsync(pin.Id);
+            var wsl = pin.Distro is null ? null : sources.Wsl.FirstOrDefault(w => w.Distro.ToLowerInvariant() == pin.Distro);
+            if (pin.Distro is not null && wsl is null) continue; // its distribution does not run
+            var info = await (wsl?.Transcripts ?? sources.Transcripts).FindAsync(pin.Id);
             if (string.IsNullOrEmpty(info?.Cwd)) continue;
-            if (!Matches(info.Title, info.Cwd) || !InFolder(info.Cwd)) continue;
+            var pinCwd = wsl?.WindowsPath(info.Cwd) ?? info.Cwd;
+            if (!Matches(info.Title, pinCwd) || !InFolder(pinCwd)) continue;
             pinnedItems.Add(new ListItem
             {
-                Kind = ListItemKind.Found, ClaudeSessionId = pin.Id, Cwd = info.Cwd, Title = info.Title, ModifiedAt = info.ModifiedAt,
+                Kind = ListItemKind.Found, ClaudeSessionId = pin.Id, Cwd = pinCwd, Title = info.Title, ModifiedAt = info.ModifiedAt,
+                Distro = wsl?.Distro,
             });
         }
 
         var projects = Workspaces.Build(
             records.Where(r => r.Cwd != "").Select(r => (r.Cwd, r.ClaudeSessionId, (string?)(r.Launch.Provider ?? "chatgpt")))
                 .Concat(outside.Where(e => e.Cwd is not null).Select(e => (e.Cwd!, e.SessionId, (string?)ProviderOf(e.SessionId))))
-                .Concat(page.Folders.SelectMany(l => l.SessionIds.Select(id => (l.Cwd, id, (string?)ProviderOf(id))))));
+                .Concat(page.Folders.SelectMany(l => l.SessionIds.Select(id => (l.Cwd, id, (string?)ProviderOf(id)))))
+                .Concat(wslPages.SelectMany(p => p.Page.Folders.SelectMany(l =>
+                    l.SessionIds.Select(id => (p.Source.WindowsPath(l.Cwd), id, (string?)ProviderOf(id)))))));
         var expanded = (state.ExpandedProjects ?? []).Select(Workspaces.ExpandedWorkspaceKey).Distinct().ToList();
 
         return new SessionList
@@ -160,6 +200,8 @@ public static class SessionListBuilder
             Running = running,
             Found = found.Take(limit).ToList(),
             HasMore = hasMore,
+            Archives = state.Archives ?? [],
+            WslStopped = [.. sources.WslStopped],
         };
     }
 }

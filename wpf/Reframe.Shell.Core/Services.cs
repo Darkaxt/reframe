@@ -138,4 +138,78 @@ public sealed class HostServices
         });
         return (long?)result?["revision"] ?? throw new HostServiceException("bad-response", "state.write without a revision");
     }
+
+    // ---------- wsl (docs/ptyhost-protocol.md, "cleanup, wsl and history") ----------
+
+    /// <summary><c>wsl.running</c>: the distributions that run now; none without the service.</summary>
+    public async Task<IReadOnlyList<string>> WslRunningAsync()
+    {
+        if (!Offers("wsl")) return [];
+        var result = await connection.CallAsync("wsl", "running", new JsonObject());
+        return (result?.AsArray() ?? []).Select(n => (string?)n).OfType<string>().ToList();
+    }
+
+    /// <summary><c>wsl.info</c>: where claude and its home are in <paramref name="distro"/> (null: none; asking starts it).</summary>
+    public async Task<WslInfo?> WslInfoAsync(string distro) =>
+        Offers("wsl") ? WslInfo.From(await connection.CallAsync("wsl", "info", new JsonObject { ["distro"] = distro })) : null;
+
+    /// <summary>Whether the host keeps distributions running (<c>wsl</c> version 2).</summary>
+    public bool CanKeepWsl => connection.Welcome.Services.TryGetValue("wsl", out var version) && version >= 2;
+
+    /// <summary><c>wsl.keep</c>: starts <paramref name="distro"/> and keeps it running until <see cref="WslReleaseAsync"/>.</summary>
+    public async Task<WslInfo?> WslKeepAsync(string distro) =>
+        CanKeepWsl ? WslInfo.From(await connection.CallAsync("wsl", "keep", new JsonObject { ["distro"] = distro })) : null;
+
+    /// <summary><c>wsl.release</c>: lets go of the distributions the host keeps running.</summary>
+    public async Task WslReleaseAsync()
+    {
+        if (CanKeepWsl) await connection.CallAsync("wsl", "release", new JsonObject());
+    }
+
+    // ---------- history ----------
+
+    static JsonObject HelperParams(HistoryHelper helper, string home) =>
+        new() { ["backend"] = helper.Backend, ["cwd"] = helper.Cwd, ["home"] = home };
+
+    /// <summary><c>history.prepare</c>: each chat's plan (read only), in an operation folder of its own under <paramref name="root"/>.</summary>
+    public async Task<IReadOnlyList<JsonObject>> HistoryPrepareAsync(HistoryHelper helper, string home, string root, IEnumerable<string> ids)
+    {
+        var p = HelperParams(helper, home);
+        p["root"] = root;
+        p["ids"] = new JsonArray([.. ids.Select(id => (JsonNode)id!)]);
+        return Outcomes(await connection.CallAsync("history", "prepare", p));
+    }
+
+    /// <summary><c>history.retire</c>: archives or deletes the prepared chats (jobs: <c>{ prepared, mode, metadata }</c>).</summary>
+    public async Task<IReadOnlyList<JsonObject>> HistoryRetireAsync(HistoryHelper helper, string home, JsonArray jobs)
+    {
+        var p = HelperParams(helper, home);
+        p["jobs"] = jobs;
+        return Outcomes(await connection.CallAsync("history", "retire", p));
+    }
+
+    /// <summary><c>history.restore</c>: puts an archived chat's files back.</summary>
+    public async Task HistoryRestoreAsync(HistoryHelper helper, string home, ArchiveEntry entry)
+    {
+        var p = HelperParams(helper, home);
+        p["id"] = entry.Id;
+        p["operation"] = entry.Operation;
+        p["archive"] = entry.Archive;
+        p["sha256"] = entry.Sha256;
+        await connection.CallAsync("history", "restore", p);
+    }
+
+    static List<JsonObject> Outcomes(JsonNode? result) =>
+        (result as JsonArray ?? []).OfType<JsonObject>().Select(o => (JsonObject)o.DeepClone()).ToList();
 }
+
+/// <summary>A WSL distribution's answer to the probe (<c>WslInfo</c>): claude (null: none) and Claude Code's home there.</summary>
+public sealed record WslInfo(string Distro, string? Claude, string? ClaudeHome)
+{
+    public static WslInfo? From(JsonNode? node) => node is JsonObject o
+        ? new WslInfo((string?)o["distro"] ?? "", (string?)o["claude"], (string?)o["claudeHome"])
+        : null;
+}
+
+/// <summary>history_backend.py (absolute) and the folder it runs in (the profile), as the <c>history</c> service takes them.</summary>
+public sealed record HistoryHelper(string Backend, string Cwd);

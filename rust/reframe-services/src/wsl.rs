@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -224,6 +224,8 @@ pub struct Distros {
     infos: Mutex<HashMap<String, Probe>>,
     /// The distributions found to have claude, which keep their answer.
     known: Mutex<HashSet<String>>,
+    /// The processes that keep distributions running (started from the session list), by lower-case name.
+    keepers: Mutex<HashMap<String, Child>>,
 }
 
 impl Distros {
@@ -233,6 +235,54 @@ impl Distros {
             share,
             infos: Mutex::default(),
             known: Mutex::default(),
+            keepers: Mutex::default(),
+        }
+    }
+
+    /// keep: starts `distro` and keeps it running (`-e sleep infinity`) until [`Distros::release`], then probes it
+    /// afresh (a probe from before this start is not taken as its answer). Kept already: its info.
+    pub fn keep(&self, distro: &str) -> Value {
+        let key = distro.to_lowercase();
+        {
+            let mut keepers = self.keepers.lock().unwrap();
+            let kept = keepers
+                .get_mut(&key)
+                .is_some_and(|child| matches!(child.try_wait(), Ok(None)));
+            if !kept {
+                let Some(command) = self.command.as_ref() else {
+                    return Value::Null;
+                };
+                let mut cmd = Command::new(&command.file);
+                cmd.args(&command.prefix_args)
+                    .args(["-d", distro, "-e", "sleep", "infinity"])
+                    .env("WSL_UTF8", "1")
+                    .envs(command.env.iter().map(|(k, v)| (k, v)))
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null());
+                #[cfg(windows)]
+                {
+                    use std::os::windows::process::CommandExt;
+                    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+                    cmd.creation_flags(CREATE_NO_WINDOW);
+                }
+                match cmd.spawn() {
+                    Ok(child) => {
+                        keepers.insert(key.clone(), child);
+                    }
+                    Err(_) => return Value::Null,
+                }
+                self.infos.lock().unwrap().remove(&key);
+            }
+        }
+        self.info(distro)
+    }
+
+    /// release: lets go of the distributions kept running (reframe quits).
+    pub fn release(&self) {
+        for (_, mut child) in self.keepers.lock().unwrap().drain() {
+            let _ = child.kill();
+            let _ = child.wait();
         }
     }
 
@@ -379,6 +429,12 @@ impl Distros {
             }
             std::thread::sleep(Duration::from_millis(20));
         }
+    }
+}
+
+impl Drop for Distros {
+    fn drop(&mut self) {
+        self.release();
     }
 }
 

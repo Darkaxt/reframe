@@ -1,0 +1,22 @@
+{
+  "comment": "e2e/visual-reference.spec.ts 'history: selected chats and the bulk model editor': checkout-fix (webshop) in the window and three past chats; Bulk 1 and Bulk 2 selected with Ctrl+click (history-selection), then Selected chat actions > Change model... (history-model-editor).",
+  "sessions": [
+    {
+      "id": "vs-checkout-fix",
+      "claudeSessionId": "1c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a01",
+      "name": "checkout-fix",
+      "project": "webshop",
+      "status": "idle",
+      "usedSecondsAgo": 40
+    }
+  ],
+  "past": [
+    { "id": "6a1e2b3c-4d5e-4f60-8172-839405a6b701", "title": "Bulk 1: tidy the release scripts", "project": "webshop", "hoursAgo": 5 },
+    { "id": "6a1e2b3c-4d5e-4f60-8172-839405a6b702", "title": "Bulk 2: profile the search endpoint", "project": "webshop", "hoursAgo": 8 },
+    { "id": "6a1e2b3c-4d5e-4f60-8172-839405a6b703", "title": "Bulk 3: rename the payment events", "project": "api-gateway", "hoursAgo": 12 }
+  ],
+  "running": [],
+  "selected": "vs-checkout-fix",
+  "hosted": ["vs-checkout-fix"],
+  "select": ["Bulk 1: tidy the release scripts", "Bulk 2: profile the search endpoint"]
+}

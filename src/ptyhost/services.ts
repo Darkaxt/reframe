@@ -27,7 +27,7 @@ export const SERVICES: Required<HostServices> = {
   state: 1,
   observer: 1,
   cleanup: 1,
-  wsl: 1,
+  wsl: 2,
   history: 1,
 };
 /** Requests being worked on at once; up to MAX_WAITING more wait their turn (a burst on reframe's start, say), and
@@ -379,6 +379,15 @@ export class JobService {
         const wsl = this.wsl(params);
         return this.busy(service, () => wsl.stopClaude(distro, pid));
       }
+      case 'wsl.keep': {
+        const distro = distroOf(params);
+        const wsl = this.wsl(params);
+        return this.busy(service, () => wsl.keep(distro));
+      }
+      case 'wsl.release':
+        // Every wsl.exe and share's keepers: reframe lets go of all it kept when it quits.
+        for (const distros of this.distros.values()) distros.release();
+        return null;
       case 'wsl.parsePath':
         return parseWslPath(required(params, 'path'), text(params, 'share'));
       case 'wsl.windowsPath':

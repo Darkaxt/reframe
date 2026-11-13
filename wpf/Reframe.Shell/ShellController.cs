@@ -59,6 +59,89 @@ sealed class ShellController
     public bool Runs(string sessionId) =>
         Fixture is not null ? Fixture.Statuses.GetValueOrDefault(sessionId, "ended") != "ended" : HostSessions.ContainsKey(sessionId) && StatusOf(sessionId) != "ended";
 
+    // ---------- chat history and WSL (shared by the windows) ----------
+
+    /// <summary>Claude session ids with a history operation going on (historyBusy).</summary>
+    public HashSet<string> HistoryBusy { get; } = [];
+    /// <summary>A selected-chats batch runs (chatBatchRunning): one at a time.</summary>
+    public bool ChatBatchRunning { get; set; }
+    bool wslKept;
+    (DateTime At, IReadOnlyList<WslSource> Sources, IReadOnlyList<string> Stopped)? wslScan;
+    Task? wslScanning;
+
+    /// <summary>How often the list asks WSL again what runs (asking keeps it from stopping when idle).</summary>
+    static readonly TimeSpan WslMaxAge = TimeSpan.FromSeconds(30);
+
+    /// <summary>The WSL sources and stopped distributions as last seen (claudeSources); looked at again in the
+    /// background when older than <see cref="WslMaxAge"/>, only with Settings' "look in WSL" on.</summary>
+    public (IReadOnlyList<WslSource> Sources, IReadOnlyList<string> Stopped) Wsl(Action changed)
+    {
+        if (Fixture is not null) return (Fixture.Wsl, Fixture.WslStopped);
+        if (!State.Preferences.LookInWsl || Services is not { } services || !services.Offers("wsl") || Connection is not { } connection) return ([], []);
+        if (wslScanning is null && (wslScan is null || DateTime.UtcNow - wslScan.Value.At >= WslMaxAge))
+            wslScanning = ScanWslAsync(services, connection).ContinueWith(_ => Ui.InvokeAsync(() =>
+            {
+                wslScanning = null;
+                changed();
+            }));
+        return wslScan is { } scan ? (scan.Sources, scan.Stopped) : ([], []);
+    }
+
+    async Task ScanWslAsync(HostServices services, HostConnection connection)
+    {
+        try
+        {
+            var running = await services.WslRunningAsync();
+            var share = Environment.GetEnvironmentVariable("REFRAME_WSL_SHARE") is { Length: > 0 } s ? s : @"\\wsl.localhost";
+            var sources = new List<WslSource>();
+            foreach (var distro in running)
+            {
+                if (await services.WslInfoAsync(distro) is not { Claude: not null, ClaudeHome: { } claudeHome }) continue;
+                sources.Add(new WslSource(distro, new HostTranscriptSource(connection, WslSource.WindowsPath(distro, claudeHome, share)), share));
+            }
+            await Ui.InvokeAsync(() =>
+            {
+                // The distributions found with claude are remembered (WslDistros 'found'), so a stopped one is offered.
+                var known = State.WslDistros ?? [];
+                var found = sources.Select(w => w.Distro).Where(d => !known.Any(k => string.Equals(k, d, StringComparison.OrdinalIgnoreCase))).ToList();
+                if (found.Count > 0 && Writable)
+                {
+                    State.WslDistros = [.. known, .. found];
+                    Save();
+                }
+                var stopped = (State.WslDistros ?? []).Where(d => !running.Any(r => string.Equals(r, d, StringComparison.OrdinalIgnoreCase))).ToList();
+                wslScan = (DateTime.UtcNow, sources, stopped);
+            });
+        }
+        catch (HostServiceException e)
+        {
+            await Ui.InvokeAsync(() => SetStatus(Status + $" (wsl: {e.Message})"));
+        }
+    }
+
+    /// <summary>The list's Start beside a stopped distribution (startWsl): kept running by the host, then looked at again.</summary>
+    public async Task StartWslAsync(string distro)
+    {
+        if (Services is not { } services || !(State.WslDistros ?? []).Contains(distro)) return;
+        try
+        {
+            wslKept = true;
+            await services.WslKeepAsync(distro);
+        }
+        catch (HostServiceException e)
+        {
+            SetStatus(Status + $" (could not start WSL {distro}: {e.Message})");
+        }
+        wslScan = null;
+        ListChanged();
+    }
+
+    /// <summary>Every window lists again.</summary>
+    public void ListChanged()
+    {
+        foreach (var window in windows.Values) window.ListChanged();
+    }
+
     // ---------- attaching ----------
 
     public async Task AttachAsync()
@@ -348,6 +431,18 @@ sealed class ShellController
         tray = null;
         toasts?.Dispose();
         toasts = null;
+        // Lets go of the WSL distributions started from the list (WslDistros.release at quit).
+        if (wslKept && Services is { } services)
+        {
+            try
+            {
+                await services.WslReleaseAsync();
+            }
+            catch (HostServiceException)
+            {
+                // The host ends its keepers when it ends.
+            }
+        }
         if (Connection is not null) await Connection.DisposeAsync();
         shellLock?.Dispose();
         Application.Current.Shutdown();

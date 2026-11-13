@@ -64,6 +64,17 @@ public static class ContextMenus
         ];
     }
 
+    /// <summary>batchChatActions: the selection's provider (no radio: they may differ), model, archive and delete.</summary>
+    public static List<MenuSpec> BatchChatActions(bool batchRunning) =>
+    [
+        MenuSpec.Separator,
+        new("submenu", "Model provider", !batchRunning, Submenu:
+            [.. StateValues.Providers.Select(p => new MenuSpec("normal", ProviderName(p), Action: "batchProvider:" + p))]),
+        new("normal", "Change model…", !batchRunning, Action: "batchModel"),
+        new("normal", "Archive selected…", !batchRunning, Action: "batchArchive"),
+        new("normal", "Delete selected…", !batchRunning, Action: "batchDelete"),
+    ];
+
     /// <summary>listMenu: open, rename (a single session of reframe's), the chat actions, then the group openings.</summary>
     public static List<MenuSpec> ListMenu(int count, bool rename, IEnumerable<MenuSpec> chatActions) =>
     [
