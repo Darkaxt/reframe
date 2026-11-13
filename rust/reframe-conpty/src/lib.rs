@@ -18,7 +18,8 @@ use std::sync::{Mutex, OnceLock};
 
 use windows_sys::core::{HRESULT, PCSTR};
 use windows_sys::Win32::Foundation::{
-    CloseHandle, GetLastError, ERROR_ACCESS_DENIED, FILETIME, HANDLE, HMODULE, INVALID_HANDLE_VALUE, WAIT_OBJECT_0,
+    CloseHandle, GetLastError, ERROR_ACCESS_DENIED, FILETIME, HANDLE, HMODULE, INVALID_HANDLE_VALUE, SYSTEMTIME,
+    WAIT_OBJECT_0,
 };
 use windows_sys::Win32::System::Console::{
     ClosePseudoConsole, CreatePseudoConsole, GetStdHandle, ResizePseudoConsole, SetStdHandle, COORD, HPCON,
@@ -30,11 +31,13 @@ use windows_sys::Win32::System::Diagnostics::ToolHelp::{
 use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryExW, LOAD_WITH_ALTERED_SEARCH_PATH};
 use windows_sys::Win32::System::Pipes::CreatePipe;
 use windows_sys::Win32::System::Threading::{
-    CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess, GetProcessTimes,
-    InitializeProcThreadAttributeList, OpenProcess, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
-    CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT, INFINITE, PROCESS_INFORMATION,
+    CreateProcessW, DeleteProcThreadAttributeList, GetCurrentThread, GetExitCodeProcess, GetProcessTimes,
+    InitializeProcThreadAttributeList, OpenProcess, SetThreadPriority, TerminateProcess, UpdateProcThreadAttribute,
+    WaitForSingleObject, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT, INFINITE, PROCESS_INFORMATION,
     PROCESS_QUERY_LIMITED_INFORMATION, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+    THREAD_MODE_BACKGROUND_BEGIN,
 };
+use windows_sys::Win32::System::Time::{FileTimeToSystemTime, SystemTimeToFileTime, SystemTimeToTzSpecificLocalTime};
 
 type CreateFn = unsafe extern "system" fn(COORD, HANDLE, HANDLE, u32, *mut HPCON) -> HRESULT;
 type ResizeFn = unsafe extern "system" fn(HPCON, COORD) -> HRESULT;
@@ -468,5 +471,40 @@ pub fn close_stdout() {
             SetStdHandle(STD_OUTPUT_HANDLE, ptr::null_mut());
             CloseHandle(handle);
         }
+    }
+}
+
+/// Puts the calling thread in background mode (THREAD_MODE_BACKGROUND_BEGIN): the lowest CPU priority and very low
+/// disk and memory priority, for work that may take as long as it likes (the Overview indexer). False if refused.
+pub fn background_thread() -> bool {
+    // SAFETY: GetCurrentThread gives a pseudo handle of this thread, valid without being opened or closed.
+    unsafe { SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN) != 0 }
+}
+
+/// The local time zone's offset from UTC in minutes at `utc_ms` (milliseconds since 1970), daylight saving time of
+/// that moment included, as Windows' current time zone rules give it; None for a time Windows cannot convert.
+pub fn local_offset_minutes(utc_ms: i64) -> Option<i32> {
+    const UNIX_TO_FILETIME_MS: i64 = 11_644_473_600_000;
+    let ticks = u64::try_from(utc_ms.checked_add(UNIX_TO_FILETIME_MS)?)
+        .ok()?
+        .checked_mul(10_000)?;
+    let utc = FILETIME {
+        dwLowDateTime: ticks as u32,
+        dwHighDateTime: (ticks >> 32) as u32,
+    };
+    // SAFETY: all-zero SYSTEMTIME and FILETIME values are valid; every pointer is to a live local, and a null time
+    // zone means the current one.
+    unsafe {
+        let mut universal: SYSTEMTIME = std::mem::zeroed();
+        let mut local: SYSTEMTIME = std::mem::zeroed();
+        let mut local_file: FILETIME = std::mem::zeroed();
+        if FileTimeToSystemTime(&utc, &mut universal) == 0
+            || SystemTimeToTzSpecificLocalTime(ptr::null(), &universal, &mut local) == 0
+            || SystemTimeToFileTime(&local, &mut local_file) == 0
+        {
+            return None;
+        }
+        let local_ticks = (u64::from(local_file.dwHighDateTime) << 32) | u64::from(local_file.dwLowDateTime);
+        Some(((local_ticks as i64 - ticks as i64) / 600_000_000) as i32)
     }
 }

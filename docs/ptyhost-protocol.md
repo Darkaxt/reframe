@@ -223,6 +223,44 @@ when a save returns. `StateStore.useHost` (one write at a time, always the newes
 the file there is the one last written or read again and found good, one retry after reading again on `conflict`,
 in-process when the host fails) is there for when the saves can be awaited.
 
+**`overview` (version 1; the Rust host only).** The activity index behind the WPF shell's Overview pane, built from
+thread activity (Claude Code transcripts `<home>/projects/<project>/<session id>.jsonl`), not from repositories (the
+Rust host: `rust/reframe-transcripts/src/overview.rs`). The Node host does not offer it (the Overview is the WPF
+shell's). Footprint first: the index is built by one worker thread in background mode
+(`THREAD_MODE_BACKGROUND_BEGIN`: lowest CPU, disk and memory priority), streaming each transcript through a 64 KiB
+buffer (a line over 4 MiB is skipped, not parsed), pausing 5 ms between transcripts, and waiting while any session the
+host follows is `busy`. Per transcript it remembers the offset read and a fingerprint of its first KiB, so afterwards
+only appended lines are read; a transcript that got shorter or starts differently is read again from its start (its
+earlier counts replaced). A line not finished yet (no newline) is read next time; a line that is not JSON is counted as
+skipped. The first pass may take as long as it takes. After it, the worker reads again only when configured anew (at
+start) and once per closed day: it sleeps until the next local midnight and reads at the first moment after it with no
+session busy. No watchers and no other timers. A transcript that is gone keeps its activity (`gone: true`).
+
+What is counted, per local day (Windows' time zone at the time of the event), per transcript: **prompts** (`user`
+lines whose content is text or an image, not tool results, `isMeta` or local command output), **turns** (assistant
+messages, one per message id however many lines it takes), **sessions** (on the day of a transcript's first prompt
+or turn), **active minutes** (distinct minutes with a prompt or turn), assistant turns per **model** and tool uses per
+**kind** (`edit`: Edit, MultiEdit, Write, NotebookEdit; `bash`: Bash, BashOutput, KillShell, PowerShell; `read`: Read,
+Glob, Grep, LS; `web`: WebFetch, WebSearch; `other`). Sidechain lines are not counted. Per transcript also its first
+`cwd` (the folder), its title (the latest `custom-title`, else the latest `ai-title`) and when it was last active. No
+prompt text is ever kept. The cache is one JSON file (`{ schema: 1, firstPassComplete, lastPassDay, files: { path: {
+provider, sessionId, offset, fingerprint, …, days: { "YYYY-MM-DD": counts } } } }`), saved (to `<file>.tmp`, then
+renamed) after every 64 transcripts read and at the end of a pass, so an interrupted pass resumes; a cache of another
+schema is dropped and built again.
+
+| Method | Result |
+| --- | --- |
+| `overview.configure { cache, homes: [{ provider, home }] }` | Status (as `status`). `cache` is an absolute path in the profile (reframe: `<userData>/overview.json`); `homes` the Claude Code folders, one per provider whose transcripts live apart. A new configuration loads that cache and starts a pass; the same one again does nothing. Not for observers. |
+| `overview.status {}` | `{ state, firstPassComplete, filesDone, filesTotal, bytesRead, lastPassDay?, lastPassMs?, lastError? }`, `state` being `unconfigured`, `indexing`, `paused` (a session is busy) or `idle` (until the next day). |
+| `overview.summary { year? }` | `{ from, to, days: [{ date, prompts, turns, sessions, activeMinutes }], totals, streaks: { current, longest }, years }`: the days with activity in `year`, or in the 365 days up to today without one; streaks are days in a row with a prompt (over all time; `current` counts up to today or yesterday); `years` has activity, newest first. |
+| `overview.threads { limit? }` | `{ threads: [{ sessionId, provider, title, titleSource, folder, turns, prompts, activeMinutes, lastActive, gone }] }`: the most active transcripts (most turns, then latest), at most `limit` (10, up to 1000). |
+| `overview.breakdown { year? }` | `{ from, to, providers, models, tools }`: turns per provider and model, tool uses per kind (every kind, zeros included), in the range as for `summary`. |
+| `overview.timeline {}` | `{ months: [{ month, sessions, prompts, turns, activeMinutes, folderCount, folders: [{ folder, sessions, prompts, turns, activeMinutes }] }] }`, newest month first, folders by turns. |
+
+Every method but `configure` answers from the index as it is (during the first pass, what was read so far); observers
+may ask them. Footprint measured on fixtures (`cargo test -p reframe-transcripts --release -- --ignored --nocapture
+footprint`): see the pull request that added it.
+
 ## Hooks
 
 `POST /hook/<encodeURIComponent(sessionId)>/<event>` with `X-Reframe-Token: <hooks.token>`, where `event` is

@@ -18,7 +18,9 @@ use crate::protocol::{
 use crate::services::{self, Services};
 use crate::transcripts::{self, SvcError, Transcripts, WatchEvent};
 use reframe_sessions::registry::Entry;
-use reframe_sessions::{filetime_ms, has_tool_shells, update_json, Lookup, Tracker, Update, BACKGROUND_RECHECK_MS};
+use reframe_sessions::{
+    filetime_ms, has_tool_shells, update_json, Lookup, Status, Tracker, Update, BACKGROUND_RECHECK_MS,
+};
 use reframe_transcripts::Changes;
 
 /// The session status service (docs/ptyhost-protocol.md, "Services").
@@ -36,6 +38,11 @@ const OBSERVER_METHODS: &[&str] = &[
     "transcripts.info",
     "transcripts.times",
     "transcripts.title",
+    "overview.summary",
+    "overview.threads",
+    "overview.breakdown",
+    "overview.timeline",
+    "overview.status",
 ];
 
 fn now_ms() -> f64 {
@@ -948,6 +955,11 @@ impl Host {
             }
         }
         let data = update_json(&session.id, session.instance, &update, revision);
+        let busy = self
+            .sessions
+            .iter()
+            .any(|s| s.tracker.as_ref().is_some_and(|t| t.status() == Status::Busy));
+        self.services.set_busy(busy);
         self.broadcast(json!({ "type": "svc-event", "service": SESSIONS, "event": "status", "data": data }));
     }
 

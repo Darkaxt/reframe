@@ -1,24 +1,31 @@
-//! The `quota`, `clients`, `launch` and `state` services (docs/ptyhost-protocol.md, "Services"): what
+//! The `quota`, `clients`, `launch`, `state` and `overview` services (docs/ptyhost-protocol.md, "Services"): what
 //! reframe-services reads (and, for `state`, writes), asked by reframe when it needs it (the host keeps no timers for
 //! them). Each request runs on a thread of its own, at most MAX_IN_FLIGHT at a time and MAX_WAITING more queued
 //! (beyond, `busy`): the Coordinator can take seconds, a client's hash too. `state` has a queue of its own, so that
 //! saving never waits for those.
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
 use reframe_services::adoption::{adopted_client, Hashes};
 use reframe_services::state::{StateError, StateFiles};
 use reframe_services::{launch, quota};
+use reframe_transcripts::overview::{self, Config as OverviewConfig, Home, OffsetFn, Overview};
 use serde_json::{json, Value};
 
 use crate::limit::Limit;
 use crate::transcripts::{SvcError, Work};
 
 /// The services and the version of each the welcome advertises.
-pub const SERVICES: [(&str, u32); 4] = [("quota", 1), ("clients", 1), ("launch", 1), ("state", 1)];
+pub const SERVICES: [(&str, u32); 5] = [
+    ("quota", 1),
+    ("clients", 1),
+    ("launch", 1),
+    ("state", 1),
+    ("overview", 1),
+];
 const MAX_IN_FLIGHT: usize = 8;
 const MAX_WAITING: usize = 64;
 
@@ -31,6 +38,8 @@ pub struct Services {
     state: Arc<StateFiles>,
     reads: Limit,
     saves: Limit,
+    /// The Overview's activity index: its worker thread runs in background mode from the first `configure` on.
+    overview: Overview,
 }
 
 fn bad(message: impl Into<String>) -> SvcError {
@@ -55,7 +64,15 @@ impl Services {
             reads: Limit::new("services", MAX_IN_FLIGHT, MAX_WAITING),
             // One at a time, in the order asked (StateFiles takes them one at a time anyway).
             saves: Limit::new("state", 1, MAX_WAITING),
+            overview: Overview::new(Box::new(OffsetFn(reframe_conpty::local_offset_minutes)), || {
+                reframe_conpty::background_thread();
+            }),
         }
+    }
+
+    /// Whether any session is busy: the Overview indexer waits while one is.
+    pub fn set_busy(&self, busy: bool) {
+        self.overview.set_busy(busy);
     }
 
     /// Starts a request's work, which answers through `answer`.
@@ -128,6 +145,28 @@ impl Services {
                     Ok(json!({ "revision": revision }))
                 })
             }
+            ("overview", "configure") => {
+                let config = overview_config(params)?;
+                let index = self.overview.clone();
+                // Off the host's task: a new configuration loads its cache file.
+                Box::new(move || Ok(json!(index.configure(config))))
+            }
+            ("overview", method @ ("summary" | "threads" | "breakdown" | "timeline" | "status")) => {
+                let index = self.overview.clone();
+                let params = params.clone();
+                let method = method.to_owned();
+                Box::new(move || {
+                    let today = index.today();
+                    let outcome = match method.as_str() {
+                        "summary" => index.query(|c| overview::summary(c, &params, &today)),
+                        "threads" => index.query(|c| overview::threads(c, &params)),
+                        "breakdown" => index.query(|c| overview::breakdown(c, &params, &today)),
+                        "timeline" => index.query(overview::timeline),
+                        _ => Ok(json!(index.status())),
+                    };
+                    outcome.map_err(bad)
+                })
+            }
             _ => {
                 return Err(SvcError {
                     code: "unknown-method",
@@ -147,6 +186,27 @@ impl Services {
         })?;
         Ok(())
     }
+}
+
+/// `overview.configure { cache, homes: [{ provider, home }] }`.
+fn overview_config(params: &Value) -> Result<OverviewConfig, SvcError> {
+    let cache_file = PathBuf::from(text(params, "cache")?);
+    if !cache_file.is_absolute() {
+        return Err(bad("cache must be an absolute path"));
+    }
+    let homes = params
+        .get("homes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| bad("homes must be a list"))?
+        .iter()
+        .map(|home| {
+            Ok(Home {
+                provider: text(home, "provider")?,
+                home: PathBuf::from(text(home, "home")?),
+            })
+        })
+        .collect::<Result<Vec<_>, SvcError>>()?;
+    Ok(OverviewConfig { cache_file, homes })
 }
 
 fn state_error(error: StateError) -> SvcError {
