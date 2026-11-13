@@ -171,6 +171,12 @@ sealed class TerminalBehaviour
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var m = Keyboard.Modifiers;
         bool shift = m.HasFlag(ModifierKeys.Shift), ctrl = m.HasFlag(ModifierKeys.Control), alt = m.HasFlag(ModifierKeys.Alt);
+        if (!e.Handled && key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Tab && host is not null)
+        {
+            ForwardKey(key, alt, e.IsRepeat);
+            e.Handled = true;
+            return;
+        }
         if (key == Key.Enter)
         {
             // GetSelectedText takes the selection off as it reads it, as the copy does.
@@ -201,6 +207,22 @@ sealed class TerminalBehaviour
                 e.Handled = true;
                 break;
         }
+    }
+
+    [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
+    const int WM_KEYDOWN = 0x100, WM_CHAR = 0x102, WM_SYSKEYDOWN = 0x104, WM_SYSCHAR = 0x106;
+
+    /// <summary>Arrows and Tab go straight to the terminal's window. WPF's keyboard navigation would otherwise take them
+    /// (an arrow moves the focus to the next element that way, Tab to the next tab stop) and drop the message before the
+    /// terminal sees it. Sent, not posted, so it skips the message loop's filter; Tab also gets the WM_CHAR that
+    /// TranslateMessage would have made.</summary>
+    void ForwardKey(Key key, bool alt, bool repeat)
+    {
+        var vk = (uint)KeyInterop.VirtualKeyFromKey(key);
+        var scan = MapVirtualKey(vk, 0);
+        var lParam = 1L | ((long)scan << 16) | (key == Key.Tab ? 0 : 1L << 24) | (alt ? 1L << 29 : 0) | (repeat ? 1L << 30 : 0);
+        SendMessage(host!.Handle, alt ? WM_SYSKEYDOWN : WM_KEYDOWN, (IntPtr)vk, (IntPtr)lParam);
+        if (key == Key.Tab) SendMessage(host.Handle, alt ? WM_SYSCHAR : WM_CHAR, (IntPtr)9, (IntPtr)lParam);
     }
 
     /// <summary>Copies the selection's text, says so; the selection is gone already (as the Windows console does).</summary>
