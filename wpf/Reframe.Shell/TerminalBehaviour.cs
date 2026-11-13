@@ -64,6 +64,7 @@ sealed class TerminalBehaviour
     bool hinted;
     (double X, double Y)? dragStart;
     int fontPx;
+    readonly DispatcherTimer findRefresh;
 
     /// <summary>xterm's scrollback in terminals.ts. Set before any terminal is created (it applies to those created after).</summary>
     const int Scrollback = 5000;
@@ -86,6 +87,16 @@ sealed class TerminalBehaviour
             StyleScrollbar();
         };
         (findBar, findInput, findCount) = BuildFindBar();
+        // Output moves the text under the marks: once it settles, the search runs again (keeping the view where it is),
+        // as xterm's search addon redecorates on writes.
+        findRefresh = new DispatcherTimer(TimeSpan.FromMilliseconds(150), DispatcherPriority.Background, (_, _) => RefreshFind(), control.Dispatcher);
+        findRefresh.Stop();
+        terminal.TerminalOutput += (_, _) =>
+        {
+            if (!FindOpen || findInput.Text.Length == 0) return;
+            findRefresh.Stop();
+            findRefresh.Start();
+        };
     }
 
     /// <summary>The find bar (.tile-find), above the terminal while it is open.</summary>
@@ -447,6 +458,7 @@ sealed class TerminalBehaviour
         findBar.Visibility = Visibility.Collapsed;
         findInput.Text = "";
         findCount.Text = "";
+        findRefresh.Stop();
         // xterm clears its marks when the find bar closes.
         control.ClearSearch();
         if (host is not null) { Keyboard.Focus(host); }
@@ -467,8 +479,17 @@ sealed class TerminalBehaviour
             control.ClearSearch();
             return Task.CompletedTask;
         }
-        var (current, total) = control.Search(text, goForward: next, caseSensitive: false, executeSearch: !incremental);
-        findCount.Text = total == 0 || current < 0 ? "No results" : $"{current + 1} of {total}";
+        ShowCount(control.Search(text, goForward: next, caseSensitive: false, executeSearch: !incremental));
         return Task.CompletedTask;
     }
+
+    void RefreshFind()
+    {
+        findRefresh.Stop();
+        if (!FindOpen || findInput.Text.Length == 0 || !control.IsLoaded) return;
+        ShowCount(control.Search(findInput.Text, goForward: true, caseSensitive: false, executeSearch: false, scrollIntoView: false));
+    }
+
+    void ShowCount((int Current, int Total) result) =>
+        findCount.Text = result.Total == 0 || result.Current < 0 ? "No results" : $"{result.Current + 1} of {result.Total}";
 }
