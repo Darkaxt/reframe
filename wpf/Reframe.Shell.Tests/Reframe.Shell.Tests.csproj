@@ -18,5 +18,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Reframe.Shell.Core\Reframe.Shell.Core.csproj" />
+    <!-- OverviewPaneTests builds the Overview pane (never shown) with the shell's theme. -->
+    <ProjectReference Include="..\Reframe.Shell\Reframe.Shell.csproj" />
   </ItemGroup>
 </Project>

@@ -69,6 +69,7 @@ public partial class MainWindow : Window
         sessionsButton = ToolbarButton("list", "Sessions", "Sessions (Ctrl+Shift+L)");
         sessionsButton.Click += (_, _) => ToggleSidebar();
         left.Children.Add(sessionsButton);
+        left.Children.Add(OverviewButton());
         var newWindowButton = ToolbarButton("window", "New window", "New window (Ctrl+Shift+N)");
         newWindowButton.Click += (_, _) => NewWindow();
         left.Children.Add(newWindowButton);
@@ -124,6 +125,7 @@ public partial class MainWindow : Window
         var layoutColumn = LayoutColumn();
         Grid.SetColumn(layoutColumn, 1);
         workspace.Children.Add(layoutColumn);
+        AddOverview(workspace);
         root.Children.Add(workspace);
         PreviewKeyDown += (_, e) => LayoutKeys(e);
         PreviewKeyDown += (_, e) => SettingsKeys(e);
@@ -334,6 +336,12 @@ public partial class MainWindow : Window
     void OpenChat(ChatRow chat)
     {
         if (chat.Ref.Kind != ListItemKind.App || chat.Ref.SessionId is not { } id) return;
+        ShowSession(id);
+    }
+
+    /// <summary>Brings a reframe session forward: its tile selected, expanded from the dock, or added to the layout.</summary>
+    void ShowSession(string id)
+    {
         var win = Win;
         if (Layout.Leaves(win.Layout).Contains(id)) SelectTile(id);
         else if (LayoutActions.IsCollapsed(win, id))
@@ -498,7 +506,7 @@ public partial class MainWindow : Window
                 fixture = VisualFixture.Load(fixtureFile, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), DateTimeOffset.Now.ToUnixTimeMilliseconds());
                 state = fixture.State;
             }
-            if (name != "empty") await shell.AttachAsync();
+            if (name is not ("empty" or "overview")) await shell.AttachAsync();
             await RefreshAsync();
             await DiagCapture.SettleAsync(Dispatcher, 800);
             selected = fixture?.Selected;
@@ -565,6 +573,9 @@ public partial class MainWindow : Window
                     break;
                 case "hidden":
                     await CaptureHiddenAsync(popup, dir);
+                    break;
+                case "overview":
+                    await CaptureOverviewAsync(popup, dir, fixtureFile!);
                     break;
                 default:
                     DiagCapture.Save(popup, root, dir, Win.Layout is not null ? "main-sessions" : "main-empty");

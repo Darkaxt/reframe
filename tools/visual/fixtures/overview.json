@@ -1,0 +1,171 @@
+{
+  "comment": "WPF only (no Electron reference): the Overview pane from answers of the host's overview service (FixtureOverviewSource), dates relative to today. No host and no transcripts are read.",
+  "sessions": [],
+  "past": [],
+  "running": [],
+  "overview": {
+    "seed": 14,
+    "currentStreak": 9,
+    "longestStreak": 23,
+    "status": {
+      "state": "idle",
+      "firstPassComplete": true,
+      "filesDone": 1460,
+      "filesTotal": 1460,
+      "bytesRead": 7900000000,
+      "lastPassDay": "2026-11-12"
+    },
+    "statusIndexing": {
+      "state": "indexing",
+      "firstPassComplete": false,
+      "filesDone": 412,
+      "filesTotal": 1460,
+      "bytesRead": 2100000000
+    },
+    "threads": [
+      {
+        "sessionId": "0f3c2a10-0000-4000-8000-000000000001",
+        "provider": "claude",
+        "title": "Port the session sidebar to WPF",
+        "titleSource": "ai-title",
+        "folder": "C:\\Users\\demo\\src\\reframe",
+        "turns": 1840,
+        "prompts": 212,
+        "activeMinutes": 940,
+        "hoursAgo": 3,
+        "gone": false
+      },
+      {
+        "sessionId": "0f3c2a10-0000-4000-8000-000000000002",
+        "provider": "claude",
+        "title": "Incremental transcript index",
+        "titleSource": "custom-title",
+        "folder": "C:\\Users\\demo\\src\\reframe",
+        "turns": 1312,
+        "prompts": 160,
+        "activeMinutes": 700,
+        "hoursAgo": 30,
+        "gone": false
+      },
+      {
+        "sessionId": "0f3c2a10-0000-4000-8000-000000000003",
+        "provider": "claude",
+        "title": "Checkout flow rate limiter",
+        "titleSource": "ai-title",
+        "folder": "C:\\Users\\demo\\work\\shop-api",
+        "turns": 905,
+        "prompts": 98,
+        "activeMinutes": 410,
+        "hoursAgo": 75,
+        "gone": false
+      },
+      {
+        "sessionId": "0f3c2a10-0000-4000-8000-000000000004",
+        "provider": "claude",
+        "title": null,
+        "titleSource": null,
+        "folder": "C:\\Users\\demo\\notes",
+        "turns": 640,
+        "prompts": 71,
+        "activeMinutes": 260,
+        "hoursAgo": 200,
+        "gone": false
+      },
+      {
+        "sessionId": "0f3c2a10-0000-4000-8000-000000000005",
+        "provider": "claude",
+        "title": "Database migration to Postgres 17",
+        "titleSource": "ai-title",
+        "folder": "C:\\Users\\demo\\work\\shop-api",
+        "turns": 512,
+        "prompts": 64,
+        "activeMinutes": 230,
+        "hoursAgo": 600,
+        "gone": true
+      },
+      {
+        "sessionId": "0f3c2a10-0000-4000-8000-000000000006",
+        "provider": "claude",
+        "title": "Release notes for 0.10",
+        "titleSource": "custom-title",
+        "folder": "C:\\Users\\demo\\src\\reframe",
+        "turns": 330,
+        "prompts": 40,
+        "activeMinutes": 120,
+        "hoursAgo": 1400,
+        "gone": false
+      }
+    ],
+    "breakdown": {
+      "providers": { "claude": 18420 },
+      "models": {
+        "claude-opus-4-1": 9200,
+        "claude-sonnet-4-5": 6100,
+        "claude-haiku-4-5": 2100,
+        "claude-opus-4": 700,
+        "claude-sonnet-4": 320
+      },
+      "tools": { "edit": 5200, "bash": 7400, "read": 9100, "web": 610, "other": 1200 }
+    },
+    "months": [
+      {
+        "monthsAgo": 0,
+        "sessions": 14,
+        "prompts": 380,
+        "turns": 2900,
+        "activeMinutes": 1260,
+        "folderCount": 5,
+        "folders": [
+          {
+            "folder": "C:\\Users\\demo\\src\\reframe",
+            "sessions": 8,
+            "prompts": 250,
+            "turns": 1900,
+            "activeMinutes": 800
+          },
+          {
+            "folder": "C:\\Users\\demo\\work\\shop-api",
+            "sessions": 3,
+            "prompts": 80,
+            "turns": 600,
+            "activeMinutes": 300
+          },
+          { "folder": "C:\\Users\\demo\\notes", "sessions": 1, "prompts": 20, "turns": 200, "activeMinutes": 80 }
+        ]
+      },
+      {
+        "monthsAgo": 1,
+        "sessions": 22,
+        "prompts": 610,
+        "turns": 4100,
+        "activeMinutes": 2010,
+        "folderCount": 6,
+        "folders": [
+          {
+            "folder": "C:\\Users\\demo\\src\\reframe",
+            "sessions": 15,
+            "prompts": 420,
+            "turns": 3000,
+            "activeMinutes": 1500
+          },
+          {
+            "folder": "C:\\Users\\demo\\work\\shop-api",
+            "sessions": 4,
+            "prompts": 120,
+            "turns": 700,
+            "activeMinutes": 330
+          }
+        ]
+      },
+      {
+        "monthsAgo": 2,
+        "sessions": 1,
+        "prompts": 12,
+        "turns": 60,
+        "activeMinutes": 35,
+        "folderCount": 1,
+        "folders": [{ "folder": null, "sessions": 1, "prompts": 12, "turns": 60, "activeMinutes": 35 }]
+      }
+    ]
+  }
+}

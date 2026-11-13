@@ -23,11 +23,19 @@ function Invoke-Capture([string[]] $arguments) {
         throw "the shell did not finish its captures: $arguments"
     }
     Write-Host "shell exited $($p.ExitCode): $arguments"
+    # A crash (an unhandled exception: 0xE0434352) leaves states out silently otherwise.
+    if ($p.ExitCode -ne 0) {
+        $errors = Join-Path $Out 'capture-error.txt'
+        if (Test-Path $errors) { Get-Content $errors }
+        throw "the shell failed ($($p.ExitCode)) on: $arguments"
+    }
 }
 
 function Fixture([string] $name) { "`"$(Join-Path $fixtures "$name.json")`"" }
 
 Invoke-Capture @('--profile', "`"$(Join-Path $Scratch 'empty')`"", '--diag-capture', "`"$Out`"", '--diag-fixture', (Fixture 'empty'))
+# WPF only: the Overview pane from its fixture's answers (overview, overview-indexing), without a host.
+Invoke-Capture @('--profile', "`"$(Join-Path $Scratch 'overview')`"", '--diag-capture', "`"$Out`"", '--diag-fixture', (Fixture 'overview'))
 
 # The sessions the fixtures host (their tiles show terminals), by session id, with the name demo-claude draws and the project folder.
 $open = foreach ($name in 'sessions', 'tabs') {
