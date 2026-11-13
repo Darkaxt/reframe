@@ -1,28 +1,96 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "ca57e2494373b0b2eb09c801a1d41b0fb1bd7233",
-  "scope": "0.10.1-claudegpt.29: the background-work rule of .28 also with an older PTY host. When the attached host advertises a sessions service below version 2, SessionManager applies the rule to the statuses that host reports: an idle status with notify done for a claude with tool shells (pid known here: registry/launched pid or the spawned pid; WSL not checked) becomes background with the done held back, and such sessions join the 20 s recheck, which announces done and idle once no tool shell is left. Later busy/waiting/ended from the host end the wait as before. Hosts with sessions version 2 unchanged. Unit test in src/main/ptyhost-client.test.ts with a fake sessions-v1 host and a stubbed tool-shell check.",
+  "sourceBase": "ebf6f9ce2e7a1811ba752235482beffb11c2776d",
+  "scope": "0.10.1-claudegpt.30: changes since 0.10.1-claudegpt.29 (e0e77ff) that ship. SessionManager.start builds its spawn through the shared spawn-plan helpers (src/main/claude/spawn-plan.ts: hereSpawn, wslSpawn, launchMode; hookSettingsJson in settings.ts), behaviour unchanged, held to test/spawn-plan-fixtures with the Rust implementation (rust/reframe-services/src/spawn_plan.rs). Rust host: launch service version 2 (launch.spawnPlan) and overview service version 1 (activity indexer, rust/reframe-transcripts/src/overview.rs). state store: parse exported for the shared state fixtures test (no behaviour change). WPF shell (wpf/) is not part of the release. Inputs: shipped sources changed since e0e77ff plus the version and release notes.",
   "inputHashes": [
     {
-      "file": "docs/releases/v0.10.1-claudegpt.29.md",
-      "sha256": "0dbdcf02f9392a6541ee219c508fc2b2c6becba413787c759f5d388b0a198468"
+      "file": "docs/ptyhost-protocol.md",
+      "sha256": "77b89e40600084fb9a5ccd9f124e54c447c63fae66b123e6b51660df6ec91998"
+    },
+    {
+      "file": "docs/releases/v0.10.1-claudegpt.30.md",
+      "sha256": "188c6e0dab9deaa6336ab5b9fbd199f1d232f18e6cc9227321d7afc15d7d4058"
     },
     {
       "file": "package-lock.json",
-      "sha256": "9df3784f0a69e41b5738dd36c7408fc1360fed810ceab8ecea45cfbe0ac015f9"
+      "sha256": "fb980dbdd0b15c331d67e22690addbfe006b52e58e261907b4b6eceb54f48a4a"
     },
     {
       "file": "package.json",
-      "sha256": "027adc4497ab3882cf63eeea783ec0f0229752529de037a57ef24ad1556acdbd"
+      "sha256": "63895a9e27c499bb84ee4e728781ebb59a56a2aa73886cc3b9f2e7d997d73ac0"
     },
     {
-      "file": "src/main/ptyhost-client.test.ts",
-      "sha256": "17c5b816cf907c97948e8e8379bf872ef90ba66ff9f21204a8122d8621c24bdf"
+      "file": "rust/reframe-conpty/Cargo.toml",
+      "sha256": "3aa6664af6c87f2ca72452501507696c8e1193a2ec4f306a218abc37c68aa671"
+    },
+    {
+      "file": "rust/reframe-conpty/src/lib.rs",
+      "sha256": "8988b43791a6738e9ec3e77832cbaa6a19545c3109636c8d81cbc2671d16b93a"
+    },
+    {
+      "file": "rust/reframe-host/src/host.rs",
+      "sha256": "4c21bca64eefee725463b4dbcfc0d1b2242ec4de5be122a490f16dc0d731c992"
+    },
+    {
+      "file": "rust/reframe-host/src/services.rs",
+      "sha256": "b111575b25e71e8089250c270b98a0cdc77b82fcf1bfe59ea56cff8797b64cee"
+    },
+    {
+      "file": "rust/reframe-services/src/lib.rs",
+      "sha256": "55936e9ca544019ffeac85a54d56ae3ff7af2b920011e65e0e1635c3a5856e73"
+    },
+    {
+      "file": "rust/reframe-services/src/spawn_plan.rs",
+      "sha256": "d23804dd7122be98a5e8a26e364e8b804413cf68a5b6152e58340831a865ce59"
+    },
+    {
+      "file": "rust/reframe-transcripts/src/lib.rs",
+      "sha256": "1e341bd078289525146330ace923433d0ba7714d432445fd92e211eb5cee4426"
+    },
+    {
+      "file": "rust/reframe-transcripts/src/overview.rs",
+      "sha256": "c3f589066d0dd2e7475b64ba2475a750f3bf5d22e94245f4c3e17a4d2c846516"
+    },
+    {
+      "file": "rust/reframe-transcripts/src/overview/tests.rs",
+      "sha256": "3a6dca2f28aae701d69dac67da56a7ded669509c7aa8179da8acb8ab3d3458b8"
+    },
+    {
+      "file": "src/main/claude/settings.ts",
+      "sha256": "80a0332c49d2636cc8d8241c93466b33d35f4df9823be9427f2ef8a6b49e47b9"
+    },
+    {
+      "file": "src/main/claude/spawn-plan.fixtures.test.ts",
+      "sha256": "837cc68fed53246291c62f622e64ae74077bcb9f35a10ac9893c1bb118673638"
+    },
+    {
+      "file": "src/main/claude/spawn-plan.ts",
+      "sha256": "270e55dc26cb3be99d0e2abe24a02ea8689525a25bb067ff495a7c3db7a977cb"
     },
     {
       "file": "src/main/sessions.ts",
-      "sha256": "0084a5b2c960b8b8ab93d856f50ed6a6011b684c7a142018c5fbcc17414e95e2"
+      "sha256": "dea178cd34d645bcd2c6cd2adf78e3a0a254934269cf6b188f0eeef7b7f0e65d"
+    },
+    {
+      "file": "src/main/state/fixtures.test.ts",
+      "sha256": "1bff822344568373fa26ede6cad2299732e89cbaf3f64de891d88b3d8f386cc0"
+    },
+    {
+      "file": "src/main/state/store.ts",
+      "sha256": "84f7d55643ca07f13d294b1bb30ca1292ddaa0b121aca79ed37175d15091b3dc"
+    },
+    {
+      "file": "src/ptyhost/host.conformance.ts",
+      "sha256": "d577f5fda6847b7005da41353c506dac951a83de7e8bfd14211639840e8cc8a5"
+    },
+    {
+      "file": "src/ptyhost/protocol.ts",
+      "sha256": "402ecd9a443ef41a17f04ed09391d2a3d4522e37eaafbb60fcf67af48f6a2d94"
+    },
+    {
+      "file": "src/ptyhost/services.ts",
+      "sha256": "5fe73bf25a0fd40ac6db5316f8b0ecffc0ed8c777ee71d7961e0cc2e431ee738"
     }
   ],
   "checksNotYetRun": [
