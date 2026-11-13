@@ -78,7 +78,8 @@ sealed class AboutDialog
             column.Children.Add(e);
         }
         Add(Logo(72), 4);
-        Add(new TextBlock { Text = "Reframe", FontSize = 20, FontWeight = FontWeights.Bold, LineHeight = 28, LineStackingStrategy = LineStackingStrategy.BlockLineHeight, HorizontalAlignment = HorizontalAlignment.Center }, 6);
+        // .about-name says 20 px, but `.modal h2` (more specific) makes it 15 as in Electron.
+        Add(new TextBlock { Text = "Reframe", FontSize = 15, FontWeight = FontWeights.Bold, LineHeight = 21, LineStackingStrategy = LineStackingStrategy.BlockLineHeight, HorizontalAlignment = HorizontalAlignment.Center }, 6);
         var version = Centered(T("about.version", ("version", Version)));
         version.Foreground = B("mutedBrush");
         Add(version, 2, 2);

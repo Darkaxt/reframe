@@ -160,7 +160,8 @@ sealed class SettingsDialog
         archives.ToolTip = p.ArchiveRoot;
         Add(archives, 6);
 
-        var system = CultureInfo.InstalledUICulture;
+        // What "System" stands for, as Intl.DisplayNames names the language ("English").
+        var system = CultureInfo.InstalledUICulture is { IsNeutralCulture: false, Parent: { Name.Length: > 0 } parent } ? parent : CultureInfo.InstalledUICulture;
         Add(Row(T("settings.language"), Select(T("settings.language"),
             [("system", T("settings.languageSystem", ("language", system.EnglishName))), .. Settings.LanguageNames],
             p.Language, v => Set(new PreferencesPatch { Language = v }))));

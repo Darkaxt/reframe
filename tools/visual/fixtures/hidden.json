@@ -15,6 +15,11 @@
   "selected": "vs-checkout-fix",
   "hosted": ["vs-checkout-fix"],
   "hidden": [
-    { "id": "5d2c9a10-7b3e-4f61-8a2d-3e9f0c1b7a55", "title": "An experiment nobody needs to see", "project": "webshop", "hoursAgo": 1 }
+    {
+      "id": "5d2c9a10-7b3e-4f61-8a2d-3e9f0c1b7a55",
+      "title": "An experiment nobody needs to see",
+      "project": "webshop",
+      "hoursAgo": 1
+    }
   ]
 }
