@@ -1,4 +1,3 @@
-using System.Windows;
 using Microsoft.Terminal.Wpf;
 using Reframe.Shell.Core;
 
@@ -6,52 +5,47 @@ namespace Reframe.Shell;
 
 /// <summary>
 /// Feeds a TerminalControl from a host view. The control never spawns anything: its input and resizes go to the
-/// session in the host, and the host's snapshot and output come back. Close only detaches the view.
+/// session in the host, and the host's snapshot and output come back. Close only detaches the view. The output also
+/// goes through <see cref="Modes"/>, which the control does not report (bracketed paste, mouse tracking).
 /// </summary>
 sealed class HostTerminalConnection : ITerminalConnection
 {
     readonly HostView view;
-    readonly TerminalControl control;
 
     public HostTerminalConnection(HostView view, TerminalControl control)
     {
         this.view = view;
-        this.control = control;
         view.Snapshot += (data, cols, rows) => control.Dispatcher.InvokeAsync(async () =>
         {
             // As reframe's renderer does: a terminal of the snapshot's size, reset, then the repaint.
             await control.ResizeAsync((uint)rows, (uint)cols, CancellationToken.None);
-            TerminalOutput?.Invoke(this, new TerminalOutputEventArgs("\u001bc" + data));
+            Output("\u001bc" + data);
             // Back to the control's own size; that resize goes to the host.
             control.TriggerResize(control.RenderSize);
         });
-        view.Data += data => control.Dispatcher.InvokeAsync(() => TerminalOutput?.Invoke(this, new TerminalOutputEventArgs(data)));
-        view.Exit += code => control.Dispatcher.InvokeAsync(() =>
-            TerminalOutput?.Invoke(this, new TerminalOutputEventArgs($"\r\n[the session ended with {code}]\r\n")));
+        view.Data += data => control.Dispatcher.InvokeAsync(() => Output(data));
+        view.Exit += code => control.Dispatcher.InvokeAsync(() => Output($"\r\n[the session ended with {code}]\r\n"));
+    }
+
+    public TerminalModes Modes { get; } = new();
+
+    void Output(string data)
+    {
+        Modes.Feed(data);
+        TerminalOutput?.Invoke(this, new TerminalOutputEventArgs(data));
     }
 
     public event EventHandler<TerminalOutputEventArgs>? TerminalOutput;
 
     public void Start() => _ = view.OpenAsync();
 
-    public void WriteInput(string data)
-    {
-        // As in reframe: selecting does not copy; Enter with a selection copies it (and deselects) instead of sending.
-        if (data == "\r")
-        {
-            var selected = control.GetSelectedText();
-            if (!string.IsNullOrEmpty(selected))
-            {
-                Clipboard.SetText(selected);
-                return;
-            }
-        }
-        _ = view.InputAsync(data);
-    }
+    /// <summary>What the control types (keys, its own mouse reports).</summary>
+    public void WriteInput(string data) => _ = view.InputAsync(data);
 
-    public void Paste()
+    /// <summary>Text pasted, as xterm's paste sends it (CR line breaks, bracketed while the program asked for it).</summary>
+    public void Paste(string text)
     {
-        if (Clipboard.ContainsText()) _ = view.InputAsync(Clipboard.GetText());
+        if (text.Length > 0) _ = view.InputAsync(PasteText.Prepare(text, Modes.BracketedPaste));
     }
 
     public void Resize(uint rows, uint columns) => _ = view.ResizeAsync((int)columns, (int)rows);
