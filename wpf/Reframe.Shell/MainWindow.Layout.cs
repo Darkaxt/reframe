@@ -29,6 +29,7 @@ sealed class TileView
     public required Button Zoom { get; init; }
     public TerminalControl? Control { get; init; }
     public HostTerminalConnection? Terminal { get; init; }
+    public TerminalBehaviour? Behaviour { get; init; }
 }
 
 /// <summary>A drag of a tile's or a group's header (dnd.ts): the node, where it began, whether it moved yet.</summary>
@@ -125,6 +126,7 @@ public partial class MainWindow
     /// <summary>The state was (re)loaded: the window's grid key as seen first, its first thread selected.</summary>
     void LayoutLoaded()
     {
+        FontSizeLoaded();
         gridKeys[Win.Id] = LayoutActions.GridKey(Win);
         selected ??= Layout.Leaves(Win.Layout).FirstOrDefault();
         Relayout();
@@ -244,30 +246,36 @@ public partial class MainWindow
 
         TerminalControl? control = null;
         HostTerminalConnection? terminal = null;
+        TerminalBehaviour? behaviour = null;
+        var notice = new TextBlock { Style = S("Text12"), Foreground = B("textBrush"), TextTrimming = TextTrimming.CharacterEllipsis };
+        // .terminal-notice (rgba(40,43,51,.95), radius 6, 4px 10px, 12px): in the header, as nothing can be over the terminal.
+        var noticePill = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(0xf2, 0x28, 0x2b, 0x33)), CornerRadius = new CornerRadius(6), Padding = new Thickness(10, 2, 10, 2),
+            Child = notice, VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed, MaxWidth = 360, IsHitTestVisible = false,
+        };
+        var noticeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        noticeTimer.Tick += (_, _) => { noticeTimer.Stop(); noticePill.Visibility = Visibility.Collapsed; };
+        void ShowNotice(string text)
+        {
+            notice.Text = text;
+            noticePill.Visibility = Visibility.Visible;
+            noticeTimer.Stop();
+            noticeTimer.Start();
+        }
         if (connection is { IsOpen: true } && hostSessions.ContainsKey(sessionId))
         {
             control = new TerminalControl { AutoResize = true };
             terminal = new HostTerminalConnection(connection.CreateView(sessionId), control);
+            behaviour = new TerminalBehaviour(control, terminal, fontSize.Size, () => WslOf(sessionId), ShowNotice);
             var connected = false;
             var c = control;
             var t = terminal;
             control.Loaded += (_, _) =>
             {
-                c.SetTheme(Theme, FontFamilyName, TerminalFontSize, Color.FromRgb(0x17, 0x18, 0x1c));
                 if (connected) return;
                 connected = true;
                 c.Connection = t;
-            };
-            var paste = new MenuItem { Header = "Paste" };
-            paste.Click += (_, _) => t.Paste();
-            control.ContextMenu = new ContextMenu { Items = { paste } };
-            control.PreviewKeyDown += (_, e) =>
-            {
-                if (e.Key == Key.V && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
-                {
-                    t.Paste();
-                    e.Handled = true;
-                }
             };
         }
 
@@ -309,6 +317,7 @@ public partial class MainWindow
         var zoomButton = new Button { Style = S("IconButton"), Content = zoomIcon, VerticalAlignment = VerticalAlignment.Center };
         zoomButton.Click += (_, _) => ToggleZoom(sessionId);
         Right(zoomButton);
+        Right(noticePill);
         // .tile-cwd: cut off at the start, read left to right.
         var cwdText = new TextBlock
         {
@@ -337,6 +346,12 @@ public partial class MainWindow
         var body = new DockPanel();
         body.Children.Add(head);
         // .tile-terminal: inset 4px 2px 2px 6px; without a running session, .tile-overlay's card.
+        // The find bar sits above the terminal (not over it: the terminal is a native window WPF cannot draw on).
+        if (behaviour is not null)
+        {
+            DockPanel.SetDock(behaviour.FindBar, Dock.Top);
+            body.Children.Add(behaviour.FindBar);
+        }
         body.Children.Add(control is not null ? new Border { Margin = new Thickness(6, 4, 2, 2), Child = control } : EndedCard(sessionId));
         var frame = new Border
         {
@@ -349,8 +364,23 @@ public partial class MainWindow
         var view = new TileView
         {
             SessionId = sessionId, Ring = ring, Frame = frame, Head = head, Dot = dot, Label = title, Cwd = cwdText,
-            ZoomIcon = zoomIcon, Zoom = zoomButton, Control = control, Terminal = terminal,
+            ZoomIcon = zoomIcon, Zoom = zoomButton, Control = control, Terminal = terminal, Behaviour = behaviour,
         };
+        // Files (and images from a browser) dropped on the tile are typed in as their paths, as in reframe.
+        if (behaviour is not null)
+        {
+            frame.AllowDrop = true;
+            frame.DragOver += (_, e) =>
+            {
+                if (headerDrag is not null) return;
+                e.Effects = TerminalBehaviour.CanDrop(e.Data) ? DragDropEffects.Copy : DragDropEffects.None;
+                e.Handled = true;
+            };
+            frame.Drop += (_, e) =>
+            {
+                if (headerDrag is null && behaviour.Drop(e.Data)) e.Handled = true;
+            };
+        }
         frame.IsKeyboardFocusWithinChanged += (_, _) =>
         {
             if (frame.IsKeyboardFocusWithin) focused = sessionId;
@@ -754,23 +784,60 @@ public partial class MainWindow
     /// <summary>The layout's shortcuts (shortcuts.ts): Ctrl+Shift+G view mode, Z zoom, M collapse the focused tile.</summary>
     void LayoutKeys(KeyEventArgs e)
     {
-        if (Keyboard.Modifiers != (ModifierKeys.Control | ModifierKeys.Shift)) return;
-        var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var target = focused ?? selected;
-        switch (key)
+        switch (Shortcuts.For(TerminalBehaviour.PressOf(e)))
         {
-            case Key.G:
+            case Shortcut.Named { Kind: "toggleViewMode" }:
                 Act(new LayoutAction.WindowViewMode(LayoutActions.ViewModeOf(Win) == "single" ? "tiled" : "single"));
                 break;
-            case Key.Z when target is not null:
+            case Shortcut.Named { Kind: "zoom" } when target is not null:
                 ToggleZoom(target);
                 break;
-            case Key.M when target is not null && Writable:
+            case Shortcut.Named { Kind: "toggleCollapse" } when target is not null && Writable:
                 Act(new LayoutAction.TileCollapse(target));
+                break;
+            case Shortcut.Named { Kind: "find" } when target is not null && tiles.GetValueOrDefault(target)?.Behaviour is { } behaviour:
+                behaviour.OpenFind();
+                break;
+            case Shortcut.TextSize size:
+                ChangeTextSize(size.Change);
                 break;
             default:
                 return;
         }
         e.Handled = true;
     }
+
+    // ---------- terminal text size ----------
+
+    /// <summary>The terminals' font size (CSS px): changed at once in every tile, saved as preferences.fontSize as
+    /// reframe saves it (shortcuts.ts changeFontSize/echoFontSize).</summary>
+    FontSizeState fontSize = new(StateValues.FontSizeNormal, null);
+
+    void ChangeTextSize(TextSizeChange change)
+    {
+        if (Shortcuts.ChangeFontSize(fontSize, change) is not { } next) return;
+        fontSize = next;
+        ApplyFontSize();
+        if (!Writable) return;
+        state.Preferences.FontSize = next.Size;
+        Saved();
+    }
+
+    /// <summary>The saved size, as loaded (or written back by another window): taken unless a change is on its way.</summary>
+    void FontSizeLoaded()
+    {
+        fontSize = Shortcuts.EchoFontSize(fontSize, state.Preferences.FontSize);
+        ApplyFontSize();
+    }
+
+    void ApplyFontSize()
+    {
+        foreach (var tile in tiles.Values) tile.Behaviour?.SetFontSize(fontSize.Size);
+    }
+
+    /// <summary>A session in WSL (its folder is in a distribution) gets Linux paths; drives under /mnt/ (wsl.conf's
+    /// automount root is not read here).</summary>
+    PasteText.Wsl? WslOf(string sessionId) =>
+        state.Sessions.TryGetValue(sessionId, out var r) && WslPaths.Parse(r.Cwd) is { } wsl ? new PasteText.Wsl(wsl.Distro, WslPaths.DefaultMountRoot) : null;
 }

@@ -36,6 +36,8 @@ public static class Icons
     public static readonly IconDefinition List = Stroked("list", new IconPath("M3 4h10M3 8h10M3 12h10"));
     public static readonly IconDefinition Zoom = Stroked("zoom", new IconPath("M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9"));
     public static readonly IconDefinition Unzoom = Stroked("unzoom", new IconPath("M13 7H9V3M3 9h4v4M9 7l4.5-4.5M7 9l-4.5 4.5"));
+    public static readonly IconDefinition ChevronUp = Stroked("chevron-up", new IconPath("M3.5 10 8 5.5l4.5 4.5"));
+    public static readonly IconDefinition ChevronDown = Stroked("chevron-down", new IconPath("M3.5 6 8 10.5 12.5 6"));
     /// <summary>MoreIcon: filled dots (r 1.3) at x 4, 8, 12 on y 8.</summary>
     public static readonly IconDefinition More = Filled("more", 16, [.. new[] { 4.0, 8, 12 }.Select(x => (IconPart)new IconCircle(x, 8, 1.3))]);
     public static readonly IconDefinition Grid = Stroked("grid", new IconRect(2, 2, 5, 5, 1), new IconRect(9, 2, 5, 5, 1),
@@ -50,7 +52,7 @@ public static class Icons
         "M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-7.258 0h3.767L16.906 20h-3.674l-1.343-3.461H5.017l-1.344 3.46H0L6.57 3.522zm4.132 9.959L8.453 7.687 6.205 13.48H10.7z"));
 
     public static readonly IReadOnlyList<IconDefinition> All =
-        [Folder, Collapse, Close, Window, Info, Gear, Plus, List, Zoom, Unzoom, More, Grid, Grip, ChatGpt, Anthropic];
+        [Folder, Collapse, Close, Window, Info, Gear, Plus, List, Zoom, Unzoom, ChevronUp, ChevronDown, More, Grid, Grip, ChatGpt, Anthropic];
 
     public static IconDefinition? Find(string name) => All.FirstOrDefault(i => i.Name == name);
 }

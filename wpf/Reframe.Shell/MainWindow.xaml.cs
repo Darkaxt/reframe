@@ -26,25 +26,6 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     static extern IntPtr SetFocus(IntPtr hwnd);
 
-    /// <summary>reframe's terminal look (src/renderer/terminals.ts): its background, foreground and selection, and
-    /// xterm.js's default 16 colours, which reframe keeps. Win32 COLORREF is 0x00BBGGRR.</summary>
-    static readonly TerminalTheme Theme = new()
-    {
-        DefaultBackground = Rgb(0x17181c),
-        DefaultForeground = Rgb(0xd7dae0),
-        DefaultSelectionBackground = Rgb(0x3a3f4b),
-        CursorStyle = CursorStyle.BlinkingBar,
-        ColorTable =
-        [
-            Rgb(0x000000), Rgb(0xcd3131), Rgb(0x0dbc79), Rgb(0xe5e510), Rgb(0x2472c8), Rgb(0xbc3fbc), Rgb(0x11a8cd), Rgb(0xe5e5e5),
-            Rgb(0x666666), Rgb(0xf14c4c), Rgb(0x23d18b), Rgb(0xf5f543), Rgb(0x3b8eea), Rgb(0xd670d6), Rgb(0x29b8db), Rgb(0xe5e5e5),
-        ],
-    };
-    const string FontFamilyName = "Cascadia Mono";
-    /// <summary>reframe's normal font size, 13 CSS px (FONT_SIZE.normal in src/shared/state.ts), in the points the
-    /// terminal control takes (13 px = 9.75 pt).</summary>
-    const short TerminalFontSize = 10;
-
     readonly Grid root = new();
     readonly SessionSidebar sidebar = new();
     readonly FrameworkElement empty;
@@ -175,7 +156,6 @@ public partial class MainWindow : Window
         };
     }
 
-    static uint Rgb(uint rgb) => ((rgb & 0xff) << 16) | (rgb & 0xff00) | ((rgb >> 16) & 0xff);
 
     static StackPanel IconAndText(string icon, string text)
     {
@@ -647,6 +627,14 @@ public partial class MainWindow : Window
                     await RefreshAsync();
                     await DiagCapture.SettleAsync(Dispatcher, 500);
                     DiagCapture.Save(popup, root, dir, "sidebar-search");
+                    // WPF only: the find bar above checkout-fix's terminal, its current match selected (Ctrl+Shift+F).
+                    if (tiles.GetValueOrDefault("vs-checkout-fix")?.Behaviour is { } finder)
+                    {
+                        finder.OpenFind("checkout");
+                        await DiagCapture.SettleAsync(Dispatcher, 2500);
+                        DiagCapture.Save(popup, root, dir, "find");
+                        finder.CloseFind();
+                    }
                     break;
                 default:
                     DiagCapture.Save(popup, root, dir, Win.Layout is not null ? "main-sessions" : "main-empty");
