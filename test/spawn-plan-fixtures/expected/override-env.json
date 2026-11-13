@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "mode": "new",
+  "file": "E:\\Env\\claude.exe",
+  "args": [
+    "--session-id",
+    "11111111-1111-4111-8111-111111111111",
+    "--name",
+    "Shop",
+    "--settings",
+    "C:\\Users\\<user>\\AppData\\Roaming\\reframe\\hook-settings\\s-1.json"
+  ],
+  "cwd": "D:\\Projects\\shop",
+  "env": {
+    "PATH": "C:\\Users\\<user>\\bin;C:\\Program Files\\nodejs",
+    "PATHEXT": ".COM;.EXE;.BAT;.CMD",
+    "USERPROFILE": "C:\\Users\\<user>",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000",
+    "ANTHROPIC_API_KEY": "<api-key>",
+    "anthropic_base_url": "https://<gateway>",
+    "ANTHROPIC_MODEL": "<model>",
+    "REFRAME_CLAUDE_BIN": "E:\\Env\\claude.exe",
+    "REFRAME_SESSION": "s-1"
+  },
+  "settings": {
+    "file": "C:\\Users\\<user>\\AppData\\Roaming\\reframe\\hook-settings\\s-1.json",
+    "content": "{\n  \"hooks\": {\n    \"UserPromptSubmit\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"http\",\n            \"url\": \"http://127.0.0.1:52100/hook/s-1/UserPromptSubmit\",\n            \"headers\": {\n              \"X-Reframe-Token\": \"<hook-token>\"\n            }\n          }\n        ]\n      }\n    ],\n    \"Stop\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"http\",\n            \"url\": \"http://127.0.0.1:52100/hook/s-1/Stop\",\n            \"headers\": {\n              \"X-Reframe-Token\": \"<hook-token>\"\n            }\n          }\n        ]\n      }\n    ],\n    \"Notification\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"http\",\n            \"url\": \"http://127.0.0.1:52100/hook/s-1/Notification\",\n            \"headers\": {\n              \"X-Reframe-Token\": \"<hook-token>\"\n            }\n          }\n        ]\n      }\n    ]\n  }\n}"
+  },
+  "meta": {
+    "claudeHome": "C:\\Users\\<user>\\.claude"
+  },
+  "warnings": []
+}

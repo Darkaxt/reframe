@@ -62,7 +62,7 @@ export interface HostServices {
   quota?: number;
   /** The adopted Claude clients, verified by hash. */
   clients?: number;
-  /** A direct start's reframe-config.json, verified by hash. */
+  /** A direct start's reframe-config.json, verified by hash; 2: `spawnPlan`. */
   launch?: number;
   /** Each session's status from its hooks and registry entry (src/ptyhost/sessions.ts); 2 (.28): `background`. */
   sessions?: number;

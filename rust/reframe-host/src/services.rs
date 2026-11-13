@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use reframe_services::adoption::{adopted_client, Hashes};
 use reframe_services::state::{StateError, StateFiles};
-use reframe_services::{launch, quota};
+use reframe_services::{launch, quota, spawn_plan};
 use reframe_transcripts::overview::{self, Config as OverviewConfig, Home, OffsetFn, Overview};
 use serde_json::{json, Value};
 
@@ -22,7 +22,7 @@ use crate::transcripts::{SvcError, Work};
 pub const SERVICES: [(&str, u32); 5] = [
     ("quota", 1),
     ("clients", 1),
-    ("launch", 1),
+    ("launch", 2),
     ("state", 1),
     ("overview", 1),
 ];
@@ -114,6 +114,23 @@ impl Services {
             ("launch", "evaluate") => {
                 let file = text(params, "file")?;
                 Box::new(move || Ok(launch::evaluate(&hashes, &file)))
+            }
+            ("launch", "spawnPlan") => {
+                let mut input = params.clone();
+                Box::new(move || {
+                    // An adoption record given instead of its answer is read here, as clients.adopted reads it.
+                    if input.is_object() && input.get("adopted").is_none_or(Value::is_null) {
+                        if let Some(record) = input.get("adoption").and_then(Value::as_str).filter(|r| !r.is_empty()) {
+                            let provider = input["session"]["launch"]["provider"]
+                                .as_str()
+                                .unwrap_or("chatgpt")
+                                .to_owned();
+                            let adopted = adopted_client(&hashes, record, &provider).to_json();
+                            input["adopted"] = adopted;
+                        }
+                    }
+                    spawn_plan::spawn_plan(&input, &spawn_plan::RealFs).map_err(bad)
+                })
             }
             ("state", "read") => {
                 let file = text(params, "file")?;

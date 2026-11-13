@@ -1,0 +1,7 @@
+{
+  "ok": false,
+  "error": "claudeNotFound",
+  "warnings": [
+    "adopted client refused: chatgpt: sha256 mismatch"
+  ]
+}

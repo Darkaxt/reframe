@@ -9,6 +9,7 @@
 pub mod adoption;
 pub mod launch;
 pub mod quota;
+pub mod spawn_plan;
 pub mod state;
 
 use std::fs;

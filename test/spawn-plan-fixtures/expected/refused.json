@@ -1,0 +1,7 @@
+{
+  "ok": false,
+  "error": "claudeNotFound",
+  "warnings": [
+    "provider refused by launch config: anthropic: anthropic: no binary configured"
+  ]
+}

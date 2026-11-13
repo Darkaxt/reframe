@@ -1,0 +1,43 @@
+{
+  "input": {
+    "mode": "new",
+    "env": {
+      "PATH": "C:\\Tools dir",
+      "PATHEXT": ".COM;.EXE;.BAT;.CMD",
+      "USERPROFILE": "C:\\Users\\<user>",
+      "CLAUDECODE": "1",
+      "CLAUDE_CODE_SESSION_ID": "<parent-session-id>",
+      "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000",
+      "ANTHROPIC_API_KEY": "<api-key>",
+      "anthropic_base_url": "https://<gateway>",
+      "ANTHROPIC_MODEL": "<model>"
+    },
+    "claudeHome": "C:\\Users\\<user>\\.claude",
+    "settingsDir": "C:\\Users\\<user>\\AppData\\Roaming\\reframe\\hook-settings",
+    "hooks": {
+      "port": 52100,
+      "token": "<hook-token>"
+    },
+    "session": {
+      "id": "s-1",
+      "claudeSessionId": "11111111-1111-4111-8111-111111111111",
+      "cwd": "D:\\Projects\\shop",
+      "name": "My \"quoted\" name",
+      "launch": {
+        "initialPrompt": "never through cmd",
+        "addDirs": [
+          "D:\\a b"
+        ]
+      }
+    }
+  },
+  "fs": {
+    "files": {
+      "C:\\Tools dir\\claude.bat": "@echo off\r\nsomething.exe %*\r\n"
+    },
+    "dirs": [
+      "D:\\Projects\\shop"
+    ],
+    "transcripts": []
+  }
+}

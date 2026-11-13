@@ -8,3 +8,4 @@ test-results/
 playwright-report/
 _site/
 test/state-fixtures/
+test/spawn-plan-fixtures/
