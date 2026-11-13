@@ -34,54 +34,55 @@ static class DiagCapture
     [StructLayout(LayoutKind.Sequential)]
     struct Rect { public int Left, Top, Right, Bottom; }
 
-    [StructLayout(LayoutKind.Sequential)]
-    struct MinMaxInfo { public int ReservedX, ReservedY, MaxSizeX, MaxSizeY, MaxPositionX, MaxPositionY, MinTrackX, MinTrackY, MaxTrackX, MaxTrackY; }
-
-    /// <summary>Lets the window grow past the screen (a CI runner's is 1024x768), so the client area really is
-    /// Width x Height: Windows otherwise caps the window at the screen size (WM_GETMINMAXINFO), and WPF with it.</summary>
-    public static void AllowLargerThanScreen(Window window) => window.SourceInitialized += (_, _) =>
-        HwndSource.FromHwnd(new WindowInteropHelper(window).Handle)!.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
-        {
-            const int WM_GETMINMAXINFO = 0x0024;
-            if (msg != WM_GETMINMAXINFO) return IntPtr.Zero;
-            var info = Marshal.PtrToStructure<MinMaxInfo>(lParam);
-            info.MaxTrackX = info.MaxTrackY = 8192;
-            Marshal.StructureToPtr(info, lParam, false);
-            handled = true;
-            return IntPtr.Zero;
-        });
-
-    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
-    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
-
-    /// <summary>Sizes the native window so that its client area is Width x Height device pixels (set directly: WPF's own
-    /// sizing stops at the screen size it read at start).</summary>
-    public static void SizeClient(Window window)
+    /// <summary>Shows <paramref name="root"/> in a borderless popup of exactly Width x Height at 0,0 (not a Window: a
+    /// window is kept to the screen's size, and a CI runner's screen is 1024x768), never activated.</summary>
+    public static HwndSource Host(FrameworkElement root)
     {
-        var hwnd = new WindowInteropHelper(window).Handle;
-        GetWindowRect(hwnd, out var outer);
-        GetClientRect(hwnd, out var inner);
-        int dx = (outer.Right - outer.Left) - (inner.Right - inner.Left), dy = (outer.Bottom - outer.Top) - (inner.Bottom - inner.Top);
-        const uint SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10;
-        SetWindowPos(hwnd, IntPtr.Zero, 0, 0, Width + dx, Height + dy, SWP_NOZORDER | SWP_NOACTIVATE);
+        const int WS_POPUP = unchecked((int)0x80000000), WS_VISIBLE = 0x10000000, WS_CLIPCHILDREN = 0x02000000;
+        const int WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000;
+        root.Width = Width;
+        root.Height = Height;
+        // The window's own text settings (MainWindow.xaml), which a popup does not have.
+        var frame = new System.Windows.Controls.Border { Background = (System.Windows.Media.Brush)Application.Current.FindResource("bgBrush"), Child = root };
+        frame.SetValue(System.Windows.Documents.TextElement.FontFamilyProperty, Application.Current.FindResource("FontFamily.Ui"));
+        frame.SetValue(System.Windows.Documents.TextElement.FontSizeProperty, 13.0);
+        frame.SetValue(System.Windows.Documents.TextElement.ForegroundProperty, Application.Current.FindResource("textBrush"));
+        var source = new HwndSource(new HwndSourceParameters("Reframe Shell capture")
+        {
+            WindowStyle = WS_POPUP | WS_VISIBLE | WS_CLIPCHILDREN,
+            ExtendedWindowStyle = WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+            PositionX = 0, PositionY = 0, Width = Width, Height = Height,
+        })
+        {
+            SizeToContent = SizeToContent.Manual,
+            RootVisual = frame,
+        };
+        return source;
     }
 
     static readonly List<object> Captured = [];
 
     /// <summary>Lets layout and rendering settle (and the terminal draw what the host replays).</summary>
-    public static async Task SettleAsync(Window window, int milliseconds)
+    public static async Task SettleAsync(Dispatcher dispatcher, int milliseconds)
     {
-        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+        await dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
         await Task.Delay(milliseconds);
-        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
+        await dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
     }
 
-    /// <summary>Saves the window's client area as <paramref name="state"/>.png in the capture folder.</summary>
-    public static void Save(Window window, string dir, string state)
+    /// <summary>Saves <paramref name="element"/>'s bounds in the popup as <paramref name="state"/>.png in the capture
+    /// folder (the whole client area for the root).</summary>
+    public static void Save(HwndSource source, FrameworkElement element, string dir, string state)
     {
-        var hwnd = new WindowInteropHelper(window).Handle;
+        var hwnd = source.Handle;
         GetClientRect(hwnd, out var rect);
         int w = rect.Right - rect.Left, h = rect.Bottom - rect.Top;
+        var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(element);
+        var bounds = element.TransformToAncestor(source.RootVisual).TransformBounds(new System.Windows.Rect(element.RenderSize));
+        var crop = new Int32Rect((int)Math.Round(bounds.X * dpi.DpiScaleX), (int)Math.Round(bounds.Y * dpi.DpiScaleY),
+            (int)Math.Round(bounds.Width * dpi.DpiScaleX), (int)Math.Round(bounds.Height * dpi.DpiScaleY));
+        crop.Width = Math.Min(crop.Width, w - crop.X);
+        crop.Height = Math.Min(crop.Height, h - crop.Y);
         var screen = GetDC(IntPtr.Zero);
         var dc = CreateCompatibleDC(screen);
         var bitmap = CreateCompatibleBitmap(screen, w, h);
@@ -90,12 +91,13 @@ static class DiagCapture
         {
             var ok = PrintWindow(hwnd, dc, PW_CLIENTONLY | PW_RENDERFULLCONTENT);
             SelectObject(dc, old);
-            var source = Imaging.CreateBitmapSourceFromHBitmap(bitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            var full = Imaging.CreateBitmapSourceFromHBitmap(bitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            var image = crop.X == 0 && crop.Y == 0 && crop.Width == w && crop.Height == h ? full : new CroppedBitmap(full, crop);
             var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(source));
+            encoder.Frames.Add(BitmapFrame.Create(image));
             Directory.CreateDirectory(dir);
             using (var file = File.Create(Path.Combine(dir, state + ".png"))) encoder.Save(file);
-            Captured.Add(new { state, width = w, height = h, printWindow = ok });
+            Captured.Add(new { state, width = crop.Width, height = crop.Height, client = $"{w}x{h}", printWindow = ok });
         }
         finally
         {

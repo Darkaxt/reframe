@@ -1,10 +1,14 @@
-# Visual parity, WPF side (CI): starts the Rust PTY host (CI artifact reframe-host) for a new profile and creates two
-# cmd.exe sessions over its pipe that print deterministic text, then detaches, so that `reframe-shell --diag-capture`
-# has sessions with terminal content to show. Leaves the host running; prints its process id last.
+# Visual parity, WPF side (CI): starts the Rust PTY host (CI artifact reframe-host) for a new profile and creates the
+# visual fixtures' open sessions over its pipe (-Sessions "<session id>=<name>=<project>"), each running
+# screenshots/demo-claude.mjs with that --name in %USERPROFILE%\projects\<project>, as e2e/visual-reference.spec.ts runs
+# them for Electron (the same scenes, so the same terminal content), then detaches, so that
+# `reframe-shell --diag-capture --diag-fixture` shows them. Leaves the host running; prints its process id last.
 # Based on wpf/tests/sandbox-smoke/guest/Start-Host.ps1 (docs/ptyhost-protocol.md: hello, spawn, spawned).
 param(
     [Parameter(Mandatory)] [string] $HostBin,
-    [Parameter(Mandatory)] [string] $ProfileDir
+    [Parameter(Mandatory)] [string] $ProfileDir,
+    [Parameter(Mandatory)] [string[]] $Sessions,
+    [Parameter(Mandatory)] [string] $ClaudeHome
 )
 $ErrorActionPreference = 'Stop'
 
@@ -31,16 +35,18 @@ $w.WriteLine((@{ type = 'hello'; token = $token; protocol = 1 } | ConvertTo-Json
 Write-Host "welcome: $($r.ReadLine())"
 $envMap = [ordered]@{}
 foreach ($e in [Environment]::GetEnvironmentVariables().GetEnumerator() | Sort-Object Name) { $envMap[$e.Name] = [string]$e.Value }
-$prompt = '$G '
-$sessions = @(
-    @{ id = 'visual-1'; text = 'echo Reframe visual reference: session one& echo The quick brown fox jumps over the lazy dog 0123456789& ver' },
-    @{ id = 'visual-2'; text = 'echo Reframe visual reference: session two& echo [ok] build passed  [warn] 2 warnings  [err] none' }
-)
+New-Item -ItemType Directory -Force $ClaudeHome | Out-Null
+$envMap['REFRAME_CLAUDE_HOME'] = (Resolve-Path $ClaudeHome).Path
+$node = (Get-Command node).Source
+$demo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\screenshots\demo-claude.mjs')).Path
 $instance = 0
-foreach ($s in $sessions) {
+foreach ($entry in $Sessions) {
+    $id, $name, $project = $entry -split '='
+    $cwd = Join-Path $env:USERPROFILE "projects\$project"
+    New-Item -ItemType Directory -Force $cwd | Out-Null
     $instance++
-    $spawn = [ordered]@{ type = 'spawn'; sessionId = $s.id; instance = $instance; file = 'C:\Windows\System32\cmd.exe'
-        args = "/k prompt $prompt& $($s.text)"; cwd = $ProfileDir; env = $envMap; cols = 120; rows = 36 }
+    $spawn = [ordered]@{ type = 'spawn'; sessionId = $id; instance = $instance; file = $node
+        args = "`"$demo`" --name $name"; cwd = $cwd; env = $envMap; cols = 120; rows = 36 }
     $w.WriteLine(($spawn | ConvertTo-Json -Compress -Depth 4))
     $spawned = $false
     $deadline = (Get-Date).AddSeconds(15)
@@ -49,7 +55,7 @@ foreach ($s in $sessions) {
         if ($line -match '"type":"spawned"') { $spawned = $true; break }
         if ($line -match '"type":"spawn-failed"') { Write-Host $line; break }
     }
-    if (-not $spawned) { throw "session $($s.id) did not spawn" }
+    if (-not $spawned) { throw "session $id did not spawn" }
 }
 $c.Dispose()
 Write-Output $p.Id

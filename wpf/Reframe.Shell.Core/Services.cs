@@ -10,7 +10,10 @@ public sealed record SessionStatus(string SessionId, int Instance, string Status
     public static SessionStatus From(JsonNode node)
     {
         var registry = node["registry"];
-        return new SessionStatus((string)node["sessionId"]!, (int?)node["instance"] ?? 0, (string?)node["status"] ?? "starting",
+        var status = (string?)node["status"] ?? "starting";
+        // Protocol version 2: idle with background work still running reads as "background" (sessionView's status).
+        if (status == "idle" && (bool?)node["background"] == true) status = "background";
+        return new SessionStatus((string)node["sessionId"]!, (int?)node["instance"] ?? 0, status,
             (string?)registry?["name"], (string?)node["claudeSessionId"] ?? (string?)registry?["sessionId"],
             (string?)registry?["cwd"], (string?)node["notify"], (long?)node["revision"]);
     }

@@ -1,0 +1,73 @@
+{
+  "comment": "e2e/visual-reference.spec.ts 'main window with sessions': the same sessions, statuses (demo-claude's scenes), past chats, pinned chat and claude found running in another terminal. usedSecondsAgo orders the sessions used 'now' as Electron's capture lists them.",
+  "sessions": [
+    {
+      "id": "vs-checkout-fix",
+      "claudeSessionId": "1c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a01",
+      "name": "checkout-fix",
+      "project": "webshop",
+      "status": "idle",
+      "usedSecondsAgo": 40
+    },
+    {
+      "id": "vs-rate-limiter",
+      "claudeSessionId": "1c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a02",
+      "name": "rate-limiter",
+      "project": "api-gateway",
+      "status": "busy",
+      "usedSecondsAgo": 10
+    },
+    {
+      "id": "vs-db-migration",
+      "claudeSessionId": "1c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a03",
+      "name": "db-migration",
+      "project": "webshop",
+      "status": "waiting",
+      "usedSecondsAgo": 20
+    },
+    {
+      "id": "vs-release-notes",
+      "claudeSessionId": "1c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a04",
+      "name": "release-notes",
+      "project": "mobile-app",
+      "status": "ended",
+      "ended": true,
+      "usedSecondsAgo": 7200
+    },
+    {
+      "id": "vs-old-checkout",
+      "claudeSessionId": "1c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a05",
+      "name": "old-checkout",
+      "project": "moved-away",
+      "status": "ended",
+      "usedSecondsAgo": 30,
+      "inWindow": false
+    }
+  ],
+  "past": [
+    {
+      "id": "2d1e7a1f-5d2b-4b62-8b62-1d7b2e1f1b01",
+      "title": "Pinned: plan the Q3 roadmap",
+      "project": "docs-site",
+      "hoursAgo": 4,
+      "pinned": true
+    },
+    {
+      "id": "2d1e7a1f-5d2b-4b62-8b62-1d7b2e1f1b02",
+      "title": "Add dark mode to the account settings",
+      "project": "webshop",
+      "hoursAgo": 3
+    },
+    {
+      "id": "2d1e7a1f-5d2b-4b62-8b62-1d7b2e1f1b03",
+      "title": "Bump dependencies and fix the deprecation warnings",
+      "project": "api-gateway",
+      "hoursAgo": 26
+    }
+  ],
+  "running": [
+    { "pid": 4242, "id": "3e2f8b2a-6e3c-4c73-9c73-2e8c3f2a2c01", "name": "ci-pipeline", "project": "webshop" }
+  ],
+  "tabs": ["vs-checkout-fix"],
+  "selected": "vs-checkout-fix"
+}
