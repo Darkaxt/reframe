@@ -4,42 +4,42 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 function Get-Sha256([string]$Path) {
-    if ($null -eq $script:HashStamps) { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
+    if ($null -eq $script:ReleaseFilesStampTable) { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
     # Launch only (Use-HashStamps): a file unchanged since it was last hashed (same size, write and creation time)
     # keeps that hash. Whoever can rewrite these files without changing those can rewrite the launcher too.
     $item = Get-Item -LiteralPath $Path -Force
     $key = [IO.Path]::GetFullPath($Path).ToLowerInvariant()
-    $seen = $script:HashStamps[$key]
+    $seen = $script:ReleaseFilesStampTable[$key]
     if ($seen -and $seen.bytes -eq $item.Length -and $seen.write -eq $item.LastWriteTimeUtc.Ticks -and $seen.created -eq $item.CreationTimeUtc.Ticks) {
-        $script:HashStampsUsed[$key] = $seen
+        $script:ReleaseFilesStampsUsed[$key] = $seen
         return $seen.sha256
     }
     $sha = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
-    $script:HashStampsUsed[$key] = @{ sha256 = $sha; bytes = $item.Length; write = $item.LastWriteTimeUtc.Ticks; created = $item.CreationTimeUtc.Ticks }
+    $script:ReleaseFilesStampsUsed[$key] = @{ sha256 = $sha; bytes = $item.Length; write = $item.LastWriteTimeUtc.Ticks; created = $item.CreationTimeUtc.Ticks }
     $sha
 }
 
-$script:HashStamps = $null
-$script:HashStampsUsed = @{}
+$script:ReleaseFilesStampTable = $null
+$script:ReleaseFilesStampsUsed = @{}
 
 <# Start reusing the hashes recorded in $Path (missing or unreadable: everything is hashed again). #>
 function Use-HashStamps([string]$Path) {
-    $script:HashStamps = @{}
-    $script:HashStampsUsed = @{}
+    $script:ReleaseFilesStampTable = @{}
+    $script:ReleaseFilesStampsUsed = @{}
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
     try {
         $saved = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -AsHashtable
         if ($saved.schema -ceq 'reframe.hash-stamps.v1') {
             foreach ($entry in $saved.files.GetEnumerator()) {
-                $script:HashStamps[$entry.Key] = @{ sha256 = [string]$entry.Value.sha256; bytes = [long]$entry.Value.bytes; write = [long]$entry.Value.write; created = [long]$entry.Value.created }
+                $script:ReleaseFilesStampTable[$entry.Key] = @{ sha256 = [string]$entry.Value.sha256; bytes = [long]$entry.Value.bytes; write = [long]$entry.Value.write; created = [long]$entry.Value.created }
             }
         }
-    } catch { $script:HashStamps = @{} }
+    } catch { $script:ReleaseFilesStampTable = @{} }
 }
 
 <# Keep the hashes this launch looked at, once all its checks passed. #>
 function Save-HashStamps([string]$Path) {
-    Write-AtomicJson $Path @{ schema = 'reframe.hash-stamps.v1'; files = $script:HashStampsUsed }
+    Write-AtomicJson $Path @{ schema = 'reframe.hash-stamps.v1'; files = $script:ReleaseFilesStampsUsed }
 }
 
 function Assert-Hash([string]$Path, [string]$Expected) {

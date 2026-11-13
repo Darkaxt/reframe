@@ -17,8 +17,8 @@ if ([IO.Path]::GetPathRoot($active.runtime) -ine 'D:\') { throw 'Persistent runt
 [IO.Directory]::CreateDirectory($active.runtime) | Out-Null
 # Hashing the whole release and the clients took seconds on every start with nothing on screen: files unchanged
 # since the last passing launch keep their hashes.
-$hashStamps = Join-Path $active.runtime 'hash-stamps.json'
-Use-HashStamps $hashStamps
+$stampsFile = Join-Path $active.runtime 'hash-stamps.json'
+Use-HashStamps $stampsFile
 Test-ReleaseFiles (Split-Path -Parent $active.executable) $active.files
 Assert-Hash $active.executable $active.executableSha256
 Assert-Hash $active.helper.helper $active.helper.helperSha256
@@ -40,7 +40,7 @@ if (-not $adoption) {
     $cli = Get-Content -LiteralPath $active.managedActive -Raw | ConvertFrom-Json
     Assert-Hash $active.managedBinary $cli.sha256
 }
-Save-HashStamps $hashStamps
+Save-HashStamps $stampsFile
 $state = Get-Content -LiteralPath (Join-Path $active.profile 'state.json') -Raw | ConvertFrom-Json
 if ($state.preferences.claudeBin -cne $active.managedBinary) { throw 'Managed CLI selection changed; inspect before launch' }
 $values = @{

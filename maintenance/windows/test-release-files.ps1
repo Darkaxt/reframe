@@ -83,7 +83,7 @@ Assert-Hash $stamped $good
 [IO.File]::WriteAllText($stamped, 'bbbb')
 [IO.File]::SetLastWriteTimeUtc($stamped, [IO.File]::GetLastWriteTimeUtc($stamped).AddMinutes(1))
 Must-Throw { Assert-Hash $stamped $good } 'changed file behind a hash stamp'
-$script:HashStamps = $null
+$script:ReleaseFilesStampTable = $null
 Write-AtomicJson (Join-Path $Scratch 'result.json') @{
     status = 'passed'; checked = @('exact copy', 'same-volume atomic pointer', 'frozen restore', 'restore prevalidation', 'explicit hash-bound provider deferral', 'unrelated failures remain blockers', 'path/duplicate/extra/changed rejection', 'launch hash stamps')
 }
