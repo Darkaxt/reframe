@@ -63,6 +63,8 @@ public partial class MainWindow
     {
         if (!Writable || !Settings.Apply(state.Preferences, patch)) return false;
         Saved();
+        // The terminals take the new text size at once (S6's path for a saved size).
+        if (patch.FontSize is not null) FontSizeLoaded();
         PreferencesApplied?.Invoke(state.Preferences);
         return true;
     }
