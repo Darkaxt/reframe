@@ -69,9 +69,11 @@ public static class Shortcuts
     public static FontSizeState EchoFontSize(FontSizeState state, int saved) =>
         state.Awaited is { } awaited && saved != awaited ? state : new FontSizeState(saved, null);
 
-    /// <summary>A size in CSS px (reframe's preferences.fontSize) in the whole points the terminal control takes
-    /// (TerminalSetTheme's fontSize is a short of points at 96 dpi: 13 px = 9.75 pt → 10).</summary>
-    public static short TerminalPoints(int px) => (short)Math.Max(1, Math.Round(px * 0.75, MidpointRounding.AwayFromZero));
+    /// <summary>A size in CSS px (reframe's preferences.fontSize) as the patched terminal control takes it
+    /// (TerminalSetFont): points at 96 dpi (13 px = 9.75 pt) and the cell height in px. xterm draws 13 px with
+    /// lineHeight 1.1 in 16 px rows; the rows keep that ratio at other sizes. Cell width is the font's own advance.</summary>
+    public static (float Points, int CellHeight) TerminalFont(int px) =>
+        (px * 0.75f, (int)Math.Max(1, Math.Round(px * 16 / 13.0, MidpointRounding.AwayFromZero)));
 }
 
 /// <summary>The terminals' font size as a window keeps it: changed at once, with the saved size coming back later.</summary>
