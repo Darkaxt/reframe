@@ -16,23 +16,42 @@ is to be packaged for production.
 | Paste: text (CR line breaks, bracketed when the program enabled DECSET 2004), else files as quoted paths, else an image saved to the drops folder and typed as its path | Same; bracketed paste and mouse tracking are read from the session's output (`TerminalModes`), as the control does not report them |
 | File drops (and in-memory images) typed as paths, Linux paths for sessions in WSL | Same, through WPF drag and drop on the tile; in-memory images go to `%TEMP%\reframe-drops\<uuid>\` |
 | Copy notice and "hold Shift to select" hint over the bottom of the terminal | Shown in the tile's header: nothing can be drawn over the terminal's native window |
-| Find bar (Ctrl+Shift+F) over the top-right of the terminal; every match marked, the current one in amber | Find bar above the terminal (it shrinks by one bar while open); the current match is the terminal's selection, scrolled into view; "n of m" counted up to 1000. The control exports no search, so find uses its UI Automation text pattern; the other matches are not marked |
-| Text size Ctrl +/-/0, 8–32 px, saved as `preferences.fontSize` | Same keys and range, saved the same way; the control takes whole points (`TerminalSetTheme`'s `short fontSize`), so px are rounded to points (13 px → 10 pt) and some steps look the same |
-| Font Cascadia Mono 13 px, line height 1.1, theme `#17181c`/`#d7dae0`/selection `#3a3f4b`, xterm's 16 colours, blinking block cursor | Same family, colours and cursor; size as above |
+| Find bar (Ctrl+Shift+F) over the top-right of the terminal; every match marked, the current one in amber | Find bar above the terminal (it shrinks by one bar while open); every match marked and the current one in the focused colour (the renderer's own search highlight colours), scrolled into view; "n of m" (the patched control's `TerminalSearch`) |
+| Text size Ctrl +/-/0, 8–32 px, saved as `preferences.fontSize` | Same keys and range, saved the same way; the patched control's `TerminalSetFont` takes fractional points (13 px = 9.75 pt) and a row height of px × 16/13 (16 px at 13 px, as xterm's `lineHeight: 1.1`) |
+| Font Cascadia Mono 13 px, line height 1.1, scrollback 5000, theme `#17181c`/`#d7dae0`/selection `#3a3f4b`, xterm's 16 colours, blinking block cursor | Same family, colours and cursor; size as above |
 | xterm's 14 px overlay scrollbar, slider shown on hover/scroll | The control's WPF `ScrollBar` restyled: 14 px, no track or arrows, slider `rgba(121,121,121,.4)` while the pointer moves over the terminal |
 
-### What the packaged control cannot match
+### What the patched control still cannot match
 
-- **Line height and cell width.** `HwndTerminal` sizes cells from the font alone (`FontInfoDesired` without a cell
-  size), and its exported `TerminalSetTheme` takes only a family and a whole point size. At 10 pt Cascadia Mono the
-  cells are 8 x 15 px; xterm draws 13 px with `lineHeight: 1.1` as about 7.75 x 16 px. So the WPF terminals show about
-  one more row per 16 rows and wrap a column or two earlier. Windows Terminal itself has `cellWidth`/`cellHeight`
-  (`font.cellHeight` in its settings), but the WPF control does not pass them.
-- **Find marks.** No search export: only the current match is shown (as the selection), not every match.
-- **Scrollback.** Fixed at 9001 lines (`_terminal->Create({ 80, 25 }, 9001, ...)`); xterm keeps 5000.
+- **Cell width.** AtlasEngine rounds cells to whole pixels: Cascadia Mono at 13 px is 8 px wide, where xterm measures
+  about 7.75 px, so lines wrap a column or two earlier on wide terminals. Rows now match (16 px at 13 px).
+- **Find colours.** The marks use AtlasEngine's built-in search highlight colours, not xterm's amber.
 - **Renderer.** No switch to software rendering (backlog #15: no WARP switch).
 
-## Packaging decision
+## Packaging (S6b)
+
+The shell uses `Reframe.Terminal.Wpf`, built by `.github/workflows/terminal-wpf.yml` on a Windows runner from
+microsoft/terminal `v1.25.3131.0` (commit `f88b209f1e57e1d8ca35977260c3cddacccaeb31`, checked) with
+`wpf/terminal-patch/*.patch`: `Microsoft.Terminal.Control.dll` (x64) and `Microsoft.Terminal.Wpf.dll`, packed with
+microsoft/terminal's `LICENSE` (MIT), `NOTICE.md` and the patch. The package is a workflow artifact and, once per
+version, a release asset (`terminal-wpf-v<tag>-reframe.N`); `wpf/Get-TerminalPackage.ps1` downloads it into
+`wpf/packages-local` (the local feed in `wpf/nuget.config`) and checks the SHA-256 pinned in the script. CI's wpf job runs
+it before building; run it once before a local build. A patch change bumps `reframe.N` in the workflow, the script and
+`Reframe.Shell.csproj`, then pins the new hash.
+
+The patch (all in `HwndTerminal` and the WPF wrapper; the wrapper's existing API is unchanged):
+
+- `TerminalSetFont(terminal, family, float points, cellWidth, cellHeight, dpi)`: as `TerminalSetTheme`'s font part,
+  with a fractional size and `FontInfoDesired::SetCellSize` (the setting behind Windows Terminal's `font.cellWidth` /
+  `font.cellHeight`, CSS lengths such as `16px`); the cell size is kept across later `TerminalSetTheme` calls.
+  Wrapper: `TerminalControl.SetFont`.
+- `TerminalSetDefaultHistorySize(lines)`: scrollback for terminals created afterwards (was a fixed 9001).
+  Wrapper: `TerminalControl.SetDefaultHistorySize`.
+- `TerminalSearch` / `TerminalClearSearch`: `ControlCore::Search` / `ClearSearch` over the console's `Search`, with
+  `Terminal::SetSearchHighlights`, so the renderer marks every match. Wrapper: `TerminalControl.Search` / `ClearSearch`.
+
+### Earlier decision (S6)
+
 
 Keep the pinned `CI.Microsoft.Terminal.Wpf` package (`[1.25.260303002]`, exact version) behind the shell's own wrapper
 (`HostTerminalConnection` and `TerminalBehaviour` are the only code that touches it) for the prototype and until

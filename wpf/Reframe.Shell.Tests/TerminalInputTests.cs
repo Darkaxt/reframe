@@ -244,10 +244,10 @@ public class TerminalInputTests
     }
 
     [Fact]
-    public void Terminal_points_round_css_px()
+    public void Terminal_font_matches_xterm_rows()
     {
-        Assert.Equal(10, Shortcuts.TerminalPoints(13));
-        Assert.Equal(6, Shortcuts.TerminalPoints(8));
-        Assert.Equal(24, Shortcuts.TerminalPoints(32));
+        Assert.Equal((9.75f, 16), Shortcuts.TerminalFont(13));
+        Assert.Equal((6f, 10), Shortcuts.TerminalFont(8));
+        Assert.Equal((24f, 39), Shortcuts.TerminalFont(32));
     }
 }
