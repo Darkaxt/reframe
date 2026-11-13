@@ -22,6 +22,7 @@ sealed class OpenSession
     public required StatusDot TileDot { get; init; }
     public required StatusDot DockDot { get; init; }
     public required HostTerminalConnection Terminal { get; init; }
+    public required FrameworkElement Tile { get; init; }
 }
 
 /// <summary>
@@ -138,6 +139,7 @@ public partial class MainWindow : Window
         {
             if (e.Source != tabs) return;
             UpdateDock();
+            ShowSelectedTile();
             if (tabs.SelectedItem is TabItem { Tag: OpenSession shown }) sidebar.Select(ChatKeyOf(shown.SessionId));
         };
         Grid.SetColumn(tabs, 1);
@@ -258,6 +260,14 @@ public partial class MainWindow : Window
         tiledButton.BorderBrush = mode == "tiled" ? B("accentBrush") : B("border-strongBrush");
         Panel.SetZIndex(singleButton, mode == "single" ? 1 : 0);
         Panel.SetZIndex(tiledButton, mode == "tiled" ? 1 : 0);
+    }
+
+    Grid? TileHost() => tabs.Template.FindName("Tiles", tabs) as Grid;
+
+    void ShowSelectedTile()
+    {
+        foreach (var session in open.Values)
+            session.Tile.Visibility = tabs.SelectedItem == session.Tab ? Visibility.Visible : Visibility.Hidden;
     }
 
     void UpdateDock()
@@ -415,7 +425,7 @@ public partial class MainWindow : Window
         if (open.TryGetValue(sessionId, out var existing))
         {
             tabs.SelectedItem = existing.Tab;
-            if (FindHost(existing.Tab.Content as DependencyObject) is { } shownHost) FocusTerminal(shownHost);
+            if (FindHost(existing.Tile) is { } shownHost) FocusTerminal(shownHost);
             return;
         }
         var control = new TerminalControl { AutoResize = true };
@@ -450,16 +460,22 @@ public partial class MainWindow : Window
         close.Click += (_, _) =>
         {
             terminal.Close(); // detaches the view only; the session goes on
-            open.Remove(sessionId);
+            if (open.Remove(sessionId, out var closed)) TileHost()?.Children.Remove(closed.Tile);
             tabs.Items.Remove(tab);
             UpdateDock();
         };
-        tab.Content = Tile(label, cwd, provider, tileDot, close, control);
-        var session = new OpenSession { SessionId = sessionId, Tab = tab, TileDot = tileDot, DockDot = dockDot, Terminal = terminal };
+        // The tiles stay in one panel and are only hidden: a tab's content would be unloaded on every switch, and
+        // the terminal's HwndHost does not survive being destroyed and rebuilt (a native crash).
+        var tile = Tile(label, cwd, provider, tileDot, close, control);
+        tile.Visibility = Visibility.Hidden;
+        tabs.ApplyTemplate();
+        TileHost()?.Children.Add(tile);
+        var session = new OpenSession { SessionId = sessionId, Tab = tab, TileDot = tileDot, DockDot = dockDot, Terminal = terminal, Tile = tile };
         tab.Tag = session;
         open[sessionId] = session;
         tabs.Items.Add(tab);
         tabs.SelectedItem = tab;
+        ShowSelectedTile();
         UpdateDock();
     }
 
@@ -568,7 +584,7 @@ public partial class MainWindow : Window
     // ---------- diagnostics ----------
 
     /// <summary>--diag-capture: renders the fixture's states under the state ids of e2e/visual-reference.spec.ts (the
-    /// root in a 1280x800 capture window, whatever the screen's size), saves them and returns. Without a fixture: the live
+    /// root in a 1280x800 popup, whatever the screen's size), saves them and returns. Without a fixture: the live
     /// profile's main window as main-empty or main-sessions.</summary>
     public async Task CaptureAsync(string dir, string? fixtureFile)
     {

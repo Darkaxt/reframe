@@ -340,7 +340,7 @@
               <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
             </Border>
             <Border Grid.Column="1" Padding="6">
-              <ContentPresenter ContentSource="SelectedContent" />
+              <Grid x:Name="Tiles" />
             </Border>
           </Grid>
         </ControlTemplate>
