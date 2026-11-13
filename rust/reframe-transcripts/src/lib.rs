@@ -8,6 +8,7 @@ mod folders;
 mod index;
 mod info;
 mod js;
+pub mod overview;
 mod titles;
 
 pub use folders::{folder_key, folder_workspaces, workspace_key, FolderLocation, FolderWorkspace};

@@ -1075,6 +1075,8 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         sessions: 2,
         state: 1,
         observer: 1,
+        // The Overview's activity index is the Rust host's only (the WPF shell's feature).
+        ...(kind === 'rust' ? { overview: 1 } : {}),
       });
       const index = new TranscriptIndex(home);
       let id = 0;
@@ -1122,7 +1124,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       expect(await error(3, { method: 'title', params: { home: scratch } })).toBe('bad-params');
       expect(await error(4, { method: 'info', params: {} })).toBe('bad-params');
       expect(await error(5, { method: 'watch', params: { home: path.join(scratch, 'not-there') } })).toBe('io');
-      connection.send({ type: 'svc', id: 6, service: 'overview', method: 'list', params: {} });
+      connection.send({ type: 'svc', id: 6, service: 'nope', method: 'list', params: {} });
       expect(await connection.next('svc-result 6', (m) => m.type === 'svc-result' && m.id === 6)).toMatchObject({
         ok: false,
         error: { code: 'unknown-method' },
@@ -1152,6 +1154,77 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       });
       const after = await svc(connection, 3, 'list', { home, limit: 50, exclude: [] });
       expect(after.result.items[0]).toMatchObject({ sessionId: 'a9', title: 'a new one' });
+    });
+  });
+
+  (kind === 'rust' ? describe : describe.skip)('the overview service', () => {
+    async function svc(connection: Connection, id: number, method: string, params: Record<string, unknown>) {
+      connection.send({ type: 'svc', id, service: 'overview', method, params });
+      return connection.next(`svc-result ${id}`, (m) => m.type === 'svc-result' && m.id === id);
+    }
+    const line = (value: unknown) => JSON.stringify(value);
+    const prompt = (timestamp: string, content: unknown) =>
+      line({ type: 'user', timestamp, cwd: 'C:\\work\\Alpha', message: { role: 'user', content } });
+    const turn = (timestamp: string, id: string, model: string, tools: string[]) =>
+      line({
+        type: 'assistant',
+        timestamp,
+        message: { id, model, content: tools.map((name) => ({ type: 'tool_use', id: 't', name, input: {} })) },
+      });
+
+    it('indexes thread activity per day in the background and answers from its cache', async () => {
+      const dir = fs.mkdtempSync(path.join(scratch, 'overview-'));
+      const claude = path.join(dir, 'claude');
+      const chatgpt = path.join(dir, 'chatgpt');
+      const at = Date.now();
+      writeTranscript(
+        claude,
+        'C--work-Alpha',
+        'o1',
+        [
+          prompt('2026-03-01T10:00:00Z', 'secret prompt'),
+          turn('2026-03-01T10:00:05Z', 'm1', 'claude-opus-5-5', ['Edit', 'Bash']),
+          prompt('2026-03-01T10:00:06Z', [{ type: 'tool_result', content: 'not a prompt' }]),
+          turn('2026-03-01T10:01:00Z', 'm2', 'claude-opus-5-5', ['Read']),
+          '{broken',
+          line({ type: 'custom-title', customTitle: 'Alpha work' }),
+          prompt('2026-03-02T09:00:00Z', 'again'),
+          '',
+        ],
+        at,
+      );
+      writeTranscript(chatgpt, 'C--work-Beta', 'o2', [prompt('2026-03-02T12:00:00Z', 'hi'), ''], at);
+      const host = await startHost(kind);
+      const { connection } = await attach(host);
+      const cache = path.join(dir, 'profile', 'overview.json');
+      const homes = [
+        { provider: 'claude', home: claude },
+        { provider: 'chatgpt', home: chatgpt },
+      ];
+      let id = 0;
+      expect((await svc(connection, ++id, 'status', {})).result.state).toBe('unconfigured');
+      expect((await svc(connection, ++id, 'configure', { cache: 'relative.json', homes })).error.code).toBe(
+        'bad-params',
+      );
+      expect((await svc(connection, ++id, 'configure', { cache, homes })).ok).toBe(true);
+      const end = Date.now() + 15_000;
+      while (!(await svc(connection, ++id, 'status', {})).result.firstPassComplete) {
+        if (Date.now() > end) throw new Error('timed out waiting for the first pass');
+        await pause(50);
+      }
+      const summary = (await svc(connection, ++id, 'summary', { year: 2026 })).result;
+      expect(summary.totals).toEqual({ prompts: 3, turns: 2, sessions: 2, activeMinutes: 4 });
+      expect(summary.days.map((d: { date: string }) => d.date)).toEqual(['2026-03-01', '2026-03-02']);
+      expect(summary.streaks.longest).toBe(2);
+      const threads = (await svc(connection, ++id, 'threads', { limit: 5 })).result.threads;
+      expect(threads[0]).toMatchObject({ sessionId: 'o1', provider: 'claude', title: 'Alpha work', turns: 2 });
+      const breakdown = (await svc(connection, ++id, 'breakdown', { year: 2026 })).result;
+      expect(breakdown.models).toEqual({ 'claude-opus-5-5': 2 });
+      expect(breakdown.tools).toEqual({ edit: 1, bash: 1, read: 1, web: 0, other: 0 });
+      const timeline = (await svc(connection, ++id, 'timeline', {})).result;
+      expect(timeline.months[0]).toMatchObject({ month: '2026-03', sessions: 2, prompts: 3 });
+      expect(fs.readFileSync(cache, 'utf8')).not.toContain('secret prompt');
+      expect((await svc(connection, id + 1, 'nope', {})).error.code).toBe('unknown-method');
     });
   });
 
