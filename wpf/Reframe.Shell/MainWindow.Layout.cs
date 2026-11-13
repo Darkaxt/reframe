@@ -426,7 +426,13 @@ public partial class MainWindow
             buttons.Children.Add(button);
             return button;
         }
-        if (card.Primary is { } primary) Add(primary, S("PrimaryButton"), () => { if (Writable) shell.RestartSession(WindowId, sessionId, false); });
+        var tooOld = shell.ErrorOf(sessionId) == ShellController.HostTooOld;
+        if (card.Primary is { } primary) Add(primary, S("PrimaryButton"), () =>
+        {
+            if (!Writable) return;
+            if (tooOld) _ = shell.RestartHostAsync(this);
+            else shell.RestartSession(WindowId, sessionId, false);
+        });
         if (card.StartFresh) Add(Strings.T("tile.startFresh"), S("ButtonBaseStyle"), () => { if (Writable) shell.RestartSession(WindowId, sessionId, true); });
         Add(card.Close, S("ButtonBaseStyle"), () => CloseTile(sessionId));
         var panel = new StackPanel();

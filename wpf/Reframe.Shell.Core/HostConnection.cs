@@ -200,6 +200,10 @@ public sealed class HostConnection : IAsyncDisposable
     public Task DisposeSessionAsync(string sessionId, int instance) => IsObserver ? Task.CompletedTask :
         SendAsync(new JsonObject { ["type"] = "dispose", ["sessionId"] = sessionId, ["instance"] = instance });
 
+    /// <summary>Ends every session and the host (protocol <c>shutdown</c>); never as an observer. The connection closes
+    /// once the host is gone.</summary>
+    public Task ShutdownAsync() => IsObserver ? Task.CompletedTask : SendAsync(new JsonObject { ["type"] = "shutdown" });
+
     /// <summary>Sends <c>spawn</c> (a session started from a <c>launch.spawnPlan</c> answer); never as an observer.</summary>
     public Task SpawnAsync(JsonObject spawn) => IsObserver ? Task.CompletedTask : SendAsync(spawn);
 

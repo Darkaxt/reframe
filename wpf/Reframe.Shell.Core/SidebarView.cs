@@ -114,7 +114,7 @@ public static class SidebarView
         var managed = item.Kind == ListItemKind.App ? item : null;
         var stamp = chat.LastActiveAt != 0 ? RelativeTime.Short(chat.LastActiveAt, now) : "";
         var status = managed?.Elsewhere == true ? "Running"
-            : managed is not null ? (managed.WindowNumber is { } n ? $"window {n}" : "ended")
+            : managed is not null ? (managed.WindowNumber is { } n && managed.Status is not ("ended" or "error") ? $"window {n}" : "ended")
             : item.Kind == ListItemKind.Running ? "Running"
             : "ended";
         var meta = string.Join(" · ", new[] { section.StartsWith("project:", StringComparison.Ordinal) ? "" : FolderName(chat.Cwd), item.Distro ?? "", status }

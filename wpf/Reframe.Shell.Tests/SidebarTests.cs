@@ -18,6 +18,17 @@ public class SidebarTests
         Status = "ended", Lifecycle = "ended", LastActiveAt = 10,
     };
 
+    [Theory]
+    [InlineData("busy", "Project · window 2")]
+    [InlineData("ended", "Project · ended")]
+    [InlineData("error", "Project · ended")]
+    public void AnEndedSessionInAWindowReadsEnded(string status, string meta)
+    {
+        var item = Managed with { Status = status, Lifecycle = "open", WindowId = "w2", WindowNumber = 2 };
+        var chat = SidebarChats.Build(new SessionList { App = [item] })[0];
+        Assert.Equal(meta, SidebarView.Row(chat, "recent", 20).Meta);
+    }
+
     [Fact]
     public void ChatsKeepTheirIdentityThroughHistoryAdoptionAndTheRecordedProvider()
     {
