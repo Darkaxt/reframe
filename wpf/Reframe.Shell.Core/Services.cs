@@ -99,4 +99,21 @@ public sealed class HostServices
         var result = await connection.CallAsync("state", "read", new JsonObject { ["file"] = file });
         return ((string?)result?["content"], (long?)result?["revision"]);
     }
+
+    /// <summary><c>state.read</c> with the revision required (the store's form).</summary>
+    public async Task<(string? Content, long Revision)> ReadStateRevisionAsync(string file)
+    {
+        var (content, revision) = await ReadStateAsync(file);
+        return (content, revision ?? throw new HostServiceException("bad-response", "state.read without a revision"));
+    }
+
+    /// <summary><c>state.write { file, content, revision, backup }</c>: the new revision; <c>conflict</c> when stale.</summary>
+    public async Task<long> WriteStateAsync(string file, string content, long revision, bool backup)
+    {
+        var result = await connection.CallAsync("state", "write", new JsonObject
+        {
+            ["file"] = file, ["content"] = content, ["revision"] = revision, ["backup"] = backup,
+        });
+        return (long?)result?["revision"] ?? throw new HostServiceException("bad-response", "state.write without a revision");
+    }
 }

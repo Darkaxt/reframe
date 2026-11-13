@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "sessions": {},
+  "windows": [
+    {
+      "id": "w0",
+      "bounds": null,
+      "maximized": false,
+      "hidden": false,
+      "layout": null,
+      "dock": []
+    }
+  ],
+  "recentFolders": [],
+  "preferences": {
+    "nameFromFolder": false,
+    "language": "system",
+    "fontSize": 13,
+    "snapToGrid": true,
+    "checkForUpdates": true,
+    "lookInWsl": false,
+    "closeWindow": "ask",
+    "gpuAcceleration": false,
+    "ptyHost": "node"
+  },
+  "pinnedChats": [
+    "[\u0022\u0022,\u00221c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a01\u0022]"
+  ],
+  "hiddenThreads": []
+}

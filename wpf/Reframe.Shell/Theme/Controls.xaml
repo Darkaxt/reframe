@@ -380,4 +380,95 @@
       </Setter.Value>
     </Setter>
   </Style>
+  <!-- Context menus. Electron's (src/main/menus.ts) are native Win32 menus, which Windows 11 draws dark for a dark app:
+       #2b2b2b with a 1 px #3d3d3d border and 8 px corners, 4 px inside; items 28 px with 4 px rounded #3d3d3d
+       hover, white 12 px Segoe UI text from 32 px (the check column), disabled #7a7a7a; separators 1 px #3d3d3d with
+       4 px around; a chevron for submenus. Not measured against Electron (its menus are not in the page). -->
+  <SolidColorBrush x:Key="menuBrush" Color="#2b2b2b" />
+  <SolidColorBrush x:Key="menuBorderBrush" Color="#3d3d3d" />
+  <SolidColorBrush x:Key="menuHoverBrush" Color="#3d3d3d" />
+  <SolidColorBrush x:Key="menuTextBrush" Color="#ffffff" />
+  <SolidColorBrush x:Key="menuDisabledBrush" Color="#7a7a7a" />
+
+  <Style x:Key="MenuSeparator" TargetType="Separator">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Separator">
+          <Border Height="1" Margin="0,4" Background="{StaticResource menuBorderBrush}" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="ShellMenuItem" TargetType="MenuItem">
+    <Setter Property="Foreground" Value="{StaticResource menuTextBrush}" />
+    <Setter Property="FontFamily" Value="{StaticResource FontFamily.Ui}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="MenuItem">
+          <Grid>
+            <Border x:Name="Item" Height="28" CornerRadius="4" Background="Transparent" Padding="0,0,8,0">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="32" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="20" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="Check" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Text="&#xE73E;"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
+                <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center" RecognizesAccessKey="False" Margin="0,0,24,0" />
+                <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" VerticalAlignment="Center" Foreground="{StaticResource menuDisabledBrush}" />
+                <TextBlock x:Name="Arrow" Grid.Column="3" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10" Text="&#xE76C;"
+                           HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed" />
+              </Grid>
+            </Border>
+            <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsSubmenuOpen}" Placement="Right" HorizontalOffset="-4" VerticalOffset="-5"
+                   AllowsTransparency="True" Focusable="False" PopupAnimation="None">
+              <Border Background="{StaticResource menuBrush}" BorderBrush="{StaticResource menuBorderBrush}" BorderThickness="1"
+                      CornerRadius="8" Padding="4" MinWidth="120">
+                <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+              </Border>
+            </Popup>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="Tag" Value="radio">
+              <Setter TargetName="Check" Property="Text" Value="&#x25CF;" />
+              <Setter TargetName="Check" Property="FontFamily" Value="Segoe UI" />
+              <Setter TargetName="Check" Property="FontSize" Value="8" />
+            </Trigger>
+            <Trigger Property="Role" Value="SubmenuHeader">
+              <Setter TargetName="Arrow" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="Item" Property="Background" Value="{StaticResource menuHoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Foreground" Value="{StaticResource menuDisabledBrush}" />
+              <Setter TargetName="Item" Property="Background" Value="Transparent" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="ShellContextMenu" TargetType="ContextMenu">
+    <Setter Property="Foreground" Value="{StaticResource menuTextBrush}" />
+    <Setter Property="HasDropShadow" Value="False" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ContextMenu">
+          <Border Background="{StaticResource menuBrush}" BorderBrush="{StaticResource menuBorderBrush}" BorderThickness="1"
+                  CornerRadius="8" Padding="4" MinWidth="120">
+            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
 </ResourceDictionary>

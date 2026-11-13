@@ -12,7 +12,10 @@ public static class StateJson
 {
     static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
-    public static string ToText(AppState state, bool keepUnknown = true) => Write(state, keepUnknown).ToJsonString(Indented);
+    public static string ToText(AppState state, bool keepUnknown = true) => Format(Write(state, keepUnknown));
+
+    /// <summary>Indented by two spaces with LF line ends, as JSON.stringify(state, null, 2).</summary>
+    public static string Format(JsonObject json) => json.ToJsonString(Indented).Replace("\r\n", "\n");
 
     public static JsonObject Write(AppState state, bool keepUnknown = true)
     {

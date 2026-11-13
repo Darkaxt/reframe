@@ -108,6 +108,34 @@ const rows = states.map((state) => {
 
 const electronManifest = readJson(path.join(electronDir, 'manifest.json'));
 const wpfManifest = readJson(path.join(wpfDir, 'capture.json'));
+// The context menus: native in Electron, so compared as structures (menus.json on both sides): each state's items in
+// order (type, label, enabled, checked, accelerator, submenu) and where they differ.
+const flatten = (items, prefix = '') =>
+  (items ?? []).flatMap((item, i) => {
+    const at = `${prefix}${i}`;
+    const own = `${at} ${item.type}${item.label !== undefined ? ` "${item.label}"` : ''}${
+      item.enabled === false ? ' disabled' : ''
+    }${item.checked ? ' checked' : ''}${item.accelerator ? ` [${item.accelerator}]` : ''}`;
+    return [own, ...flatten(item.submenu, `${at}.`)];
+  });
+const electronMenus = readJson(path.join(electronDir, 'menus.json')) ?? {};
+const wpfMenus = readJson(path.join(wpfDir, 'menus.json')) ?? {};
+const menus = [...new Set([...Object.keys(electronMenus), ...Object.keys(wpfMenus)])].sort().map((state) => {
+  const e = flatten(electronMenus[state]);
+  const w = flatten(wpfMenus[state]);
+  const differences = [];
+  for (let i = 0; i < Math.max(e.length, w.length); i++)
+    if (e[i] !== w[i]) differences.push({ electron: e[i] ?? null, wpf: w[i] ?? null });
+  const status = !electronMenus[state]
+    ? 'WPF only'
+    : !wpfMenus[state]
+      ? 'missing in WPF'
+      : differences.length
+        ? 'differs'
+        : 'same';
+  return { state, status, electron: e, wpf: w, differences };
+});
+
 const summary = {
   threshold,
   electronCommit: electronManifest?.commit ?? null,
@@ -116,6 +144,8 @@ const summary = {
   wpfOnly: rows.filter((r) => r.status === 'WPF only').map((r) => r.state),
   skippedInElectron: electronManifest?.skipped ?? {},
   wpfRuns: wpfManifest?.runs ?? [],
+  electronWindows: electronManifest?.windows ?? [],
+  menus,
   rows,
 };
 fs.writeFileSync(path.join(outDir, 'summary.json'), JSON.stringify(summary, null, 2));
@@ -153,6 +183,20 @@ ${rows
   )
   .join('\n')}
 </table>
+<h2>Context menus (structure)</h2>
+<table>
+<tr><th>Menu</th><th>Electron</th><th>WPF</th></tr>
+${menus
+  .map(
+    (m) =>
+      `<tr><td><b>${esc(m.state)}</b><br><span class="meta">${esc(m.status)}</span></td><td><pre>${esc(
+        m.electron.join('\n'),
+      )}</pre></td><td><pre>${esc(m.wpf.join('\n'))}</pre>${
+        fs.existsSync(path.join(wpfDir, `${m.state}.png`)) ? cell(`img/${m.state}.wpf.png`, 'WPF') : ''
+      }</td></tr>`,
+  )
+  .join('\n')}
+</table>
 <h2>Not captured in Electron</h2>
 <ul>${Object.entries(summary.skippedInElectron)
   .map(([state, why]) => `<li><b>${esc(state)}</b>: ${esc(why)}</li>`)
@@ -163,3 +207,4 @@ console.log(
   `report: ${summary.compared} compared, ${summary.missingInWpf.length} missing in WPF, ${summary.wpfOnly.length} WPF only -> ${outDir}`,
 );
 for (const r of rows.filter((r) => r.status === 'compared')) console.log(`  ${r.state}: score ${r.score}`);
+for (const m of menus) console.log(`  ${m.state}: menu ${m.status}`);
