@@ -152,6 +152,45 @@
     </Setter>
   </Style>
 
+  <!-- The New Session dialog's input and textarea (styles.css `input, select, textarea`): bg, 1 px border-strong, radius
+       6, padding 6px 8px, Chromium's placeholder; focused: the accent outline (:focus-visible). A textarea (AcceptsReturn)
+       starts its text at the top and wraps. -->
+  <Style x:Key="FormInput" TargetType="TextBox">
+    <Setter Property="Foreground" Value="{StaticResource textBrush}" />
+    <Setter Property="CaretBrush" Value="{StaticResource textBrush}" />
+    <Setter Property="SelectionBrush" Value="{StaticResource accentBrush}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <Grid>
+            <Border x:Name="Outline" Margin="-3" BorderThickness="2" CornerRadius="9" BorderBrush="Transparent" />
+            <Border x:Name="Frame" Background="{StaticResource bgBrush}" BorderBrush="{StaticResource border-strongBrush}"
+                    BorderThickness="1" CornerRadius="{StaticResource radiusCorner}" Padding="8,6,8,6">
+              <Grid>
+                <TextBlock x:Name="Placeholder" Text="{TemplateBinding Tag}" Foreground="{StaticResource placeholderBrush}" FontSize="13"
+                           LineHeight="18.2" LineStackingStrategy="BlockLineHeight" IsHitTestVisible="False" Visibility="Collapsed"
+                           TextTrimming="CharacterEllipsis" Margin="2,0,0,0" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden"
+                              VerticalScrollBarVisibility="Hidden" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              </Grid>
+            </Border>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="Text" Value="">
+              <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Outline" Property="BorderBrush" Value="{StaticResource accentBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- .about a: accent, no underline; hover: underlined. The content is a TextBlock (its decorations change). -->
   <Style x:Key="LinkButton" TargetType="Button">
     <Setter Property="Foreground" Value="{StaticResource accentBrush}" />

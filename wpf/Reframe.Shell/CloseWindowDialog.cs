@@ -86,4 +86,37 @@ static class CloseWindowDialog
             Marshal.FreeHGlobal(array);
         }
     }
+
+    /// <summary>A question as Electron's showMessageBox asks it (type question, the first button the default, the second
+    /// cancels, Cancel being a common button): <paramref name="yes"/> as a command link and Cancel. Whether it was chosen.</summary>
+    public static bool Confirm(Window owner, string? title, string message, string? detail, string yes)
+    {
+        var buttons = new[] { new TASKDIALOG_BUTTON { nButtonID = END, pszButtonText = yes } };
+        var size = Marshal.SizeOf<TASKDIALOG_BUTTON>();
+        var array = Marshal.AllocHGlobal(size * buttons.Length);
+        try
+        {
+            for (var i = 0; i < buttons.Length; i++) Marshal.StructureToPtr(buttons[i], array + i * size, false);
+            var config = new TASKDIALOGCONFIG
+            {
+                cbSize = (uint)Marshal.SizeOf<TASKDIALOGCONFIG>(),
+                hwndParent = new WindowInteropHelper(owner).Handle,
+                dwFlags = TDF_USE_HICON_MAIN | TDF_ALLOW_DIALOG_CANCELLATION | TDF_USE_COMMAND_LINKS | TDF_POSITION_RELATIVE_TO_WINDOW,
+                dwCommonButtons = TDCBF_CANCEL_BUTTON,
+                pszWindowTitle = title ?? "Reframe",
+                hMainIcon = LoadIcon(IntPtr.Zero, IDI_QUESTION),
+                pszMainInstruction = message,
+                pszContent = detail ?? "",
+                cButtons = (uint)buttons.Length,
+                pButtons = array,
+                nDefaultButton = END,
+            };
+            return TaskDialogIndirect(ref config, out var pressed, out _, out _) == 0 && pressed == END;
+        }
+        finally
+        {
+            for (var i = 0; i < buttons.Length; i++) Marshal.DestroyStructure<TASKDIALOG_BUTTON>(array + i * size);
+            Marshal.FreeHGlobal(array);
+        }
+    }
 }

@@ -160,10 +160,6 @@ public partial class MainWindow
         SelectTile(sessionId);
     }
 
-    /// <summary>The tray's New session (and Ctrl+Shift+T): the New Session dialog is not ported yet, so the window only
-    /// comes forward.</summary>
-    public void OpenNewSession() { }
-
     public void OpenAboutFromTray() => OpenAbout();
 
     void NewWindow() => shell.NewWindow(WindowId);

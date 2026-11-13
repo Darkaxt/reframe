@@ -30,7 +30,8 @@ public sealed record ProjectRow(
     bool Current,
     string Tooltip,
     IReadOnlyList<ChatRow> Chats,
-    bool HasMore);
+    bool HasMore,
+    IReadOnlyList<FolderLocation>? Locations = null);
 
 /// <summary>The sidebar's sections (PINNED, PROJECTS, RECENTS) for one session list.</summary>
 public sealed record SidebarSections(IReadOnlyList<ChatRow> Pinned, IReadOnlyList<ProjectRow> Projects, IReadOnlyList<ChatRow> Recents, bool HasMore)
@@ -81,7 +82,7 @@ public static class SidebarView
             return new ProjectRow(project.Id, project.Name, project.Cwd, project.SessionIds.Count, busy, state,
                 list.ExpandedProjects.Contains(project.Id), activeProject == project.Id,
                 busy is null ? paths : $"{paths}\n{busy.Count} running · {state}",
-                chats.Take(limit).Select(c => Row(c, section, now)).ToList(), chats.Count > limit);
+                chats.Take(limit).Select(c => Row(c, section, now)).ToList(), chats.Count > limit, project.Locations);
         }).ToList();
         return new SidebarSections(pinned, projects, recents, list.HasMore || catalogue.Count > limit)
         {

@@ -156,6 +156,7 @@ sealed partial class ShellController
             SetStatus(replaced ? "Another client took the profile over: detached." : "The pty host connection closed."));
         if (connection.IsObserver) SetStatus(Status + " Terminals are read-only (start with --take-over to type in them).");
         var services = Services = new HostServices(connection);
+        FollowSpawns(connection);
         services.StatusChanged += changed => Ui.InvokeAsync(() =>
         {
             HostStatus[changed.SessionId] = changed;
@@ -397,6 +398,7 @@ sealed partial class ShellController
         if (HostSessions.Remove(sessionId, out var hosted) && Connection is { IsOpen: true } connection)
             _ = connection.DisposeSessionAsync(sessionId, hosted.Instance);
         record.Lifecycle = "ended";
+        startErrors.Remove(sessionId);
         var index = State.Windows.FindIndex(w => w.Id == windowId);
         if (index >= 0) State.Windows[index] = LayoutActions.DropSession(State.Windows[index], sessionId);
         Save();

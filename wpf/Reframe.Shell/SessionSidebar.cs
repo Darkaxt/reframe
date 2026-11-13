@@ -47,6 +47,8 @@ sealed class SessionSidebar : Border
     /// <summary>Start beside a stopped WSL distribution.</summary>
     public event Action<string>? StartWsl;
     public event Action<string>? ProjectToggled;
+    /// <summary>A project's "+": New session there.</summary>
+    public event Action<ProjectRow>? NewSessionIn;
     public event Action<string>? QueryChanged;
 
     static Brush B(string key) => (Brush)Application.Current.FindResource(key);
@@ -492,6 +494,7 @@ sealed class SessionSidebar : Border
 
         var plus = new Button { Style = S("IconButton"), Content = new VectorIcon { Kind = "plus", Size = 14 }, ToolTip = $"New session in {project.Name}", Margin = new Thickness(2, 0, 0, 0) };
         AutomationProperties.SetName(plus, $"New session in {project.Name}");
+        plus.Click += (_, _) => NewSessionIn?.Invoke(project);
         var header = new DockPanel();
         DockPanel.SetDock(plus, Dock.Right);
         header.Children.Add(plus);

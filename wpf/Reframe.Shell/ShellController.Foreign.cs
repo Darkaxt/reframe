@@ -135,8 +135,8 @@ sealed partial class ShellController
             var record = Takeover.Adopted(latest.SessionId, latest.Cwd ?? entry.Cwd!, latest.NameSource == "user" ? latest.Name : null, modified, Now());
             State.Sessions[record.Id] = record;
             window.PlaceSession(record.Id, target);
-            // Resuming it comes with session control (S4b): until then its tile offers Resume, as any session the host
-            // does not run.
+            // Continued here: resumed (it was ended in its terminal just now).
+            _ = StartOrTakeOverAsync(record.Id, "resume", drop.WindowId);
             target = new DropTarget(Layout.TileKey(record.Id), "right");
             // Without a shell, the tab closed on its own together with claude.
             if (shell is { } pid) closeTabs.Add(() => takeover.CloseIdleConsoleAsync(pid));
