@@ -21,7 +21,7 @@ namespace Reframe.Shell;
 /// the context menus of rows and tiles (src/main/menus.ts) rename, pin and hide. Sessions are opened as views of the
 /// host's sessions; Settings, About and the quota are in MainWindow.Settings.cs. The connection, the state and the other
 /// windows are the ShellController's (one per profile); this window is the state's window <see cref="WindowId"/>, its
-/// bounds, full screen and visibility in MainWindow.Windows.cs. New session is not wired yet.
+/// bounds, full screen and visibility in MainWindow.Windows.cs; New session and session control in MainWindow.Sessions.cs.
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -67,7 +67,9 @@ public partial class MainWindow : Window
         var toolbar = new Grid { Background = B("surfaceBrush") };
         toolbar.Children.Add(new Border { BorderBrush = B("borderBrush"), BorderThickness = new Thickness(0, 0, 0, 1) });
         var left = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(8, 0, 0, 1), VerticalAlignment = VerticalAlignment.Center };
-        left.Children.Add(ToolbarButton("plus", "New session", "New session (Ctrl+Shift+T)"));
+        var newSessionButton = ToolbarButton("plus", "New session", "New session (Ctrl+Shift+T)");
+        newSessionButton.Click += (_, _) => OpenNewSession();
+        left.Children.Add(newSessionButton);
         sessionsButton = ToolbarButton("list", "Sessions", "Sessions (Ctrl+Shift+L)");
         sessionsButton.Click += (_, _) => ToggleSidebar();
         left.Children.Add(sessionsButton);
@@ -139,6 +141,7 @@ public partial class MainWindow : Window
         sessionsButton.BorderBrush = B("accentBrush");
 
         sidebar.Open += OpenChat;
+        sidebar.NewSessionIn += project => OpenNewSession(new NewSessionPreset(project.Cwd, project.Locations?.FirstOrDefault()?.Provider ?? "chatgpt", project.Locations));
         sidebar.RowMenu += (chat, target) => ShowMenu(ListMenuOf(chat), target, chat);
         sidebar.SelectionMenu += ShowSelectionMenu;
         sidebar.RestoreArchive += RestoreArchiveAsync;
@@ -213,7 +216,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>.empty: "No sessions yet", the hint and the accent New session button, centred in the layout.</summary>
-    static FrameworkElement EmptyState()
+    FrameworkElement EmptyState()
     {
         var panel = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         panel.Children.Add(new TextBlock
@@ -228,6 +231,7 @@ public partial class MainWindow : Window
         });
         var button = new Button { Style = S("PrimaryButton"), Content = IconAndText("plus", "New session"), HorizontalAlignment = HorizontalAlignment.Center };
         AutomationProperties.SetName(button, "New session");
+        button.Click += (_, _) => OpenNewSession();
         panel.Children.Add(button);
         return new Border { Padding = new Thickness(6), Child = panel };
     }
@@ -361,12 +365,15 @@ public partial class MainWindow : Window
         }
         else if (CanShow(id) && Writable)
         {
+            // placeAndResume: one that does not run is opened again and resumed.
             Dispatch(w => LayoutActions.AddTile(w, id));
+            if (!Runs(id)) shell.Resume(WindowId, id);
             SelectTile(id);
         }
     }
 
-    bool CanShow(string sessionId) => fixture is not null ? state.Sessions.ContainsKey(sessionId) : hostSessions.ContainsKey(sessionId);
+    /// <summary>Any of reframe's sessions can be shown (one that does not run is resumed).</summary>
+    bool CanShow(string sessionId) => state.Sessions.ContainsKey(sessionId);
 
     static Button TileButton(string icon, string name, string tooltip)
     {
@@ -583,8 +590,10 @@ public partial class MainWindow : Window
                         DiagCapture.Save(popup, root, dir, "find");
                         finder.CloseFind();
                     }
+                    await CaptureErrorTileAsync(popup, dir);
                     break;
                 case "hidden":
+                    await CaptureNewSessionAsync(popup, dir);
                     await CaptureTakeoverAsync(popup, dir);
                     await CaptureHiddenAsync(popup, dir);
                     break;

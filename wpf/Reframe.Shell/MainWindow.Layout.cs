@@ -271,7 +271,7 @@ public partial class MainWindow
             noticeTimer.Stop();
             noticeTimer.Start();
         }
-        if (connection is { IsOpen: true } && hostSessions.ContainsKey(sessionId))
+        if (connection is { IsOpen: true } && hostSessions.ContainsKey(sessionId) && shell.ErrorOf(sessionId) is null)
         {
             control = new TerminalControl { AutoResize = true };
             terminal = new HostTerminalConnection(connection.CreateView(sessionId), control);
@@ -405,28 +405,37 @@ public partial class MainWindow
         ring.Visibility = Visibility.Hidden;
     }
 
-    /// <summary>.tile-overlay and its card: the session ended (or is not running in this host), Resume and Close.</summary>
+    /// <summary>.tile-overlay and its card (Tile.tsx): the session ended, or why it could not start, with Resume (Take
+    /// over), Start a new session here and Close as the error allows. Beside the terminal, not over it (a native window).</summary>
     FrameworkElement EndedCard(string sessionId)
     {
-        var text = new TextBlock { Text = "Session ended", Style = S("Text13"), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 12) };
-        var resume = new Button { Style = S("PrimaryButton"), Content = "Resume", ToolTip = "Resuming a session from the shell comes with session control" };
-        AutomationProperties.SetName(resume, "Resume");
-        var close = new Button { Style = S("ButtonBaseStyle"), Content = "Close", Margin = new Thickness(8, 0, 0, 0) };
-        AutomationProperties.SetName(close, "Close");
-        close.Click += (_, _) => CloseTile(sessionId);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-        buttons.Children.Add(resume);
-        buttons.Children.Add(close);
+        var wsl = state.Sessions.TryGetValue(sessionId, out var record) ? WslPaths.Parse(record.Cwd)?.Distro : null;
+        var card = TileCard.For(shell.ErrorOf(sessionId), wsl);
+        // .tile-overlay-card p: centred, 12 px above the buttons.
+        var text = new TextBlock { Text = card.Text, Style = S("Text13"), TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 12) };
+        var buttons = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Center };
+        Button Add(string label, Style style, Action click)
+        {
+            var button = new Button { Style = style, Content = new TextBlock { Text = label, Style = S("Text13") }, Margin = new Thickness(buttons.Children.Count > 0 ? 8 : 0, 0, 0, 0) };
+            AutomationProperties.SetName(button, label);
+            button.Click += (_, _) => click();
+            buttons.Children.Add(button);
+            return button;
+        }
+        if (card.Primary is { } primary) Add(primary, S("PrimaryButton"), () => { if (Writable) shell.RestartSession(WindowId, sessionId, false); });
+        if (card.StartFresh) Add(Strings.T("tile.startFresh"), S("ButtonBaseStyle"), () => { if (Writable) shell.RestartSession(WindowId, sessionId, true); });
+        Add(card.Close, S("ButtonBaseStyle"), () => CloseTile(sessionId));
         var panel = new StackPanel();
         panel.Children.Add(text);
         panel.Children.Add(buttons);
-        var card = new Border
+        var frame = new Border
         {
             MaxWidth = 420, Padding = new Thickness(20, 16, 20, 16), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6), Background = B("surfaceBrush"), Child = panel,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
         };
-        return new Border { Background = new SolidColorBrush(Color.FromArgb(0xc7, 0x17, 0x18, 0x1c)), Padding = new Thickness(16), Child = card };
+        AutomationProperties.SetName(frame, card.Text);
+        return new Border { Background = new SolidColorBrush(Color.FromArgb(0xc7, 0x17, 0x18, 0x1c)), Padding = new Thickness(16), Child = frame };
     }
 
     /// <summary>.tile:focus-within: the accent border with a 1px accent ring, and the lighter header.</summary>
@@ -446,12 +455,12 @@ public partial class MainWindow
         if (focused == sessionId) focused = null;
     }
 
-    /// <summary>A tile's ×: the session leaves the window (Electron ends it; the shell detaches its view, see the PR).</summary>
+    /// <summary>A tile's × (and the card's Close): endSession, the session ended in the host and out of the window,
+    /// kept in the list.</summary>
     void CloseTile(string sessionId)
     {
         if (!Writable) return;
-        DisposeTile(sessionId);
-        Dispatch(w => LayoutActions.DropSession(w, sessionId));
+        shell.EndSession(WindowId, sessionId);
     }
 
     void ToggleZoom(string sessionId)
@@ -616,8 +625,8 @@ public partial class MainWindow
                 Dispatch(w => LayoutActions.Copy(w, Layout.DissolveGroup(w.Layout, groupId), w.Dock));
                 break;
             case "endAll":
-                foreach (var id in Layout.Leaves(group)) DisposeTile(id);
-                Dispatch(w => Layout.Leaves(group).Aggregate(w, LayoutActions.DropSession));
+                // endGroup: each ends as its tile's × ends it.
+                foreach (var id in Layout.Leaves(group).ToList()) shell.EndSession(WindowId, id);
                 break;
             default:
                 if (action.StartsWith("color:", StringComparison.Ordinal) && GroupColors.IsGroupColor(action[6..]))
@@ -647,6 +656,7 @@ public partial class MainWindow
                     var group = new GroupNode { Id = Guid.NewGuid().ToString(), Name = look.Name, Color = look.Color, Child = Layout.Tile(sessionId) };
                     return LayoutActions.PutNode(LayoutActions.DropSession(w, sessionId), group, null);
                 });
+                if (!Runs(sessionId)) shell.Resume(WindowId, sessionId);
                 return true;
         }
         if (action.StartsWith("addToGroup:", StringComparison.Ordinal))

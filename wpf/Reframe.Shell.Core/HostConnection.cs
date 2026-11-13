@@ -11,7 +11,7 @@ public sealed record HostSession(string SessionId, int Instance, int Pid, int? E
 /// <param name="Observer">This connection is a read-only observer (the host said <c>role: "observer"</c>).</param>
 /// <param name="PrimaryAttached">Whether a primary client (reframe) is attached; null from hosts before observers.</param>
 public sealed record Welcome(int Protocol, string Version, int Pid, string Kind, IReadOnlyList<HostSession> Sessions,
-    IReadOnlyDictionary<string, int> Services, bool Observer = false, bool? PrimaryAttached = null);
+    IReadOnlyDictionary<string, int> Services, bool Observer = false, bool? PrimaryAttached = null, SpawnPlans.Hooks? Hooks = null);
 
 /// <summary>A failed service request (<c>code</c> as the host gives it), or <c>unavailable</c>: not asked or not answered.</summary>
 public sealed class HostServiceException(string code, string message) : Exception(message)
@@ -113,7 +113,8 @@ public sealed class HostConnection : IAsyncDisposable
             foreach (var (name, version) in offered)
                 if (version is JsonValue v && v.TryGetValue<int>(out var n)) services[name] = n;
         return new Welcome((int?)w["protocol"] ?? 0, (string?)w["version"] ?? "", (int?)w["pid"] ?? 0,
-            (string?)w["kind"] ?? "node", sessions, services, (string?)w["role"] == "observer", (bool?)w["primary"]);
+            (string?)w["kind"] ?? "node", sessions, services, (string?)w["role"] == "observer", (bool?)w["primary"],
+            w["hooks"] is JsonObject hooks && (int?)hooks["port"] is { } port ? new SpawnPlans.Hooks(port, (string?)hooks["token"] ?? "") : null);
     }
 
     async Task ReadLoopAsync(LineReader reader)
@@ -198,6 +199,9 @@ public sealed class HostConnection : IAsyncDisposable
     /// is ignored by the host, so none is sent.</summary>
     public Task DisposeSessionAsync(string sessionId, int instance) => IsObserver ? Task.CompletedTask :
         SendAsync(new JsonObject { ["type"] = "dispose", ["sessionId"] = sessionId, ["instance"] = instance });
+
+    /// <summary>Sends <c>spawn</c> (a session started from a <c>launch.spawnPlan</c> answer); never as an observer.</summary>
+    public Task SpawnAsync(JsonObject spawn) => IsObserver ? Task.CompletedTask : SendAsync(spawn);
 
     /// <summary>Asks a service of the host (one its welcome advertises).</summary>
     public async Task<JsonNode?> CallAsync(string service, string method, JsonObject? parameters = null)
