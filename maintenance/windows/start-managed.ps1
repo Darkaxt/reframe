@@ -81,8 +81,18 @@ try {
         } else { [Environment]::SetEnvironmentVariable($key, $values[$key], 'Process') }
     }
     if (Test-Path Env:CLAUDE_CONFIG_DIR) { throw 'Managed launch must remove the native configuration override' }
+    # A second start while the managed instance runs only hands off to it and exits: keep that instance's receipt.
+    $receiptPath = Join-Path $active.runtime 'last-launch.json'
+    $runningManaged = $false
+    if (Test-Path -LiteralPath $receiptPath) {
+        $previous = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
+        $process = Get-Process -Id $previous.pid -ErrorAction SilentlyContinue
+        $runningManaged = $process -and $process.Path -ceq $active.executable -and
+            $process.StartTime.ToUniversalTime() -eq ([datetime]$previous.startTime).ToUniversalTime()
+    }
     $child = Start-Process -FilePath $active.executable -WorkingDirectory $active.workingDirectory -WindowStyle Normal -PassThru
-    Write-AtomicJson (Join-Path $active.runtime 'last-launch.json') @{
+    if (-not $runningManaged) {
+    Write-AtomicJson $receiptPath @{
         status = 'started_verification_pending'; pid = $child.Id; startTime = $child.StartTime.ToUniversalTime().ToString('o')
         executable = $active.executable; executableSha256 = $active.executableSha256
         activeSha256 = Get-Sha256 $ActivePath; at = [DateTime]::UtcNow.ToString('o')
@@ -90,6 +100,7 @@ try {
         anthropicBinary = [Environment]::GetEnvironmentVariable('REFRAME_ANTHROPIC_CLAUDE_BIN', 'Process')
         chatgptBinary = [Environment]::GetEnvironmentVariable('REFRAME_CLAUDE_BIN', 'Process')
         clientAdoption = [Environment]::GetEnvironmentVariable('REFRAME_CLIENT_ADOPTION', 'Process')
+    }
     }
 } finally {
     foreach ($key in $saved.Keys) {
