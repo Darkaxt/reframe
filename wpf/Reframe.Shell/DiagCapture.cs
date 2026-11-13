@@ -89,15 +89,36 @@ static class DiagCapture
         var old = SelectObject(dc, bitmap);
         try
         {
-            var ok = PrintWindow(hwnd, dc, PW_CLIENTONLY | PW_RENDERFULLCONTENT);
+            // PrintWindow gets what the desktop composed, which on a CI runner (1024x768 screen) can miss the part of
+            // the 1280x800 popup off the screen (main-empty and tabs came out with black bands). So WPF renders the whole
+            // popup itself, and only the native children (the terminals, which it cannot render) come from PrintWindow.
+            var hosts = new List<System.Windows.Rect>();
+            NativeChildren(source.RootVisual, source.RootVisual, hosts);
+            var ok = hosts.Count > 0 && PrintWindow(hwnd, dc, PW_CLIENTONLY | PW_RENDERFULLCONTENT);
             SelectObject(dc, old);
-            var full = Imaging.CreateBitmapSourceFromHBitmap(bitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-            var image = crop.X == 0 && crop.Y == 0 && crop.Width == w && crop.Height == h ? full : new CroppedBitmap(full, crop);
+            var printed = Imaging.CreateBitmapSourceFromHBitmap(bitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            var scene = new System.Windows.Media.DrawingVisual();
+            var size = new System.Windows.Rect(0, 0, w / dpi.DpiScaleX, h / dpi.DpiScaleY);
+            using (var draw = scene.RenderOpen())
+            {
+                draw.DrawRectangle(new System.Windows.Media.VisualBrush(source.RootVisual) { Stretch = System.Windows.Media.Stretch.None,
+                    AlignmentX = System.Windows.Media.AlignmentX.Left, AlignmentY = System.Windows.Media.AlignmentY.Top }, null, size);
+                if (ok)
+                    foreach (var area in hosts)
+                    {
+                        draw.PushClip(new System.Windows.Media.RectangleGeometry(area));
+                        draw.DrawImage(printed, size);
+                        draw.Pop();
+                    }
+            }
+            var full = new RenderTargetBitmap(w, h, 96 * dpi.DpiScaleX, 96 * dpi.DpiScaleY, System.Windows.Media.PixelFormats.Pbgra32);
+            full.Render(scene);
+            BitmapSource image = crop.X == 0 && crop.Y == 0 && crop.Width == w && crop.Height == h ? full : new CroppedBitmap(full, crop);
             var encoder = new PngBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(image));
             Directory.CreateDirectory(dir);
             using (var file = File.Create(Path.Combine(dir, state + ".png"))) encoder.Save(file);
-            Captured.Add(new { state, width = crop.Width, height = crop.Height, client = $"{w}x{h}", printWindow = ok });
+            Captured.Add(new { state, width = crop.Width, height = crop.Height, client = $"{w}x{h}", printWindow = ok, native = hosts.Count });
         }
         finally
         {
@@ -105,6 +126,18 @@ static class DiagCapture
             DeleteDC(dc);
             ReleaseDC(IntPtr.Zero, screen);
         }
+    }
+
+    /// <summary>The bounds (in the popup) of the visible native children under <paramref name="parent"/>.</summary>
+    static void NativeChildren(System.Windows.Media.Visual root, System.Windows.Media.Visual parent, List<System.Windows.Rect> found)
+    {
+        if (parent is HwndHost host)
+        {
+            if (host.IsVisible) found.Add(host.TransformToAncestor(root).TransformBounds(new System.Windows.Rect(host.RenderSize)));
+            return;
+        }
+        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+            if (System.Windows.Media.VisualTreeHelper.GetChild(parent, i) is System.Windows.Media.Visual child) NativeChildren(root, child, found);
     }
 
     /// <summary>Adds what this run captured, with its status line (why a state may be missing), to capture.json (one

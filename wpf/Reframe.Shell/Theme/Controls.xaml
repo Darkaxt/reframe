@@ -294,6 +294,8 @@
 
   <!-- Rows: a ListBox per section for keyboard and UI automation (ListItem), without WPF's selection chrome. -->
   <Style x:Key="PlainList" TargetType="ListBox">
+    <!-- ListBox's own default is the system's text colour; reframe's lists are in the text colour. -->
+    <Setter Property="Foreground" Value="{StaticResource textBrush}" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Padding" Value="0" />

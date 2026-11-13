@@ -89,7 +89,8 @@ sealed class SessionSidebar : Border
     void Heading(string text)
     {
         // .sidebar-heading: margin 10px 6px 4px; 11px, 600, letter-spacing .06em, upper case, muted. An empty text's
-        // margin collapses with it in CSS, hence no top margin on .sidebar-empty here.
+        // margins collapse with the heading's in CSS (4 below it, 10 above the next), hence no vertical margin on
+        // .sidebar-empty here.
         content.Children.Add(new SpacedText
         {
             Text = text.ToUpperInvariant(), FontSize = 11, FontWeight = FontWeights.SemiBold, LineHeight = 15.4,
@@ -99,7 +100,7 @@ sealed class SessionSidebar : Border
 
     void Empty(string text) => content.Children.Add(new TextBlock
     {
-        Text = text, Style = S("Text12"), Foreground = B("mutedBrush"), Margin = new Thickness(6, 0, 6, 4), TextWrapping = TextWrapping.Wrap,
+        Text = text, Style = S("Text12"), Foreground = B("mutedBrush"), Margin = new Thickness(6, 0, 6, 0), TextWrapping = TextWrapping.Wrap,
     });
 
     ListBox List(string name, IEnumerable<ChatRow> chats)
@@ -176,7 +177,7 @@ sealed class SessionSidebar : Border
         var titleLine = new Grid();
         titleLine.ColumnDefinitions.Add(new ColumnDefinition());
         titleLine.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        titleLine.Children.Add(new TextBlock { Text = chat.Label, Style = S("Text13"), TextWrapping = TextWrapping.Wrap });
+        titleLine.Children.Add(new TextBlock { Text = chat.Label, Style = S("Text13"), Foreground = B("textBrush"), TextWrapping = TextWrapping.Wrap });
         if (chat.Stamp != "")
         {
             // .sidebar-used: 11px, muted, on the title's baseline (gap 8).
@@ -244,7 +245,7 @@ sealed class SessionSidebar : Border
 
         var title = new TextBlock
         {
-            Style = S("Text13"), TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center,
+            Style = S("Text13"), Foreground = B("textBrush"), TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center,
             FontWeight = busy is null ? FontWeights.Normal : FontWeights.SemiBold,
         };
         title.Inlines.Add(new Run(project.Name));

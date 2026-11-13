@@ -3,7 +3,8 @@ namespace Reframe.Shell.Core;
 public enum AttachOutcome
 {
     Attached,
-    /// <summary>The profile has no token or no running host of protocol 1: nothing to attach to (the shell starts none).</summary>
+    /// <summary>The profile has no token or no running host of protocol 1, and the shell started none (it had no host to
+    /// start, or another client runs on the profile).</summary>
     NoHost,
     /// <summary>Another client is (probably) attached and <c>--take-over</c> was not given.</summary>
     OtherClient,
@@ -16,16 +17,21 @@ public sealed record AttachResult(AttachOutcome Outcome, string Message, HostCon
 /// How the shell attaches to a profile's host. A primary attach replaces whichever client is attached (one primary
 /// per profile). While another client (reframe) is found, the shell attaches as a read-only observer to a host that
 /// offers it (<c>observer</c> in its descriptor, from 0.10.1-claudegpt.25), beside that client; to an older host it
-/// refuses, and takes over only when asked to (<c>--take-over</c>, always a primary attach).
+/// refuses, and takes over only when asked to (<c>--take-over</c>, always a primary attach). With no host running and no
+/// other client, the shell starts one (given a <see cref="HostStarter"/>) and attaches as the primary; a running host,
+/// even an older release's, is attached to rather than a second one started (reframe's hot swap). The shell never ends
+/// sessions or hosts on its own.
 /// </summary>
 public static class ShellAttach
 {
     /// <summary>
     /// Attaches to the profile's running host (the profile is reframe's user-data folder; its host folder is
-    /// <c>ptyhost</c> in it). <paramref name="connect"/> is for tests; by default the descriptor's pipe.
+    /// <c>ptyhost</c> in it), or starts one with <paramref name="start"/> when none runs. <paramref name="connect"/> is
+    /// for tests; by default the descriptor's pipe.
     /// </summary>
     public static async Task<AttachResult> AttachAsync(string profileDir, bool takeOver,
-        Func<HostDescriptor, string, Task<HostConnection>>? connect = null, Func<int, bool>? isAlive = null)
+        Func<HostDescriptor, string, Task<HostConnection>>? connect = null, Func<int, bool>? isAlive = null,
+        HostStarter? start = null)
     {
         var hostDir = HostFiles.HostDir(profileDir);
         var token = HostFiles.ReadToken(hostDir);
@@ -39,7 +45,13 @@ public static class ShellAttach
             return new AttachResult(AttachOutcome.OtherClient,
                 $"{other}; its pty host has no observer mode, so attaching would replace it. Start the shell with --take-over to do so anyway.");
         if (token is null || hosts.Count == 0)
-            return new AttachResult(AttachOutcome.NoHost, $"no running pty host in {hostDir} (the shell does not start one)");
+        {
+            if (start is null)
+                return new AttachResult(AttachOutcome.NoHost, $"no running pty host in {hostDir}, and no pty host to start (reframe-host beside the shell, REFRAME_RUST_HOST_DIR or --host-dir)");
+            if (other is not null)
+                return new AttachResult(AttachOutcome.NoHost, $"{other} without a pty host the shell can attach to; it starts none beside it");
+            return await StartAsync(profileDir, hostDir, takeOver, start, connect);
+        }
 
         var shellLock = Presence.AcquireShellLock(profileDir);
         if (shellLock is null && !takeOver)
@@ -63,5 +75,28 @@ public static class ShellAttach
         }
         shellLock?.Dispose();
         return new AttachResult(AttachOutcome.Failed, "could not attach: " + string.Join("; ", errors));
+    }
+
+    static async Task<AttachResult> StartAsync(string profileDir, string hostDir, bool takeOver, HostStarter start,
+        Func<HostDescriptor, string, Task<HostConnection>> connect)
+    {
+        // The lock first, so two shells never start two hosts.
+        var shellLock = Presence.AcquireShellLock(profileDir);
+        if (shellLock is null && !takeOver)
+            return new AttachResult(AttachOutcome.OtherClient, "another Reframe shell runs on this profile");
+        try
+        {
+            var token = HostFiles.EnsureToken(hostDir);
+            var host = await start(hostDir, token, CancellationToken.None);
+            var connection = await connect(host, token);
+            return new AttachResult(AttachOutcome.Attached,
+                $"started and attached to the {connection.Welcome.Kind} pty host {connection.Welcome.Version} (pid {connection.Welcome.Pid})",
+                connection, shellLock);
+        }
+        catch (Exception e) when (e is IOException or TimeoutException or OperationCanceledException or HostRefusedException or UnauthorizedAccessException)
+        {
+            shellLock?.Dispose();
+            return new AttachResult(AttachOutcome.Failed, "could not start a pty host: " + e.Message);
+        }
     }
 }
