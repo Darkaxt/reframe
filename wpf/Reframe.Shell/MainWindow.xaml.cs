@@ -19,7 +19,7 @@ namespace Reframe.Shell;
 /// the layout area with the window's tiles (MainWindow.Layout.cs), or the empty state. reframe's state is read and, as the primary
 /// client, written through the host's <c>state</c> service (StateStore; never as an observer, while reframe owns it);
 /// the context menus of rows and tiles (src/main/menus.ts) rename, pin and hide. Sessions are opened as views of the
-/// host's sessions; New session, New window, the view mode, settings and about are not wired yet.
+/// host's sessions; Settings, About and the quota are in MainWindow.Settings.cs. New session and New window are not wired yet.
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -86,8 +86,11 @@ public partial class MainWindow : Window
         toolbar.Children.Add(left);
 
         var right = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8 + 138, 1) };
-        right.Children.Add(IconButton("gear", "Settings", "Settings (Ctrl+,)"));
+        var gearButton = IconButton("gear", "Settings", "Settings (Ctrl+,)");
+        gearButton.Click += (_, _) => OpenSettings();
+        right.Children.Add(gearButton);
         infoButton = IconButton("info", "About Reframe", "About Reframe");
+        infoButton.Click += (_, _) => OpenAbout();
         infoButton.Margin = new Thickness(8, 0, 0, 0);
         right.Children.Add(infoButton);
         toolbar.Children.Add(right);
@@ -116,6 +119,7 @@ public partial class MainWindow : Window
         workspace.Children.Add(layoutColumn);
         root.Children.Add(workspace);
         PreviewKeyDown += (_, e) => LayoutKeys(e);
+        PreviewKeyDown += (_, e) => SettingsKeys(e);
         ApplyViewMode("tiled");
         sessionsButton.BorderBrush = B("accentBrush");
 
@@ -245,6 +249,7 @@ public partial class MainWindow : Window
         await AttachAsync();
         LayoutLoaded();
         await RefreshAsync();
+        StartQuota();
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         timer.Tick += async (_, _) => await RefreshAsync();
         timer.Start();
@@ -636,8 +641,12 @@ public partial class MainWindow : Window
                         finder.CloseFind();
                     }
                     break;
+                case "hidden":
+                    await CaptureHiddenAsync(popup, dir);
+                    break;
                 default:
                     DiagCapture.Save(popup, root, dir, Win.Layout is not null ? "main-sessions" : "main-empty");
+                    if (name == "empty") await CaptureDialogsAsync(popup, dir);
                     break;
             }
         }

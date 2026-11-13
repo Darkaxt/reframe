@@ -93,6 +93,15 @@ public sealed class HostServices
         return result is JsonValue v && v.TryGetValue<string>(out var title) ? title : null;
     }
 
+    /// <summary><c>quota.codex { localAppData }</c>: whether LLM Coordinator is installed, and its <c>usage.snapshot</c>
+    /// answer (null when it gave none). Nothing without the service.</summary>
+    public async Task<(bool Coordinator, JsonNode? Usage)> QuotaCodexAsync(string? localAppData)
+    {
+        if (!Offers("quota")) return (false, null);
+        var result = await connection.CallAsync("quota", "codex", new JsonObject { ["localAppData"] = localAppData });
+        return ((bool?)result?["coordinator"] ?? false, result?["usage"]?.DeepClone());
+    }
+
     /// <summary><c>state.read { file }</c>: the file's text (null when it is not there) and the host's revision of it.</summary>
     public async Task<(string? Content, long? Revision)> ReadStateAsync(string file)
     {

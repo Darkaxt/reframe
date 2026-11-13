@@ -71,8 +71,9 @@ static class DiagCapture
     }
 
     /// <summary>Saves <paramref name="element"/>'s bounds in the popup as <paramref name="state"/>.png in the capture
-    /// folder (the whole client area for the root).</summary>
-    public static void Save(HwndSource source, FrameworkElement element, string dir, string state)
+    /// folder (the whole client area for the root). An <paramref name="overlay"/> (a dialog's backdrop) is drawn again
+    /// over the terminals, which PrintWindow gives without it.</summary>
+    public static void Save(HwndSource source, FrameworkElement element, string dir, string state, FrameworkElement? overlay = null)
     {
         var hwnd = source.Handle;
         GetClientRect(hwnd, out var rect);
@@ -110,6 +111,17 @@ static class DiagCapture
                         draw.DrawImage(printed, size);
                         draw.Pop();
                     }
+                if (ok && overlay is not null)
+                {
+                    // Only over the terminals: elsewhere the root's own drawing has the overlay already.
+                    var native = new System.Windows.Media.GeometryGroup();
+                    foreach (var area in hosts) native.Children.Add(new System.Windows.Media.RectangleGeometry(area));
+                    draw.PushClip(native);
+                    var over = overlay.TransformToAncestor(source.RootVisual).TransformBounds(new System.Windows.Rect(overlay.RenderSize));
+                    draw.DrawRectangle(new System.Windows.Media.VisualBrush(overlay) { Stretch = System.Windows.Media.Stretch.None,
+                        AlignmentX = System.Windows.Media.AlignmentX.Left, AlignmentY = System.Windows.Media.AlignmentY.Top }, null, over);
+                    draw.Pop();
+                }
             }
             var full = new RenderTargetBitmap(w, h, 96 * dpi.DpiScaleX, 96 * dpi.DpiScaleY, System.Windows.Media.PixelFormats.Pbgra32);
             full.Render(scene);
