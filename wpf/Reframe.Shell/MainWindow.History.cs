@@ -22,6 +22,18 @@ public partial class MainWindow
         "Archive/delete need the configured Python and verified thread-cleanup helper. See the ClaudeGPT installation guide.";
 
     Border? batchReport;
+    bool batchOpen;
+
+    static ControlTemplate BareButton()
+    {
+        var template = new ControlTemplate(typeof(Button));
+        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+        var frame = new FrameworkElementFactory(typeof(Border));
+        frame.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+        frame.AppendChild(presenter);
+        template.VisualTree = frame;
+        return template;
+    }
     ChatModelDialog? modelDialog;
 
     sealed class HistoryError(string message) : Exception(message);
@@ -353,8 +365,24 @@ public partial class MainWindow
             line.Inlines.Add(new System.Windows.Documents.Run(ChatHistory.Line(entry)[entry.Label.Length..]));
             lines.Children.Add(line);
         }
-        var details = new Expander { Header = new TextBlock { Text = "Chat results", Style = S("Text13") }, Content = lines, Foreground = B("textBrush") };
-        panel.Children.Add(details);
+        // The details element: its summary toggles the list (closed at first).
+        lines.Visibility = batchOpen ? Visibility.Visible : Visibility.Collapsed;
+        var summary = new Button
+        {
+            Template = BareButton(), Cursor = System.Windows.Input.Cursors.Hand, FocusVisualStyle = null, HorizontalAlignment = HorizontalAlignment.Left,
+            Content = new TextBlock { Text = $"{(batchOpen ? "▾" : "▸")} Chat results", Style = S("Text13"), Margin = new Thickness(0, 4, 0, 0) },
+        };
+        AutomationProperties.SetName(summary, "Chat results");
+        AutomationProperties.SetItemStatus(summary, batchOpen ? "expanded" : "collapsed");
+        summary.Click += (_, _) =>
+        {
+            batchOpen = !batchOpen;
+            lines.Visibility = batchOpen ? Visibility.Visible : Visibility.Collapsed;
+            ((TextBlock)summary.Content).Text = $"{(batchOpen ? "▾" : "▸")} Chat results";
+            AutomationProperties.SetItemStatus(summary, batchOpen ? "expanded" : "collapsed");
+        };
+        panel.Children.Add(summary);
+        panel.Children.Add(lines);
         if (!running)
         {
             var dismiss = new Button { Style = S("ButtonBaseStyle"), Content = new TextBlock { Text = "Dismiss results", Style = S("Text13") }, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 6, 0, 0) };
@@ -486,6 +514,8 @@ public partial class MainWindow
         DiagCapture.Save(popup, root, dir, "history-selection");
         var chosen = sidebar.Chosen();
         EditChatModels([.. chosen.Select(c => c.Ref)]);
+        // Electron focuses the Model field (its accent border).
+        if (modelDialog is not null) Diag.SetFocused(modelDialog.Model, true);
         await DiagCapture.SettleAsync(Dispatcher, 500);
         DiagCapture.Save(popup, root, dir, "history-model-editor", modal?.Overlay);
         if (modelDialog is not null) DiagCapture.Save(popup, modelDialog.Frame, dir, "history-model-editor-component", modal?.Overlay);

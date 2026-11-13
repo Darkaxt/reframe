@@ -59,15 +59,18 @@ sealed class ChatModelDialog
             LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
         };
         Add(title);
-        Add(Text($"{count} selected chats. Only inactive native chats can change."));
+        // h2 and p keep their default margins (the paragraph sits 45 px under the title, the first field 42 px under it).
+        Add(Text($"{count} selected chats. Only inactive native chats can change."), 25);
 
         provider = new ComboBox { Style = S("SettingComboBox"), HorizontalAlignment = HorizontalAlignment.Stretch };
         foreach (var p in StateValues.Providers) provider.Items.Add(new ComboBoxItem { Content = ProviderName(p), Tag = p });
         provider.SelectedIndex = Math.Max(0, StateValues.Providers.ToList().IndexOf(initialProvider));
-        Add(Field("Model provider", provider));
+        provider.MinHeight = 30;
+        Add(Field("Model provider", provider), 24);
 
         Model = new TextBox { Style = S("SearchBox"), Tag = "Provider default", Text = initialModel ?? "", MaxLength = 300 };
         SpellCheck.SetIsEnabled(Model, false);
+        Model.MinHeight = 32;
         Add(Field("Model", Model));
 
         // .provider-note: 13 px, muted, line-height 1.45; its margin (0 0 14px) adds to the gap below it.

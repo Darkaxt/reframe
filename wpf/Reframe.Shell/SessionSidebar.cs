@@ -28,8 +28,8 @@ sealed class SessionSidebar : Border
     string? anchor;
     List<ChatRow> order = [];
     /// <summary>.sidebar-selection: "n selected", Selected chat actions, Clear selection (shown for two or more).</summary>
-    readonly WrapPanel selectionBar = new() { Margin = new Thickness(12, 0, 12, 8), Visibility = Visibility.Collapsed };
-    readonly TextBlock selectionCount = new() { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) };
+    readonly WrapPanel selectionBar = new() { Margin = new Thickness(12, 6, 12, 2), Visibility = Visibility.Collapsed };
+    readonly TextBlock selectionCount = new() { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 6) };
     readonly Button selectionActions;
     /// <summary>The archive being restored (its row says Restoring…, the others wait), and the last restore's error.</summary>
     string? restoring;
@@ -114,7 +114,7 @@ sealed class SessionSidebar : Border
 
     static Button BarButton(string text)
     {
-        var button = new Button { Style = S("ButtonBaseStyle"), Content = new TextBlock { Text = text, Style = S("Text13") }, Margin = new Thickness(0, 0, 6, 0) };
+        var button = new Button { Style = S("ButtonBaseStyle"), Content = new TextBlock { Text = text, Style = S("Text13") }, MinHeight = 30, Margin = new Thickness(0, 0, 6, 6) };
         AutomationProperties.SetName(button, text);
         return button;
     }
