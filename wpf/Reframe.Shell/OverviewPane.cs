@@ -39,7 +39,6 @@ sealed class OverviewPane : Border
     }
 
     readonly StackPanel body = new() { MaxWidth = 980, Margin = new Thickness(24, 20, 24, 24) };
-    readonly TextBlock statusLine = new() { Foreground = B("mutedBrush"), VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis };
     readonly DispatcherTimer timer = new() { Interval = WhileIndexing };
     IOverviewSource? source;
     OverviewMetric metric = OverviewMetric.Prompts;
@@ -121,6 +120,8 @@ sealed class OverviewPane : Border
         var title = new TextBlock { Text = "Overview", FontSize = 18, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 16, 0) };
         DockPanel.SetDock(title, Dock.Left);
         head.Children.Add(title);
+        // A new line each time: the old one still belongs to the previous header.
+        var statusLine = new TextBlock { VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis };
         statusLine.Text = error ?? Overview.StatusLine(status) ?? (status.LastPassDay is { } day ? $"Up to date as of {day} · refreshed once a day" : "");
         statusLine.Foreground = error is not null ? B("dangerBrush") : B("mutedBrush");
         head.Children.Add(statusLine);
