@@ -49,6 +49,9 @@ public sealed class HostServices
 
     public bool Offers(string service) => connection.Welcome.Services.ContainsKey(service);
 
+    /// <summary>The version of a service the host offers (its welcome's), 0 when it offers none.</summary>
+    public int VersionOf(string service) => connection.Welcome.Services.GetValueOrDefault(service);
+
     /// <summary>The revision rule (docs/ptyhost-protocol.md, "sessions"): an event applies only when its revision is
     /// newer than the list's and than the session's last applied change. Without revisions (an older host), all apply.</summary>
     bool Accept(SessionStatus status, bool fromList)

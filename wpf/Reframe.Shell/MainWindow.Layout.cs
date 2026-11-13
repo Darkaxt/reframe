@@ -395,9 +395,13 @@ public partial class MainWindow
             else if (focused == sessionId) focused = null;
             ShowFocus(view);
         };
-        body.PreviewMouseDown += (_, _) =>
+        body.PreviewMouseDown += (_, e) =>
         {
             selected = sessionId;
+            // A press on a button (×, zoom, collapse, the ended card's) stays with it: moving the focus into the
+            // terminal's native window took the press away, so the click was lost and the header flickered.
+            for (var at = e.OriginalSource as DependencyObject; at is not null && at != body; at = at is Visual ? VisualTreeHelper.GetParent(at) : LogicalTreeHelper.GetParent(at))
+                if (at is ButtonBase) return;
             if (control is not null && FindHost(control) is { } host) FocusTerminal(host);
         };
         tiles[sessionId] = view;
@@ -422,7 +426,13 @@ public partial class MainWindow
             buttons.Children.Add(button);
             return button;
         }
-        if (card.Primary is { } primary) Add(primary, S("PrimaryButton"), () => { if (Writable) shell.RestartSession(WindowId, sessionId, false); });
+        var tooOld = shell.ErrorOf(sessionId) == ShellController.HostTooOld;
+        if (card.Primary is { } primary) Add(primary, S("PrimaryButton"), () =>
+        {
+            if (!Writable) return;
+            if (tooOld) _ = shell.RestartHostAsync(this);
+            else shell.RestartSession(WindowId, sessionId, false);
+        });
         if (card.StartFresh) Add(Strings.T("tile.startFresh"), S("ButtonBaseStyle"), () => { if (Writable) shell.RestartSession(WindowId, sessionId, true); });
         Add(card.Close, S("ButtonBaseStyle"), () => CloseTile(sessionId));
         var panel = new StackPanel();

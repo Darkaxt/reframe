@@ -100,6 +100,7 @@ sealed partial class ShellController
         catch (Exception e) when (e is HostServiceException or FormatException or IOException)
         {
             SetStatus(Status + $" (new session: {e.Message})");
+            if (e is HostServiceException { Code: HostTooOld }) return (HostTooOld, null);
             return ("claudeNotFound", wsl?.Distro);
         }
         if (!plan.Ok) return (plan.Error == "folderMissing" ? "folderMissing" : "claudeNotFound", plan.Error == "claudeNotFound" ? wsl?.Distro : null);
@@ -208,7 +209,7 @@ sealed partial class ShellController
         catch (Exception e) when (e is HostServiceException or FormatException or IOException or UnauthorizedAccessException)
         {
             Log($"session could not start: {sessionId} {e.Message}");
-            startErrors[sessionId] = "spawnFailed";
+            startErrors[sessionId] = e is HostServiceException { Code: HostTooOld } ? HostTooOld : "spawnFailed";
             SessionChanged(sessionId);
         }
         finally
@@ -358,6 +359,9 @@ sealed partial class ShellController
     {
         if (Connection is not { IsOpen: true } connection || Services is not { } services || connection.Welcome.Hooks is not { } hooks)
             throw new HostServiceException("unavailable", "no pty host attached");
+        // launch.spawnPlan is launch version 2: a host from before it (one Electron started and the sessions kept
+        // running across the update) cannot plan a start; its restart (RestartHostAsync) brings the current one.
+        if (services.VersionOf("launch") < 2) throw new HostServiceException(HostTooOld, $"the terminal host {connection.Welcome.Version} has no launch.spawnPlan");
         var env = new Dictionary<string, string>();
         foreach (System.Collections.DictionaryEntry e in Environment.GetEnvironmentVariables())
             if (e.Key is string key && e.Value is string value) env[key] = value;

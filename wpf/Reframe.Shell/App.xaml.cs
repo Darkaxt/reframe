@@ -74,6 +74,8 @@ public partial class App : Application
         }
         if (CaptureDir is not { } dir)
         {
+            // Started by a terminal host restart: the shell that started it quits first.
+            ShellController.WaitForRestartingShell();
             // One shell per profile: a second launch shows the first one's windows (revealWindows) and exits.
             var shell = new ShellController();
             instance = SingleInstance.TryAcquire(ProfileDir, () => Dispatcher.InvokeAsync(shell.Reveal),

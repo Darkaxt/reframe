@@ -191,18 +191,20 @@ public sealed record TileCard(string Text, string? Primary, bool StartFresh, str
 {
     /// <summary>Errors a start can end in (tile.error.*).</summary>
     public static readonly IReadOnlyList<string> Errors =
-        ["resumeFailed", "transcriptMissing", "claudeNotFound", "spawnFailed", "folderMissing", "hostCrashed", "runningElsewhere", "olderHost"];
+        ["resumeFailed", "transcriptMissing", "claudeNotFound", "spawnFailed", "folderMissing", "hostCrashed", "runningElsewhere", "olderHost", "hostTooOld"];
 
     public static TileCard For(string? error, string? wslDistro)
     {
         var text = error == "claudeNotFound" && wslDistro is not null
             ? Strings.T("error.claudeNotFoundInWsl", ("distro", wslDistro))
+            : error == "hostTooOld" ? Strings.T("host.tooOld")
             : error is not null ? Strings.T($"tile.error.{error}") : Strings.T("tile.ended");
         if (error == "claudeNotFound" && wslDistro is null) text += " " + Strings.T("error.claudeOnlyInWsl");
         string? primary = error is "transcriptMissing" or "folderMissing" ? null
-            : error is "runningElsewhere" or "olderHost" ? Strings.T("takeover.confirm") : Strings.T("tile.resume");
+            : error is "runningElsewhere" or "olderHost" ? Strings.T("takeover.confirm")
+            : error is "hostTooOld" ? Strings.T("host.restart") : Strings.T("tile.resume");
         // A fresh start is for a session whose history is the trouble, not for one its host lost.
-        var fresh = error is not null && error is not ("folderMissing" or "hostCrashed" or "runningElsewhere" or "olderHost");
+        var fresh = error is not null && error is not ("folderMissing" or "hostCrashed" or "runningElsewhere" or "olderHost" or "hostTooOld");
         return new TileCard(text, primary, fresh, Strings.T("tile.close"));
     }
 }
