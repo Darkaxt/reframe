@@ -247,6 +247,21 @@ impl Jobs {
                 let wsl = self.wsl(params)?;
                 Box::new(move || Ok(json!(wsl.stop_claude(&name, pid))))
             }
+            ("wsl", "keep") => {
+                let name = distro(params)?;
+                let wsl = self.wsl(params)?;
+                Box::new(move || Ok(wsl.keep(&name)))
+            }
+            ("wsl", "release") => {
+                // Every wsl.exe and share's keepers: reframe lets go of all it kept when it quits.
+                let all: Vec<Arc<Distros>> = self.distros.lock().unwrap().values().cloned().collect();
+                Box::new(move || {
+                    for distros in &all {
+                        distros.release();
+                    }
+                    Ok(Value::Null)
+                })
+            }
             ("wsl", "parsePath") => {
                 let path = text(params, "path")?;
                 let share = optional_text(params, "share")?;
@@ -440,6 +455,7 @@ mod tests {
             Some("bad-params")
         );
         assert_eq!(code("wsl", "info", json!({ "distro": "..\\x" })), Some("bad-params"));
+        assert_eq!(code("wsl", "keep", json!({ "distro": ".." })), Some("bad-params"));
         assert_eq!(
             code("wsl", "info", json!({ "distro": "Ubuntu", "command": { "file": "" } })),
             Some("bad-params")

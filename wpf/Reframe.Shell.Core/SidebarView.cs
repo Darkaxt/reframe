@@ -33,7 +33,20 @@ public sealed record ProjectRow(
     bool HasMore);
 
 /// <summary>The sidebar's sections (PINNED, PROJECTS, RECENTS) for one session list.</summary>
-public sealed record SidebarSections(IReadOnlyList<ChatRow> Pinned, IReadOnlyList<ProjectRow> Projects, IReadOnlyList<ChatRow> Recents, bool HasMore);
+public sealed record SidebarSections(IReadOnlyList<ChatRow> Pinned, IReadOnlyList<ProjectRow> Projects, IReadOnlyList<ChatRow> Recents, bool HasMore)
+{
+    /// <summary>Archived chats (Restore chat), and the stopped WSL distributions (Start).</summary>
+    public IReadOnlyList<ArchiveEntry> Archives { get; init; } = [];
+    public IReadOnlyList<string> WslStopped { get; init; } = [];
+
+    /// <summary>The rows in the order shown, each chat once (SessionSidebar's rows: pinned, open projects, recents),
+    /// for a Shift+click range.</summary>
+    public List<ChatRow> Ordered() =>
+    [
+        .. Pinned.Concat(Projects.Where(p => p.Expanded).SelectMany(p => p.Chats)).Concat(Recents)
+            .GroupBy(r => r.Key).Select(g => g.First()),
+    ];
+}
 
 /// <summary>What SessionSidebar.tsx renders from a session list (English texts of src/shared/i18n.ts).</summary>
 public static class SidebarView
@@ -70,7 +83,28 @@ public static class SidebarView
                 busy is null ? paths : $"{paths}\n{busy.Count} running · {state}",
                 chats.Take(limit).Select(c => Row(c, section, now)).ToList(), chats.Count > limit);
         }).ToList();
-        return new SidebarSections(pinned, projects, recents, list.HasMore || catalogue.Count > limit);
+        return new SidebarSections(pinned, projects, recents, list.HasMore || catalogue.Count > limit)
+        {
+            Archives = list.Archives, WslStopped = list.WslStopped,
+        };
+    }
+
+    /// <summary>list.wslStopped's note beside a stopped distribution.</summary>
+    public static string WslStoppedText(string distro) => $"{distro} (WSL) is not running: its sessions show up here once it runs.";
+
+    /// <summary>onRowClick's selection: Shift extends from the anchor, Ctrl toggles, a plain click selects only the
+    /// row (and opens it). Returns the new selection and anchor, and whether the row is opened.</summary>
+    public static (List<string> Selected, string? Anchor, bool Open) Click(IReadOnlyList<string> order, IReadOnlyList<string> selected,
+        string? anchor, string key, bool shift, bool ctrl)
+    {
+        var from = anchor is null ? -1 : order.ToList().IndexOf(anchor);
+        if (shift && from >= 0)
+        {
+            var to = order.ToList().IndexOf(key);
+            return ([.. order.Skip(Math.Min(from, to)).Take(Math.Abs(to - from) + 1)], anchor, false);
+        }
+        if (ctrl) return (selected.Contains(key) ? [.. selected.Where(k => k != key)] : [.. selected, key], key, false);
+        return ([key], key, true);
     }
 
     public static ChatRow Row(SidebarChat chat, string section, double now)

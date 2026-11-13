@@ -23,11 +23,29 @@ sealed class SessionSidebar : Border
     public QuotaPanel Quota { get; } = new();
     readonly StackPanel content = new();
     readonly Dictionary<string, Border> rows = [];
-    string? selected;
+    /// <summary>The selected chats (keys), the Shift+click anchor, and the rows in the order shown.</summary>
+    List<string> selected = [];
+    string? anchor;
+    List<ChatRow> order = [];
+    /// <summary>.sidebar-selection: "n selected", Selected chat actions, Clear selection (shown for two or more).</summary>
+    readonly WrapPanel selectionBar = new() { Margin = new Thickness(12, 6, 12, 2), Visibility = Visibility.Collapsed };
+    readonly TextBlock selectionCount = new() { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 6) };
+    readonly Button selectionActions;
+    /// <summary>The archive being restored (its row says Restoring…, the others wait), and the last restore's error.</summary>
+    string? restoring;
+    string archiveError = "";
+    SidebarSections? shown;
+    bool archivesOpen;
 
     public event Action<ChatRow>? Open;
     /// <summary>The row's context menu is asked for (right click, the menu key or Shift+F10): the chat and its item.</summary>
     public event Action<ChatRow, FrameworkElement>? RowMenu;
+    /// <summary>The menu of the selected chats (two or more): Selected chat actions, or a right click on one of them.</summary>
+    public event Action<IReadOnlyList<ChatRow>, FrameworkElement>? SelectionMenu;
+    /// <summary>An archived chat's row is clicked (restoreArchive); the task's result is its error, or null.</summary>
+    public event Func<ArchiveEntry, Task<string?>>? RestoreArchive;
+    /// <summary>Start beside a stopped WSL distribution.</summary>
+    public event Action<string>? StartWsl;
     public event Action<string>? ProjectToggled;
     public event Action<string>? QueryChanged;
 
@@ -46,6 +64,27 @@ sealed class SessionSidebar : Border
         AutomationProperties.SetName(Search, "Search sessions");
         Search.TextChanged += (_, _) => QueryChanged?.Invoke(Search.Text);
         CommandBindings.Add(new CommandBinding(SearchCommands.Clear, (_, _) => Search.Clear()));
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Escape || selected.Count < 2) return;
+            selected = [];
+            UpdateSelection();
+            e.Handled = true;
+        };
+
+        AutomationProperties.SetName(selectionBar, "Selected chats");
+        selectionCount.Style = S("Text13");
+        selectionBar.Children.Add(selectionCount);
+        selectionActions = BarButton("Selected chat actions");
+        selectionActions.Click += (_, _) => SelectionMenu?.Invoke(Chosen(), selectionActions);
+        selectionBar.Children.Add(selectionActions);
+        var clear = BarButton("Clear selection");
+        clear.Click += (_, _) =>
+        {
+            selected = [];
+            UpdateSelection();
+        };
+        selectionBar.Children.Add(clear);
 
         Scroll = new ScrollViewer
         {
@@ -58,6 +97,8 @@ sealed class SessionSidebar : Border
         var panel = new DockPanel();
         DockPanel.SetDock(Search, Dock.Top);
         panel.Children.Add(Search);
+        DockPanel.SetDock(selectionBar, Dock.Top);
+        panel.Children.Add(selectionBar);
         DockPanel.SetDock(Quota, Dock.Bottom);
         panel.Children.Add(Quota);
         panel.Children.Add(Scroll);
@@ -71,8 +112,29 @@ sealed class SessionSidebar : Border
     public FrameworkElement? RowOf(string label) =>
         rows.Values.FirstOrDefault(r => r.Tag is ChatRow row && row.Label == label);
 
+    static Button BarButton(string text)
+    {
+        var button = new Button { Style = S("ButtonBaseStyle"), Content = new TextBlock { Text = text, Style = S("Text13") }, MinHeight = 30, Margin = new Thickness(0, 0, 6, 6) };
+        AutomationProperties.SetName(button, text);
+        return button;
+    }
+
+    /// <summary>The selected rows (among those shown), in the order shown.</summary>
+    public List<ChatRow> Chosen() => [.. order.Where(r => selected.Contains(r.Key))];
+
+    /// <summary>Selects the chats with these labels as Ctrl+clicks would (the capture's selection).</summary>
+    public void SelectLabels(IEnumerable<string> labels)
+    {
+        foreach (var label in labels)
+            if (order.FirstOrDefault(r => r.Label == label) is { } row)
+                (selected, anchor, _) = SidebarView.Click(order.Select(r => r.Key).ToList(), selected, anchor, row.Key, shift: false, ctrl: true);
+        UpdateSelection();
+    }
+
     public void Show(SidebarSections sections)
     {
+        shown = sections;
+        order = sections.Ordered();
         rows.Clear();
         content.Children.Clear();
         Heading("Pinned");
@@ -92,8 +154,116 @@ sealed class SessionSidebar : Border
             var more = new Button { Style = S("ButtonBaseStyle"), Content = "Show more", HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(6) };
             content.Children.Add(more);
         }
+        if (sections.Archives.Count > 0) content.Children.Add(Archives(sections.Archives));
+        if (archiveError != "")
+            content.Children.Add(new TextBlock
+            {
+                Text = archiveError, Style = S("Text13"), Foreground = B("dangerBrush"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(6, 0, 6, 6),
+            });
+        foreach (var distro in sections.WslStopped) content.Children.Add(WslNote(distro));
         UpdateSelection();
     }
+
+    /// <summary>.sidebar-archives: "Archived chats (n)" (a details summary, muted); its rows restore the chat.</summary>
+    FrameworkElement Archives(IReadOnlyList<ArchiveEntry> archives)
+    {
+        var list = new StackPanel();
+        AutomationProperties.SetName(list, "Archived chats");
+        foreach (var archive in archives)
+        {
+            var grid = new Grid();
+            foreach (var w in new[] { 16.0, 8 }) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition());
+            grid.Children.Add(Provider(archive.Provider));
+            var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            text.Children.Add(new TextBlock { Text = archive.Label, Style = S("Text13"), Foreground = B("textBrush"), TextTrimming = TextTrimming.CharacterEllipsis });
+            text.Children.Add(new TextBlock { Text = restoring == archive.Id ? "Restoring…" : "Restore chat", Style = S("Text12"), Foreground = B("mutedBrush") });
+            Grid.SetColumn(text, 2);
+            grid.Children.Add(text);
+            var row = Row(grid, archive, "archive|" + archive.Id);
+            var tooltip = string.Join("\n", archive.Label, archive.Cwd, archive.Archive);
+            var button = new Button { Content = row, Template = BareTemplate(), ToolTip = tooltip, IsEnabled = restoring is null, FocusVisualStyle = null };
+            if (restoring is not null) row.Opacity = 0.55;
+            AutomationProperties.SetName(button, archive.Label);
+            AutomationProperties.SetHelpText(button, tooltip);
+            button.Click += async (_, _) =>
+            {
+                if (restoring is not null || RestoreArchive is null) return;
+                archiveError = "";
+                restoring = archive.Id;
+                Rerender();
+                try
+                {
+                    archiveError = await RestoreArchive(archive) ?? "";
+                }
+                finally
+                {
+                    restoring = null;
+                    Rerender();
+                }
+            };
+            list.Children.Add(button);
+        }
+        list.Visibility = archivesOpen ? Visibility.Visible : Visibility.Collapsed;
+        var summary = new Button
+        {
+            Template = BareTemplate(), Cursor = Cursors.Hand, FocusVisualStyle = null,
+            Content = new TextBlock
+            {
+                Text = $"{(archivesOpen ? "▾" : "▸")} Archived chats ({archives.Count})", Style = S("Text13"), Foreground = B("mutedBrush"),
+                Margin = new Thickness(0, 6, 0, 6),
+            },
+        };
+        AutomationProperties.SetName(summary, $"Archived chats ({archives.Count})");
+        AutomationProperties.SetItemStatus(summary, archivesOpen ? "expanded" : "collapsed");
+        summary.Click += (_, _) =>
+        {
+            archivesOpen = !archivesOpen;
+            Rerender();
+        };
+        var panel = new StackPanel { Margin = new Thickness(6, 14, 6, 14) };
+        panel.Children.Add(summary);
+        panel.Children.Add(list);
+        return panel;
+    }
+
+    /// <summary>Opens the archived chats' list (a capture shows it open).</summary>
+    public void OpenArchives()
+    {
+        archivesOpen = true;
+        Rerender();
+    }
+
+    void Rerender()
+    {
+        if (shown is not null) Show(shown);
+    }
+
+    /// <summary>.sidebar-note: the stopped distribution's text (12 px, muted) and its Start button, 8 apart.</summary>
+    FrameworkElement WslNote(string distro)
+    {
+        var grid = new Grid { Margin = new Thickness(6, 2, 6, 6) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.Children.Add(new TextBlock
+        {
+            Text = SidebarView.WslStoppedText(distro), Style = S("Text12"), Foreground = B("mutedBrush"), TextWrapping = TextWrapping.Wrap,
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0),
+        });
+        var start = BarButton("Start");
+        start.Margin = new Thickness(0);
+        start.VerticalAlignment = VerticalAlignment.Center;
+        AutomationProperties.SetName(start, $"Start {distro}");
+        start.Click += (_, _) => StartWsl?.Invoke(distro);
+        Grid.SetColumn(start, 1);
+        grid.Children.Add(start);
+        AutomationProperties.SetName(grid, distro);
+        return grid;
+    }
+
+    /// <summary>The note of a stopped distribution (for the capture).</summary>
+    public FrameworkElement? WslNoteOf(string distro) =>
+        content.Children.OfType<Grid>().FirstOrDefault(g => AutomationProperties.GetName(g) == distro);
 
     void Heading(string text)
     {
@@ -128,21 +298,19 @@ sealed class SessionSidebar : Border
         AutomationProperties.SetHelpText(item, chat.Tooltip);
         item.PreviewMouseLeftButtonUp += (_, e) =>
         {
-            Choose(chat);
+            Click(chat, Keyboard.Modifiers);
             e.Handled = true;
         };
         item.MouseRightButtonUp += (_, e) =>
         {
-            selected = chat.Key;
-            UpdateSelection();
-            RowMenu?.Invoke(chat, item);
+            Menu(chat, item);
             e.Handled = true;
         };
         item.KeyDown += (_, e) =>
         {
             if (e.Key == Key.Apps || (Keyboard.Modifiers == ModifierKeys.Shift && (e.Key == Key.F10 || e.SystemKey == Key.F10)))
             {
-                RowMenu?.Invoke(chat, item);
+                Menu(chat, item);
                 e.Handled = true;
                 return;
             }
@@ -153,27 +321,51 @@ sealed class SessionSidebar : Border
         return item;
     }
 
-    void Choose(ChatRow chat)
+    void Choose(ChatRow chat) => Click(chat, ModifierKeys.None);
+
+    /// <summary>onRowClick: Shift selects a range from the anchor, Ctrl adds or removes the row, a click opens it.</summary>
+    void Click(ChatRow chat, ModifierKeys modifiers)
     {
-        selected = chat.Key;
+        var (next, nextAnchor, open) = SidebarView.Click(order.Select(r => r.Key).ToList(), selected, anchor, chat.Key,
+            modifiers.HasFlag(ModifierKeys.Shift), modifiers.HasFlag(ModifierKeys.Control));
+        selected = next;
+        anchor = nextAnchor;
         UpdateSelection();
-        Open?.Invoke(chat);
+        if (open) Open?.Invoke(chat);
+    }
+
+    /// <summary>onRowMenu: a row of the selection asks for the selection's menu, another row is selected alone.</summary>
+    void Menu(ChatRow chat, FrameworkElement target)
+    {
+        var chosen = Chosen();
+        if (chosen.Count > 1 && chosen.Any(r => r.Key == chat.Key))
+        {
+            SelectionMenu?.Invoke(chosen, target);
+            return;
+        }
+        selected = [chat.Key];
+        anchor = chat.Key;
+        UpdateSelection();
+        RowMenu?.Invoke(chat, target);
     }
 
     public void Select(string? key)
     {
-        selected = key;
+        selected = key is null ? [] : [key];
         UpdateSelection();
     }
 
     void UpdateSelection()
     {
         foreach (var row in rows.Values) Paint(row);
+        var count = Chosen().Count;
+        selectionCount.Text = $"{count} selected";
+        selectionBar.Visibility = count > 1 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     void Paint(Border row)
     {
-        var chosen = row.Tag is ChatRow chat && chat.Key == selected;
+        var chosen = row.Tag is ChatRow chat && selected.Contains(chat.Key);
         var current = row.Tag is ProjectRow { Current: true };
         row.Background = chosen ? B("selectedBrush") : row.IsMouseOver || current ? B("surface-2Brush") : Brushes.Transparent;
         row.BorderBrush = chosen ? B("selectedBorderBrush") : null;

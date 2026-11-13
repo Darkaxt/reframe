@@ -22,6 +22,11 @@ public sealed class VisualFixture
     public required double Now { get; init; }
     /// <summary>The quota the Coordinator reported (Electron's capture sets it through its test hook), none by default.</summary>
     public List<ProviderQuota> Quota { get; init; } = [];
+    /// <summary>Running WSL distributions with their past chats (Linux folders), and the stopped ones reframe knows.</summary>
+    public List<WslSource> Wsl { get; init; } = [];
+    public List<string> WslStopped { get; init; } = [];
+    /// <summary>The chats (labels) the capture selects with Ctrl+click, in order.</summary>
+    public List<string> Select { get; init; } = [];
 
     public ListSources Sources() => new()
     {
@@ -29,6 +34,8 @@ public sealed class VisualFixture
         StatusOf = r => Statuses.GetValueOrDefault(r.Id, "ended"),
         Running = Running,
         Transcripts = Transcripts,
+        Wsl = Wsl,
+        WslStopped = WslStopped,
     };
 
     public static VisualFixture Load(string file, string home, double now) => Parse(File.ReadAllText(file), home, now);
@@ -98,8 +105,27 @@ public sealed class VisualFixture
         var running = (root["running"]?.AsArray() ?? []).Select(r => new RunningClaude(
             (int?)r!["pid"] ?? 0, (string)r["id"]!, Folder(r), (string?)r["name"])).ToList();
 
+        var wsl = (root["wsl"]?.AsArray() ?? []).Select(w => new WslSource((string)w!["distro"]!, new MemoryTranscriptSource(
+            (w["past"]?.AsArray() ?? []).Select(p => new TranscriptItem((string)p!["id"]!, now - ((double?)p["hoursAgo"] ?? 0) * Hour,
+                (string?)p["cwd"], (string?)p["title"]))), @"\\wsl.localhost")).ToList();
+        var wslStopped = (root["wslStopped"]?.AsArray() ?? []).Select(d => (string)d!).ToList();
+        if (wsl.Count > 0 || wslStopped.Count > 0)
+        {
+            state.Preferences.LookInWsl = true;
+            state.WslDistros = [.. wsl.Select(w => w.Distro), .. wslStopped];
+        }
+        foreach (var a in root["archives"]?.AsArray() ?? [])
+            (state.Archives ??= []).Add(new ArchiveEntry
+            {
+                Id = (string)a!["id"]!, Label = (string?)a["title"] ?? "", Cwd = Folder(a), Provider = (string?)a["provider"] ?? "chatgpt",
+                Archive = $@"D:\Reframe\archives\{(string)a["id"]!}.zip", Sha256 = new string('0', 64), Operation = $@"D:\Reframe\archives\operations\{(string)a["id"]!}",
+            });
+
         return new VisualFixture
         {
+            Wsl = wsl,
+            WslStopped = wslStopped,
+            Select = (root["select"]?.AsArray() ?? []).Select(t => (string)t!).ToList(),
             State = state,
             Statuses = statuses,
             Running = running,

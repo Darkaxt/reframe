@@ -56,6 +56,8 @@ public sealed record SessionList
     public List<ListItem> Found { get; init; } = [];
     public bool HasMore { get; init; }
     public List<string> WslStopped { get; init; } = [];
+    /// <summary>Archived chats (state.archives), restorable from the list.</summary>
+    public List<ArchiveEntry> Archives { get; init; } = [];
 }
 
 /// <summary>What a list entry stands for when it is opened (ListItemRef).</summary>

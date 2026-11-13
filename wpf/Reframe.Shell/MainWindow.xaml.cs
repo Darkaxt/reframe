@@ -58,6 +58,7 @@ public partial class MainWindow : Window
         this.windowId = windowId;
         InitializeComponent();
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(40) });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition());
         TextOptions.SetTextFormattingMode(root, TextFormattingMode.Ideal);
 
@@ -108,12 +109,15 @@ public partial class MainWindow : Window
         captionButtons.Children.Add(Caption("", "Close", "CaptionCloseButton", Close));
         toolbar.Children.Add(captionButtons);
         root.Children.Add(toolbar);
+        var report = BatchReport();
+        Grid.SetRow(report, 1);
+        root.Children.Add(report);
 
         // .workspace: the sidebar (with its resizer), then the dock strip and the layout (the tab control), or the empty state.
         var workspace = new Grid();
         workspace.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         workspace.ColumnDefinitions.Add(new ColumnDefinition());
-        Grid.SetRow(workspace, 1);
+        Grid.SetRow(workspace, 2);
         workspace.Children.Add(sidebar);
         var resizer = new Thumb { Width = 6, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, -3, 0), Cursor = Cursors.SizeWE };
         resizer.Template = ResizerTemplate();
@@ -135,6 +139,9 @@ public partial class MainWindow : Window
 
         sidebar.Open += OpenChat;
         sidebar.RowMenu += (chat, target) => ShowMenu(ListMenuOf(chat), target, chat);
+        sidebar.SelectionMenu += ShowSelectionMenu;
+        sidebar.RestoreArchive += RestoreArchiveAsync;
+        sidebar.StartWsl += distro => _ = shell.StartWslAsync(distro);
         sidebar.ProjectToggled += id =>
         {
             if (expanded is null) return;
@@ -273,6 +280,7 @@ public partial class MainWindow : Window
     ListSources Sources()
     {
         if (fixture is not null) return fixture.Sources();
+        var (wsl, wslStopped) = shell.Wsl(ListChanged);
         ITranscriptSource transcripts = connection is not null && services?.Offers("transcripts") == true
             ? new HostTranscriptSource(connection, home)
             : new MemoryTranscriptSource([]);
@@ -283,6 +291,8 @@ public partial class MainWindow : Window
             RunsInReframe = hostSessions.ContainsKey,
             Running = ClaudeRegistry.Running(home),
             Transcripts = transcripts,
+            Wsl = wsl,
+            WslStopped = wslStopped,
         };
     }
 
@@ -399,7 +409,9 @@ public partial class MainWindow : Window
         var record = item.Kind == ListItemKind.App && item.SessionId is { } id ? state.Sessions.GetValueOrDefault(id) : null;
         var ended = record is null || (!Runs(record.Id) && record.Lifecycle == "ended");
         var wsl = item.Kind == ListItemKind.Found && !string.IsNullOrEmpty(item.Distro) || record is not null && InWsl(record.Cwd);
-        return new ChatMenuContext(item.Kind, record, key, ShellActions.IsPinned(state, key), ended, wsl, ended);
+        var inactive = ended && !wsl && item.Kind != ListItemKind.Running
+            && !shell.HistoryBusy.Contains(record?.ClaudeSessionId ?? item.ClaudeSessionId ?? "");
+        return new ChatMenuContext(item.Kind, record, key, ShellActions.IsPinned(state, key), ended, wsl, inactive, shell.ChatBatchRunning);
     }
 
     List<MenuSpec> ListMenuOf(ChatRow chat) =>
@@ -413,11 +425,11 @@ public partial class MainWindow : Window
             own is not null, [.. Layout.Groups(layout).Where(g => g.Id != own?.Id)]);
     }
 
-    /// <summary>The actions the shell does so far; the others (a new window's group: windows, provider/model/archive/
-    /// delete: S11) show disabled.</summary>
+    /// <summary>The actions the shell does so far; the others (a new window's group: windows) show disabled.</summary>
     bool Supported(string action) =>
         action == "open" || (Writable && (action is "rename" or "pin" or "hide" or "newGroup" or "removeFromGroup" or "group"
-            || action.StartsWith("addToGroup:", StringComparison.Ordinal)));
+            or "changeModel" or "archive" or "delete"
+            || action.StartsWith("addToGroup:", StringComparison.Ordinal) || action.StartsWith("provider:", StringComparison.Ordinal)));
 
     ContextMenu BuildMenu(IEnumerable<MenuSpec> items, ChatRow? chat, string? sessionId) =>
         ShellMenus.Build(items, Supported, action => Run(action, chat, sessionId));
@@ -454,7 +466,7 @@ public partial class MainWindow : Window
                 Hide(chat, sessionId, key);
                 break;
             default:
-                RunGroupAction(action, sessionId);
+                if (!RunHistoryAction(action, chat, sessionId)) RunGroupAction(action, sessionId);
                 break;
         }
     }
@@ -576,6 +588,12 @@ public partial class MainWindow : Window
                     break;
                 case "overview":
                     await CaptureOverviewAsync(popup, dir, fixtureFile!);
+                    break;
+                case "history":
+                    await CaptureHistoryAsync(popup, dir);
+                    break;
+                case "wsl":
+                    await CaptureWslAsync(popup, dir);
                     break;
                 default:
                     DiagCapture.Save(popup, root, dir, Win.Layout is not null ? "main-sessions" : "main-empty");

@@ -224,7 +224,7 @@ when a save returns. `StateStore.useHost` (one write at a time, always the newes
 the file there is the one last written or read again and found good, one retry after reading again on `conflict`,
 in-process when the host fails) is there for when the saves can be awaited.
 
-**`cleanup`, `wsl` and `history` (version 1 each).** What Electron's main process does
+**`cleanup`, `wsl` and `history` (version 1 each; `wsl` version 2 adds `keep` and `release`).** What Electron's main process does
 for these, served by the host so that a shell without it (the WPF shell) gets the same: the Node host runs reframe's
 own `src/main/cleanup.ts`, `src/main/wsl/distros.ts` (with `src/shared/wsl.ts`) and `src/main/history-helper.ts`;
 the Rust host ports them (`rust/reframe-services/src/cleanup.rs`, `wsl.rs`, `history.rs`; the orphan check in
@@ -242,6 +242,8 @@ relative one where an absolute one is asked for.
 | `wsl.info { distro, share?, command? }` | `WslInfo` `{ distro, claude, path, home, claudeHome, mountRoot }` or null: the probe (`PROBE_SCRIPT`, through the user's interactive login shell, which starts the distribution; 60 s), asked once per distribution (by its lower-case name) and host as `WslDistros.info` asks it; `claude` is null when the only one is the Windows one under the mount root. |
 | `wsl.isClaude { distro, pid }` | Whether `<share>\<distro>\proc\<pid>\cmdline` is a Claude Code's (`looksLikeClaude`). |
 | `wsl.stopClaude { distro, pid }` | `stopped` or `failed`: never a process that is not a claude (`failed` without signalling); else `kill -s INT`, `INT`, then `TERM` in the distribution, each followed by up to 3 s of waiting for its `/proc` folder to go. |
+| `wsl.keep { distro, share?, command? }` (version 2) | `WslDistros.keep`: starts the distribution and keeps it running (`wsl.exe -d <distro> -e sleep infinity`, hidden) until `wsl.release`, then probes it afresh (a probe from before the start is dropped) and answers as `wsl.info`. A distribution kept already is not started again. Reframe's "Start" beside a stopped distribution in the session list. |
+| `wsl.release` (version 2) | `WslDistros.release`: ends every keeper this host started (for any wsl.exe and share); `null`. A shell calls it when it quits. |
 | `wsl.parsePath { path, share? }` | `parseWslPath`: `{ distro, path }` for a folder under `share`, `\\wsl.localhost` or `\\wsl$` (any case, either slash), else null. |
 | `wsl.windowsPath { distro, path, share }` | `wslWindowsPath`: the Linux `path` as a Windows path under `share`. |
 | `wsl.linuxPath { path, distro, mountRoot, share? }` | `linuxPathOf`: a drive path under `mountRoot` (`C:\x` → `/mnt/c/x`), the distribution's own folder as its Linux path, else null. |

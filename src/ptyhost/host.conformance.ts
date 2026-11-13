@@ -1089,7 +1089,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         state: 1,
         observer: 1,
         cleanup: 1,
-        wsl: 1,
+        wsl: 2,
         history: 1,
         // The Overview's activity index is the Rust host's only (the WPF shell's feature).
         ...(kind === 'rust' ? { overview: 1 } : {}),
@@ -1566,10 +1566,16 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         expect(alive(notClaude)).toBe(true);
         expect(await ask('stopClaude', { distro: 'Alpha', pid: claude })).toBe('stopped');
         await until('the claude to end', () => !alive(claude), 10_000);
+        // wsl.keep (version 2) starts a stopped distribution and keeps it running until wsl.release.
+        expect(await ask('keep', { distro: 'Beta' })).toEqual(plain(await oracle.info('Beta')));
+        expect(await ask('running')).toEqual(['Alpha', 'Beta']);
+        expect(await ask('keep', { distro: 'Beta' })).toEqual(plain(await oracle.info('Beta')));
+        expect(await ask('release')).toBeNull();
         const code = async (params: Record<string, unknown>) =>
           (await svc(connection, ++id, 'wsl', 'info', params)).error?.code;
         expect(await code({ distro: '..\\x', ...where })).toBe('bad-params');
         expect(await code({ distro: 'Alpha', share, command: { file: '' } })).toBe('bad-params');
+        expect((await svc(connection, ++id, 'wsl', 'keep', { distro: '..', ...where })).error?.code).toBe('bad-params');
       } finally {
         for (const pid of [claude, notClaude]) if (alive(pid)) process.kill(pid);
       }

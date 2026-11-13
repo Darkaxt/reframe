@@ -28,7 +28,7 @@ pub const SERVICES: [(&str, u32); 8] = [
     ("state", 1),
     ("overview", 1),
     ("cleanup", 1),
-    ("wsl", 1),
+    ("wsl", 2),
     ("history", 1),
 ];
 const MAX_IN_FLIGHT: usize = 8;
