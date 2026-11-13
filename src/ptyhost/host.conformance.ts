@@ -1071,7 +1071,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         transcripts: 1,
         quota: 1,
         clients: 1,
-        launch: 1,
+        launch: 2,
         sessions: 2,
         state: 1,
         observer: 1,

@@ -1,0 +1,7 @@
+{
+  "ok": false,
+  "error": "claudeNotFound",
+  "warnings": [
+    "a .js claude needs a node to run it (nodeRunner or REFRAME_NODE): D:\\fake\\claude.cjs"
+  ]
+}

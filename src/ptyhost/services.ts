@@ -7,6 +7,7 @@ import { TranscriptTitles } from '../main/claude/titles';
 import { ClaudeWatcher } from '../main/claude/watcher';
 import { adoptedClient } from '../main/client-adoption';
 import { evaluateLaunchConfig } from '../main/launch-config';
+import { realPlanFs, spawnPlan, spawnPlanInputProblem, type SpawnPlanInput } from '../main/claude/spawn-plan';
 import { coordinatorExecutable, readCodexUsage, userHasStatusLine } from '../main/quota';
 import { StateConflict, StateFiles } from '../main/state/files';
 import type { HostServices, SvcErrorCode, SvcEvent } from './protocol';
@@ -15,7 +16,7 @@ export const SERVICES: Required<HostServices> = {
   transcripts: 1,
   quota: 1,
   clients: 1,
-  launch: 1,
+  launch: 2,
   sessions: 2,
   state: 1,
   observer: 1,
@@ -159,6 +160,18 @@ export class ReadService {
       case 'launch.evaluate': {
         const file = required(params, 'file');
         return this.busy(service, async () => evaluateLaunchConfig(file));
+      }
+      case 'launch.spawnPlan': {
+        const problem = spawnPlanInputProblem(params);
+        if (problem) throw new SvcError('bad-params', problem);
+        return this.busy(service, async () => {
+          const input = { ...params } as unknown as SpawnPlanInput & { adoption?: unknown };
+          // An adoption record given instead of its answer is read here, as clients.adopted reads it.
+          if (input.adopted == null && typeof input.adoption === 'string' && input.adoption) {
+            input.adopted = adoptedClient(input.adoption, input.session.launch?.provider ?? 'chatgpt');
+          }
+          return spawnPlan(input, realPlanFs);
+        });
       }
       default:
         throw new SvcError('unknown-method', `${service}.${method}`);

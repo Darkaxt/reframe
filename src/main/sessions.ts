@@ -15,10 +15,10 @@ import type { SessionStatus, SessionView } from '@shared/ipc';
 import { countsAsUse } from '@shared/last-used';
 import type { SessionRecord } from '@shared/state';
 import { parseWslPath, wslWindowsPath, type WslPath } from '@shared/wsl';
-import { claudeArgs, type LaunchMode } from './claude/args';
-import { claudeEnv } from './claude/env';
+import type { LaunchMode } from './claude/args';
+import { hereSpawn, launchMode, wslSpawn } from './claude/spawn-plan';
 import { backgroundRecheckMs, toolShells } from './claude/tool-shells';
-import { providerEnv, providerSettings, type Provider } from '@shared/providers';
+import type { Provider } from '@shared/providers';
 import {
   findRegistryEntry,
   forgetRegistryEntry,
@@ -29,7 +29,7 @@ import {
   transcriptExistsAsync,
   type RegistryEntry,
 } from './claude/registry';
-import { cmdCommandLine, type ClaudeBinary } from './claude/resolve';
+import type { ClaudeBinary } from './claude/resolve';
 import { writeHookSettings } from './claude/settings';
 import type { HookMessage } from './hooks/server';
 import type { LogFn } from './log';
@@ -284,15 +284,7 @@ export class SessionManager extends EventEmitter<Events> {
     this.deps.host.spawn({
       sessionId: session.id,
       instance: runtime.instance,
-      file: claude.file,
-      args: claude.viaCmd
-        ? cmdCommandLine(claude.viaCmd, claudeArgs(session, mode, settings, { prompt: false }))
-        : [...claude.prefixArgs, ...claudeArgs(session, mode, settings)],
-      cwd: session.cwd,
-      env: providerEnv(
-        claudeEnv(this.deps.env, { ...claude.env, REFRAME_SESSION: session.id }),
-        session.launch.provider,
-      ),
+      ...hereSpawn(session, mode, claude, settings, this.deps.env),
       cols: 120,
       rows: 32,
       meta: {
@@ -441,23 +433,18 @@ export class SessionManager extends EventEmitter<Events> {
       wsl: where.distro,
       claude: info.claude,
     });
-    const { file, prefixArgs, env } = wsl.command;
     this.deps.host.spawn({
       sessionId: session.id,
       instance: runtime.instance,
-      file,
-      // Without a shell (so nothing the user's startup files print gets in), with the PATH their login shell has.
-      args: [
-        ...prefixArgs,
-        ...['-d', where.distro, '--cd', where.path, '--exec', 'env', `PATH=${info.path}`, info.claude],
-        ...claudeArgs(
-          session,
-          mode,
-          session.launch.provider === 'anthropic' ? JSON.stringify(providerSettings('anthropic')) : undefined,
-        ),
-      ],
-      cwd: os.homedir(),
-      env: claudeEnv(this.deps.env, env),
+      ...wslSpawn(
+        session,
+        mode,
+        where,
+        { claude: info.claude, path: info.path },
+        wsl.command,
+        os.homedir(),
+        this.deps.env,
+      ),
       cols: 120,
       rows: 32,
       meta: { wsl: { distro: where.distro, home, claudeSessionId: session.claudeSessionId, share: wsl.share } },
@@ -806,16 +793,6 @@ export class SessionManager extends EventEmitter<Events> {
     if (used) this.emit('used', sessionId);
     this.emit('changed', sessionId);
   }
-}
-
-/**
- * How to start a session that should resume. Claude Code writes a transcript only from the first message on;
- * without one there is nothing to resume: an unused session starts fresh under the same id, a used one has lost
- * its history.
- */
-function launchMode(session: SessionRecord, requested: LaunchMode, transcript: boolean): LaunchMode | 'lost' {
-  if (requested !== 'resume' || transcript) return requested;
-  return session.used ? 'lost' : 'new';
 }
 
 /** Whether the host started the session with what it needs to follow its status (reframe gives it from .22 on). */

@@ -42,6 +42,25 @@ export function statusLineSettings(port: number, token: string, sessionId: strin
   };
 }
 
+/** The contents of a session's `--settings` file (writeHookSettings writes them). */
+export function hookSettingsJson(
+  port: number,
+  token: string,
+  sessionId: string,
+  provider?: Provider,
+  statusLine = false,
+): string {
+  return JSON.stringify(
+    {
+      ...hookSettings(port, token, sessionId),
+      ...(statusLine ? statusLineSettings(port, token, sessionId) : {}),
+      ...providerSettings(provider),
+    },
+    null,
+    2,
+  );
+}
+
 export function writeHookSettings(
   dir: string,
   port: number,
@@ -52,17 +71,6 @@ export function writeHookSettings(
 ): string {
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${sessionId}.json`);
-  fs.writeFileSync(
-    file,
-    JSON.stringify(
-      {
-        ...hookSettings(port, token, sessionId),
-        ...(statusLine ? statusLineSettings(port, token, sessionId) : {}),
-        ...providerSettings(provider),
-      },
-      null,
-      2,
-    ),
-  );
+  fs.writeFileSync(file, hookSettingsJson(port, token, sessionId, provider, statusLine));
   return file;
 }
