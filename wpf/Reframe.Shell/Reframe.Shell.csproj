@@ -14,6 +14,11 @@
     <!-- About shows reframe's version: package.json's, without the commit the SDK would append. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <InformationalVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\package.json')), '(?&lt;="version":\s*")[^"]+').Value)</InformationalVersion>
+    <!-- The release's version as the file version (the managed deploy checks it, as it did reframe.exe's), and
+         Electron's icon (shortcuts and the taskbar take it from the executable). -->
+    <FileVersion>$(InformationalVersion)</FileVersion>
+    <NoWarn>$(NoWarn);CS7035</NoWarn>
+    <ApplicationIcon>..\..\build\icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="..\..\LICENSE" LogicalName="LICENSE" />

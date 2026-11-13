@@ -4,6 +4,8 @@
 
 On Darkaxt/reframe, use maintenance/build-windows.ps1 and the hash-bound maintenance/windows deployment/rollback contract. The inherited multi-platform installer workflow is skipped for this fork so a managed tag does not start a competing publication path. Publish a normal release with the semantic tag `v<package.json version>`, the verified portable ZIP, SHA256SUMS.txt and both channel files produced by `node maintenance/write-update-metadata.mjs <completed ZIP> <new metadata directory>`. The `claudegpt.yml` channel is required by the current managed prerelease version; `latest.yml` also permits stable clients to inspect the normal release. Verify the actual GitHub provider against the published assets. Portable builds only check and notify; they never automatically download/install an update. Do not use the old `claudegpt-v0.10.0-1` tag naming for later releases.
 
+Since the cutover to the WPF shell (docs/wpf-cutover.md) the package is `maintenance/package-shell.ps1` over CI's `reframe-shell` and `reframe-host` artifacts, qualified by `maintenance/windows/smoke-packaged.ps1`; build-windows.ps1 remains for the Electron app until its retirement.
+
 Retrieve and hash the published package independently before activation, preserve one identified working rollback, and retain any explicitly deferred Anthropic account verification as a delivery limit. Upstream's release procedure below remains unchanged for its own repository.
 
 Development happens on Gitea (`main` is always releasable; bigger work goes through short-lived branches); a push mirror copies every branch and tag to GitHub
