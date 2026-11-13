@@ -1,5 +1,5 @@
 {
-  "comment": "e2e/visual-reference.spec.ts 'starting status, tabs, zoom, group and collapsed' (state 'tabs': single window showing docs-refresh, android-push collapsed in the dock). Here the shown tab and the other open tab (the dock strip).",
+  "comment": "e2e/visual-reference.spec.ts 'starting status, tabs, zoom, group and collapsed': the Backend group (checkout-fix, payment-webhooks) beside docs-refresh over ios-crash, android-push collapsed in the dock. Captured tiled (group, group-frame, collapsed, dock-strip), docs-refresh zoomed, then as a single window showing docs-refresh (tabs).",
   "sessions": [
     {
       "id": "vt-checkout-fix",
@@ -39,13 +39,79 @@
       "name": "android-push",
       "project": "mobile-app",
       "status": "busy",
-      "usedSecondsAgo": 1,
-      "docked": true
+      "usedSecondsAgo": 1
     }
   ],
   "past": [],
   "running": [],
-  "viewMode": "single",
-  "tabs": ["vt-android-push", "vt-docs-refresh"],
-  "selected": "vt-docs-refresh"
+  "selected": "vt-docs-refresh",
+  "layout": {
+    "kind": "split",
+    "id": "visual-grid",
+    "dir": "row",
+    "children": [
+      {
+        "kind": "group",
+        "id": "visual-backend",
+        "name": "Backend",
+        "color": "#5b9cf0",
+        "child": {
+          "kind": "split",
+          "id": "visual-backend-split",
+          "dir": "col",
+          "children": [
+            {
+              "kind": "tile",
+              "sessionId": "vt-checkout-fix"
+            },
+            {
+              "kind": "tile",
+              "sessionId": "vt-payment-webhooks"
+            }
+          ],
+          "sizes": [
+            50.0,
+            50.0
+          ]
+        }
+      },
+      {
+        "kind": "split",
+        "id": "visual-right",
+        "dir": "col",
+        "children": [
+          {
+            "kind": "tile",
+            "sessionId": "vt-docs-refresh"
+          },
+          {
+            "kind": "tile",
+            "sessionId": "vt-ios-crash"
+          }
+        ],
+        "sizes": [
+          50.0,
+          50.0
+        ]
+      }
+    ],
+    "sizes": [
+      50.0,
+      50.0
+    ]
+  },
+  "dock": [
+    {
+      "kind": "tile",
+      "sessionId": "vt-android-push",
+      "hint": null
+    }
+  ],
+  "hosted": [
+    "vt-checkout-fix",
+    "vt-payment-webhooks",
+    "vt-docs-refresh",
+    "vt-ios-crash",
+    "vt-android-push"
+  ]
 }

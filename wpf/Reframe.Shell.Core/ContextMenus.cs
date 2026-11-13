@@ -85,4 +85,18 @@ public static class ContextMenus
         new("submenu", "Add to group", otherGroups.Count > 0, Submenu: [.. otherGroups.Select(g => new MenuSpec("normal", g.Name, Action: "addToGroup:" + g.Id))]),
         new("normal", "Remove from group", inGroup, Action: "removeFromGroup"),
     ];
+
+    /// <summary>colorItems: the palette as checkboxes, the group's colour checked.</summary>
+    public static List<MenuSpec> ColorMenu(GroupNode group) =>
+        [.. GroupColors.All.Select(c => new MenuSpec("checkbox", c.Label, Checked: c.Hex == group.Color, Action: "color:" + c.Hex))];
+
+    /// <summary>groupMenu: rename, colour, dissolve, end all.</summary>
+    public static List<MenuSpec> GroupMenu(GroupNode group) =>
+    [
+        new("normal", "Rename", Action: "renameGroup"),
+        new("submenu", "Color", Submenu: ColorMenu(group)),
+        MenuSpec.Separator,
+        new("normal", "Dissolve group", Action: "dissolve"),
+        new("normal", "End all sessions", Action: "endAll"),
+    ];
 }

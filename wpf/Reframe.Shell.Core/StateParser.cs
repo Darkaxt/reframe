@@ -251,6 +251,12 @@ public static class StateParser
         return b;
     }
 
+    /// <summary>A layout node as state.json has it (a visual fixture's layout).</summary>
+    public static LayoutNode LayoutOf(JsonElement element) => ReadLayout(element, "layout");
+
+    /// <summary>A dock entry as state.json has it (a visual fixture's dock).</summary>
+    public static DockEntry DockOf(JsonElement element) => ReadDock(element, "dock");
+
     /// <summary>layoutNodeSchema: a union of tile, split and group, told apart by their literal kind.</summary>
     static LayoutNode ReadLayout(JsonElement element, string path)
     {

@@ -1,6 +1,6 @@
 # Visual parity, WPF side (CI): runs `Reframe.Shell.exe --diag-capture --diag-fixture` once per visual fixture
-# (tools/visual/fixtures) into one folder: "empty" without a host (main-empty), then "sessions" (main-sessions, sidebar,
-# sidebar-row-*, sidebar-search) and "tabs" (tabs, dock-strip) against one Rust PTY host that runs the fixtures' open
+# (tools/visual/fixtures) into one folder: "empty" without a host (main-empty), then "sessions" (main-sessions, grid-2x2, sidebar,
+# sidebar-row-*, sidebar-search) and "tabs" (group, group-frame, collapsed, dock-strip, zoomed, tabs) against one Rust PTY host that runs the fixtures' open
 # sessions with demo-claude (Start-CaptureHost.ps1). Each run saves its PNGs and adds itself to capture.json. The host
 # is ended afterwards.
 param(
@@ -29,10 +29,10 @@ function Fixture([string] $name) { "`"$(Join-Path $fixtures "$name.json")`"" }
 
 Invoke-Capture @('--profile', "`"$(Join-Path $Scratch 'empty')`"", '--diag-capture', "`"$Out`"", '--diag-fixture', (Fixture 'empty'))
 
-# The fixtures' open sessions (their tabs), by session id, with the name demo-claude draws and the project folder.
+# The sessions the fixtures host (their tiles show terminals), by session id, with the name demo-claude draws and the project folder.
 $open = foreach ($name in 'sessions', 'tabs') {
     $fixture = Get-Content (Join-Path $fixtures "$name.json") -Raw | ConvertFrom-Json
-    foreach ($id in $fixture.tabs) {
+    foreach ($id in $fixture.hosted) {
         $s = $fixture.sessions | Where-Object { $_.id -eq $id }
         "$($s.id)=$($s.name)=$($s.project)"
     }
