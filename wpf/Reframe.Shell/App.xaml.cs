@@ -84,6 +84,7 @@ public partial class App : Application
                 SingleInstance.ActivateFirstAsync(ProfileDir, TimeSpan.FromSeconds(5)).ContinueWith(_ => Dispatcher.InvokeAsync(Shutdown));
                 return;
             }
+            FileLog.Start(ProfileDir, AboutDialog.Version);
             if (HostLauncher.FindSource(hostDir, AppContext.BaseDirectory) is { } source)
                 Starter = new HostLauncher(source, $"shell-{typeof(App).Assembly.GetName().Version}").StartAsync;
             KeepEntryPoints();
@@ -138,7 +139,9 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        if (instance is not null) System.Diagnostics.Trace.WriteLine($"reframe stopped (exit {e.ApplicationExitCode})");
         instance?.Dispose();
+        System.Diagnostics.Trace.Flush();
         base.OnExit(e);
     }
 }

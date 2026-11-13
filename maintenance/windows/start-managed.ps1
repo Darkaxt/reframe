@@ -12,12 +12,16 @@ trap {
     throw $_
 }
 $active = Get-Content -LiteralPath $ActivePath -Raw | ConvertFrom-Json
-Test-ReleaseFiles (Split-Path -Parent $active.executable) $active.files
-Assert-Hash $active.executable $active.executableSha256
-Assert-Hash $active.helper.helper $active.helper.helperSha256
 Assert-PlainPath $active.runtime
 if ([IO.Path]::GetPathRoot($active.runtime) -ine 'D:\') { throw 'Persistent runtime must be on D:' }
 [IO.Directory]::CreateDirectory($active.runtime) | Out-Null
+# Hashing the whole release and the clients took seconds on every start with nothing on screen: files unchanged
+# since the last passing launch keep their hashes.
+$stampsFile = Join-Path $active.runtime 'hash-stamps.json'
+Use-HashStamps $stampsFile
+Test-ReleaseFiles (Split-Path -Parent $active.executable) $active.files
+Assert-Hash $active.executable $active.executableSha256
+Assert-Hash $active.helper.helper $active.helper.helperSha256
 # Adopted clients (adopt-client.ps1): adopt a newer qualified client and delete unused copies first. A failed
 # adoption never blocks the launch; the current record (verified by hash below) still applies.
 $adoption = $null
@@ -36,6 +40,7 @@ if (-not $adoption) {
     $cli = Get-Content -LiteralPath $active.managedActive -Raw | ConvertFrom-Json
     Assert-Hash $active.managedBinary $cli.sha256
 }
+Save-HashStamps $stampsFile
 $state = Get-Content -LiteralPath (Join-Path $active.profile 'state.json') -Raw | ConvertFrom-Json
 if ($state.preferences.claudeBin -cne $active.managedBinary) { throw 'Managed CLI selection changed; inspect before launch' }
 $values = @{
