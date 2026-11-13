@@ -17,7 +17,7 @@ namespace Reframe.Shell;
 /// (<see cref="IOverviewSource"/>); the pane reads it when shown and, only while the host is still indexing, again every
 /// 30 s while it stays shown. No prompt text, only titles.
 /// </summary>
-sealed class OverviewPane : Border
+public sealed class OverviewPane : Border
 {
     static Brush B(string key) => (Brush)Application.Current.FindResource(key);
     static Style S(string key) => (Style)Application.Current.FindResource(key);

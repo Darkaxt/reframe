@@ -23,6 +23,12 @@ function Invoke-Capture([string[]] $arguments) {
         throw "the shell did not finish its captures: $arguments"
     }
     Write-Host "shell exited $($p.ExitCode): $arguments"
+    # A crash (an unhandled exception: 0xE0434352) leaves states out silently otherwise.
+    if ($p.ExitCode -ne 0) {
+        $errors = Join-Path $Out 'capture-error.txt'
+        if (Test-Path $errors) { Get-Content $errors }
+        throw "the shell failed ($($p.ExitCode)) on: $arguments"
+    }
 }
 
 function Fixture([string] $name) { "`"$(Join-Path $fixtures "$name.json")`"" }
