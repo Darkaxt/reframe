@@ -1164,7 +1164,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
     }
     const line = (value: unknown) => JSON.stringify(value);
     const prompt = (timestamp: string, content: unknown) =>
-      line({ type: 'user', timestamp, cwd: 'C:\work\Alpha', message: { role: 'user', content } });
+      line({ type: 'user', timestamp, cwd: 'C:\\work\\Alpha', message: { role: 'user', content } });
     const turn = (timestamp: string, id: string, model: string, tools: string[]) =>
       line({
         type: 'assistant',
@@ -1224,7 +1224,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       const timeline = (await svc(connection, ++id, 'timeline', {})).result;
       expect(timeline.months[0]).toMatchObject({ month: '2026-03', sessions: 2, prompts: 3 });
       expect(fs.readFileSync(cache, 'utf8')).not.toContain('secret prompt');
-      expect((await svc(connection, ++id, 'nope', {})).error.code).toBe('unknown-method');
+      expect((await svc(connection, id + 1, 'nope', {})).error.code).toBe('unknown-method');
     });
   });
 
