@@ -370,7 +370,7 @@ public partial class MainWindow
         var summary = new Button
         {
             Template = BareButton(), Cursor = System.Windows.Input.Cursors.Hand, FocusVisualStyle = null, HorizontalAlignment = HorizontalAlignment.Left,
-            Content = new TextBlock { Text = $"{(batchOpen ? "▾" : "▸")} Chat results", Style = S("Text13"), Margin = new Thickness(0, 4, 0, 0) },
+            Content = new TextBlock { Text = $"{(batchOpen ? "▾" : "▸")} Chat results", Style = S("Text13"), Foreground = B("textBrush"), Margin = new Thickness(0, 4, 0, 0) },
         };
         AutomationProperties.SetName(summary, "Chat results");
         AutomationProperties.SetItemStatus(summary, batchOpen ? "expanded" : "collapsed");
