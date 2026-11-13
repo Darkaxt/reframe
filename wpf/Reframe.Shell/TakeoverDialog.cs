@@ -47,7 +47,7 @@ sealed class TakeoverDialog
             var row = new DockPanel();
             if (!single)
             {
-                var box = new CheckBox { Style = S("SettingCheckBox"), IsChecked = picked.Contains(c.ClaudeSessionId), Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center };
+                var box = new CheckBox { Style = S("SettingCheckBox"), IsChecked = picked.Contains(c.ClaudeSessionId), Margin = new Thickness(0, 0, 2, 0), VerticalAlignment = VerticalAlignment.Center }; // + the template's 8 before its (empty) content = .takeover-item gap 10
                 AutomationProperties.SetName(box, c.Name ?? ForeignMatch.FolderName(c.Cwd));
                 box.Checked += (_, _) => Pick(c.ClaudeSessionId, true);
                 box.Unchecked += (_, _) => Pick(c.ClaudeSessionId, false);
