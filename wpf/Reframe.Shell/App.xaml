@@ -9,6 +9,8 @@
         <ResourceDictionary Source="Theme/Tokens.xaml" />
         <!-- The Electron UI's controls (buttons, search field, scroll bar, rows, dock and tile), built from the tokens. -->
         <ResourceDictionary Source="Theme/Controls.xaml" />
+        <!-- The dialogs' form controls (checkbox, select, text field, links), as Chromium draws them. -->
+        <ResourceDictionary Source="Theme/Forms.xaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>

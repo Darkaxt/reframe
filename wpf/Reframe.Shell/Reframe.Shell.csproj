@@ -8,7 +8,13 @@
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
+    <!-- About shows reframe's version: package.json's, without the commit the SDK would append. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <InformationalVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\package.json')), '(?&lt;="version":\s*")[^"]+').Value)</InformationalVersion>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\LICENSE" LogicalName="LICENSE" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CI.Microsoft.Terminal.Wpf" Version="[1.25.260303002]" />
   </ItemGroup>

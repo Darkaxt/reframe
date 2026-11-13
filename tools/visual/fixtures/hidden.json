@@ -1,0 +1,25 @@
+{
+  "comment": "e2e/visual-reference.spec.ts 'New Session dialog ... hidden threads': checkout-fix (webshop) in the window, and a past chat of webshop hidden an hour ago; Settings scrolled to its Hidden threads.",
+  "sessions": [
+    {
+      "id": "vs-checkout-fix",
+      "claudeSessionId": "1c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a01",
+      "name": "checkout-fix",
+      "project": "webshop",
+      "status": "idle",
+      "usedSecondsAgo": 40
+    }
+  ],
+  "past": [],
+  "running": [],
+  "selected": "vs-checkout-fix",
+  "hosted": ["vs-checkout-fix"],
+  "hidden": [
+    {
+      "id": "5d2c9a10-7b3e-4f61-8a2d-3e9f0c1b7a55",
+      "title": "An experiment nobody needs to see",
+      "project": "webshop",
+      "hoursAgo": 1
+    }
+  ]
+}

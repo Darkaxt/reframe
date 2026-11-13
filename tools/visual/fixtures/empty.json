@@ -1,7 +1,17 @@
 {
-  "comment": "e2e/visual-reference.spec.ts 'main window empty, About, settings pages and quota': no sessions.",
+  "comment": "e2e/visual-reference.spec.ts 'main window empty, About, settings pages and quota': no sessions; the quota is set after main-empty (Electron's setQuota test hook).",
   "sessions": [],
   "past": [],
   "running": [],
-  "tabs": []
+  "tabs": [],
+  "quota": [
+    {
+      "source": "claude",
+      "windows": [
+        { "id": "five_hour", "minutes": 300, "usedPercent": 42, "resetsInHours": 2 },
+        { "id": "seven_day", "minutes": 10080, "usedPercent": 81, "resetsInHours": 50 }
+      ]
+    },
+    { "source": "codex", "windows": [{ "id": "codex:300", "minutes": 300, "usedPercent": 96, "resetsInHours": 1 }] }
+  ]
 }

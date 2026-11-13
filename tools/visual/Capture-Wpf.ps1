@@ -1,6 +1,6 @@
 # Visual parity, WPF side (CI): runs `Reframe.Shell.exe --diag-capture --diag-fixture` once per visual fixture
-# (tools/visual/fixtures) into one folder: "empty" without a host (main-empty), then "sessions" (main-sessions, grid-2x2, sidebar,
-# sidebar-row-*, sidebar-search) and "tabs" (group, group-frame, collapsed, dock-strip, zoomed, tabs) against one Rust PTY host that runs the fixtures' open
+# (tools/visual/fixtures) into one folder: "empty" without a host (main-empty, quota, quota-panel, about, settings-*), then "sessions" (main-sessions, grid-2x2, sidebar,
+# sidebar-row-*, sidebar-search), "hidden" (hidden-threads, hidden-threads-component) and "tabs" (group, group-frame, collapsed, dock-strip, zoomed, tabs) against one Rust PTY host that runs the fixtures' open
 # sessions with demo-claude (Start-CaptureHost.ps1). Each run saves its PNGs and adds itself to capture.json. The host
 # is ended afterwards.
 param(
@@ -42,7 +42,7 @@ $hostPid = (& (Join-Path $PSScriptRoot 'Start-CaptureHost.ps1') -HostBin $HostBi
     -Sessions $open -ClaudeHome (Join-Path $Scratch 'claude-home') | Select-Object -Last 1)
 Write-Host "host pid $hostPid"
 try {
-    foreach ($name in 'sessions', 'tabs') {
+    foreach ($name in 'sessions', 'hidden', 'tabs') {
         Invoke-Capture @('--profile', "`"$profileDir`"", '--take-over', '--diag-capture', "`"$Out`"", '--diag-fixture', (Fixture $name))
     }
 } finally {

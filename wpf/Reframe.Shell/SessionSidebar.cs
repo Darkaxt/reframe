@@ -19,6 +19,8 @@ sealed class SessionSidebar : Border
 {
     public TextBox Search { get; }
     public ScrollViewer Scroll { get; }
+    /// <summary>The subscription quota at the list's foot (.sidebar-quota).</summary>
+    public QuotaPanel Quota { get; } = new();
     readonly StackPanel content = new();
     readonly Dictionary<string, Border> rows = [];
     string? selected;
@@ -56,6 +58,8 @@ sealed class SessionSidebar : Border
         var panel = new DockPanel();
         DockPanel.SetDock(Search, Dock.Top);
         panel.Children.Add(Search);
+        DockPanel.SetDock(Quota, Dock.Bottom);
+        panel.Children.Add(Quota);
         panel.Children.Add(Scroll);
         Child = panel;
     }

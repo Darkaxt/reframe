@@ -20,6 +20,8 @@ public sealed class VisualFixture
     public required List<string> Hosted { get; init; }
     public string? Selected { get; init; }
     public required double Now { get; init; }
+    /// <summary>The quota the Coordinator reported (Electron's capture sets it through its test hook), none by default.</summary>
+    public List<ProviderQuota> Quota { get; init; } = [];
 
     public ListSources Sources() => new()
     {
@@ -83,6 +85,15 @@ public sealed class VisualFixture
             if ((bool?)p["pinned"] == true) pinned.Add(SidebarChats.ChatKey(id));
         }
         if (pinned.Count > 0) state.PinnedChats = pinned;
+        foreach (var h in root["hidden"]?.AsArray() ?? [])
+            state.HiddenThreads.Add(new HiddenThread
+            {
+                ClaudeSessionId = (string)h!["id"]!, Label = (string?)h["title"] ?? "", Cwd = Folder(h),
+                HiddenAt = now - ((double?)h["hoursAgo"] ?? 0) * Hour,
+            });
+        var quota = (root["quota"]?.AsArray() ?? []).Select(q => new ProviderQuota((string)q!["source"]!,
+            (q["windows"]?.AsArray() ?? []).Select(w => new QuotaWindow((string)w!["id"]!, (double?)w["minutes"],
+                (double?)w["usedPercent"] ?? 0, w["resetsInHours"] is null ? null : now + (double)w["resetsInHours"]! * Hour)).ToList(), now)).ToList();
 
         var running = (root["running"]?.AsArray() ?? []).Select(r => new RunningClaude(
             (int?)r!["pid"] ?? 0, (string)r["id"]!, Folder(r), (string?)r["name"])).ToList();
@@ -96,6 +107,7 @@ public sealed class VisualFixture
             Hosted = (root["hosted"]?.AsArray() ?? []).Select(t => (string)t!).ToList(),
             Selected = (string?)root["selected"],
             Now = now,
+            Quota = quota,
         };
     }
 }

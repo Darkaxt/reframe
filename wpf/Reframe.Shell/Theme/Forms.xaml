@@ -1,0 +1,168 @@
+<!--
+  The dialogs' form controls as Chromium draws them in the Electron UI (color-scheme: dark), measured in the visual
+  reference (settings-1/2, about, hidden-threads): the checkbox (13 px, #3b3b3b with a #858585 border; checked #99c8ff
+  with a dark tick), `.setting select` (bg, 1 px border-strong, radius 4, padding 4px 6px, Chromium's chevron), the
+  settings text field (`.setting-input`: terminal, 1 px border, radius 4, padding 4px 8px, placeholder #757575) and
+  the About dialog's links (accent, underlined on hover).
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary Source="Tokens.xaml" />
+  </ResourceDictionary.MergedDictionaries>
+
+  <SolidColorBrush x:Key="checkboxBrush" Color="#3b3b3b" />
+  <SolidColorBrush x:Key="checkboxBorderBrush" Color="#858585" />
+  <SolidColorBrush x:Key="checkboxCheckedBrush" Color="#99c8ff" />
+  <SolidColorBrush x:Key="placeholderBrush" Color="#757575" />
+  <!-- .modal-backdrop: rgb(0 0 0 / 0.45). -->
+  <SolidColorBrush x:Key="backdropBrush" Color="#73000000" />
+
+  <!-- label.checkbox: the box (13 px, margin 3px 3px 3px 4px), 8 px, the text. -->
+  <Style x:Key="SettingCheckBox" TargetType="CheckBox">
+    <Setter Property="Foreground" Value="{StaticResource textBrush}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CheckBox">
+          <StackPanel Orientation="Horizontal" Background="Transparent">
+            <Border x:Name="Box" Width="13" Height="13" Margin="4,3,3,3" CornerRadius="2" BorderThickness="1"
+                    Background="{StaticResource checkboxBrush}" BorderBrush="{StaticResource checkboxBorderBrush}" VerticalAlignment="Center">
+              <Path x:Name="Tick" Data="M2.2,5.8 L4.6,8.2 L9,3.6" Stroke="{StaticResource checkboxBrush}" StrokeThickness="1.9"
+                    StrokeStartLineCap="Square" StrokeEndLineCap="Square" Visibility="Collapsed" Margin="-0.5,0,0,0" />
+            </Border>
+            <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="False" />
+          </StackPanel>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Box" Property="Background" Value="{StaticResource checkboxCheckedBrush}" />
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource checkboxCheckedBrush}" />
+              <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource accentBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="SettingComboBoxItem" TargetType="ComboBoxItem">
+    <Setter Property="Foreground" Value="{StaticResource textBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBoxItem">
+          <Border x:Name="Row" Background="Transparent" Padding="8,3">
+            <ContentPresenter />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="Row" Property="Background" Value="{StaticResource surface-2Brush}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Row" Property="Background" Value="{StaticResource border-strongBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- .setting select: 28 px tall; the text 10 px in, Chromium's chevron 5 px from the right end. -->
+  <Style x:Key="SettingComboBox" TargetType="ComboBox">
+    <Setter Property="Foreground" Value="{StaticResource textBrush}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="ItemContainerStyle" Value="{StaticResource SettingComboBoxItem}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBox">
+          <Grid>
+            <ToggleButton x:Name="Toggle" Focusable="False" ClickMode="Press"
+                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+              <ToggleButton.Template>
+                <ControlTemplate TargetType="ToggleButton">
+                  <Border x:Name="Frame" Background="{StaticResource bgBrush}" BorderBrush="{StaticResource border-strongBrush}"
+                          BorderThickness="1" CornerRadius="4">
+                    <Path Data="M0.5,0.5 L4.5,4.5 L8.5,0.5" Stroke="{StaticResource textBrush}" StrokeThickness="2"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,1,5,0" />
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource mutedBrush}" />
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </ToggleButton.Template>
+            </ToggleButton>
+            <ContentPresenter Margin="10,0,24,0" VerticalAlignment="Center" HorizontalAlignment="Left" IsHitTestVisible="False"
+                              Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" />
+            <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True"
+                   Focusable="False" PopupAnimation="None">
+              <Border Background="{StaticResource surfaceBrush}" BorderBrush="{StaticResource border-strongBrush}" BorderThickness="1"
+                      CornerRadius="4" Padding="0,4" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+                <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
+                  <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                </ScrollViewer>
+              </Border>
+            </Popup>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- .setting-input: 160 px; :focus: accent border. The placeholder is the Tag. -->
+  <Style x:Key="SettingInput" TargetType="TextBox">
+    <Setter Property="Foreground" Value="{StaticResource textBrush}" />
+    <Setter Property="CaretBrush" Value="{StaticResource textBrush}" />
+    <Setter Property="SelectionBrush" Value="{StaticResource accentBrush}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Width" Value="160" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <Border x:Name="Frame" Background="{StaticResource terminalBrush}" BorderBrush="{StaticResource borderBrush}"
+                  BorderThickness="1" CornerRadius="4" Padding="8,4">
+            <Grid>
+              <TextBlock x:Name="Placeholder" Text="{TemplateBinding Tag}" Foreground="{StaticResource placeholderBrush}" FontSize="13"
+                         LineHeight="18.2" LineStackingStrategy="BlockLineHeight" IsHitTestVisible="False" Visibility="Collapsed" />
+              <ScrollViewer x:Name="PART_ContentHost" Height="18.2" VerticalAlignment="Center" Focusable="False"
+                            HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="Text" Value="">
+              <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource accentBrush}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- .about a: accent, no underline; hover: underlined. The content is a TextBlock (its decorations change). -->
+  <Style x:Key="LinkButton" TargetType="Button">
+    <Setter Property="Foreground" Value="{StaticResource accentBrush}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <ContentPresenter x:Name="Content" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+</ResourceDictionary>
