@@ -70,7 +70,21 @@ Must-Throw { Assert-ReleaseQualification $qualification $candidate } 'changed de
 Must-Throw { Test-ReleaseFiles $destination $files } 'extra payload'
 [IO.File]::WriteAllText((Join-Path $source 'app.exe'), 'changed')
 Must-Throw { Test-ReleaseFiles $source $files } 'changed payload'
+# Launch hash stamps: an unchanged file keeps its recorded hash, a changed one (same size) is hashed again.
+$stamps = Join-Path $Scratch 'hash-stamps.json'
+$stamped = Join-Path $Scratch 'stamped.bin'
+[IO.File]::WriteAllText($stamped, 'aaaa')
+$good = Get-Sha256 $stamped
+Use-HashStamps $stamps
+Assert-Hash $stamped $good
+Save-HashStamps $stamps
+Use-HashStamps $stamps
+Assert-Hash $stamped $good
+[IO.File]::WriteAllText($stamped, 'bbbb')
+[IO.File]::SetLastWriteTimeUtc($stamped, [IO.File]::GetLastWriteTimeUtc($stamped).AddMinutes(1))
+Must-Throw { Assert-Hash $stamped $good } 'changed file behind a hash stamp'
+$script:HashStamps = $null
 Write-AtomicJson (Join-Path $Scratch 'result.json') @{
-    status = 'passed'; checked = @('exact copy', 'same-volume atomic pointer', 'frozen restore', 'restore prevalidation', 'explicit hash-bound provider deferral', 'unrelated failures remain blockers', 'path/duplicate/extra/changed rejection')
+    status = 'passed'; checked = @('exact copy', 'same-volume atomic pointer', 'frozen restore', 'restore prevalidation', 'explicit hash-bound provider deferral', 'unrelated failures remain blockers', 'path/duplicate/extra/changed rejection', 'launch hash stamps')
 }
 Get-Content -LiteralPath (Join-Path $Scratch 'result.json') -Raw

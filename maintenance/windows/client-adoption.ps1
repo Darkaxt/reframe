@@ -121,7 +121,7 @@ function Get-AdoptedClients([string]$RecordPath) {
     foreach ($provider in $script:ClientProviders) {
         $binding = Get-ClientProperty $record.clients $provider
         if (-not $binding -or -not [IO.Path]::IsPathFullyQualified([string]$binding.binary)) { throw "Adopted $provider client missing" }
-        $actual = (Get-FileHash -LiteralPath $binding.binary -Algorithm SHA256).Hash.ToLowerInvariant()
+        $actual = Get-Sha256 $binding.binary
         if ($actual -cne $binding.sha256) { throw "Adopted $provider client differs from its record: $($binding.binary)" }
         $clients[$provider] = [pscustomobject]@{ binary = [string]$binding.binary; sha256 = [string]$binding.sha256; version = [string]$record.version }
     }
