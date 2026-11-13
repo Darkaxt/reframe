@@ -284,7 +284,8 @@ public partial class MainWindow : Window
 
     ListSources Sources()
     {
-        if (fixture is not null) return fixture.Sources();
+        // A capture lists its fixture with the statuses the shell gives them (a failed start's "error" too).
+        if (fixture is not null) return fixture.Sources() with { StatusOf = r => StatusOf(r.Id) };
         var (wsl, wslStopped) = shell.Wsl(ListChanged);
         ITranscriptSource transcripts = connection is not null && services?.Offers("transcripts") == true
             ? new HostTranscriptSource(connection, home)
