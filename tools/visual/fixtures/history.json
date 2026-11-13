@@ -11,9 +11,24 @@
     }
   ],
   "past": [
-    { "id": "6a1e2b3c-4d5e-4f60-8172-839405a6b701", "title": "Bulk 1: tidy the release scripts", "project": "webshop", "hoursAgo": 5 },
-    { "id": "6a1e2b3c-4d5e-4f60-8172-839405a6b702", "title": "Bulk 2: profile the search endpoint", "project": "webshop", "hoursAgo": 8 },
-    { "id": "6a1e2b3c-4d5e-4f60-8172-839405a6b703", "title": "Bulk 3: rename the payment events", "project": "api-gateway", "hoursAgo": 12 }
+    {
+      "id": "6a1e2b3c-4d5e-4f60-8172-839405a6b701",
+      "title": "Bulk 1: tidy the release scripts",
+      "project": "webshop",
+      "hoursAgo": 5
+    },
+    {
+      "id": "6a1e2b3c-4d5e-4f60-8172-839405a6b702",
+      "title": "Bulk 2: profile the search endpoint",
+      "project": "webshop",
+      "hoursAgo": 8
+    },
+    {
+      "id": "6a1e2b3c-4d5e-4f60-8172-839405a6b703",
+      "title": "Bulk 3: rename the payment events",
+      "project": "api-gateway",
+      "hoursAgo": 12
+    }
   ],
   "running": [],
   "selected": "vs-checkout-fix",

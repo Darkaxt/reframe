@@ -2,7 +2,12 @@
   "comment": "WPF only (the Electron reference has no WSL state): a past chat of a running Ubuntu (sidebar-row-wsl-running), a stopped Debian's note with Start (sidebar-row-wsl-stopped) and an archived chat, the list with its Archived chats open (sidebar-wsl).",
   "sessions": [],
   "past": [
-    { "id": "7b2f3c4d-5e6f-4a70-8b81-92a3b4c5d601", "title": "Tidy the checkout styles", "project": "webshop", "hoursAgo": 3 }
+    {
+      "id": "7b2f3c4d-5e6f-4a70-8b81-92a3b4c5d601",
+      "title": "Tidy the checkout styles",
+      "project": "webshop",
+      "hoursAgo": 3
+    }
   ],
   "running": [],
   "hosted": [],
@@ -10,12 +15,22 @@
     {
       "distro": "Ubuntu",
       "past": [
-        { "id": "7b2f3c4d-5e6f-4a70-8b81-92a3b4c5d602", "title": "Fix the Linux build script", "cwd": "/home/ann/projects/shop", "hoursAgo": 2 }
+        {
+          "id": "7b2f3c4d-5e6f-4a70-8b81-92a3b4c5d602",
+          "title": "Fix the Linux build script",
+          "cwd": "/home/ann/projects/shop",
+          "hoursAgo": 2
+        }
       ]
     }
   ],
   "wslStopped": ["Debian"],
   "archives": [
-    { "id": "7b2f3c4d-5e6f-4a70-8b81-92a3b4c5d603", "title": "Old pricing experiment", "project": "webshop", "provider": "chatgpt" }
+    {
+      "id": "7b2f3c4d-5e6f-4a70-8b81-92a3b4c5d603",
+      "title": "Old pricing experiment",
+      "project": "webshop",
+      "provider": "chatgpt"
+    }
   ]
 }
