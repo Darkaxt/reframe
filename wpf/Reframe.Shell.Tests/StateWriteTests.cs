@@ -214,7 +214,7 @@ public class ShellActionTests
         Assert.DoesNotContain("takeoverExclusions", StateStore.Serialize(state));
         Assert.True(ShellActions.Exclude(state, [new TakeoverExclusion { ClaudeSessionId = "e1", Label = "One", Cwd = @"C:\e", ExcludedAt = 5 }]));
         ShellActions.Exclude(state, [new TakeoverExclusion { ClaudeSessionId = "e2" }, new TakeoverExclusion { ClaudeSessionId = "e1", Label = "Again" }]);
-        var back = Parse(StateStore.Serialize(state));
+        var back = StateParser.Parse(StateStore.Serialize(state)).State!;
         Assert.Equal(["e2", "e1"], back.TakeoverExclusions!.Select(x => x.ClaudeSessionId));
         Assert.Equal("Again", back.TakeoverExclusions![^1].Label);
         Assert.True(ShellActions.Unexclude(back, ["e2"]));
