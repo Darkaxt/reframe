@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "51b151f99dfa675a195fab4253555a0ee4b9a76c",
-  "scope": "0.11.0-claudegpt.37: the Take Over popup can create an exclusion for the picked sessions (state.json takeoverExclusions, optional), which the popup no longer offers; the list menu's Take over… takes a session over on purpose; Settings removes exclusions. Archive and delete are followed in a popup (check, confirmation, progress, outcome). quota.codex reports why no usage was read. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.36, the protocol and cutover docs, the version and release notes.",
+  "sourceBase": "350fdb1d666274c77f262ef7db7bb236dbfbd0ac",
+  "scope": "0.11.0-claudegpt.37: the Take Over popup can create an exclusion for the picked sessions (state.json takeoverExclusions, optional), which the popup no longer offers; the list menu's Take over… takes a session over on purpose; Settings removes exclusions. Archive and delete are followed in a popup (check, confirmation, progress, outcome). quota.codex reports why no usage was read. A pasted image keeps the keyboard in the terminal. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.36, the protocol and cutover docs, the version and release notes.",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.37.md",
-      "sha256": "1350b1c7b477cee9e00fced9e0b4995a40776e27a5fcb9d75c3d99d1ace0790b"
+      "sha256": "d659f7900508807230ad6a234c7f8ffa6cd60da3c72e7466fec03c4115496dfd"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -107,6 +107,10 @@
     {
       "file": "wpf/Reframe.Shell/TakeoverDialog.cs",
       "sha256": "0a36f312b6eeec3e2eccbfd9bd2caf6ccd88892e154ce25e30f8ecda8c676269"
+    },
+    {
+      "file": "wpf/Reframe.Shell/TerminalBehaviour.cs",
+      "sha256": "0761dc31cf47daf2e74aaf6cd4635a8231585d5bb4c805b808b37022f10a0138"
     }
   ],
   "checksNotYetRun": [
