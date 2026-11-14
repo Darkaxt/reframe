@@ -27,6 +27,8 @@ sealed class TileView
     public required TextBlock Cwd { get; init; }
     public required VectorIcon ZoomIcon { get; init; }
     public required Button Zoom { get; init; }
+    /// <summary>The CPU, GPU and RAM meters of the header (shown once the host tells what the session uses).</summary>
+    public required UsageMeters Meters { get; init; }
     public TerminalControl? Control { get; init; }
     public HostTerminalConnection? Terminal { get; init; }
     public TerminalBehaviour? Behaviour { get; init; }
@@ -342,6 +344,8 @@ public partial class MainWindow
         zoomButton.Click += (_, _) => ToggleZoom(sessionId);
         Right(zoomButton);
         Right(noticePill);
+        var meters = new UsageMeters();
+        Right(meters.Element);
         // .tile-cwd: cut off at the start, read left to right.
         var cwdText = new TextBlock
         {
@@ -388,7 +392,7 @@ public partial class MainWindow
         var view = new TileView
         {
             SessionId = sessionId, Ring = ring, Frame = frame, Head = head, Dot = dot, Label = title, Cwd = cwdText,
-            ZoomIcon = zoomIcon, Zoom = zoomButton, Control = control, Terminal = terminal, Behaviour = behaviour,
+            ZoomIcon = zoomIcon, Zoom = zoomButton, Meters = meters, Control = control, Terminal = terminal, Behaviour = behaviour,
         };
         // Files (and images from a browser) dropped on the tile are typed in as their paths, as in reframe.
         if (behaviour is not null)

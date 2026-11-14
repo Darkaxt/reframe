@@ -18,6 +18,7 @@ mod host;
 mod jobs;
 mod limit;
 mod mirror;
+mod monitor;
 mod process;
 mod protocol;
 mod services;

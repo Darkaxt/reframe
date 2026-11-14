@@ -291,6 +291,12 @@ public partial class MainWindow : Window
         _ = RefreshAsync();
     }
 
+    /// <summary>What the sessions use now (<c>monitor.sample</c>): each tile's meters; a tile not in it shows none.</summary>
+    public void ShowUsage(IReadOnlyDictionary<string, SessionUsage> usage)
+    {
+        foreach (var (id, tile) in tiles) tile.Meters.Show(usage.GetValueOrDefault(id));
+    }
+
     /// <summary>The state changed (this or another window, Settings): listed again.</summary>
     public void ListChanged() => _ = RefreshAsync();
 

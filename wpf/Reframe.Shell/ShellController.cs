@@ -288,6 +288,7 @@ sealed partial class ShellController
         trayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         trayTimer.Tick += (_, _) => RefreshTray();
         trayTimer.Start();
+        StartMonitor();
         WatchForeignWindows();
     }
 

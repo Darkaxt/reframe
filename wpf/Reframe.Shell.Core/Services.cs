@@ -102,6 +102,10 @@ public sealed class HostServices
         return ((bool?)result?["coordinator"] ?? false, result?["usage"]?.DeepClone(), (string?)result?["error"]);
     }
 
+    /// <summary><c>monitor.sample {}</c> (Rust host only): what each running session uses now; empty without the service.</summary>
+    public async Task<Dictionary<string, SessionUsage>> MonitorSampleAsync() =>
+        Offers("monitor") ? SessionUsage.ParseSample(await connection.CallAsync("monitor", "sample", new JsonObject())) : [];
+
     /// <summary>The <c>overview</c> service (Rust host only), or null without it.</summary>
     public IOverviewSource? Overview => Offers("overview") ? new HostOverviewSource(connection) : null;
 

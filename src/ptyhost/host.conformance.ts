@@ -1092,7 +1092,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         wsl: 2,
         history: 1,
         // The Overview's activity index is the Rust host's only (the WPF shell's feature).
-        ...(kind === 'rust' ? { overview: 1 } : {}),
+        ...(kind === 'rust' ? { overview: 1, monitor: 1 } : {}),
       });
       const index = new TranscriptIndex(home);
       let id = 0;
@@ -1171,6 +1171,32 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       const after = await svc(connection, 3, 'list', { home, limit: 50, exclude: [] });
       expect(after.result.items[0]).toMatchObject({ sessionId: 'a9', title: 'a new one' });
     });
+  });
+
+  (kind === 'rust' ? it : it.skip)('tells what each running session uses (monitor.sample)', async () => {
+    const host = await startHost(kind);
+    const { connection } = await attach(host);
+    spawnChild(connection, 'm');
+    const spawned = await connection.next('spawned', (m) => m.type === 'spawned' && m.sessionId === 'm');
+    const sample = async (id: number) => {
+      connection.send({ type: 'svc', id, service: 'monitor', method: 'sample', params: {} });
+      return (await connection.next(`sample ${id}`, (m) => m.type === 'svc-result' && m.id === id)).result;
+    };
+    await sample(1);
+    const usage = (await sample(2)).sessions.m;
+    expect(usage).toEqual(
+      expect.objectContaining({ cpu: expect.any(Number), memory: expect.any(Number), gpu: expect.any(Number) }),
+    );
+    expect(usage.memory).toBeGreaterThan(0);
+    expect(usage.processes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ pid: spawned.pid, name: path.basename(process.execPath) })]),
+    );
+    connection.send({ type: 'svc', id: 3, service: 'monitor', method: 'nope', params: {} });
+    expect((await connection.next('nope', (m) => m.type === 'svc-result' && m.id === 3)).error.code).toBe(
+      'unknown-method',
+    );
+    connection.request({ type: 'shutdown' });
+    await until('the host to exit', () => !alive(host.pid));
   });
 
   (kind === 'rust' ? describe : describe.skip)('the overview service', () => {
