@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "350fdb1d666274c77f262ef7db7bb236dbfbd0ac",
-  "scope": "0.11.0-claudegpt.37: the Take Over popup can create an exclusion for the picked sessions (state.json takeoverExclusions, optional), which the popup no longer offers; the list menu's Take over… takes a session over on purpose; Settings removes exclusions. Archive and delete are followed in a popup (check, confirmation, progress, outcome). quota.codex reports why no usage was read. A pasted image keeps the keyboard in the terminal. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.36, the protocol and cutover docs, the version and release notes.",
+  "sourceBase": "469a22197dd4e2a4c5b2d3c23affa20fd46605c9",
+  "scope": "Per-thread CPU/GPU/RAM meters: session job objects, the Rust host monitor service, tile-header meters",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
-      "sha256": "f7aff0ebcbd81a8edc79f5800d791a322baf55b5a745a78d99bc754d1eee10e8"
+      "sha256": "811e5cec15b5195deab895537f4463417a8e915c79984c71f1e84c8d01d779d7"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.37.md",
-      "sha256": "d659f7900508807230ad6a234c7f8ffa6cd60da3c72e7466fec03c4115496dfd"
+      "file": "docs/releases/v0.11.0-claudegpt.38.md",
+      "sha256": "087a94c34d4c32ed8f5175ee70aad9d780081c7d76971e1294b30b4f1bd7239f"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,99 +18,79 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "50cbb5a8e900dfc31e8404d1e74637abf5080274bd53638031136460a2a59645"
+      "sha256": "fcf7bb541e7a12f6a1b0428372fc25777412c848047085f26c7f51931de59f7a"
     },
     {
       "file": "package.json",
-      "sha256": "89afbfc4e7baae0558ff1a1944f560ee4c17785d40170cda2d7d1d76d715564e"
+      "sha256": "b9889fd834c36651689a813f62e77c314eb64edf429fb3668d7b1f54b6b77788"
     },
     {
-      "file": "rust/reframe-host/src/services.rs",
-      "sha256": "ee3bc636d73c9ddcd40b9185d01b86d06dc3cea5d6b07fe5790933d710869dc7"
+      "file": "rust/reframe-conpty/Cargo.toml",
+      "sha256": "f596948926a82d733e54494205e3d251797ae9e8307b5bba5344f9f1850a65b9"
     },
     {
-      "file": "rust/reframe-services/src/quota.rs",
-      "sha256": "ed4584e5363962757d534d5e0d4f48a98ed20c7052b19c6b44bb1af74649c214"
+      "file": "rust/reframe-conpty/src/lib.rs",
+      "sha256": "c8d4e69bf31f248f4ddf6ff4e2bc7840a6fe10db1c2654567afe7c14b3f8a4fe"
+    },
+    {
+      "file": "rust/reframe-conpty/src/usage.rs",
+      "sha256": "a09f8987928062734fc3862378351815000f548d0793c7d587146c0f02886b56"
+    },
+    {
+      "file": "rust/reframe-host/src/host.rs",
+      "sha256": "138d22fc716c63c2299b0540565b7f47b74e6461d518232688201c8981c93a7d"
+    },
+    {
+      "file": "rust/reframe-host/src/main.rs",
+      "sha256": "d36bd1969bf10073e0be15768622deeb94abb5acfe43e96fc0b2a950c16f32a7"
+    },
+    {
+      "file": "rust/reframe-host/src/monitor.rs",
+      "sha256": "a7041dfad57266579fe144cb48caa2e205d70d32d8b2ea6d0d0b3ff412184690"
+    },
+    {
+      "file": "rust/reframe-host/src/process.rs",
+      "sha256": "227333b4efec4b980e86d671282c369771cce17fa8f4430c527e3b65f1ea9ac6"
     },
     {
       "file": "src/ptyhost/host.conformance.ts",
-      "sha256": "cefffa229ba699fdd929f7484caf75f19c74d860a589b820631058d9fb12c607"
+      "sha256": "a263db30a8f692985ad049368f7b5ca76e16b2d8d33c2f85d7ac292b611ab2ab"
     },
     {
-      "file": "src/shared/state.ts",
-      "sha256": "99cbd037d629b80c2b4afbcb8468c1f5f7f816c883186ad868eaf8bf1bfb78c7"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/AppState.cs",
-      "sha256": "0bf4909cf7139da1da653d2ffff4bd63486286e7ff0a28d0db3aee8f414ce75a"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/ContextMenus.cs",
-      "sha256": "6ee1a9e208a514f41c55f9afde984ddb68789f4d7b16df7ff51cb6753e9d81b8"
+      "file": "wpf/Reframe.Shell.Core/Icons.cs",
+      "sha256": "a28892ffe33dfc3728a1d0305d82b1d2359855ebf1688e9a78e025eed64135c5"
     },
     {
       "file": "wpf/Reframe.Shell.Core/Services.cs",
-      "sha256": "fd707bd97fb17af8e6b5ca27222479e6391adae3b0e3b2317bd87aa099cb27dc"
+      "sha256": "1dd68f299e34ce6fb911d7ce55bdfd8010ad982d7cf32ed7ac55a9f1cfbb02e4"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/ShellActions.cs",
-      "sha256": "790299d04d02adae0edd02bce467a89c8c54527c296657e81644d8adab559842"
+      "file": "wpf/Reframe.Shell.Core/Usage.cs",
+      "sha256": "98cb9f1b014e6321a3427e315d8ac012de8b408f2e5aa2b58a95580bb92ca50f"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/StateJson.cs",
-      "sha256": "0958659927af2538f12b5177babb06623752cf31b6f979bd275c33cbee038654"
+      "file": "wpf/Reframe.Shell.Tests/UsageTests.cs",
+      "sha256": "ae3f2da2c6cbc3d21a63921da3f0fce7ae6306111c7cc53404fe4acde51f993e"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/StateParser.cs",
-      "sha256": "1b4dc75e51c1e8c4979bd987db8687204b722cddde5fda700d4c446f6f3ccb53"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/StateStore.cs",
-      "sha256": "7e6564392fffe7a5ec39370195f770aef68383e372dac7561741c5de0f38f925"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Strings.cs",
-      "sha256": "4bea9094f8dc7f3d97af45730cb570c0df27b93c4a051f61544d3b10469e41db"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/StateWriteTests.cs",
-      "sha256": "928ca7cc59b9f85f338a8abca50d01c21610cd4e928d9c4ea115807a6d03e032"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.Foreign.cs",
-      "sha256": "d421e4111d932fcb0b69d2e3451f91c0822413dd7c45d29fc973eea78ea925c5"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.History.cs",
-      "sha256": "4a52e58c22ecd4c0973c9a4bee7623810c06950d5d6692b98bbe5840ba5fa597"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.Settings.cs",
-      "sha256": "d444cc7685a30e3a9bc186c7ea4be215b3d969047e971be7fabf15aa6f05f0e5"
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "113d7a8962e45eec9d20b5987f89094870ebc3c7180ca7dfce6d096aa175784d"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "b21df61855a896f1662a233eebf9594bcb128e03732286aa6bcd22691f9d9cf9"
+      "sha256": "510d731e6d09706fb4ae5cda3282d03f34cc8a9a90fb42013ea409a90a517b9a"
     },
     {
-      "file": "wpf/Reframe.Shell/RetireDialog.cs",
-      "sha256": "fb61e72166f3398ad9ea7a1c67fb174b4e288847584bcb62c97a00c9abf3b937"
+      "file": "wpf/Reframe.Shell/ShellController.Monitor.cs",
+      "sha256": "c2cb518bae00ff7c4dc690fbada5c075e5c0087f6d295bcd1fea677659562f2b"
     },
     {
-      "file": "wpf/Reframe.Shell/SettingsDialog.cs",
-      "sha256": "d17896902dbc2d398db4727f5f1de162a3ba75fbd4ddb36fa35dd95f4ffb0701"
+      "file": "wpf/Reframe.Shell/ShellController.cs",
+      "sha256": "17751cca3006d0fb0d343f58fa3ac8861f41a053d71f20fb91429a9286637c36"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.Foreign.cs",
-      "sha256": "4a85129220e5159c048dcb1ac495889a99bc774bed798770767aa7e52d805179"
-    },
-    {
-      "file": "wpf/Reframe.Shell/TakeoverDialog.cs",
-      "sha256": "0a36f312b6eeec3e2eccbfd9bd2caf6ccd88892e154ce25e30f8ecda8c676269"
-    },
-    {
-      "file": "wpf/Reframe.Shell/TerminalBehaviour.cs",
-      "sha256": "0761dc31cf47daf2e74aaf6cd4635a8231585d5bb4c805b808b37022f10a0138"
+      "file": "wpf/Reframe.Shell/UsageMeters.cs",
+      "sha256": "2aa2441a8b2ad5528d70533a84eddfd5e43db6fb911d9020836785ad7adc2ee9"
     }
   ],
   "checksNotYetRun": [
