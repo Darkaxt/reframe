@@ -311,7 +311,7 @@ Every method but `configure` answers from the index as it is (during the first p
 may ask them. Footprint measured on fixtures (`cargo test -p reframe-transcripts --release -- --ignored --nocapture
 footprint`): see the pull request that added it.
 
-**`monitor` (version 1, since 0.11.0-claudegpt.38; the Rust host only).** What each running session uses, for the
+**`monitor` (version 2, since 0.11.0-claudegpt.38, warnings since 0.11.0-claudegpt.40; the Rust host only).** What each running session uses, for the
 WPF shell's per-thread meters (`rust/reframe-host/src/monitor.rs`, `rust/reframe-conpty/src/usage.rs`). Each session's
 process starts suspended in a job object of its own (`JOB_OBJECT_LIMIT_BREAKAWAY_OK`, so a launcher that asks
 `CREATE_BREAKAWAY_FROM_JOB` still leaves it; closing the job ends nothing), so everything it starts is counted, also
@@ -321,6 +321,23 @@ between calls: the caller decides how often (the WPF shell: every 3 s while a wi
 | Method | Result |
 | --- | --- |
 | `monitor.sample {}` | `{ sessions: { <id>: { cpu, memory, gpu, processes: [{ pid, name, cpu, memory, gpu, startedAt }] } } }`: per running session, `cpu` the percent of the whole machine (every logical processor) its job used since the previous sample (0 at its first), `memory` its processes' private bytes now, `gpu` the sum of its processes' GPU use in percent (Windows' `GPU Engine` counters, each process's busiest engine type, as Task Manager; 0 without counters or at the first sample); `processes` the job's live processes (`name` the executable's file name, `startedAt` ms since 1970). Read on a worker thread; observers may ask it. |
+| `monitor.warnings {}` | `{ warnings: [warning] }`: the warnings raised and not cleared yet, oldest first. Observers may ask it. |
+| `monitor.kill { id }` | `{ killed }`: ends what warning `id` is about, its process and what that started (members of the session's job, matched by id and creation time), or an ended session's leftovers; `killed` counts the processes ended. The warning is cleared. `not-found` if there is no such warning or its session is no longer watched. The primary only. |
+
+Every 15 s the host checks each running session's job (and those of sessions that ended, until nothing they started
+runs) on a worker thread (`rust/reframe-host/src/warnings.rs`), and raises a warning once when:
+
+- `cpu`: a process the session started (not its own) has used at least 0.8 of a core for 10 minutes without a break;
+- `scan`: a search tool (`grep`, `egrep`, `fgrep`, `rg`, `find`, `fd`, `findstr`, `where`) whose command line names a
+  whole disk (`/`, `\`, `C:\`, `C:/`, `C:`, and for the Unix tools `/c`, `/mnt/c`) has run for 2 minutes;
+- `leftover`: processes the session started still run 60 s after it ended (one warning for them all).
+
+A warning is `{ id, sessionId, kind, pid, name, since, at, message }` (`since` when the condition began and `at` when
+it was raised, ms since 1970; `message` a sentence for people), with `commandLine`, `cores` and `startedAt` for `cpu`
+and `scan`, and `processes` (how many) for `leftover`. It is told to the primary and every observer as
+`{ type: "svc-event", service: "monitor", event: "warning", data: warning }`, and once what it is about is gone (or
+was killed) as `event: "cleared", data: { id }`. A reframe that attaches asks `monitor.warnings` for those raised
+before.
 
 ## Hooks
 

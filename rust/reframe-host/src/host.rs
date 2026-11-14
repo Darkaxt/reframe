@@ -19,6 +19,8 @@ use crate::protocol::{
 };
 use crate::services::{self, Services};
 use crate::transcripts::{self, SvcError, Transcripts, WatchEvent};
+use crate::warnings::{self, Found};
+use reframe_conpty::Pty;
 use reframe_sessions::registry::Entry;
 use reframe_sessions::{
     filetime_ms, has_tool_shells, update_json, Lookup, Status, Tracker, Update, BACKGROUND_RECHECK_MS,
@@ -36,6 +38,7 @@ pub const OBSERVER_VERSION: u32 = 1;
 const OBSERVER_METHODS: &[&str] = &[
     "sessions.list",
     "monitor.sample",
+    "monitor.warnings",
     "observer.primary",
     "transcripts.list",
     "transcripts.info",
@@ -111,6 +114,11 @@ pub enum Input {
     Watch(WatchEvent),
     /// Transcript changes collected for a moment are told.
     FlushChanges,
+    /// What a check for runaway processes found, or a warning that `monitor.kill` dealt with (warnings.rs).
+    Warnings {
+        found: Found,
+        checked: bool,
+    },
     /// What a read of a session's registry entry found (see `read_registries`).
     Registry {
         serial: u64,
@@ -238,6 +246,9 @@ pub struct Host {
     /// When sessions idle with background work were last looked at, and how often that is done.
     background_checked: Instant,
     background_every: Duration,
+    /// When processes were last checked for warnings, and whether a check runs now.
+    warnings_checked: Instant,
+    checking: bool,
 }
 
 impl Host {
@@ -261,6 +272,8 @@ impl Host {
             status_revision: 0,
             background_checked: Instant::now(),
             background_every: background_recheck(),
+            warnings_checked: Instant::now(),
+            checking: false,
         }
     }
 
@@ -304,6 +317,7 @@ impl Host {
             Input::Watch(event) => self.watched(event),
             Input::FlushChanges => self.flush_changes(),
             Input::Registry { serial, entry, found } => self.registry_read(serial, entry, found),
+            Input::Warnings { found, checked } => self.warned(found, checked),
         }
         Flow::Continue
     }
@@ -609,26 +623,48 @@ impl Host {
             return self.svc_answer(conn, id, outcome);
         }
         if service == monitor::SERVICE {
-            if method != "sample" {
-                let error = SvcError {
+            let inputs = self.inputs.clone();
+            let answer = move |outcome| {
+                let _ = inputs.send(Input::SvcDone { conn, id, outcome });
+            };
+            match method {
+                "sample" => {
+                    let running = self.running_ptys();
+                    monitor::on_thread(&self.monitor, move |m| answer(Ok(m.sample(&running))));
+                }
+                "warnings" => {
+                    monitor::on_thread(&self.monitor, move |m| {
+                        answer(Ok(json!({ "warnings": m.warnings.list() })))
+                    });
+                }
+                "kill" => {
+                    let Some(warning) = params.get("id").and_then(Value::as_str).map(str::to_owned) else {
+                        return answer(Err(SvcError {
+                            code: "bad-params",
+                            message: "monitor.kill needs the id of a warning".into(),
+                        }));
+                    };
+                    let inputs = self.inputs.clone();
+                    monitor::on_thread(&self.monitor, move |m| match m.warnings.kill(&warning) {
+                        Ok(killed) => {
+                            let found = Found {
+                                raised: Vec::new(),
+                                cleared: vec![warning],
+                            };
+                            let _ = inputs.send(Input::Warnings { found, checked: false });
+                            answer(Ok(json!({ "killed": killed })));
+                        }
+                        Err(message) => answer(Err(SvcError {
+                            code: "not-found",
+                            message,
+                        })),
+                    });
+                }
+                _ => answer(Err(SvcError {
                     code: "unknown-method",
                     message: format!("{service}.{method}"),
-                };
-                return self.svc_answer(conn, id, Err(error));
+                })),
             }
-            let running = self
-                .sessions
-                .iter()
-                .filter_map(|s| s.running().map(|p| (s.id.clone(), p.pty())))
-                .collect();
-            let inputs = self.inputs.clone();
-            monitor::sample(&self.monitor, running, move |result| {
-                let _ = inputs.send(Input::SvcDone {
-                    conn,
-                    id,
-                    outcome: Ok(result),
-                });
-            });
             return;
         }
         if services::serves(service) {
@@ -1059,9 +1095,50 @@ impl Host {
         }
     }
 
+    /// The running sessions' ids and pseudoconsoles, for the monitor.
+    fn running_ptys(&self) -> Vec<(String, Arc<Pty>)> {
+        self.sessions
+            .iter()
+            .filter_map(|s| s.running().map(|p| (s.id.clone(), p.pty())))
+            .collect()
+    }
+
+    /// Every `CHECK_EVERY`, processes are checked for warnings on a thread (one check at a time).
+    fn check_warnings(&mut self, now: Instant) {
+        if self.checking || now.duration_since(self.warnings_checked) < warnings::CHECK_EVERY {
+            return;
+        }
+        self.checking = true;
+        self.warnings_checked = now;
+        let running = self.running_ptys();
+        let inputs = self.inputs.clone();
+        monitor::on_thread(&self.monitor, move |m| {
+            let found = m.warnings.check(&running);
+            let _ = inputs.send(Input::Warnings { found, checked: true });
+        });
+    }
+
+    /// Warnings raised and cleared are told to the primary and every observer.
+    fn warned(&mut self, found: Found, checked: bool) {
+        if checked {
+            self.checking = false;
+        }
+        for warning in found.raised {
+            self.broadcast(
+                json!({ "type": "svc-event", "service": monitor::SERVICE, "event": "warning", "data": warning }),
+            );
+        }
+        for id in found.cleared {
+            self.broadcast(
+                json!({ "type": "svc-event", "service": monitor::SERVICE, "event": "cleared", "data": { "id": id } }),
+            );
+        }
+    }
+
     pub fn tick(&mut self, now: Instant) -> Flow {
         self.read_registries();
         self.recheck_background(now);
+        self.check_warnings(now);
         let running = self.sessions.iter().any(|s| s.running().is_some());
         if self.client.is_some() || running {
             self.idle_since = now;

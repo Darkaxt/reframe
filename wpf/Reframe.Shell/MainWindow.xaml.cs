@@ -113,6 +113,7 @@ public partial class MainWindow : Window
         exitFullscreenButton.Margin = new Thickness(0, 0, 8, 0);
         exitFullscreenButton.Visibility = Visibility.Collapsed;
         right.Children.Add(exitFullscreenButton);
+        right.Children.Add(WarningsButton());
         var gearButton = IconButton("gear", "Settings", "Settings (Ctrl+,)");
         gearButton.Click += (_, _) => OpenSettings();
         right.Children.Add(gearButton);

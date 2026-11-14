@@ -40,8 +40,25 @@ public sealed class HostServices
                 var status = SessionStatus.From(data);
                 if (Accept(status, fromList: false)) StatusChanged?.Invoke(status);
             }
+            else if (service == "monitor" && name == "warning" && MonitorWarning.From(data) is { } warning) WarningRaised?.Invoke(warning);
+            else if (service == "monitor" && name == "cleared" && (string?)data?["id"] is { } cleared) WarningCleared?.Invoke(cleared);
         };
     }
+
+    /// <summary>The <c>monitor</c> service's warning events (version 2), on the connection's reading thread.</summary>
+    public event Action<MonitorWarning>? WarningRaised;
+    public event Action<string>? WarningCleared;
+
+    /// <summary>Whether the host raises warnings of runaway processes (<c>monitor</c> version 2).</summary>
+    public bool OffersWarnings => connection.Welcome.Services.GetValueOrDefault("monitor") >= 2;
+
+    /// <summary><c>monitor.warnings {}</c>: those raised and not cleared yet.</summary>
+    public async Task<List<MonitorWarning>> MonitorWarningsAsync() =>
+        OffersWarnings ? MonitorWarning.ParseList(await connection.CallAsync("monitor", "warnings", new JsonObject())) : [];
+
+    /// <summary><c>monitor.kill { id }</c>: ends what the warning is about; how many processes were ended.</summary>
+    public async Task<int> MonitorKillAsync(string warningId) =>
+        (int?)(await connection.CallAsync("monitor", "kill", new JsonObject { ["id"] = warningId }))?["killed"] ?? 0;
 
     /// <summary>Raised on the connection's reading thread, only for a change newer than what was applied (an event
     /// the host told before the list it answered is older than that list, and dropped).</summary>
