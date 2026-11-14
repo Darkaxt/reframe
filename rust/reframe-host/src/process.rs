@@ -30,6 +30,11 @@ impl Process {
         self.pty.pid()
     }
 
+    /// Its pseudoconsole, for what it uses (`monitor`).
+    pub fn pty(&self) -> Arc<Pty> {
+        self.pty.clone()
+    }
+
     pub fn write(&self, data: String) {
         // The writer thread is gone only once the process is; then the input has nowhere to go.
         let _ = self.input.send(data);

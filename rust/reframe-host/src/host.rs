@@ -3,6 +3,7 @@
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -11,6 +12,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::files::Files;
 use crate::hooks::{HookMessage, STATUS_LINE_EVENT};
 use crate::mirror::Mirror;
+use crate::monitor::{self, Monitor};
 use crate::process::{self, Process, ProcessEvent};
 use crate::protocol::{
     check_hello, encode, HelloCheck, Request, SpawnRequest, ViewMessage, HOST_KIND, PROTOCOL_VERSION,
@@ -33,6 +35,7 @@ pub const OBSERVER_VERSION: u32 = 1;
 /// What an observer may ask: reads only.
 const OBSERVER_METHODS: &[&str] = &[
     "sessions.list",
+    "monitor.sample",
     "observer.primary",
     "transcripts.list",
     "transcripts.info",
@@ -224,6 +227,8 @@ pub struct Host {
     next_serial: u64,
     transcripts: Transcripts,
     services: Services,
+    /// What the last `monitor.sample` read (its rates need the one before).
+    monitor: Arc<Mutex<Monitor>>,
     /// Transcript changes not told yet, per Claude Code folder; told once a batch is over, dropped (not queued)
     /// while no reframe is attached: the next one lists afresh.
     changes: Vec<(String, Changes)>,
@@ -250,6 +255,7 @@ impl Host {
             next_serial: 0,
             transcripts: Transcripts::new(),
             services: Services::new(),
+            monitor: Arc::default(),
             changes: Vec::new(),
             flush_scheduled: false,
             status_revision: 0,
@@ -457,6 +463,7 @@ impl Host {
         }
         services.insert(SESSIONS.into(), json!(SESSIONS_VERSION));
         services.insert(OBSERVER.into(), json!(OBSERVER_VERSION));
+        services.insert(monitor::SERVICE.into(), json!(monitor::VERSION));
         self.send_to(
             conn,
             &json!({
@@ -600,6 +607,29 @@ impl Host {
                 }),
             };
             return self.svc_answer(conn, id, outcome);
+        }
+        if service == monitor::SERVICE {
+            if method != "sample" {
+                let error = SvcError {
+                    code: "unknown-method",
+                    message: format!("{service}.{method}"),
+                };
+                return self.svc_answer(conn, id, Err(error));
+            }
+            let running = self
+                .sessions
+                .iter()
+                .filter_map(|s| s.running().map(|p| (s.id.clone(), p.pty())))
+                .collect();
+            let inputs = self.inputs.clone();
+            monitor::sample(&self.monitor, running, move |result| {
+                let _ = inputs.send(Input::SvcDone {
+                    conn,
+                    id,
+                    outcome: Ok(result),
+                });
+            });
+            return;
         }
         if services::serves(service) {
             let inputs = self.inputs.clone();

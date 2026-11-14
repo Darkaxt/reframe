@@ -16,6 +16,9 @@ use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::ptr;
 use std::sync::{Mutex, OnceLock};
 
+mod usage;
+pub use usage::{GpuCounters, JobUsage, ProcessUsage};
+
 use windows_sys::core::{HRESULT, PCSTR};
 use windows_sys::Win32::Foundation::{
     CloseHandle, GetLastError, ERROR_ACCESS_DENIED, FILETIME, HANDLE, HMODULE, INVALID_HANDLE_VALUE, SYSTEMTIME,
@@ -32,10 +35,10 @@ use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryExW, 
 use windows_sys::Win32::System::Pipes::CreatePipe;
 use windows_sys::Win32::System::Threading::{
     CreateProcessW, DeleteProcThreadAttributeList, GetCurrentThread, GetExitCodeProcess, GetProcessTimes,
-    InitializeProcThreadAttributeList, OpenProcess, SetThreadPriority, TerminateProcess, UpdateProcThreadAttribute,
-    WaitForSingleObject, CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT, INFINITE, PROCESS_INFORMATION,
-    PROCESS_QUERY_LIMITED_INFORMATION, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, STARTF_USESTDHANDLES, STARTUPINFOEXW,
-    THREAD_MODE_BACKGROUND_BEGIN,
+    InitializeProcThreadAttributeList, OpenProcess, ResumeThread, SetThreadPriority, TerminateProcess,
+    UpdateProcThreadAttribute, WaitForSingleObject, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
+    EXTENDED_STARTUPINFO_PRESENT, INFINITE, PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
+    PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, STARTF_USESTDHANDLES, STARTUPINFOEXW, THREAD_MODE_BACKGROUND_BEGIN,
 };
 use windows_sys::Win32::System::Time::{FileTimeToSystemTime, SystemTimeToFileTime, SystemTimeToTzSpecificLocalTime};
 
@@ -153,6 +156,8 @@ pub struct Pty {
     console: Mutex<Option<HPCON>>,
     process: OwnedHandle,
     pid: u32,
+    /// The job holding the process and what it starts (None if Windows gave none).
+    job: Option<OwnedHandle>,
 }
 
 /// Starts a process in a new pseudoconsole: returns it, its output (to read) and its input (to write).
@@ -177,7 +182,7 @@ pub fn spawn(request: &Spawn<'_>) -> io::Result<(Pty, File, File)> {
     drop(in_read);
     drop(out_write);
     match started {
-        Ok((process, pid)) => {
+        Ok((process, pid, job)) => {
             if let Some(release) = api.release {
                 // SAFETY: `console` is the live pseudoconsole created above.
                 unsafe { release(console) };
@@ -187,6 +192,7 @@ pub fn spawn(request: &Spawn<'_>) -> io::Result<(Pty, File, File)> {
                     console: Mutex::new(Some(console)),
                     process,
                     pid,
+                    job,
                 },
                 File::from(out_read),
                 File::from(in_write),
@@ -260,7 +266,9 @@ impl Drop for Attributes {
     }
 }
 
-fn start(console: HPCON, request: &Spawn<'_>) -> io::Result<(OwnedHandle, u32)> {
+/// The process, its id and its job: it starts suspended, joins a new job, and only then runs, so whatever it starts
+/// is in the job too.
+fn start(console: HPCON, request: &Spawn<'_>) -> io::Result<(OwnedHandle, u32, Option<OwnedHandle>)> {
     let mut attributes = Attributes::new(console)?;
     // SAFETY: STARTUPINFOEXW is a plain C struct for which all zeroes is a valid value.
     let mut startup: STARTUPINFOEXW = unsafe { std::mem::zeroed() };
@@ -292,7 +300,7 @@ fn start(console: HPCON, request: &Spawn<'_>) -> io::Result<(OwnedHandle, u32)> 
             ptr::null(),
             ptr::null(),
             0,
-            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+            EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED,
             environment.as_ref().map_or(ptr::null(), |b| b.as_ptr().cast()),
             cwd.as_ref().map_or(ptr::null(), |c| c.as_ptr()),
             &startup.StartupInfo,
@@ -302,13 +310,21 @@ fn start(console: HPCON, request: &Spawn<'_>) -> io::Result<(OwnedHandle, u32)> 
     if ok == 0 {
         return Err(io::Error::last_os_error());
     }
-    drop(owned(info.hThread));
-    Ok((owned(info.hProcess), info.dwProcessId))
+    let (process, thread) = (owned(info.hProcess), owned(info.hThread));
+    let job = usage::job_for(process.as_raw_handle());
+    // SAFETY: the thread handle is open; the process runs from here on, with or without a job.
+    unsafe { ResumeThread(thread.as_raw_handle()) };
+    Ok((process, info.dwProcessId, job))
 }
 
 impl Pty {
     pub fn pid(&self) -> u32 {
         self.pid
+    }
+
+    /// What the process and everything it started use now (None without a job).
+    pub fn usage(&self) -> Option<JobUsage> {
+        usage::job_usage(self.job.as_ref()?.as_raw_handle())
     }
 
     pub fn resize(&self, cols: u16, rows: u16) -> io::Result<()> {
@@ -365,8 +381,12 @@ struct Opened(HANDLE);
 
 impl Opened {
     fn new(pid: u32) -> Result<Self, u32> {
+        Self::with(pid, PROCESS_QUERY_LIMITED_INFORMATION)
+    }
+
+    fn with(pid: u32, access: u32) -> Result<Self, u32> {
         // SAFETY: OpenProcess has no preconditions; a null result is an error (GetLastError tells which).
-        let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+        let handle = unsafe { OpenProcess(access, 0, pid) };
         if handle.is_null() {
             // SAFETY: no preconditions.
             Err(unsafe { GetLastError() })

@@ -311,6 +311,17 @@ Every method but `configure` answers from the index as it is (during the first p
 may ask them. Footprint measured on fixtures (`cargo test -p reframe-transcripts --release -- --ignored --nocapture
 footprint`): see the pull request that added it.
 
+**`monitor` (version 1, since 0.11.0-claudegpt.38; the Rust host only).** What each running session uses, for the
+WPF shell's per-thread meters (`rust/reframe-host/src/monitor.rs`, `rust/reframe-conpty/src/usage.rs`). Each session's
+process starts suspended in a job object of its own (`JOB_OBJECT_LIMIT_BREAKAWAY_OK`, so a launcher that asks
+`CREATE_BREAKAWAY_FROM_JOB` still leaves it; closing the job ends nothing), so everything it starts is counted, also
+once the process that started it ended. A session that got no job (Windows refused) is left out. Nothing is sampled
+between calls: the caller decides how often (the WPF shell: every 3 s while a window shows).
+
+| Method | Result |
+| --- | --- |
+| `monitor.sample {}` | `{ sessions: { <id>: { cpu, memory, gpu, processes: [{ pid, name, cpu, memory, gpu, startedAt }] } } }`: per running session, `cpu` the percent of the whole machine (every logical processor) its job used since the previous sample (0 at its first), `memory` its processes' private bytes now, `gpu` the sum of its processes' GPU use in percent (Windows' `GPU Engine` counters, each process's busiest engine type, as Task Manager; 0 without counters or at the first sample); `processes` the job's live processes (`name` the executable's file name, `startedAt` ms since 1970). Read on a worker thread; observers may ask it. |
+
 ## Hooks
 
 `POST /hook/<encodeURIComponent(sessionId)>/<event>` with `X-Reframe-Token: <hooks.token>`, where `event` is
