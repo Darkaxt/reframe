@@ -72,6 +72,7 @@ public sealed class StateStore(string file, Func<IStateFiles?> host, Action<stri
                 Version = state.Version, Sessions = state.Sessions, RecentFolders = state.RecentFolders, Preferences = state.Preferences,
                 PinnedChats = state.PinnedChats, ExpandedProjects = state.ExpandedProjects, FolderWorkspaces = state.FolderWorkspaces,
                 Archives = state.Archives, WslDistros = state.WslDistros, HiddenThreads = state.HiddenThreads,
+                TakeoverExclusions = state.TakeoverExclusions,
                 Windows = [.. state.Windows.Select(w => exclude.Aggregate(w, LayoutActions.DropSession))],
             };
             foreach (var (key, value) in state.Extra) copy.Extra[key] = value;

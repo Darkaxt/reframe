@@ -463,7 +463,7 @@ public partial class MainWindow : Window
 
     /// <summary>The actions the shell does so far; the others (a new window's group: windows) show disabled.</summary>
     bool Supported(string action) =>
-        action == "open" || (Writable && (action is "rename" or "pin" or "hide" or "newGroup" or "removeFromGroup" or "group"
+        action == "open" || (Writable && (action is "takeOver" or "rename" or "pin" or "hide" or "newGroup" or "removeFromGroup" or "group"
             or "changeModel" or "archive" or "delete"
             || action.StartsWith("addToGroup:", StringComparison.Ordinal) || action.StartsWith("provider:", StringComparison.Ordinal)));
 
@@ -484,7 +484,7 @@ public partial class MainWindow : Window
         var key = chat?.Key ?? (sessionId is null ? "" : ChatKeyOf(sessionId));
         switch (action)
         {
-            case "open" when chat is not null:
+            case "open" or "takeOver" when chat is not null:
                 OpenChat(chat);
                 break;
             case "rename" when sessionId is not null && state.Sessions.TryGetValue(sessionId, out var record):

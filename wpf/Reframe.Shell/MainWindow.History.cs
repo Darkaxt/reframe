@@ -156,13 +156,30 @@ public partial class MainWindow
     async Task RetireChatAsync(ListItemRef item, string operation)
     {
         var record = await InactiveChatAsync(item);
-        var outcome = (await RetireChatsAsync([new ChatTarget(record, record.ClaudeSessionId)], operation)).FirstOrDefault();
-        if (outcome?.Status == "failed") throw new HistoryError(outcome.Detail ?? "Chat operation failed.");
+        var dialog = OpenRetireDialog(operation, 1);
+        var results = await RetireChatsAsync([new ChatTarget(record, record.ClaudeSessionId)], operation, dialog);
+        if (dialog.Visible) dialog.Done(results);
+        else if (results.Count > 0) ShowBatch(results, running: false);
+    }
+
+    /// <summary>The popup that follows an archive or delete (it replaces any other popup).</summary>
+    RetireDialog OpenRetireDialog(string operation, int count)
+    {
+        CloseModal();
+        var dialog = new RetireDialog(operation, count);
+        dialog.CloseRequested += CloseModal;
+        ShowModal(dialog.Frame);
+        modal!.Closed += dialog.Closed;
+        dialog.FocusChanged += button =>
+        {
+            if (!Capturing && dialog.Visible) Dispatcher.BeginInvoke(() => System.Windows.Input.Keyboard.Focus(button), System.Windows.Threading.DispatcherPriority.Input);
+        };
+        return dialog;
     }
 
     /// <summary>retireChats: one confirmation for the chats; one prepare and one retire job; a chat that started
     /// meanwhile is skipped. A chat without Claude history only loses Reframe's entry (delete).</summary>
-    async Task<List<ChatBatchEntry>> RetireChatsAsync(IReadOnlyList<ChatTarget> targets, string operation)
+    async Task<List<ChatBatchEntry>> RetireChatsAsync(IReadOnlyList<ChatTarget> targets, string operation, RetireDialog? ui = null)
     {
         var results = new List<ChatBatchEntry>();
         void Skip(ChatTarget t, string detail, string status = "skipped") => results.Add(new(t.Key, LabelOfRecord(t.Record), status, detail));
@@ -208,12 +225,16 @@ public partial class MainWindow
             if (confirmed.Count == 0) return results;
             var (message, detail, button) = ChatHistory.Confirmation(operation,
                 [.. confirmed.Select(t => (LabelOfRecord(t.Record), t.Record, prepared.GetValueOrDefault(t.Record.ClaudeSessionId)))]);
-            var answer = MessageBox.Show(this, $"{message}\n\n{detail}\n\nOK: {button}.", "Reframe", MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel);
-            if (answer != MessageBoxResult.OK || shell.Quitting)
+            var ok = ui is { Visible: true }
+                ? await ui.ConfirmAsync(message, detail, button)
+                : MessageBox.Show(this, $"{message}\n\n{detail}\n\nOK: {button}.", "Reframe", MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel) == MessageBoxResult.OK;
+            if (!ok || shell.Quitting)
             {
                 foreach (var target in confirmed) Skip(target, "Cancelled; unchanged.");
                 return results;
             }
+            ui?.Phase($"{(operation == "archive" ? "Archiving" : "Deleting")} {(confirmed.Count == 1 ? $"“{LabelOfRecord(confirmed[0].Record)}”" : $"{confirmed.Count} chats")}…"
+                + (operation == "archive" ? " Each chat gets a verified ZIP first." : ""));
             var changed = false;
             foreach (var target in recordOnly)
             {
@@ -290,7 +311,9 @@ public partial class MainWindow
         if (shell.ChatBatchRunning || shell.Quitting) throw new HistoryError("Another batch or shutdown is already running.");
         shell.ChatBatchRunning = true;
         var results = new List<ChatBatchEntry>();
-        ShowBatch(results, running: true);
+        // Archive and delete are followed in a popup; the other batches in the result strip.
+        var dialog = operation is "archive" or "delete" ? OpenRetireDialog(operation, items.Count) : null;
+        if (dialog is null) ShowBatch(results, running: true);
         var seen = new HashSet<string>();
         var targets = new List<(ListItemRef Item, ChatTarget Target)>();
         try
@@ -315,7 +338,7 @@ public partial class MainWindow
             }
             if (operation is "archive" or "delete")
             {
-                if (targets.Count > 0) results.AddRange(await RetireChatsAsync([.. targets.Select(t => t.Target)], operation));
+                if (targets.Count > 0) results.AddRange(await RetireChatsAsync([.. targets.Select(t => t.Target)], operation, dialog));
                 return;
             }
             foreach (var (item, target) in targets)
@@ -338,7 +361,8 @@ public partial class MainWindow
         finally
         {
             shell.ChatBatchRunning = false;
-            ShowBatch(results, running: false);
+            if (dialog is { Visible: true }) dialog.Done(results);
+            else ShowBatch(results, running: false);
             shell.ListChanged();
         }
     }

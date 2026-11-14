@@ -73,10 +73,11 @@ sealed partial class ShellController
     }
 
     /// <summary>Claudes on Windows that run outside reframe: the registry's live entries with a folder that are neither
-    /// reframe's sessions nor hidden threads (outsideClaudes).</summary>
+    /// reframe's sessions nor hidden threads (outsideClaudes), nor excluded from takeover.</summary>
     Task<List<OutsideClaude>> OutsideClaudesAsync()
     {
-        var own = State.Sessions.Values.Select(r => r.ClaudeSessionId).Concat(State.HiddenThreads.Select(h => h.ClaudeSessionId)).ToHashSet();
+        var own = State.Sessions.Values.Select(r => r.ClaudeSessionId).Concat(State.HiddenThreads.Select(h => h.ClaudeSessionId))
+            .Concat((State.TakeoverExclusions ?? []).Select(x => x.ClaudeSessionId)).ToHashSet();
         var home = ClaudeRegistry.Home();
         return Task.Run(() => ClaudeRegistry.Running(home)
             .Where(e => !string.IsNullOrEmpty(e.Cwd) && !own.Contains(e.SessionId))
@@ -116,6 +117,18 @@ sealed partial class ShellController
         if (chosen.Count == 0)
         {
             Log("terminal window takeover cancelled");
+            return;
+        }
+        if (answer!.Value.Exclude)
+        {
+            var candidates = ForeignMatch.Candidates(drop);
+            var excluded = chosen.Select(s => new TakeoverExclusion
+            {
+                ClaudeSessionId = s.Entry.SessionId, Cwd = s.Entry.Cwd ?? "", ExcludedAt = Now(),
+                Label = candidates.FirstOrDefault(c => c.ClaudeSessionId == s.Entry.SessionId)?.Name ?? ForeignMatch.FolderName(s.Entry.Cwd ?? ""),
+            }).ToList();
+            if (ShellActions.Exclude(State, excluded)) Save();
+            Log($"terminal window sessions excluded from takeover ({excluded.Count})");
             return;
         }
         Log($"terminal window takeover confirmed ({chosen.Count} sessions)");

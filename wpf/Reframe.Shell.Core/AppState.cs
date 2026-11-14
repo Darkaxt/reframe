@@ -65,6 +65,9 @@ public sealed class AppState : StateObject
     public List<string>? WslDistros { get; set; }
     /// <summary>Threads hidden from reframe (none for files from before 0.10.1-claudegpt.27).</summary>
     public List<HiddenThread> HiddenThreads { get; set; } = [];
+    /// <summary>Sessions a terminal window dropped on reframe is no longer offered for (null: none yet). They can still
+    /// be taken over from their list entry's menu.</summary>
+    public List<TakeoverExclusion>? TakeoverExclusions { get; set; }
 
     /// <summary>defaultState(): one empty window, default preferences.</summary>
     public static AppState CreateDefault() => new() { Windows = [WindowState.Empty(Guid.NewGuid().ToString())] };
@@ -221,6 +224,15 @@ public sealed class HiddenThread : StateObject
     public string Cwd { get; set; } = "";
     public string? Distro { get; set; }
     public double HiddenAt { get; set; }
+}
+
+/// <summary>A session the takeover popup leaves alone, with what Settings shows to remove the exclusion.</summary>
+public sealed class TakeoverExclusion : StateObject
+{
+    public string ClaudeSessionId { get; set; } = "";
+    public string Label { get; set; } = "";
+    public string Cwd { get; set; } = "";
+    public double ExcludedAt { get; set; }
 }
 
 public sealed class FolderLocation : StateObject

@@ -174,6 +174,7 @@ public static class StateParser
         state.Archives = o.OptArray("archives", ReadArchive);
         state.WslDistros = o.OptStrings("wslDistros");
         state.HiddenThreads = o.OptArray("hiddenThreads", ReadHiddenThread) ?? [];
+        state.TakeoverExclusions = o.OptArray("takeoverExclusions", ReadTakeoverExclusion);
         o.KeepExtra(state);
         return state;
     }
@@ -378,6 +379,14 @@ public static class StateParser
         }
         o.KeepExtra(p);
         return p;
+    }
+
+    static TakeoverExclusion ReadTakeoverExclusion(JsonElement element, string path)
+    {
+        var o = new Obj(element, path);
+        var x = new TakeoverExclusion { ClaudeSessionId = o.Str("claudeSessionId"), Label = o.Str("label"), Cwd = o.Str("cwd"), ExcludedAt = o.Num("excludedAt") };
+        o.KeepExtra(x);
+        return x;
     }
 
     static HiddenThread ReadHiddenThread(JsonElement element, string path)

@@ -207,6 +207,23 @@ public class ShellActionTests
     }
 
     [Fact]
+    public void Takeover_exclusions_round_trip_and_are_removed()
+    {
+        var state = Full();
+        Assert.Null(state.TakeoverExclusions);
+        Assert.DoesNotContain("takeoverExclusions", StateStore.Serialize(state));
+        Assert.True(ShellActions.Exclude(state, [new TakeoverExclusion { ClaudeSessionId = "e1", Label = "One", Cwd = @"C:\e", ExcludedAt = 5 }]));
+        ShellActions.Exclude(state, [new TakeoverExclusion { ClaudeSessionId = "e2" }, new TakeoverExclusion { ClaudeSessionId = "e1", Label = "Again" }]);
+        var back = StateParser.Parse(StateStore.Serialize(state)).State!;
+        Assert.Equal(["e2", "e1"], back.TakeoverExclusions!.Select(x => x.ClaudeSessionId));
+        Assert.Equal("Again", back.TakeoverExclusions![^1].Label);
+        Assert.True(ShellActions.Unexclude(back, ["e2"]));
+        Assert.False(ShellActions.Unexclude(back, ["nope"]));
+        Assert.True(ShellActions.Unexclude(back, null));
+        Assert.Empty(back.TakeoverExclusions!);
+    }
+
+    [Fact]
     public void Hide_replaces_an_entry_and_restore_takes_them_back()
     {
         var state = Full();
@@ -286,7 +303,7 @@ public class ContextMenuTests
     public void Running_elsewhere_and_wsl_chats_only_pin_and_hide()
     {
         var running = ContextMenus.ChatActions(new ChatMenuContext(ListItemKind.Running, null, SidebarChats.ChatKey("1c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a09"), false, true, false, true));
-        Assert.Equal("Open|-|Pin chat|Hide from Reframe…|-|Open in a new group|Open in a new group in a new window", Shape(ContextMenus.ListMenu(1, false, running)));
+        Assert.Equal("Open|Take over…|-|Pin chat|Hide from Reframe…|-|Open in a new group|Open in a new group in a new window", Shape(ContextMenus.ListMenu(1, false, running)));
         var wsl = ContextMenus.ChatActions(new ChatMenuContext(ListItemKind.Found, null, SidebarChats.ChatKey("1c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a09", "ubuntu"), false, true, true, true));
         Assert.Equal(3, wsl.Count);
     }

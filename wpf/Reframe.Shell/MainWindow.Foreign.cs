@@ -68,17 +68,17 @@ public partial class MainWindow
 
     /// <summary>The takeover dialog for a terminal window dropped at <paramref name="screenPoint"/> (DIPs): the sessions
     /// picked and where they land (taken before the dialog covers the window), or null when cancelled.</summary>
-    public Task<(List<string> Ids, DropTarget? Target)?> AskTakeoverAsync(IReadOnlyList<ForeignCandidate> candidates, Point screenPoint)
+    public Task<(List<string> Ids, DropTarget? Target, bool Exclude)?> AskTakeoverAsync(IReadOnlyList<ForeignCandidate> candidates, Point screenPoint)
     {
         ForeignHover(null);
         var at = SurfacePoint(screenPoint);
         var target = LayoutGeometry.ForeignTargetAt(places, LayoutArea(), at.X, at.Y, out _);
-        var answer = new TaskCompletionSource<(List<string> Ids, DropTarget? Target)?>();
+        var answer = new TaskCompletionSource<(List<string> Ids, DropTarget? Target, bool Exclude)?>();
         CloseModal();
         var dialog = ShowTakeover(candidates);
-        dialog.Answered += ids =>
+        dialog.Answered += (ids, exclude) =>
         {
-            answer.TrySetResult(ids is null ? null : (ids, target));
+            answer.TrySetResult(ids is null ? null : (ids, target, exclude));
             CloseModal();
         };
         modal!.Closed += () => answer.TrySetResult(null);

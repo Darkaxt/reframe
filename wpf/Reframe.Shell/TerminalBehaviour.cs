@@ -210,6 +210,7 @@ sealed class TerminalBehaviour
     }
 
     [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] static extern IntPtr SetFocus(IntPtr hwnd);
     const int WM_KEYDOWN = 0x100, WM_CHAR = 0x102, WM_SYSKEYDOWN = 0x104, WM_SYSCHAR = 0x106;
 
     /// <summary>Arrows and Tab go straight to the terminal's window. WPF's keyboard navigation would otherwise take them
@@ -273,7 +274,14 @@ sealed class TerminalBehaviour
     {
         if (paths.Count == 0) return;
         terminal.Paste(PasteText.FormatPaths(paths, true, wsl()));
-        if (host is not null) host.Focus();
+        // Back into the terminal (a drop came from elsewhere): WPF focus alone (HwndHost.Focus) took Win32 focus away
+        // from the terminal's native window, so a pasted image left the session without the keyboard.
+        if (host is { } h)
+            h.Dispatcher.InvokeAsync(() =>
+            {
+                Keyboard.Focus(h);
+                if (h.Handle != IntPtr.Zero) SetFocus(h.Handle);
+            }, System.Windows.Threading.DispatcherPriority.Input);
     }
 
     /// <summary>A drop on the tile: files by their paths; an image that exists only in memory (dragged from a browser)

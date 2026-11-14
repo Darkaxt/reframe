@@ -95,11 +95,11 @@ public sealed class HostServices
 
     /// <summary><c>quota.codex { localAppData }</c>: whether LLM Coordinator is installed, and its <c>usage.snapshot</c>
     /// answer (null when it gave none). Nothing without the service.</summary>
-    public async Task<(bool Coordinator, JsonNode? Usage)> QuotaCodexAsync(string? localAppData)
+    public async Task<(bool Coordinator, JsonNode? Usage, string? Error)> QuotaCodexAsync(string? localAppData)
     {
-        if (!Offers("quota")) return (false, null);
+        if (!Offers("quota")) return (false, null, null);
         var result = await connection.CallAsync("quota", "codex", new JsonObject { ["localAppData"] = localAppData });
-        return ((bool?)result?["coordinator"] ?? false, result?["usage"]?.DeepClone());
+        return ((bool?)result?["coordinator"] ?? false, result?["usage"]?.DeepClone(), (string?)result?["error"]);
     }
 
     /// <summary>The <c>overview</c> service (Rust host only), or null without it.</summary>
