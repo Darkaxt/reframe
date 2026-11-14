@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "414782cbbeee91c54e4598561ada439664906b33",
+  "sourceBase": "b9db7b32893b259513676d88c4c6859bc349c911",
   "scope": "tray icon, Claude quota from status lines, terminal refit",
   "inputHashes": [
     {
@@ -39,6 +39,10 @@
     {
       "file": "rust/reframe-services/src/spawn_plan.rs",
       "sha256": "f9d3fff17fe7bf2ea75765f75ea1b3aea37a81612a608f14223598d258e42729"
+    },
+    {
+      "file": "src/ptyhost/host.conformance.ts",
+      "sha256": "5e301514869cfc163eb8a713ba9b7e0542aa2e3d66fdb751c9aad5adae881da3"
     },
     {
       "file": "wpf/Reframe.Shell.Core/Quota.cs",
