@@ -282,6 +282,7 @@ sealed partial class ShellController
         foreach (var w in State.Windows.ToList()) Open(w, !hidden && shown.Contains(w.Id));
         ResumeSessions();
         tray = new TrayIcon(Tooltip(), TrayMenu, RunTray, () => Show(State.Windows[0].Id));
+        _ = KeepTrayShownAsync();
         toasts = new Toasts(id => Ui.InvokeAsync(() => FocusFromNotification(id)));
         RefreshTray();
         // The tooltip follows the sessions needing the user (refreshTrayTooltip).
@@ -544,6 +545,28 @@ sealed partial class ShellController
     int Waiting() => State.Windows.SelectMany(LayoutActions.WindowSessions).Count(id => StatusOf(id) == "waiting");
 
     string Tooltip() => ShellWindows.TrayTooltip(Waiting());
+
+    /// <summary>Carries the user's "show on the taskbar" choice over to this release's icon (<see cref="TrayPromotion"/>).
+    /// Windows writes the icon's record shortly after it is added, so this looks for it for up to a minute.</summary>
+    static async Task KeepTrayShownAsync()
+    {
+        if (Environment.ProcessPath is not { } exe) return;
+        for (var attempt = 0; attempt < 12; attempt++)
+        {
+            try
+            {
+                var found = await Task.Run(() => TrayPromotion.Apply(new RegistryTrayIconSettings(), exe, System.IO.File.Exists,
+                    m => System.Diagnostics.Trace.WriteLine(m)));
+                if (found) return;
+            }
+            catch (Exception e)
+            {
+                System.Diagnostics.Trace.WriteLine($"tray: taskbar choice not carried over: {e.Message}");
+                return;
+            }
+            await Task.Delay(TimeSpan.FromSeconds(5));
+        }
+    }
 
     /// <summary>The tray's tooltip and, per window, the taskbar badge (updateAttention).</summary>
     void RefreshTray()
