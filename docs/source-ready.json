@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "d9870c14c479c5ea7b4841214ddf4fd448caa58f",
-  "scope": "Tray icon keeps the taskbar choice across releases",
+  "sourceBase": "6746ddf64914593e5bac83c9aaa4fce038a0f5a1",
+  "scope": "Tray icon keeps the taskbar choice across releases and returns after Explorer restarts",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.42.md",
-      "sha256": "0bc2adb4c3fecec73ba9585dd73b2653cbbf29f30dfe6b73c9fd94ede45fed85"
+      "sha256": "41bc8884ebe3817e1b8dd51c1c23efcfe1c3467614e60664423b763853620977"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -35,6 +35,10 @@
     {
       "file": "wpf/Reframe.Shell/ShellController.cs",
       "sha256": "fb91678ba6d53516bbeaa27564b90da98df1504ac63a3304133c63c8d5f445fe"
+    },
+    {
+      "file": "wpf/Reframe.Shell/TrayIcon.cs",
+      "sha256": "aae8d4ec50e32b84d745e02f2e011127d4169bc2c55c327efa24c622840da5d3"
     }
   ],
   "checksNotYetRun": [
