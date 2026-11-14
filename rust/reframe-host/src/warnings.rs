@@ -267,10 +267,9 @@ impl Warnings {
                     names.sort_unstable();
                     names.dedup();
                     let message = format!(
-                        "{} process{} still running {} minutes after the session ended: {}",
+                        "{} process{} still running after the session ended: {}",
                         left.len(),
                         if left.len() == 1 { "" } else { "es" },
-                        minutes(now.saturating_duration_since(ended)),
                         names.join(", ")
                     );
                     let value = json!({

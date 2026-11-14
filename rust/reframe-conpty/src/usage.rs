@@ -327,6 +327,21 @@ mod tests {
     }
 
     #[test]
+    fn reads_a_command_line_and_ends_only_that_process() {
+        let mut child = std::process::Command::new("cmd.exe")
+            .args(["/c", "ping -n 30 127.0.0.1 >nul"])
+            .spawn()
+            .unwrap();
+        let line = crate::command_line(child.id()).expect("its command line");
+        assert!(line.contains("ping -n 30 127.0.0.1"), "{line}");
+        let start: u64 = crate::process_start(child.id()).unwrap().parse().unwrap();
+        // Another start is another process: not ended.
+        assert!(!crate::terminate(child.id(), start + 1));
+        assert!(crate::terminate(child.id(), start));
+        assert_eq!(child.wait().unwrap().code(), Some(1));
+    }
+
+    #[test]
     fn gpu_counters_sample_without_failing() {
         if let Some(mut gpu) = GpuCounters::new() {
             let _ = gpu.sample();

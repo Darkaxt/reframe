@@ -63,6 +63,7 @@ public static class Icons
             new IconPath("M6 1.5v2M10 1.5v2M6 12.5v2M10 12.5v2M1.5 6h2M1.5 10h2M12.5 6h2M12.5 10h2")),
         Stroked("gpu", new IconRect(1.5, 4, 13, 7.5, 1), new IconCircle(6, 7.75, 2), new IconPath("M10.5 6.5h2M10.5 9h2M3 11.5v2")),
         Stroked("ram", new IconRect(1.5, 4.5, 13, 6, 1), new IconPath("M4.5 6.75v1.5M7 6.75v1.5M9.5 6.75v1.5M12 6.75v1.5M3.5 10.5v2M6 10.5v2M10 10.5v2M12.5 10.5v2")),
+        Stroked("warning", new IconPath("M8 2l6.5 11.5h-13zM8 6.5v3M8 11.5v.5")),
     ];
 
     public static IconDefinition? Find(string name) => All.FirstOrDefault(i => i.Name == name) ?? ShellOnly.FirstOrDefault(i => i.Name == name);
