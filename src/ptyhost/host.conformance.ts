@@ -1084,15 +1084,14 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         transcripts: 1,
         quota: 1,
         clients: 1,
-        launch: 2,
         sessions: 2,
         state: 1,
         observer: 1,
         cleanup: 1,
         wsl: 2,
         history: 1,
-        // The Overview's activity index is the Rust host's only (the WPF shell's feature).
-        ...(kind === 'rust' ? { overview: 1, monitor: 2 } : {}),
+        // The Overview's activity index and the status line relay (launch 3) are the Rust host's only (the WPF shell's).
+        ...(kind === 'rust' ? { launch: 3, overview: 1, monitor: 2 } : { launch: 2 }),
       });
       const index = new TranscriptIndex(home);
       let id = 0;

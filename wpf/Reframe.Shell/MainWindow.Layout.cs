@@ -188,6 +188,7 @@ public partial class MainWindow
             }
             Put(view.Ring, place.Box with { X = place.Box.X - 1, Y = place.Box.Y - 1, Width = place.Box.Width + 2, Height = place.Box.Height + 2 });
             view.Ring.Visibility = Visibility.Visible;
+            RefitSoon(view);
             var filling = view.SessionId == one;
             view.ZoomIcon.Kind = filling ? "unzoom" : "zoom";
             var name = filling ? "Show all tiles again" : "Fill the window";
@@ -240,6 +241,19 @@ public partial class MainWindow
         surface.Visibility = any ? Visibility.Visible : Visibility.Hidden;
         empty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
         pick.Visibility = any && single && one is null ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>The session's terminal fitted to its tile once the layout has settled. The control fits itself when its
+    /// window's size changes, but not when it comes back from hidden (a single window's other threads), and a size it
+    /// fitted while hidden or at another display scale would stay with the session: it would draw in part of the tile.</summary>
+    void RefitSoon(TileView view)
+    {
+        if (view.Control is not { } control) return;
+        Dispatcher.InvokeAsync(() =>
+        {
+            if (!control.IsVisible || control.RenderSize.Width < 1 || control.RenderSize.Height < 1) return;
+            control.TriggerResize(control.RenderSize);
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     /// <summary>A single window showing no thread: the next one is the user's choice.</summary>

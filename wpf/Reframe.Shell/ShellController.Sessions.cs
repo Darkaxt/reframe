@@ -51,6 +51,14 @@ sealed partial class ShellController
     void HostEventReceived(JsonObject message)
     {
         var type = (string?)message["type"];
+        if (type == "hook")
+        {
+            // The status line input of reframe's Anthropic sessions: its rate_limits are the Claude quota.
+            if (message["message"] is JsonObject hook && (string?)hook["event"] == "StatusLine"
+                && Quotas.ApplyStatusLine(hook["payload"]?["rate_limits"], DateTimeOffset.Now.ToUnixTimeMilliseconds()))
+                QuotaChanged?.Invoke();
+            return;
+        }
         if ((string?)message["sessionId"] is not { } id || (int?)message["instance"] is not { } instance) return;
         if (!HostSessions.TryGetValue(id, out var hosted) || hosted.Instance != instance) return;
         switch (type)
@@ -383,13 +391,15 @@ sealed partial class ShellController
             };
         }
         var claudeHome = ClaudeRegistry.Home();
-        // An Anthropic session's status line is captured when the user has none of their own (quota).
+        // An Anthropic session's status line is captured for the quota: a host that relays it to the user's own
+        // status line always, an older one only when the user has none of their own.
         var capture = false;
         if (record.Launch.Provider == "anthropic" && services.Offers("quota") && string.IsNullOrEmpty(env.GetValueOrDefault("REFRAME_E2E")))
         {
             try
             {
-                capture = (bool?)await connection.CallAsync("quota", "statusLine", new JsonObject { ["claudeHome"] = claudeHome }) == false;
+                capture = services.RelaysStatusLine
+                    || (bool?)await connection.CallAsync("quota", "statusLine", new JsonObject { ["claudeHome"] = claudeHome }) == false;
             }
             catch (HostServiceException) { }
         }

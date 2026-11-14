@@ -24,7 +24,7 @@ use crate::transcripts::{SvcError, Work};
 pub const SERVICES: [(&str, u32); 8] = [
     ("quota", 1),
     ("clients", 1),
-    ("launch", 2),
+    ("launch", 3),
     ("state", 1),
     ("overview", 1),
     ("cleanup", 1),
@@ -128,6 +128,10 @@ impl Services {
             }
             ("launch", "spawnPlan") => {
                 let mut input = params.clone();
+                // launch 3: the host itself relays an Anthropic session's status line to the user's own.
+                if let (Some(object), Ok(exe)) = (input.as_object_mut(), std::env::current_exe()) {
+                    object.entry("statusLineRelay").or_insert(json!(exe.to_string_lossy()));
+                }
                 Box::new(move || {
                     // An adoption record given instead of its answer is read here, as clients.adopted reads it.
                     if input.is_object() && input.get("adopted").is_none_or(Value::is_null) {

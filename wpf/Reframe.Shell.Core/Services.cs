@@ -66,6 +66,10 @@ public sealed class HostServices
 
     public bool Offers(string service) => connection.Welcome.Services.ContainsKey(service);
 
+    /// <summary>Whether the host relays an Anthropic session's status line to the user's own (<c>launch</c> version 3):
+    /// then the status line is captured for the quota whether or not the user has one.</summary>
+    public bool RelaysStatusLine => connection.Welcome.Services.GetValueOrDefault("launch") >= 3;
+
     /// <summary>The revision rule (docs/ptyhost-protocol.md, "sessions"): an event applies only when its revision is
     /// newer than the list's and than the session's last applied change. Without revisions (an older host), all apply.</summary>
     bool Accept(SessionStatus status, bool fromList)

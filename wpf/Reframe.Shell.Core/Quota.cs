@@ -151,6 +151,14 @@ public sealed class QuotaBoard
         return before is null || !before.Windows.SequenceEqual(next.Windows);
     }
 
+    /// <summary>The <c>rate_limits</c> of a session's status line input (a <c>StatusLine</c> hook), at
+    /// <paramref name="now"/>: whether the shown windows changed.</summary>
+    public bool ApplyStatusLine(JsonNode? rateLimits, double now)
+    {
+        var windows = Quota.ParseClaudeRateLimits(rateLimits);
+        return windows.Count > 0 && Set(new ProviderQuota("claude", windows, now));
+    }
+
     /// <summary>A <c>quota.codex</c> answer's usage, read at <paramref name="now"/>: whether the shown windows changed.</summary>
     public bool ApplyCoordinator(JsonNode? usage, double now)
     {

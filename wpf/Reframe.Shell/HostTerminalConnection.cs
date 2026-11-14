@@ -20,8 +20,9 @@ sealed class HostTerminalConnection : ITerminalConnection
             // As reframe's renderer does: a terminal of the snapshot's size, reset, then the repaint.
             await control.ResizeAsync((uint)rows, (uint)cols, CancellationToken.None);
             Output("\u001bc" + data);
-            // Back to the control's own size; that resize goes to the host.
-            control.TriggerResize(control.RenderSize);
+            // Back to the control's own size; that resize goes to the host. A hidden one (a single window's other
+            // threads) keeps the snapshot's size: its stale size would shrink the session; it is fitted when shown.
+            if (control.IsVisible) control.TriggerResize(control.RenderSize);
         });
         view.Data += data => control.Dispatcher.InvokeAsync(() => Output(data));
         view.Exit += code => control.Dispatcher.InvokeAsync(() => Output($"\r\n[the session ended with {code}]\r\n"));
@@ -48,7 +49,15 @@ sealed class HostTerminalConnection : ITerminalConnection
         if (text.Length > 0) _ = view.InputAsync(PasteText.Prepare(text, Modes.BracketedPaste));
     }
 
-    public void Resize(uint rows, uint columns) => _ = view.ResizeAsync((int)columns, (int)rows);
+    (uint Rows, uint Columns)? sent;
+
+    /// <summary>The size to the session, unless it is the one sent last (a refit of an unchanged tile).</summary>
+    public void Resize(uint rows, uint columns)
+    {
+        if (sent == (rows, columns)) return;
+        sent = (rows, columns);
+        _ = view.ResizeAsync((int)columns, (int)rows);
+    }
 
     public void Close() => view.Close();
 }

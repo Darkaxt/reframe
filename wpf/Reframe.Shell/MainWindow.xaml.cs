@@ -36,6 +36,13 @@ public partial class MainWindow : Window
     /// Windows 11, rounded corners (WindowChrome's 1px glass frame keeps DWM's non-client rendering; Windows 10 ignores
     /// the corner preference).
     /// </summary>
+    /// <summary>Another display scale (the window moved to another monitor): the terminals are fitted anew.</summary>
+    protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+    {
+        base.OnDpiChanged(oldDpi, newDpi);
+        foreach (var view in tiles.Values) RefitSoon(view);
+    }
+
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
@@ -175,6 +182,7 @@ public partial class MainWindow : Window
         };
 
         shell.StatusChanged += ShowStatus;
+        shell.QuotaChanged += ShowQuota;
         if (App.CaptureDir is null)
         {
             Content = root;

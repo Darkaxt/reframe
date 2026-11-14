@@ -10,10 +10,11 @@ namespace Reframe.Shell;
 /// tray.png (tray@2x.png from 150% scale up), and a popup menu of the system's own (CreatePopupMenu/TrackPopupMenuEx:
 /// its look, check marks and greyed items are Windows'). WPF has no tray; this avoids WinForms' NotifyIcon (its
 /// ContextMenuStrip draws a menu of its own, unlike the system's) and a third-party package (H.NotifyIcon). A left click shows the
-/// first window (tray.on('click')), a right click opens the menu. The icon is put back when Explorer restarts.
+/// first window (tray.on('click')), a right click opens the menu. The icon is put back when Explorer restarts (TaskbarCreated).
 /// </summary>
 sealed class TrayIcon : IDisposable
 {
+    const int WS_EX_TOOLWINDOW = 0x80;
     const int WM_APP_TRAY = 0x8000 + 1, WM_LBUTTONUP = 0x0202, WM_RBUTTONUP = 0x0205, WM_CONTEXTMENU = 0x007B, WM_NULL = 0;
     const uint NIM_ADD = 0, NIM_MODIFY = 1, NIM_DELETE = 2, NIF_MESSAGE = 1, NIF_ICON = 2, NIF_TIP = 4;
     const uint MF_STRING = 0, MF_SEPARATOR = 0x800, MF_GRAYED = 0x1, MF_CHECKED = 0x8;
@@ -66,8 +67,13 @@ sealed class TrayIcon : IDisposable
         this.menu = menu;
         this.run = run;
         this.click = click;
-        // A message-only window for the icon's messages (HWND_MESSAGE).
-        window = new HwndSource(new HwndSourceParameters("Reframe tray") { ParentWindow = new IntPtr(-3), WindowStyle = 0 });
+        // A hidden top-level window for the icon's messages, as Electron's: a message-only one (HWND_MESSAGE) gets no
+        // broadcasts, so it would miss TaskbarCreated and the icon would stay gone after Explorer restarts. A tool
+        // window that is never shown has no taskbar button.
+        window = new HwndSource(new HwndSourceParameters("Reframe tray")
+        {
+            ParentWindow = IntPtr.Zero, WindowStyle = 0, ExtendedWindowStyle = WS_EX_TOOLWINDOW, Width = 0, Height = 0,
+        });
         window.AddHook(Hook);
         icon = LoadIcon();
         Add();
