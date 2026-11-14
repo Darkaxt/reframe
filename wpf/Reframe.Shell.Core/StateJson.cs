@@ -37,6 +37,7 @@ public static class StateJson
         if (state.Archives is { } archives) o["archives"] = new JsonArray(archives.Select(w.Archive).ToArray());
         Opt(o, "wslDistros", state.WslDistros);
         o["hiddenThreads"] = new JsonArray(state.HiddenThreads.Select(w.HiddenThread).ToArray());
+        if (state.TakeoverExclusions is { } excluded) o["takeoverExclusions"] = new JsonArray(excluded.Select(w.TakeoverExclusion).ToArray());
         return w.Done(o, state);
     }
 
@@ -187,6 +188,12 @@ public static class StateJson
             Opt(o, "distro", h.Distro);
             o["hiddenAt"] = Num(h.HiddenAt);
             return Done(o, h);
+        }
+
+        public JsonNode TakeoverExclusion(TakeoverExclusion x)
+        {
+            var o = new JsonObject { ["claudeSessionId"] = x.ClaudeSessionId, ["label"] = x.Label, ["cwd"] = x.Cwd, ["excludedAt"] = Num(x.ExcludedAt) };
+            return Done(o, x);
         }
 
         public JsonNode FolderWorkspace(FolderWorkspace f)

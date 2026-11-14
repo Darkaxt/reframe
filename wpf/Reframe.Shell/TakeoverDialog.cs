@@ -19,8 +19,9 @@ sealed class TakeoverDialog
 
     public Border Frame { get; }
     public Button ConfirmButton { get; }
-    /// <summary>The picked sessions' ids, or null (Cancel).</summary>
-    public event Action<List<string>?>? Answered;
+    readonly Button excludeButton;
+    /// <summary>The picked sessions' ids, or null (Cancel); whether they are to be excluded instead of taken over.</summary>
+    public event Action<List<string>?, bool>? Answered;
 
     public TakeoverDialog(IReadOnlyList<ForeignCandidate> candidates)
     {
@@ -80,11 +81,21 @@ sealed class TakeoverDialog
         // .button-row.end: Cancel, then Take over, 8 apart, at the right.
         var cancel = new Button { Style = S("ButtonBaseStyle"), Content = new TextBlock { Text = T("dialog.cancel"), Style = S("Text13") }, Margin = new Thickness(0, 0, 8, 0) };
         AutomationProperties.SetName(cancel, T("dialog.cancel"));
-        cancel.Click += (_, _) => Answered?.Invoke(null);
-        ConfirmButton.Click += (_, _) => Answered?.Invoke([.. candidates.Select(c => c.ClaudeSessionId).Where(picked.Contains)]);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        buttons.Children.Add(cancel);
+        cancel.Click += (_, _) => Answered?.Invoke(null, false);
+        List<string> Picked() => [.. candidates.Select(c => c.ClaudeSessionId).Where(picked.Contains)];
+        ConfirmButton.Click += (_, _) => Answered?.Invoke(Picked(), false);
+        // Create exclusion, at the left: the picked sessions are not offered again.
+        excludeButton = new Button { Style = S("ButtonBaseStyle"), Content = new TextBlock { Text = T("foreign.exclude"), Style = S("Text13") }, ToolTip = T("foreign.excludeHint"), IsEnabled = picked.Count > 0 };
+        AutomationProperties.SetName(excludeButton, T("foreign.exclude"));
+        AutomationProperties.SetHelpText(excludeButton, T("foreign.excludeHint"));
+        excludeButton.Click += (_, _) => Answered?.Invoke(Picked(), true);
+        var buttons = new DockPanel { LastChildFill = false };
+        DockPanel.SetDock(excludeButton, Dock.Left);
+        buttons.Children.Add(excludeButton);
+        DockPanel.SetDock(ConfirmButton, Dock.Right);
         buttons.Children.Add(ConfirmButton);
+        DockPanel.SetDock(cancel, Dock.Right);
+        buttons.Children.Add(cancel);
         Add(buttons);
 
         (Frame, _) = ModalHost.Frame(520, column);
@@ -95,6 +106,7 @@ sealed class TakeoverDialog
             if (on) picked.Add(id);
             else picked.Remove(id);
             ConfirmButton.IsEnabled = picked.Count > 0;
+            excludeButton.IsEnabled = picked.Count > 0;
         }
     }
 

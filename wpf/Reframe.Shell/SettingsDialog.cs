@@ -17,6 +17,8 @@ sealed class SettingsContext
     public required Func<PreferencesPatch, bool> Set { get; init; }
     /// <summary>Restores hidden threads (null: all of them).</summary>
     public required Action<IReadOnlyCollection<string>?> Restore { get; init; }
+    /// <summary>Removes takeover exclusions (null: all of them).</summary>
+    public required Action<IReadOnlyCollection<string>?> Unexclude { get; init; }
     /// <summary>The shell's own login entry; null when it must not be touched (a capture).</summary>
     public Autostart? Autostart { get; init; }
     /// <summary>Whether GPU acceleration was on when the shell started (the hint says a change needs a restart).</summary>
@@ -219,6 +221,7 @@ sealed class SettingsDialog
 
         HiddenSection = Hidden(state.HiddenThreads);
         Add(HiddenSection);
+        Add(Excluded(state.TakeoverExclusions ?? []));
 
         CloseButton = new Button { Style = S("PrimaryButton"), Content = new TextBlock { Text = T("settings.close"), Style = S("Text13") }, HorizontalAlignment = HorizontalAlignment.Right };
         AutomationProperties.SetName(CloseButton, T("settings.close"));
@@ -294,17 +297,23 @@ sealed class SettingsDialog
 
     /// <summary>section.hidden-threads: the row with Restore all, the hint, then "none" or the list (6 apart, at most
     /// 180 high), each thread's title and folder · when it was hidden, and its Restore.</summary>
-    FrameworkElement Hidden(IReadOnlyList<HiddenThread> threads)
+    FrameworkElement Hidden(IReadOnlyList<HiddenThread> threads) =>
+        ThreadSection(T("settings.hidden"), T("settings.hiddenRestoreAll"), T("settings.hiddenHint"), T("settings.hiddenNone"), T("settings.hiddenRestore"),
+            [.. threads.Select(t => (t.ClaudeSessionId, t.Label, t.Cwd, T("settings.hiddenAt", ("date", RelativeTime.Exact(t.HiddenAt)))))],
+            context.Restore);
+
+    FrameworkElement ThreadSection(string title, string allText, string hintText, string noneText, string oneText,
+        IReadOnlyList<(string Id, string Label, string Cwd, string When)> threads, Action<IReadOnlyCollection<string>?> act)
     {
         var section = new StackPanel();
-        AutomationProperties.SetName(section, T("settings.hidden"));
-        section.Children.Add(Row(T("settings.hidden"), Button(T("settings.hiddenRestoreAll"), () => context.Restore(null), threads.Count > 0)));
-        var hint = Hint(T("settings.hiddenHint"));
+        AutomationProperties.SetName(section, title);
+        section.Children.Add(Row(title, Button(allText, () => act(null), threads.Count > 0)));
+        var hint = Hint(hintText);
         hint.Margin = new Thickness(0, 6, 0, 0);
         section.Children.Add(hint);
         if (threads.Count == 0)
         {
-            var none = Hint(T("settings.hiddenNone"));
+            var none = Hint(noneText);
             none.Margin = new Thickness(0, 6, 0, 0);
             section.Children.Add(none);
             return section;
@@ -312,12 +321,12 @@ sealed class SettingsDialog
         var list = new StackPanel();
         foreach (var thread in threads)
         {
-            var label = thread.Label is { Length: > 0 } l ? l : thread.ClaudeSessionId;
+            var label = thread.Label is { Length: > 0 } l ? l : thread.Id;
             var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             text.Children.Add(new TextBlock { Text = label, Style = S("Text13"), TextTrimming = TextTrimming.CharacterEllipsis });
-            var meta = string.Join(" · ", new[] { thread.Cwd, T("settings.hiddenAt", ("date", RelativeTime.Exact(thread.HiddenAt))) }.Where(s => s.Length > 0));
+            var meta = string.Join(" · ", new[] { thread.Cwd, thread.When }.Where(s => s.Length > 0));
             text.Children.Add(new TextBlock { Text = meta, Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = thread.Cwd });
-            var restore = Button(T("settings.hiddenRestore"), () => context.Restore([thread.ClaudeSessionId]), name: $"{T("settings.hiddenRestore")}: {label}");
+            var restore = Button(oneText, () => act([thread.Id]), name: $"{oneText}: {label}");
             var row = Row("", restore);
             row.Children.RemoveAt(0);
             text.Margin = new Thickness(0, 0, 12, 0);
@@ -332,6 +341,12 @@ sealed class SettingsDialog
         });
         return section;
     }
+
+    /// <summary>The takeover exclusions, laid out like the hidden threads: Remove all, the hint, then each with Remove.</summary>
+    FrameworkElement Excluded(IReadOnlyList<TakeoverExclusion> excluded) =>
+        ThreadSection(T("settings.excluded"), T("settings.excludedRemoveAll"), T("settings.excludedHint"), T("settings.excludedNone"), T("settings.excludedRemove"),
+            [.. excluded.Select(x => (x.ClaudeSessionId, x.Label, x.Cwd, T("settings.excludedAt", ("date", RelativeTime.Exact(x.ExcludedAt)))))],
+            context.Unexclude);
 
     void ChooseArchiveRoot()
     {

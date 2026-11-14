@@ -45,6 +45,25 @@ public static class ShellActions
         return true;
     }
 
+    /// <summary>The takeover popup leaves these sessions alone from now on (one entry per session, the newest kept).</summary>
+    public static bool Exclude(AppState state, IReadOnlyCollection<TakeoverExclusion> sessions)
+    {
+        if (sessions.Count == 0) return false;
+        var ids = sessions.Select(s => s.ClaudeSessionId).ToHashSet();
+        state.TakeoverExclusions = [.. (state.TakeoverExclusions ?? []).Where(x => !ids.Contains(x.ClaudeSessionId)), .. sessions];
+        return true;
+    }
+
+    /// <summary>The given sessions' exclusions (null: all) removed: the popup offers them again.</summary>
+    public static bool Unexclude(AppState state, IReadOnlyCollection<string>? ids)
+    {
+        var current = state.TakeoverExclusions ?? [];
+        var next = ids is null ? [] : current.Where(x => !ids.Contains(x.ClaudeSessionId)).ToList();
+        if (next.Count == current.Count) return false;
+        state.TakeoverExclusions = next;
+        return true;
+    }
+
     /// <summary>restoreHiddenThreads: the given threads (null: all) visible again.</summary>
     public static bool Restore(AppState state, IReadOnlyCollection<string>? ids)
     {

@@ -48,7 +48,7 @@ public static class ContextMenus
             new("normal", c.Pinned ? "Unpin chat" : "Pin chat", Action: "pin"),
             new("normal", c.Hideable ? "Hide from Reframe…" : "Hide from Reframe (end chat first)", c.Hideable, Action: "hide"),
         ];
-        if (c.Kind == ListItemKind.Running) return pin;
+        if (c.Kind == ListItemKind.Running) return [new("normal", "Take over…", Action: "takeOver"), .. pin];
         var tid = c.Record?.ClaudeSessionId ?? (c.Kind == ListItemKind.Found ? SidebarChats.ParseChatKey(c.ChatKey)?.Id : null);
         if (string.IsNullOrEmpty(tid) || c.Wsl) return pin;
         var current = c.Record?.Launch.Provider ?? (c.Record is not null ? "chatgpt" : null);

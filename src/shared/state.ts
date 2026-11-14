@@ -119,6 +119,14 @@ export const hiddenThreadSchema = z.object({
   hiddenAt: z.number(),
 });
 
+/** A session the takeover popup leaves alone, with what the list in Settings shows. */
+export const takeoverExclusionSchema = z.object({
+  claudeSessionId: z.string(),
+  label: z.string(),
+  cwd: z.string(),
+  excludedAt: z.number(),
+});
+
 export const LANGUAGES = ['system', 'en', 'de'] as const;
 
 /** The terminals' font size in pixels: what it starts at, and how far it goes. */
@@ -239,6 +247,8 @@ export const appStateSchema = z.object({
   wslDistros: z.array(z.string()).optional(),
   /** Threads hidden from Reframe (added in 0.10.1-claudegpt.27; older files get none). */
   hiddenThreads: z.array(hiddenThreadSchema).default([]),
+  /** Sessions the WPF shell's takeover popup leaves alone (added in 0.11.0-claudegpt.37). */
+  takeoverExclusions: z.array(takeoverExclusionSchema).optional(),
 });
 
 export type DockEntry = z.infer<typeof dockEntrySchema>;

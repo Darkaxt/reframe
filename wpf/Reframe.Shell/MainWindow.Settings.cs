@@ -52,6 +52,12 @@ public partial class MainWindow
             State = () => state,
             Set = SetPreferences,
             Restore = RestoreHidden,
+            Unexclude = ids =>
+            {
+                if (!Writable || !ShellActions.Unexclude(state, ids)) return;
+                Saved();
+                settingsDialog?.Refresh();
+            },
             Autostart = Capturing ? null : autostart,
             GpuAccelerated = gpuAtStart.Value,
             FindClaude = Capturing ? null : chosen => Settings.FindClaude(chosen, Environment.GetEnvironmentVariable("PATH"), Environment.GetEnvironmentVariable("PATHEXT")),
