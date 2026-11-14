@@ -1302,6 +1302,13 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
     });
 
     it('asks a Coordinator for the Codex quota, and kills one that does not answer in time', async () => {
+      // The Rust host also says why there is no usage (an error text); the Node host does not.
+      const withoutWhy = (result: Record<string, unknown>, expected: unknown) => {
+        const { error, ...rest } = result;
+        if (kind === 'rust' && expected === null) expect(typeof error).toBe('string');
+        else expect(error).toBeUndefined();
+        return rest;
+      };
       const host = await startHost(kind);
       const { connection } = await attach(host);
       const none = fs.mkdtempSync(path.join(scratch, 'no-coordinator-'));
@@ -1321,7 +1328,10 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
       for (const [behaviour, expected] of cases) {
         const { localAppData, release } = fakeCoordinator(behaviour);
         const answer = await svc(connection, ++id, 'quota', 'codex', { localAppData });
-        expect(answer.result, JSON.stringify(behaviour)).toEqual({ coordinator: true, usage: expected });
+        expect(withoutWhy(answer.result, expected), JSON.stringify(behaviour)).toEqual({
+          coordinator: true,
+          usage: expected,
+        });
         const asked = JSON.parse(fs.readFileSync(path.join(release, 'asked.json'), 'utf8'));
         expect(asked).toMatchObject({
           args: ['--native-client-stdin-active'],
@@ -1334,7 +1344,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         localAppData: slow.localAppData,
         timeoutMs: 700,
       });
-      expect(answer.result).toEqual({ coordinator: true, usage: null });
+      expect(withoutWhy(answer.result, null)).toEqual({ coordinator: true, usage: null });
       expect(Date.now() - started).toBeLessThan(10_000);
       const { pid } = JSON.parse(fs.readFileSync(path.join(slow.release, 'asked.json'), 'utf8'));
       await until('the slow Coordinator to be killed', () => !alive(pid), 5000);
@@ -1346,7 +1356,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         localAppData: lingering.localAppData,
         timeoutMs: 1500,
       });
-      expect(late.result).toEqual({ coordinator: true, usage: null });
+      expect(withoutWhy(late.result, null)).toEqual({ coordinator: true, usage: null });
       expect(Date.now() - since).toBeLessThan(10_000);
       const lingerer = JSON.parse(fs.readFileSync(path.join(lingering.release, 'asked.json'), 'utf8')).pid;
       await until('the lingering Coordinator to be killed', () => !alive(lingerer), 5000);
