@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "469a22197dd4e2a4c5b2d3c23affa20fd46605c9",
+  "sourceBase": "451043f7383a44d3b1556436f258aec37676bcd3",
   "scope": "Per-thread CPU/GPU/RAM meters: session job objects, the Rust host monitor service, tile-header meters",
   "inputHashes": [
     {
@@ -66,7 +66,7 @@
     },
     {
       "file": "wpf/Reframe.Shell.Core/Usage.cs",
-      "sha256": "98cb9f1b014e6321a3427e315d8ac012de8b408f2e5aa2b58a95580bb92ca50f"
+      "sha256": "aa01aa95ce2194aeb0d1928f728a13b70baf5e9973c672037ce023b4b3dfbc05"
     },
     {
       "file": "wpf/Reframe.Shell.Tests/UsageTests.cs",
