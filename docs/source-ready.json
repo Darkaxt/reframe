@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "6746ddf64914593e5bac83c9aaa4fce038a0f5a1",
-  "scope": "Tray icon keeps the taskbar choice across releases and returns after Explorer restarts",
+  "sourceBase": "3625e82bc8995ddc49c13aaff0419ab5b0c3a77f",
+  "scope": "Tray icon across releases and Explorer restarts; Claude quota from relayed status lines; terminal refit",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
-      "sha256": "e1da0bab7a6404edd09e718b5358cd34010a10190e9e222394d289be1adbcedd"
+      "sha256": "356cf4aea35323b20c0fc4467db7cb18c56c506e91d4f2fbbe8a800efda89fe9"
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.42.md",
-      "sha256": "41bc8884ebe3817e1b8dd51c1c23efcfe1c3467614e60664423b763853620977"
+      "sha256": "ec09c1bf56d0a6416a1ee019d085d5df398793a70a6bffcc2a6a18d0aac3b03e"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -25,16 +25,68 @@
       "sha256": "7ceef18a83a2b5ba55ddce9c1c14bd0a3d0086796031aadb4081f26ba40e794b"
     },
     {
+      "file": "rust/reframe-host/src/main.rs",
+      "sha256": "66d3cec7698fde6e460e69b2afbe894378db316f872a4575a42fdab349eeeafa"
+    },
+    {
+      "file": "rust/reframe-host/src/services.rs",
+      "sha256": "4b8bf1727191d48603becb11f40d6b5f9313abd3385e6dcdc759f442911c5f77"
+    },
+    {
+      "file": "rust/reframe-host/src/statusline.rs",
+      "sha256": "983a118efbd8db066dc90bf84d2d59ef229d38335056a36610c8613dffb3f460"
+    },
+    {
+      "file": "rust/reframe-services/src/quota.rs",
+      "sha256": "85a6899a580835023582b9f420760a4908bd3fd5a4dee6b3bce11f37930de30e"
+    },
+    {
+      "file": "rust/reframe-services/src/spawn_plan.rs",
+      "sha256": "0761e31f55d6ed94328a242c885b9889b096b2c18fc7e046bea7d7087f61d793"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/Quota.cs",
+      "sha256": "87562249a2256a3f6700c426c73158b4c98e2992ca7220faa660cc8e1737d219"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/Services.cs",
+      "sha256": "26ac1f3d6bb7f850c276d0b5c4e560f655661c99e7456f2bcf992eebd3f31562"
+    },
+    {
       "file": "wpf/Reframe.Shell.Core/TrayPromotion.cs",
       "sha256": "4a4bbf9a9cc9612465148e0d8f4b117cff95c46f7f806310299e149d91dd9038"
     },
     {
       "file": "wpf/Reframe.Shell.Tests/TrayPromotionTests.cs",
-      "sha256": "1bef9fbc9e2358a0a84c7f1669930fe3ea0d3f963a38a86577463eb618059be4"
+      "sha256": "c24ca04db5f37ba3127c334755d03bfeead72c184d23cb55d60b783bb8073c31"
+    },
+    {
+      "file": "wpf/Reframe.Shell/HostTerminalConnection.cs",
+      "sha256": "f852468e101a1b52eb2bff58104f279d58fec433caac57e788ee8ee027aa1cf7"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "692af206303e8828ba8c30ab23309b07ccf2d6bbf9373165e0ec000b87071905"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Settings.cs",
+      "sha256": "b75653ce3abcd75f96599e4a8f5ba53150a555ee6e7b4499a007f0cbf8266891"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Windows.cs",
+      "sha256": "9d60c529268c49aeebf2ea1221dc7326b275136d04b0f06dcfe44ba3fd315d54"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
+      "sha256": "bc4bfafbeb3a29eb8305e72f5d7724bf3b7e20ec880729ab1e1f0ef03001ebdb"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
+      "sha256": "a736b988f1e39bbbbb8ad65ace9c2119e404d9eb90c4c5852f7438eb38363c08"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "fb91678ba6d53516bbeaa27564b90da98df1504ac63a3304133c63c8d5f445fe"
+      "sha256": "21cc812d7581dbe3efbe9c6c146e653a13aeed580bb6d34305492d428332a5fb"
     },
     {
       "file": "wpf/Reframe.Shell/TrayIcon.cs",
