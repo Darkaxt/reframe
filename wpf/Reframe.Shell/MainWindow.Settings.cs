@@ -9,23 +9,24 @@ namespace Reframe.Shell;
 /// <summary>
 /// Settings (gear, Ctrl+,), About (info) and the subscription quota at the foot of the session list. Preferences are
 /// applied as app.ts's set-preferences (Settings.Apply) and saved through the state store; <see cref="PreferencesApplied"/>
-/// tells the rest of the window (the terminals' text size) about a change. The quota comes from the host's
-/// <c>quota.codex</c> (LLM Coordinator's usage snapshot, its <c>providers</c> for Claude too): the shell reads no
-/// credentials and asks no usage API. The Claude status line's quota is not available to the shell (Claude Code tells it
-/// reframe's status line command, not the shell).
+/// tells the rest of the window (the terminals' text size) about a change. The Claude quota comes from the status line
+/// input of reframe's Anthropic sessions (the host forwards it; <see cref="ShellController.Quotas"/>), the Codex one
+/// from the host's <c>quota.codex</c> where LLM Coordinator is installed: the shell reads no credentials and asks no
+/// usage API.
 /// </summary>
 public partial class MainWindow
 {
     /// <summary>LLM Coordinator's usage is read every five minutes (app.ts watchCoordinatorQuota).</summary>
     static readonly TimeSpan QuotaPoll = TimeSpan.FromMinutes(5);
 
-    readonly QuotaBoard quota = new();
+    QuotaBoard quota => shell.Quotas;
     ModalHost? modal;
     SettingsDialog? settingsDialog;
     Autostart? autostart;
     bool? gpuAtStart;
     DispatcherTimer? quotaTimer;
     DateTime quotaReadAt = DateTime.MinValue;
+    bool noCoordinator;
 
     /// <summary>Raised after preferences changed and were saved (S6 applies the text size to the terminals).</summary>
     public event Action<Preferences>? PreferencesApplied;
@@ -124,7 +125,7 @@ public partial class MainWindow
         quotaTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
         quotaTimer.Tick += async (_, _) =>
         {
-            if (DateTime.UtcNow - quotaReadAt >= QuotaPoll) await ReadQuotaAsync();
+            if (!noCoordinator && DateTime.UtcNow - quotaReadAt >= QuotaPoll) await ReadQuotaAsync();
             else ShowQuota();
         };
         quotaTimer.Start();
@@ -141,8 +142,10 @@ public partial class MainWindow
             if (usage is null) System.Diagnostics.Trace.WriteLine($"quota: no usage read (Coordinator installed: {coordinator}){(error is null ? "" : $": {error}")}");
             if (!coordinator)
             {
-                // No Coordinator: nothing to watch (as app.ts, which watches only an installed one).
-                quotaTimer?.Stop();
+                // No Coordinator: nothing to read (as app.ts, which watches only an installed one); the timer goes on
+                // for the status lines' quota.
+                noCoordinator = true;
+                ShowQuota();
                 return;
             }
             quota.ApplyCoordinator(usage, DateTimeOffset.Now.ToUnixTimeMilliseconds());

@@ -30,6 +30,13 @@ sealed partial class ShellController
 
     public event Action? StatusChanged;
 
+    /// <summary>The quota the windows' session lists show: the Claude one from the sessions' status lines (here), the
+    /// Coordinator's from each window's read.</summary>
+    public QuotaBoard Quotas { get; } = new();
+
+    /// <summary>The status lines changed what <see cref="Quotas"/> shows.</summary>
+    public event Action? QuotaChanged;
+
     IDisposable? shellLock;
     readonly Dictionary<string, MainWindow> windows = [];
     readonly Dictionary<string, long> focusedAt = [];

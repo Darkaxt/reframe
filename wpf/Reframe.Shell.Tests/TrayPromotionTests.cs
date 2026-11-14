@@ -83,3 +83,22 @@ public class TrayPromotionTests
         Assert.Equal(1, settings.Items.Single(e => e.Key == "own").IsPromoted);
     }
 }
+
+/// <summary>The Claude quota from a session's status line input.</summary>
+public class StatusLineQuotaTests
+{
+    [Fact]
+    public void RateLimitsBecomeTheClaudeQuota()
+    {
+        var board = new QuotaBoard();
+        var limits = System.Text.Json.Nodes.JsonNode.Parse("""
+            {"five_hour":{"used_percentage":3.4,"resets_at":1794610000},"seven_day":{"used_percentage":60,"resets_at":1795000000}}
+            """);
+        Assert.True(board.ApplyStatusLine(limits, 1000));
+        var claude = Assert.Single(board.Shown);
+        Assert.Equal("claude", claude.Source);
+        Assert.Equal(["five_hour", "seven_day"], claude.Windows.Select(w => w.Id));
+        Assert.False(board.ApplyStatusLine(limits, 2000));
+        Assert.False(board.ApplyStatusLine(null, 3000));
+    }
+}

@@ -175,6 +175,7 @@ public partial class MainWindow : Window
         };
 
         shell.StatusChanged += ShowStatus;
+        shell.QuotaChanged += ShowQuota;
         if (App.CaptureDir is null)
         {
             Content = root;

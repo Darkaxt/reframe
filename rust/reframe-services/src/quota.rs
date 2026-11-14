@@ -135,6 +135,16 @@ fn wait_until(child: &mut Child, deadline: Instant) -> Option<ExitStatus> {
     }
 }
 
+/// The user's own status line command (`statusLine` of `<claude_home>/settings.json` with `type` "command" and a
+/// command), with its other settings (padding): what reframe's status line relay runs after taking the quota.
+pub fn user_status_line(claude_home: &str) -> Option<Value> {
+    let bytes = fs::read(Path::new(claude_home).join("settings.json")).ok()?;
+    let settings: Value = serde_json::from_str(&String::from_utf8_lossy(&bytes)).ok()?;
+    let line = settings.get("statusLine")?;
+    let command = line.get("command").and_then(Value::as_str)?;
+    (line.get("type").and_then(Value::as_str) == Some("command") && !command.trim().is_empty()).then(|| line.clone())
+}
+
 /// Whether the user's Claude Code settings set a status line; true also when they cannot be read (but are there).
 pub fn user_has_status_line(claude_home: &str) -> bool {
     match fs::read(Path::new(claude_home).join("settings.json")) {
