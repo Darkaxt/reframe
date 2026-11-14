@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "b208085c61a08ba9b2686b99cc309db8a9bbf432",
+  "sourceBase": "e4e51d8eead7a567bd69bdc88f6bdf6ff64ef02e",
   "scope": "Thread Properties dialog: ids, dates, launch options, process, use now and disk usage",
   "inputHashes": [
     {
@@ -50,7 +50,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/PropertiesDialog.cs",
-      "sha256": "be4b1597cf10d1d62d9fcde021c1035a6e2c75d05213ba3826b4af485a6e77fc"
+      "sha256": "d560dc9900736368fe7d11bb17c1bbb48b10f138e9485bd6c0ba8c9fcb973f2c"
     }
   ],
   "checksNotYetRun": [
