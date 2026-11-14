@@ -7,7 +7,6 @@
 use std::fs;
 use std::path::Path;
 
-use crate::quota;
 use serde_json::{json, Map, Value};
 
 /// What a plan looks at on disk.
@@ -465,6 +464,7 @@ fn hook_settings_json(
 /// executable) posts it, then runs the user's command with the same input and prints what it prints, so the user's
 /// status line stays as it is; without a relay (a WSL session) the user's status line is left alone.
 fn status_line_settings(
+    fs: &dyn PlanFs,
     port: u64,
     token: &str,
     session_id: &str,
@@ -473,16 +473,32 @@ fn status_line_settings(
 ) -> Option<Value> {
     let id = encode_uri_component(session_id);
     let url = format!("http://127.0.0.1:{port}/hook/{id}/{STATUS_LINE_EVENT}");
-    if !quota::user_has_status_line(claude_home) {
-        return Some(json!({
+    let curl = || {
+        Some(json!({
             "type": "command",
             "command": format!("curl.exe -s -m 2 -o NUL -X POST -H \"{HOOK_TOKEN_HEADER}: {token}\" -H \"content-type: application/json\" --data-binary @- \"{url}\""),
-        }));
+        }))
+    };
+    let file = win32_join(&[claude_home, "settings.json"]);
+    if !fs.exists(&file) {
+        return curl();
     }
-    let (relay, mut line) = (relay?, quota::user_status_line(claude_home)?);
+    // Settings that cannot be read, are not JSON or are JSON `null` count as having a status line: left alone.
+    let settings: Value = serde_json::from_str(&fs.read_file(&file)?).ok()?;
+    if settings.is_null() {
+        return None;
+    }
+    let line = settings.get("statusLine");
+    if !truthy(line) {
+        return curl();
+    }
+    let mut line = line?.clone();
     let command = line.get("command").and_then(Value::as_str)?;
+    if line.get("type").and_then(Value::as_str) != Some("command") || command.trim().is_empty() {
+        return None;
+    }
     let hex: String = command.bytes().map(|b| format!("{b:02x}")).collect();
-    line["command"] = json!(format!("\"{relay}\" {STATUS_LINE_RELAY_ARG} {url} {token} {hex}"));
+    line["command"] = json!(format!("\"{}\" {STATUS_LINE_RELAY_ARG} {url} {token} {hex}", relay?));
     Some(line)
 }
 
@@ -840,7 +856,7 @@ pub fn spawn_plan(input: &Value, fs: &dyn PlanFs) -> Result<Value, String> {
         .then(|| {
             let in_wsl = input.get("wsl").is_some_and(Value::is_object);
             let relay = nonempty(input, "statusLineRelay").filter(|_| !in_wsl);
-            status_line_settings(port, token, &id, claude_home, relay)
+            status_line_settings(fs, port, token, &id, claude_home, relay)
         })
         .flatten();
     let content = hook_settings_json(port, token, &id, provider, status_line);
@@ -883,21 +899,22 @@ mod tests {
 
     #[test]
     fn status_line_is_captured_and_relayed_to_the_users_own() {
-        let dir = crate::testdir::TestDir::new();
-        let home = dir.text("");
-        // No status line of the user's: curl posts the input.
-        let direct = status_line_settings(4100, "tok", "s 1", &home, Some("C:/h/reframe-host.exe")).unwrap();
+        let home = "C:/u/.claude";
+        let settings = win32_join(&[home, "settings.json"]);
+        let with = |text: &str| FixtureFs(json!({ "files": { settings.clone(): text } }));
+        let relay = Some("C:/h/reframe-host.exe");
+        // No status line of the user's (no settings, or none set): curl posts the input.
+        let direct = status_line_settings(&FixtureFs(json!({})), 4100, "tok", "s 1", home, relay).unwrap();
+        let unset = status_line_settings(&with(r#"{"theme":"dark"}"#), 4100, "tok", "s 1", home, relay);
+        assert_eq!(unset.as_ref(), Some(&direct));
         assert!(direct["command"].as_str().unwrap().starts_with("curl.exe "));
         assert!(direct["command"]
             .as_str()
             .unwrap()
             .contains("http://127.0.0.1:4100/hook/s%201/StatusLine"));
         // The user's own: relayed through the host, its other settings kept.
-        dir.write(
-            "settings.json",
-            r#"{"statusLine":{"type":"command","command":"\"C:/x.exe\" go","padding":0}}"#,
-        );
-        let relayed = status_line_settings(4100, "tok", "s 1", &home, Some("C:/h/reframe-host.exe")).unwrap();
+        let own = with(r#"{"statusLine":{"type":"command","command":"\"C:/x.exe\" go","padding":0}}"#);
+        let relayed = status_line_settings(&own, 4100, "tok", "s 1", home, relay).unwrap();
         let hex: String = "\"C:/x.exe\" go".bytes().map(|b| format!("{b:02x}")).collect();
         assert_eq!(
             relayed["command"],
@@ -907,7 +924,9 @@ mod tests {
         );
         assert_eq!(relayed["padding"], json!(0));
         // Without a relay the user's status line is left alone.
-        assert_eq!(status_line_settings(4100, "tok", "s 1", &home, None), None);
+        assert_eq!(status_line_settings(&own, 4100, "tok", "s 1", home, None), None);
+        // Settings that are not JSON count as a status line of the user's that cannot be relayed.
+        assert_eq!(status_line_settings(&with("{"), 4100, "tok", "s 1", home, relay), None);
     }
 
     /// A fixture's made-up disk (spawn-plan.fixtures.test.ts fixtureFs).
