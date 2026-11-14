@@ -84,7 +84,11 @@ public static class ContextMenus
         MenuSpec.Separator,
         new("normal", "Open in a new group", Action: "group"),
         new("normal", "Open in a new group in a new window", Action: "groupInNewWindow"),
+        .. count == 1 ? [MenuSpec.Separator, Properties] : Array.Empty<MenuSpec>(),
     ];
+
+    /// <summary>The thread's properties (the WPF shell's: ids, dates, process, disk usage).</summary>
+    public static readonly MenuSpec Properties = new("normal", "Properties…", Action: "properties");
 
     /// <summary>tileMenu: rename, the chat actions, then new group / add to group (the window's other groups) / remove from group.</summary>
     public static List<MenuSpec> TileMenu(IEnumerable<MenuSpec> chatActions, bool inGroup, IReadOnlyList<GroupNode> otherGroups) =>
@@ -95,6 +99,8 @@ public static class ContextMenus
         new("normal", "New group", !inGroup, Action: "newGroup"),
         new("submenu", "Add to group", otherGroups.Count > 0, Submenu: [.. otherGroups.Select(g => new MenuSpec("normal", g.Name, Action: "addToGroup:" + g.Id))]),
         new("normal", "Remove from group", inGroup, Action: "removeFromGroup"),
+        MenuSpec.Separator,
+        Properties,
     ];
 
     /// <summary>colorItems: the palette as checkboxes, the group's colour checked.</summary>

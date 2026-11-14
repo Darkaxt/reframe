@@ -287,7 +287,7 @@ public class ContextMenuTests
     public void List_menu_of_an_ended_session_of_reframe_s()
     {
         var chat = ContextMenus.ChatActions(new ChatMenuContext(ListItemKind.App, Record(), "k", false, true, false, true));
-        Assert.Equal("Open|Rename|-|Pin chat|Hide from Reframe…|-|Model provider[ChatGPT*|Anthropic]|Change model…|Archive chat…|Delete chat…|-|Open in a new group|Open in a new group in a new window",
+        Assert.Equal("Open|Rename|-|Pin chat|Hide from Reframe…|-|Model provider[ChatGPT*|Anthropic]|Change model…|Archive chat…|Delete chat…|-|Open in a new group|Open in a new group in a new window|-|Properties…",
             Shape(ContextMenus.ListMenu(1, true, chat)));
     }
 
@@ -295,7 +295,7 @@ public class ContextMenuTests
     public void A_running_session_must_be_ended_first()
     {
         var chat = ContextMenus.ChatActions(new ChatMenuContext(ListItemKind.App, Record("open", "anthropic"), "k", true, false, false, false));
-        Assert.Equal("Open|Rename|-|Unpin chat|Hide from Reframe (end chat first)(off)|-|Model provider (end chat first)[ChatGPT(off)|Anthropic(off)*]|Change model…(off)|Archive chat (end chat first)(off)|Delete chat (end chat first)(off)|-|Open in a new group|Open in a new group in a new window",
+        Assert.Equal("Open|Rename|-|Unpin chat|Hide from Reframe (end chat first)(off)|-|Model provider (end chat first)[ChatGPT(off)|Anthropic(off)*]|Change model…(off)|Archive chat (end chat first)(off)|Delete chat (end chat first)(off)|-|Open in a new group|Open in a new group in a new window|-|Properties…",
             Shape(ContextMenus.ListMenu(1, true, chat)));
     }
 
@@ -303,7 +303,7 @@ public class ContextMenuTests
     public void Running_elsewhere_and_wsl_chats_only_pin_and_hide()
     {
         var running = ContextMenus.ChatActions(new ChatMenuContext(ListItemKind.Running, null, SidebarChats.ChatKey("1c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a09"), false, true, false, true));
-        Assert.Equal("Open|Take over…|-|Pin chat|Hide from Reframe…|-|Open in a new group|Open in a new group in a new window", Shape(ContextMenus.ListMenu(1, false, running)));
+        Assert.Equal("Open|Take over…|-|Pin chat|Hide from Reframe…|-|Open in a new group|Open in a new group in a new window|-|Properties…", Shape(ContextMenus.ListMenu(1, false, running)));
         var wsl = ContextMenus.ChatActions(new ChatMenuContext(ListItemKind.Found, null, SidebarChats.ChatKey("1c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a09", "ubuntu"), false, true, true, true));
         Assert.Equal(3, wsl.Count);
     }
@@ -319,9 +319,9 @@ public class ContextMenuTests
     public void Tile_menu_and_its_json()
     {
         var menu = ContextMenus.TileMenu([], false, []);
-        Assert.Equal("Rename|-|New group|Add to group(off)[]|Remove from group(off)", Shape(menu));
+        Assert.Equal("Rename|-|New group|Add to group(off)[]|Remove from group(off)|-|Properties…", Shape(menu));
         var json = MenuSpec.ToJson(menu).ToJsonString();
-        Assert.Equal("""[{"type":"normal","label":"Rename","enabled":true},{"type":"separator"},{"type":"normal","label":"New group","enabled":true},{"type":"submenu","label":"Add to group","enabled":false,"submenu":[]},{"type":"normal","label":"Remove from group","enabled":false}]""", json);
+        Assert.Equal("""[{"type":"normal","label":"Rename","enabled":true},{"type":"separator"},{"type":"normal","label":"New group","enabled":true},{"type":"submenu","label":"Add to group","enabled":false,"submenu":[]},{"type":"normal","label":"Remove from group","enabled":false},{"type":"separator"},{"type":"normal","label":"Properties\u2026","enabled":true}]""", json);
     }
 }
 

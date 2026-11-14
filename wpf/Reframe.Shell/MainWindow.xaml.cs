@@ -294,6 +294,7 @@ public partial class MainWindow : Window
     /// <summary>What the sessions use now (<c>monitor.sample</c>): each tile's meters; a tile not in it shows none.</summary>
     public void ShowUsage(IReadOnlyDictionary<string, SessionUsage> usage)
     {
+        lastUsage = usage;
         foreach (var (id, tile) in tiles) tile.Meters.Show(usage.GetValueOrDefault(id));
     }
 
@@ -469,7 +470,7 @@ public partial class MainWindow : Window
 
     /// <summary>The actions the shell does so far; the others (a new window's group: windows) show disabled.</summary>
     bool Supported(string action) =>
-        action == "open" || (Writable && (action is "takeOver" or "rename" or "pin" or "hide" or "newGroup" or "removeFromGroup" or "group"
+        action is "open" or "properties" || (Writable && (action is "takeOver" or "rename" or "pin" or "hide" or "newGroup" or "removeFromGroup" or "group"
             or "changeModel" or "archive" or "delete"
             || action.StartsWith("addToGroup:", StringComparison.Ordinal) || action.StartsWith("provider:", StringComparison.Ordinal)));
 
@@ -506,6 +507,9 @@ public partial class MainWindow : Window
                 break;
             case "hide":
                 Hide(chat, sessionId, key);
+                break;
+            case "properties":
+                ShowProperties(chat, sessionId);
                 break;
             default:
                 if (!RunHistoryAction(action, chat, sessionId)) RunGroupAction(action, sessionId);
