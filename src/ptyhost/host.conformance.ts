@@ -1092,7 +1092,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         wsl: 2,
         history: 1,
         // The Overview's activity index is the Rust host's only (the WPF shell's feature).
-        ...(kind === 'rust' ? { overview: 1, monitor: 1 } : {}),
+        ...(kind === 'rust' ? { overview: 1, monitor: 2 } : {}),
       });
       const index = new TranscriptIndex(home);
       let id = 0;
@@ -1195,6 +1195,12 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
     expect((await connection.next('nope', (m) => m.type === 'svc-result' && m.id === 3)).error.code).toBe(
       'unknown-method',
     );
+    connection.send({ type: 'svc', id: 4, service: 'monitor', method: 'warnings', params: {} });
+    expect((await connection.next('warnings', (m) => m.type === 'svc-result' && m.id === 4)).result).toEqual({
+      warnings: [],
+    });
+    connection.send({ type: 'svc', id: 5, service: 'monitor', method: 'kill', params: { id: 'm:1:2:cpu' } });
+    expect((await connection.next('kill', (m) => m.type === 'svc-result' && m.id === 5)).error.code).toBe('not-found');
     connection.request({ type: 'shutdown' });
     await until('the host to exit', () => !alive(host.pid));
   });

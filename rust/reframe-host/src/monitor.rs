@@ -1,5 +1,6 @@
 //! The `monitor` service: what each running session uses now (its process and everything it started, through the
-//! session's job): CPU and GPU in percent of the machine, memory in bytes, and its processes.
+//! session's job): CPU and GPU in percent of the machine, memory in bytes, and its processes; and warnings of what
+//! seems to run away (warnings.rs).
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -8,8 +9,12 @@ use std::time::Instant;
 use reframe_conpty::{GpuCounters, JobUsage, Pty};
 use serde_json::{json, Map, Value};
 
+use crate::warnings::Warnings;
+
 pub const SERVICE: &str = "monitor";
-pub const VERSION: u32 = 1;
+/// Version 2 (0.11.0-claudegpt.40): warnings (`monitor.warnings`, `monitor.kill`, the `warning` and `cleared`
+/// events).
+pub const VERSION: u32 = 2;
 
 /// FILETIME of 1970-01-01, in 100 ns units since 1601.
 const UNIX_EPOCH_FILETIME: u64 = 116_444_736_000_000_000;
@@ -23,6 +28,7 @@ pub struct Monitor {
     processes: HashMap<(u32, u64), (u64, Instant)>,
     /// Opened at the first sample (None when Windows has no GPU counters).
     gpu: Option<Option<GpuCounters>>,
+    pub warnings: Warnings,
 }
 
 /// Percent of the whole machine (every logical processor) that `cpu` (100 ns units) is of `wall`.
@@ -103,17 +109,10 @@ impl Monitor {
     }
 }
 
-/// A sample on a thread of its own (reading every process takes a moment); `answer` gets it.
-pub fn sample(
-    monitor: &Arc<Mutex<Monitor>>,
-    sessions: Vec<(String, Arc<Pty>)>,
-    answer: impl FnOnce(Value) + Send + 'static,
-) {
+/// Work on the monitor on a thread of its own (reading every process takes a moment).
+pub fn on_thread(monitor: &Arc<Mutex<Monitor>>, work: impl FnOnce(&mut Monitor) + Send + 'static) {
     let monitor = monitor.clone();
-    std::thread::spawn(move || {
-        let value = monitor.lock().unwrap_or_else(|e| e.into_inner()).sample(&sessions);
-        answer(value);
-    });
+    std::thread::spawn(move || work(&mut monitor.lock().unwrap_or_else(|e| e.into_inner())));
 }
 
 #[cfg(test)]

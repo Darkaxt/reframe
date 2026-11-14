@@ -23,6 +23,7 @@ mod process;
 mod protocol;
 mod services;
 mod transcripts;
+mod warnings;
 
 use std::path::PathBuf;
 use std::time::Duration;

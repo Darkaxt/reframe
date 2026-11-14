@@ -20,9 +20,10 @@ mod usage;
 pub use usage::{GpuCounters, JobUsage, ProcessUsage};
 
 use windows_sys::core::{HRESULT, PCSTR};
+use windows_sys::Wdk::System::Threading::{NtQueryInformationProcess, ProcessCommandLineInformation};
 use windows_sys::Win32::Foundation::{
     CloseHandle, GetLastError, ERROR_ACCESS_DENIED, FILETIME, HANDLE, HMODULE, INVALID_HANDLE_VALUE, SYSTEMTIME,
-    WAIT_OBJECT_0,
+    UNICODE_STRING, WAIT_OBJECT_0,
 };
 use windows_sys::Win32::System::Console::{
     ClosePseudoConsole, CreatePseudoConsole, GetStdHandle, ResizePseudoConsole, SetStdHandle, COORD, HPCON,
@@ -37,7 +38,7 @@ use windows_sys::Win32::System::Threading::{
     CreateProcessW, DeleteProcThreadAttributeList, GetCurrentThread, GetExitCodeProcess, GetProcessTimes,
     InitializeProcThreadAttributeList, OpenProcess, ResumeThread, SetThreadPriority, TerminateProcess,
     UpdateProcThreadAttribute, WaitForSingleObject, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
-    EXTENDED_STARTUPINFO_PRESENT, INFINITE, PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
+    EXTENDED_STARTUPINFO_PRESENT, INFINITE, PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
     PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, STARTF_USESTDHANDLES, STARTUPINFOEXW, THREAD_MODE_BACKGROUND_BEGIN,
 };
 use windows_sys::Win32::System::Time::{FileTimeToSystemTime, SystemTimeToFileTime, SystemTimeToTzSpecificLocalTime};
@@ -430,6 +431,66 @@ pub fn process_start(pid: u32) -> Option<String> {
         return None;
     }
     Some(((u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime)).to_string())
+}
+
+/// The command line process `pid` was started with, if it can be read.
+pub fn command_line(pid: u32) -> Option<String> {
+    let process = Opened::new(pid).ok()?;
+    let header = std::mem::size_of::<UNICODE_STRING>();
+    let mut size = 1024u32;
+    for _ in 0..4 {
+        // u64 units: aligned for the UNICODE_STRING that heads the buffer.
+        let mut buffer = vec![0u64; (size as usize).div_ceil(8)];
+        let mut needed = 0u32;
+        // SAFETY: the handle is open; the buffer holds `size` bytes and `needed` is a valid out pointer.
+        let status = unsafe {
+            NtQueryInformationProcess(
+                process.0,
+                ProcessCommandLineInformation,
+                buffer.as_mut_ptr().cast::<c_void>(),
+                size,
+                &mut needed,
+            )
+        };
+        if status < 0 {
+            if needed > size && needed < 1 << 20 {
+                size = needed;
+                continue;
+            }
+            return None;
+        }
+        // SAFETY: on success the buffer starts with a UNICODE_STRING whose Buffer points into the buffer.
+        let text = unsafe { &*buffer.as_ptr().cast::<UNICODE_STRING>() };
+        let units = usize::from(text.Length) / 2;
+        if text.Buffer.is_null() || header + units * 2 > buffer.len() * 8 {
+            return Some(String::new());
+        }
+        // SAFETY: Buffer holds Length bytes of UTF-16 within the buffer (checked above).
+        let slice = unsafe { std::slice::from_raw_parts(text.Buffer, units) };
+        return Some(String::from_utf16_lossy(slice));
+    }
+    None
+}
+
+/// Ends process `pid` if it is still the one that started at `start` (FILETIME); whether it was ended.
+pub fn terminate(pid: u32, start: u64) -> bool {
+    let Ok(process) = Opened::with(pid, PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION) else {
+        return false;
+    };
+    let zero = FILETIME {
+        dwLowDateTime: 0,
+        dwHighDateTime: 0,
+    };
+    let (mut creation, mut exit, mut kernel, mut user) = (zero, zero, zero, zero);
+    // SAFETY: the handle is open; the four are valid out pointers.
+    if unsafe { GetProcessTimes(process.0, &mut creation, &mut exit, &mut kernel, &mut user) } == 0 {
+        return false;
+    }
+    if ((u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime)) != start {
+        return false;
+    }
+    // SAFETY: the handle is open with PROCESS_TERMINATE.
+    unsafe { TerminateProcess(process.0, 1) != 0 }
 }
 
 /// A direct child of a process, as a toolhelp snapshot lists it.
