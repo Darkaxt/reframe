@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "be6aaa2384cec0fe0304a05ea24dc75eb751bab3",
-  "scope": "0.11.0-claudegpt.37: the Take Over popup can create an exclusion for the picked sessions (state.json takeoverExclusions, optional), which the popup no longer offers; the list menu's Take over… takes a session over on purpose; Settings removes exclusions. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.36, the protocol and cutover docs, the version and release notes.",
+  "sourceBase": "00e6af97a0c7f4cca15f6b305f669cef5ba5916c",
+  "scope": "0.11.0-claudegpt.37: the Take Over popup can create an exclusion for the picked sessions (state.json takeoverExclusions, optional), which the popup no longer offers; the list menu's Take over… takes a session over on purpose; Settings removes exclusions. Archive and delete are followed in a popup (check, confirmation, progress, outcome). PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.36, the protocol and cutover docs, the version and release notes.",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.37.md",
-      "sha256": "b9d0a9f291b597b8e7af4ca69c2e267efb227ac48aa9b08d5c21e2c5a9bbe6db"
+      "sha256": "16d76e3f3af6a4c94bfb300e9cdeddf96c3bfca1c4191f547f8b40b70ce855ae"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -65,12 +65,20 @@
       "sha256": "d421e4111d932fcb0b69d2e3451f91c0822413dd7c45d29fc973eea78ea925c5"
     },
     {
+      "file": "wpf/Reframe.Shell/MainWindow.History.cs",
+      "sha256": "4a52e58c22ecd4c0973c9a4bee7623810c06950d5d6692b98bbe5840ba5fa597"
+    },
+    {
       "file": "wpf/Reframe.Shell/MainWindow.Settings.cs",
       "sha256": "2280de5028507c9d7569e05341831e6ffb6268e7f4e427d708041e7298015ffe"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
       "sha256": "b21df61855a896f1662a233eebf9594bcb128e03732286aa6bcd22691f9d9cf9"
+    },
+    {
+      "file": "wpf/Reframe.Shell/RetireDialog.cs",
+      "sha256": "fb61e72166f3398ad9ea7a1c67fb174b4e288847584bcb62c97a00c9abf3b937"
     },
     {
       "file": "wpf/Reframe.Shell/SettingsDialog.cs",
