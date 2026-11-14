@@ -31,7 +31,7 @@ public sealed record SessionUsage(double Cpu, long Memory, double Gpu, IReadOnly
 
     /// <summary>"3%": a percentage as the meters show it (under half a percent but not idle: "&lt;1%").</summary>
     public static string Percent(double value) =>
-        value > 0 && value < 0.5 ? "<1%" : Math.Round(value).ToString("0", CultureInfo.InvariantCulture) + "%";
+        value > 0 && value < 0.5 ? "<1%" : Math.Round(value, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture) + "%";
 
     /// <summary>"412 MB", "1.2 GB": bytes as the meters show them.</summary>
     public static string Bytes(long bytes)
