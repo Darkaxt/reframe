@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "00e6af97a0c7f4cca15f6b305f669cef5ba5916c",
-  "scope": "0.11.0-claudegpt.37: the Take Over popup can create an exclusion for the picked sessions (state.json takeoverExclusions, optional), which the popup no longer offers; the list menu's Take over… takes a session over on purpose; Settings removes exclusions. Archive and delete are followed in a popup (check, confirmation, progress, outcome). PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.36, the protocol and cutover docs, the version and release notes.",
+  "sourceBase": "739a0e6b8954da84baa9747631b52aa3996ae023",
+  "scope": "0.11.0-claudegpt.37: the Take Over popup can create an exclusion for the picked sessions (state.json takeoverExclusions, optional), which the popup no longer offers; the list menu's Take over… takes a session over on purpose; Settings removes exclusions. Archive and delete are followed in a popup (check, confirmation, progress, outcome). quota.codex reports why no usage was read. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.36, the protocol and cutover docs, the version and release notes.",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.37.md",
-      "sha256": "16d76e3f3af6a4c94bfb300e9cdeddf96c3bfca1c4191f547f8b40b70ce855ae"
+      "sha256": "1350b1c7b477cee9e00fced9e0b4995a40776e27a5fcb9d75c3d99d1ace0790b"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -25,6 +25,14 @@
       "sha256": "89afbfc4e7baae0558ff1a1944f560ee4c17785d40170cda2d7d1d76d715564e"
     },
     {
+      "file": "rust/reframe-host/src/services.rs",
+      "sha256": "ee3bc636d73c9ddcd40b9185d01b86d06dc3cea5d6b07fe5790933d710869dc7"
+    },
+    {
+      "file": "rust/reframe-services/src/quota.rs",
+      "sha256": "ed4584e5363962757d534d5e0d4f48a98ed20c7052b19c6b44bb1af74649c214"
+    },
+    {
       "file": "src/shared/state.ts",
       "sha256": "99cbd037d629b80c2b4afbcb8468c1f5f7f816c883186ad868eaf8bf1bfb78c7"
     },
@@ -35,6 +43,10 @@
     {
       "file": "wpf/Reframe.Shell.Core/ContextMenus.cs",
       "sha256": "6ee1a9e208a514f41c55f9afde984ddb68789f4d7b16df7ff51cb6753e9d81b8"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/Services.cs",
+      "sha256": "fd707bd97fb17af8e6b5ca27222479e6391adae3b0e3b2317bd87aa099cb27dc"
     },
     {
       "file": "wpf/Reframe.Shell.Core/ShellActions.cs",
@@ -70,7 +82,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Settings.cs",
-      "sha256": "2280de5028507c9d7569e05341831e6ffb6268e7f4e427d708041e7298015ffe"
+      "sha256": "d444cc7685a30e3a9bc186c7ea4be215b3d969047e971be7fabf15aa6f05f0e5"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
