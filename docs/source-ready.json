@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "451043f7383a44d3b1556436f258aec37676bcd3",
-  "scope": "Per-thread CPU/GPU/RAM meters: session job objects, the Rust host monitor service, tile-header meters",
+  "sourceBase": "b208085c61a08ba9b2686b99cc309db8a9bbf432",
+  "scope": "Thread Properties dialog: ids, dates, launch options, process, use now and disk usage",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "811e5cec15b5195deab895537f4463417a8e915c79984c71f1e84c8d01d779d7"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.38.md",
-      "sha256": "087a94c34d4c32ed8f5175ee70aad9d780081c7d76971e1294b30b4f1bd7239f"
+      "file": "docs/releases/v0.11.0-claudegpt.39.md",
+      "sha256": "826665122ad1b7e9c07385736c85a054a0b4987f4e8f22a00d39d750c76bc8e4"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,79 +18,39 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "fcf7bb541e7a12f6a1b0428372fc25777412c848047085f26c7f51931de59f7a"
+      "sha256": "0add64a9fe7eeb13798b39a9ebbb0dc0367e423c309a34db69dbcc4ecee533c3"
     },
     {
       "file": "package.json",
-      "sha256": "b9889fd834c36651689a813f62e77c314eb64edf429fb3668d7b1f54b6b77788"
+      "sha256": "5ca1aa749c5d657310955b66d57fe454afae7f45fa34d6d2135d925a70394bc7"
     },
     {
-      "file": "rust/reframe-conpty/Cargo.toml",
-      "sha256": "f596948926a82d733e54494205e3d251797ae9e8307b5bba5344f9f1850a65b9"
+      "file": "wpf/Reframe.Shell.Core/ContextMenus.cs",
+      "sha256": "d9237b8767c70a5206d546d6c1a475c674124ce904654fe6a66ca75ba7c437c8"
     },
     {
-      "file": "rust/reframe-conpty/src/lib.rs",
-      "sha256": "c8d4e69bf31f248f4ddf6ff4e2bc7840a6fe10db1c2654567afe7c14b3f8a4fe"
+      "file": "wpf/Reframe.Shell.Core/ThreadFiles.cs",
+      "sha256": "fa33228484e6f3d0472e36cbbff13e934ac594a12313aa566c06725e524d69b8"
     },
     {
-      "file": "rust/reframe-conpty/src/usage.rs",
-      "sha256": "a09f8987928062734fc3862378351815000f548d0793c7d587146c0f02886b56"
+      "file": "wpf/Reframe.Shell.Tests/StateWriteTests.cs",
+      "sha256": "c9c7cc43b436ddcfebee179474a8eade4374204ad94e7fe63c52d06c13b7fa0d"
     },
     {
-      "file": "rust/reframe-host/src/host.rs",
-      "sha256": "138d22fc716c63c2299b0540565b7f47b74e6461d518232688201c8981c93a7d"
+      "file": "wpf/Reframe.Shell.Tests/ThreadFilesTests.cs",
+      "sha256": "6e515ab8b0fe6d3f78c4faccf293637042b62008ef07a8b9247c252139ea4732"
     },
     {
-      "file": "rust/reframe-host/src/main.rs",
-      "sha256": "d36bd1969bf10073e0be15768622deeb94abb5acfe43e96fc0b2a950c16f32a7"
-    },
-    {
-      "file": "rust/reframe-host/src/monitor.rs",
-      "sha256": "a7041dfad57266579fe144cb48caa2e205d70d32d8b2ea6d0d0b3ff412184690"
-    },
-    {
-      "file": "rust/reframe-host/src/process.rs",
-      "sha256": "227333b4efec4b980e86d671282c369771cce17fa8f4430c527e3b65f1ea9ac6"
-    },
-    {
-      "file": "src/ptyhost/host.conformance.ts",
-      "sha256": "a263db30a8f692985ad049368f7b5ca76e16b2d8d33c2f85d7ac292b611ab2ab"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Icons.cs",
-      "sha256": "a28892ffe33dfc3728a1d0305d82b1d2359855ebf1688e9a78e025eed64135c5"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Services.cs",
-      "sha256": "1dd68f299e34ce6fb911d7ce55bdfd8010ad982d7cf32ed7ac55a9f1cfbb02e4"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Usage.cs",
-      "sha256": "aa01aa95ce2194aeb0d1928f728a13b70baf5e9973c672037ce023b4b3dfbc05"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/UsageTests.cs",
-      "sha256": "ae3f2da2c6cbc3d21a63921da3f0fce7ae6306111c7cc53404fe4acde51f993e"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "113d7a8962e45eec9d20b5987f89094870ebc3c7180ca7dfce6d096aa175784d"
+      "file": "wpf/Reframe.Shell/MainWindow.Properties.cs",
+      "sha256": "3a921f95d99169cc1d63c68a26cef9cd9926d8d9b24d53d1e167de154662fac1"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "510d731e6d09706fb4ae5cda3282d03f34cc8a9a90fb42013ea409a90a517b9a"
+      "sha256": "b8bfabbbb1290b86d939b0c0b54980e82fff302ae9376d84cc2639d73414d4dc"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.Monitor.cs",
-      "sha256": "c2cb518bae00ff7c4dc690fbada5c075e5c0087f6d295bcd1fea677659562f2b"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "17751cca3006d0fb0d343f58fa3ac8861f41a053d71f20fb91429a9286637c36"
-    },
-    {
-      "file": "wpf/Reframe.Shell/UsageMeters.cs",
-      "sha256": "2aa2441a8b2ad5528d70533a84eddfd5e43db6fb911d9020836785ad7adc2ee9"
+      "file": "wpf/Reframe.Shell/PropertiesDialog.cs",
+      "sha256": "be4b1597cf10d1d62d9fcde021c1035a6e2c75d05213ba3826b4af485a6e77fc"
     }
   ],
   "checksNotYetRun": [
