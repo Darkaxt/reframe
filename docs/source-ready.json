@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "c6b547b7f58681cd102f5019b34bb170b698eb05",
-  "scope": "reframe-0.11.0-claudegpt.40-process-warnings",
+  "sourceBase": "2322111b767381579f32a546fdc40bae8c86c612",
+  "scope": "reframe-0.11.0-claudegpt.41-warnings-history",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "e1da0bab7a6404edd09e718b5358cd34010a10190e9e222394d289be1adbcedd"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.40.md",
-      "sha256": "a7a849fefe91a913d7214358a338052fad14ecaf53af25d6fa3b66851b95ca87"
+      "file": "docs/releases/v0.11.0-claudegpt.41.md",
+      "sha256": "c0ad7987d9572986f544921ba3bd99d6e58aafb71254d88001f968c97f06c3b8"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,75 +18,19 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "ad3d6e6a9d193282881a85cbc8702e896d578b1e1d462ac17d59b98784a965f7"
+      "sha256": "097f2eff980f053ee6140024a80b7f90d6e6e1f1882316adb32b6bd0a436be80"
     },
     {
       "file": "package.json",
-      "sha256": "bb13c92859eb412e35f944e75ac7d9c6c78d01ac79d9ddaf7adee48412dc8ee3"
-    },
-    {
-      "file": "rust/reframe-conpty/Cargo.toml",
-      "sha256": "1e303b81e4584a65bef8b52722a6965c098220278be1d30514f8af7f9cf1d0f7"
-    },
-    {
-      "file": "rust/reframe-conpty/src/lib.rs",
-      "sha256": "c2de09fd84ef30f79888ff2c0e72d6224f58f8b3a96fd08d6534d948cb15f5bc"
-    },
-    {
-      "file": "rust/reframe-conpty/src/usage.rs",
-      "sha256": "ca19c0adb2a9997357a48cdec2bc4ac8948908c99c07d151fab390dd8f80f773"
-    },
-    {
-      "file": "rust/reframe-host/src/host.rs",
-      "sha256": "50eaea6bed4fc12c39a182aa57ffbfe7ae66216944980cbd204b70491991042f"
-    },
-    {
-      "file": "rust/reframe-host/src/main.rs",
-      "sha256": "9588fbb926cab3a76f940c52a634809ab765c918bfc81c6d9ccee9dedce3b34f"
-    },
-    {
-      "file": "rust/reframe-host/src/monitor.rs",
-      "sha256": "2e1435bddab0df69b5a6f0ca4cb428aaf14d4acb6c66a587325ff0044a986f28"
-    },
-    {
-      "file": "rust/reframe-host/src/warnings.rs",
-      "sha256": "32a7edcb6d4fcf06beb6134438c86209f08008dfaf8538587892c597a2378141"
-    },
-    {
-      "file": "src/ptyhost/host.conformance.ts",
-      "sha256": "6aed4891c9ac6683fa02aade16b603bd31ea1c0fa9466a9a30902a3488f1e02e"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Icons.cs",
-      "sha256": "c7d76d80b0ec0adeb7c68c258824858c4aa4c0c85667a88f27bbeddff7cbff7b"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/MonitorWarning.cs",
-      "sha256": "56940ea94bad4277a4aa99b3cd73f9f1790a3409aaa61cb0118cea55397d0578"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Services.cs",
-      "sha256": "0598e5dc0d3d219ccfde847ecb21a592f5ee1a3a12f3d7206ef319f39f1464a9"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/MonitorWarningTests.cs",
-      "sha256": "ec40a29a5d14fc4e6ded2df11d73e89c254bb557da7873a5907c90ed16345ef0"
+      "sha256": "3914f1dcd5ab0132e7ac76e87078b66dc4f84e53906c8249d0bcdb49003d6a64"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Warnings.cs",
-      "sha256": "63ee3ffbfbc99ffda89e3fbb29cf9ff548580d8fb14e816196534cb0ec9ecea0"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "732f00d43defc8c64dc6e3d089b789b0778688f333acf9399d62beaf8dcd86dc"
+      "sha256": "8702e76771961160d0f27e33f7194cb34f66fc323f259a43b7b005b24d3da534"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Warnings.cs",
-      "sha256": "c375c42b84c58921eb73fc4d27f3459b3b19cbe5e796822dd97ccaf2ff6c31b0"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "352a44bdf7d93a1c42f71025a3d4bc750124765084dbc4d619664e14b5d0e775"
+      "sha256": "0a6492bc41b8a65d02b3103c87317d90a14858d7b69a11c5d528de0c4de022c0"
     }
   ],
   "checksNotYetRun": [
