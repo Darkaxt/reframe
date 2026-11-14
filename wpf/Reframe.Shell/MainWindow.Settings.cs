@@ -137,8 +137,8 @@ public partial class MainWindow
         quotaReadAt = DateTime.UtcNow;
         try
         {
-            var (coordinator, usage) = await services.QuotaCodexAsync(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
-            if (usage is null) System.Diagnostics.Trace.WriteLine($"quota: no usage read (Coordinator installed: {coordinator})");
+            var (coordinator, usage, error) = await services.QuotaCodexAsync(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+            if (usage is null) System.Diagnostics.Trace.WriteLine($"quota: no usage read (Coordinator installed: {coordinator}){(error is null ? "" : $": {error}")}");
             if (!coordinator)
             {
                 // No Coordinator: nothing to watch (as app.ts, which watches only an installed one).

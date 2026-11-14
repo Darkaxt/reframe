@@ -36,27 +36,57 @@ pub fn coordinator_executable(local_app_data: &str) -> Option<PathBuf> {
     exe.exists().then_some(exe)
 }
 
-/// The Coordinator's answer to `usage.snapshot` (its JSON as it wrote it), or None when it cannot be started, fails,
-/// writes more than 64 MiB or no JSON, or does not exit in `timeout` (then it is killed, as execFile kills it).
-pub fn read_codex_usage(exe: &Path, timeout: Duration) -> Option<Value> {
+/// The Coordinator's answer to `usage.snapshot` (its JSON as it wrote it), or why there is none: it cannot be started,
+/// fails, writes more than 64 MiB or no JSON, or does not exit in `timeout` (then it is killed, as execFile kills it).
+pub fn read_codex_usage(exe: &Path, timeout: Duration) -> Result<Value, String> {
     let mut command = Command::new(exe);
     command
         .arg("--native-client-stdin-active")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null());
+        .stderr(Stdio::piped());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
-    let mut child = command.spawn().ok()?;
+    let started = Instant::now();
+    let mut child = command
+        .spawn()
+        .map_err(|e| format!("cannot start the Coordinator: {e}"))?;
     if let Some(mut stdin) = child.stdin.take() {
         let _ = stdin.write_all(br#"{"method":"usage.snapshot","hours":24}"#);
     }
-    let deadline = Instant::now() + timeout;
-    let mut stdout = child.stdout.take()?;
+    let deadline = started + timeout;
+    // Its error output, kept short, to say why it failed.
+    // (Received with a short wait: a child of its own that kept the pipe open must not hold the answer.)
+    let (errors_tx, errors) = mpsc::channel();
+    if let Some(mut stderr) = child.stderr.take() {
+        std::thread::spawn(move || {
+            let mut text = Vec::new();
+            let _ = (&mut stderr).take(4096).read_to_end(&mut text);
+            let _ = errors_tx.send(
+                String::from_utf8_lossy(&text)
+                    .trim()
+                    .chars()
+                    .take(300)
+                    .collect::<String>(),
+            );
+            let _ = std::io::copy(&mut stderr, &mut std::io::sink());
+        });
+    }
+    let stderr_text = move || {
+        errors
+            .recv_timeout(Duration::from_millis(500))
+            .ok()
+            .filter(|t| !t.is_empty())
+            .map(|t| format!(": {t}"))
+            .unwrap_or_default()
+    };
+    let Some(mut stdout) = child.stdout.take() else {
+        return Err("no output pipe".into());
+    };
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         let mut output = Vec::new();
@@ -65,19 +95,30 @@ pub fn read_codex_usage(exe: &Path, timeout: Duration) -> Option<Value> {
     });
     // The deadline covers the whole run: a Coordinator that closes its output and goes on is killed too.
     let finished = match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
-        Ok(Some(output)) => wait_until(&mut child, deadline).map(|status| (output, status)),
-        _ => None,
+        Ok(Some(output)) => wait_until(&mut child, deadline)
+            .map(|status| (output, status))
+            .ok_or("did not exit"),
+        Ok(None) => Err("too much or unreadable output"),
+        Err(_) => Err("no answer"),
     };
-    let Some((output, status)) = finished else {
-        // Timed out or too much: the process goes (its children are not looked for, as with execFile).
-        let _ = child.kill();
-        let _ = child.wait();
-        return None;
+    let (output, status) = match finished {
+        Ok(done) => done,
+        Err(why) => {
+            // Timed out or too much: the process goes (its children are not looked for, as with execFile).
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(format!("{why} in {} s{}", started.elapsed().as_secs(), stderr_text()));
+        }
     };
     if !status.success() {
-        return None;
+        return Err(format!(
+            "exit {}{}",
+            status.code().map_or("?".into(), |c| c.to_string()),
+            stderr_text()
+        ));
     }
-    serde_json::from_str(&String::from_utf8_lossy(&output)).ok()
+    serde_json::from_str(&String::from_utf8_lossy(&output))
+        .map_err(|e| format!("not JSON ({} bytes): {e}", output.len()))
 }
 
 /// The process's exit, if it comes before `deadline` (std has no wait with a timeout: it is asked every 20 ms).
@@ -147,6 +188,6 @@ mod tests {
     #[test]
     fn a_missing_coordinator_gives_nothing() {
         let dir = TestDir::new();
-        assert_eq!(read_codex_usage(&dir.path().join("none.exe"), TIMEOUT), None);
+        assert!(read_codex_usage(&dir.path().join("none.exe"), TIMEOUT).is_err());
     }
 }

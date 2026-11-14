@@ -106,7 +106,10 @@ impl Services {
                 Box::new(move || {
                     Ok(match quota::coordinator_executable(&local_app_data) {
                         None => json!({ "coordinator": false, "usage": null }),
-                        Some(exe) => json!({ "coordinator": true, "usage": quota::read_codex_usage(&exe, timeout) }),
+                        Some(exe) => match quota::read_codex_usage(&exe, timeout) {
+                            Ok(usage) => json!({ "coordinator": true, "usage": usage }),
+                            Err(why) => json!({ "coordinator": true, "usage": null, "error": why }),
+                        },
                     })
                 })
             }
