@@ -321,7 +321,7 @@ public class ContextMenuTests
         var menu = ContextMenus.TileMenu([], false, []);
         Assert.Equal("Rename|-|New group|Add to group(off)[]|Remove from group(off)|-|Properties…", Shape(menu));
         var json = MenuSpec.ToJson(menu).ToJsonString();
-        Assert.Equal("""[{"type":"normal","label":"Rename","enabled":true},{"type":"separator"},{"type":"normal","label":"New group","enabled":true},{"type":"submenu","label":"Add to group","enabled":false,"submenu":[]},{"type":"normal","label":"Remove from group","enabled":false},{"type":"separator"},{"type":"normal","label":"Properties…","enabled":true}]""", json);
+        Assert.Equal("""[{"type":"normal","label":"Rename","enabled":true},{"type":"separator"},{"type":"normal","label":"New group","enabled":true},{"type":"submenu","label":"Add to group","enabled":false,"submenu":[]},{"type":"normal","label":"Remove from group","enabled":false},{"type":"separator"},{"type":"normal","label":"Properties\u2026","enabled":true}]""", json);
     }
 }
 
