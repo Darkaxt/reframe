@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "2322111b767381579f32a546fdc40bae8c86c612",
-  "scope": "reframe-0.11.0-claudegpt.41-warnings-history",
+  "sourceBase": "d9870c14c479c5ea7b4841214ddf4fd448caa58f",
+  "scope": "Tray icon keeps the taskbar choice across releases",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "e1da0bab7a6404edd09e718b5358cd34010a10190e9e222394d289be1adbcedd"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.41.md",
-      "sha256": "c0ad7987d9572986f544921ba3bd99d6e58aafb71254d88001f968c97f06c3b8"
+      "file": "docs/releases/v0.11.0-claudegpt.42.md",
+      "sha256": "0bc2adb4c3fecec73ba9585dd73b2653cbbf29f30dfe6b73c9fd94ede45fed85"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,23 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "097f2eff980f053ee6140024a80b7f90d6e6e1f1882316adb32b6bd0a436be80"
+      "sha256": "2ae73bb0cb26553d6357189b59d57b30b1ea24606aefc674c10cb1b291fd3c82"
     },
     {
       "file": "package.json",
-      "sha256": "3914f1dcd5ab0132e7ac76e87078b66dc4f84e53906c8249d0bcdb49003d6a64"
+      "sha256": "7ceef18a83a2b5ba55ddce9c1c14bd0a3d0086796031aadb4081f26ba40e794b"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.Warnings.cs",
-      "sha256": "8702e76771961160d0f27e33f7194cb34f66fc323f259a43b7b005b24d3da534"
+      "file": "wpf/Reframe.Shell.Core/TrayPromotion.cs",
+      "sha256": "4a4bbf9a9cc9612465148e0d8f4b117cff95c46f7f806310299e149d91dd9038"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.Warnings.cs",
-      "sha256": "0a6492bc41b8a65d02b3103c87317d90a14858d7b69a11c5d528de0c4de022c0"
+      "file": "wpf/Reframe.Shell.Tests/TrayPromotionTests.cs",
+      "sha256": "1bef9fbc9e2358a0a84c7f1669930fe3ea0d3f963a38a86577463eb618059be4"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.cs",
+      "sha256": "fb91678ba6d53516bbeaa27564b90da98df1504ac63a3304133c63c8d5f445fe"
     }
   ],
   "checksNotYetRun": [
