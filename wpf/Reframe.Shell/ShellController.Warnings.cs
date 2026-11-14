@@ -4,13 +4,17 @@ namespace Reframe.Shell;
 
 /// <summary>The top bar's warnings: what the current host's <c>monitor</c> service raised (runaway processes,
 /// whole-disk searches, processes left after a thread ended), less those dismissed here. Each can be told to its
-/// thread (a note typed for its agent) or its process ended.</summary>
+/// thread (a note typed for its agent) or its process ended. Those resolved (gone, killed or dismissed) are kept
+/// as history while the shell runs, newest first.</summary>
 sealed partial class ShellController
 {
     readonly List<MonitorWarning> warnings = [];
     readonly HashSet<string> dismissedWarnings = [];
+    readonly List<(MonitorWarning Warning, string How, long At)> resolvedWarnings = [];
+    const int ResolvedKept = 50;
 
     public IReadOnlyList<MonitorWarning> Warnings => warnings;
+    public IReadOnlyList<(MonitorWarning Warning, string How, long At)> ResolvedWarnings => resolvedWarnings;
     public event Action? WarningsChanged;
 
     async Task StartWarningsAsync()
@@ -35,16 +39,32 @@ sealed partial class ShellController
         WarningsChanged?.Invoke();
     }
 
-    void RemoveWarning(string id)
+    void RemoveWarning(string id, string how = "resolved")
     {
-        dismissedWarnings.Remove(id);
-        if (warnings.RemoveAll(w => w.Id == id) > 0) WarningsChanged?.Invoke();
+        // A dismissed one is in the history already.
+        if (dismissedWarnings.Remove(id)) return;
+        if (warnings.FirstOrDefault(w => w.Id == id) is not { } warning) return;
+        warnings.Remove(warning);
+        Resolve(warning, how);
+    }
+
+    void Resolve(MonitorWarning warning, string how)
+    {
+        resolvedWarnings.Insert(0, (warning, how, DateTimeOffset.Now.ToUnixTimeMilliseconds()));
+        if (resolvedWarnings.Count > ResolvedKept) resolvedWarnings.RemoveAt(ResolvedKept);
+        WarningsChanged?.Invoke();
     }
 
     public void DismissWarning(MonitorWarning warning)
     {
         dismissedWarnings.Add(warning.Id);
-        if (warnings.Remove(warning)) WarningsChanged?.Invoke();
+        if (warnings.Remove(warning)) Resolve(warning, "dismissed");
+    }
+
+    public void ClearWarningHistory()
+    {
+        resolvedWarnings.Clear();
+        WarningsChanged?.Invoke();
     }
 
     /// <summary>Whether the thread can be told: it runs and does not wait on a question (a permission prompt would
@@ -77,8 +97,8 @@ sealed partial class ShellController
         if (Services is not { } services || Connection is not { IsOpen: true, IsObserver: false }) return "No PTY host attached.";
         try
         {
-            await services.MonitorKillAsync(warning.Id);
-            RemoveWarning(warning.Id);
+            var killed = await services.MonitorKillAsync(warning.Id);
+            RemoveWarning(warning.Id, killed == 1 ? "killed 1 process" : $"killed {killed} processes");
             return null;
         }
         catch (HostServiceException e)

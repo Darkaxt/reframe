@@ -8,13 +8,14 @@ using Reframe.Shell.Core;
 
 namespace Reframe.Shell;
 
-/// <summary>The top bar's warnings button (right, before the gear; shown while there are warnings, with their count)
-/// and its dropdown: each warning with its thread, what it is about and when, and Notify thread, Kill process and
-/// Dismiss.</summary>
+/// <summary>The top bar's warnings button (right, before the gear; shown once there was a warning, with the count of
+/// those open) and its dropdown: each open warning with its thread, what it is about and when, and Notify thread,
+/// Kill process and Dismiss; then the earlier ones (resolved, killed or dismissed) and Clear.</summary>
 public partial class MainWindow
 {
     Button? warningsButton;
     TextBlock? warningsCount;
+    VectorIcon? warningsIcon;
     Popup? warningsPopup;
     readonly StackPanel warningsList = new();
     DateTime warningsClosedAt;
@@ -22,7 +23,8 @@ public partial class MainWindow
     Button WarningsButton()
     {
         var content = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        content.Children.Add(new VectorIcon { Kind = "warning", Size = 14, Foreground = B("warnBrush"), VerticalAlignment = VerticalAlignment.Center });
+        warningsIcon = new VectorIcon { Kind = "warning", Size = 14, Foreground = B("warnBrush"), VerticalAlignment = VerticalAlignment.Center };
+        content.Children.Add(warningsIcon);
         warningsCount = new TextBlock { Style = S("Text12"), Foreground = B("warnBrush"), Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         content.Children.Add(warningsCount);
         var button = warningsButton = new Button
@@ -60,12 +62,15 @@ public partial class MainWindow
 
     void ShowWarnings()
     {
-        if (warningsButton is null || warningsCount is null || warningsPopup is null) return;
+        if (warningsButton is null || warningsCount is null || warningsIcon is null || warningsPopup is null) return;
         var count = shell.Warnings.Count;
+        var any = count > 0 || shell.ResolvedWarnings.Count > 0;
         warningsCount.Text = count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        warningsButton.ToolTip = count == 1 ? "1 warning" : $"{count} warnings";
-        warningsButton.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (count == 0) warningsPopup.IsOpen = false;
+        warningsCount.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        warningsIcon.Foreground = B(count > 0 ? "warnBrush" : "mutedBrush");
+        warningsButton.ToolTip = count == 0 ? "No open warnings" : count == 1 ? "1 warning" : $"{count} warnings";
+        warningsButton.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+        if (!any) warningsPopup.IsOpen = false;
         else if (warningsPopup.IsOpen) ShowWarningsList();
     }
 
@@ -78,6 +83,30 @@ public partial class MainWindow
             if (warningsList.Children.Count > 0)
                 warningsList.Children.Add(new Border { Height = 1, Background = B("borderBrush"), Margin = new Thickness(0, 2, 0, 2) });
             warningsList.Children.Add(WarningRow(warning, now));
+        }
+        if (shell.Warnings.Count == 0)
+            warningsList.Children.Add(new TextBlock { Text = "No open warnings.", Style = S("Text13"), Foreground = B("mutedBrush"), Margin = new Thickness(12, 6, 12, 6) });
+        if (shell.ResolvedWarnings.Count == 0) return;
+        var header = new DockPanel { Margin = new Thickness(12, 8, 8, 2) };
+        var clear = RowButton("Clear", "Forgets the earlier warnings");
+        clear.Margin = new Thickness(0);
+        clear.Click += (_, _) => shell.ClearWarningHistory();
+        DockPanel.SetDock(clear, Dock.Right);
+        header.Children.Add(clear);
+        header.Children.Add(new TextBlock { Text = "Earlier", Style = S("Text12"), FontWeight = FontWeights.SemiBold, Foreground = B("mutedBrush"), VerticalAlignment = VerticalAlignment.Center });
+        warningsList.Children.Add(new Border { Height = 1, Background = B("borderBrush"), Margin = new Thickness(0, 4, 0, 0) });
+        warningsList.Children.Add(header);
+        foreach (var (warning, how, at) in shell.ResolvedWarnings)
+        {
+            var row = new StackPanel { Margin = new Thickness(12, 4, 12, 4) };
+            row.Children.Add(new TextBlock
+            {
+                Text = $"{warning.Title} · {LabelOf(warning.SessionId)} · {how} {MonitorWarning.Ago(at, now)}", Style = S("Text12"),
+                Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis,
+            });
+            row.Children.Add(new TextBlock { Text = warning.Message, Style = S("Text12"), Foreground = B("mutedBrush"), TextWrapping = TextWrapping.Wrap });
+            AutomationProperties.SetName(row, $"{warning.Title}, {how}: {warning.Message}");
+            warningsList.Children.Add(row);
         }
     }
 
