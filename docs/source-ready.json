@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "782e791e4069b5f120a810f7174d6e04dba45c74",
-  "scope": "0.11.0-claudegpt.37: the Take Over popup can create an exclusion for the picked sessions (state.json takeoverExclusions, optional), which the popup no longer offers; the list menu's Take over takes a session over on purpose; Settings removes exclusions. Archive and delete are followed in a popup (check, confirmation, progress, outcome). quota.codex reports why no usage was read. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.36, the protocol and cutover docs, the version and release notes.",
+  "sourceBase": "51b151f99dfa675a195fab4253555a0ee4b9a76c",
+  "scope": "0.11.0-claudegpt.37: the Take Over popup can create an exclusion for the picked sessions (state.json takeoverExclusions, optional), which the popup no longer offers; the list menu's Take over… takes a session over on purpose; Settings removes exclusions. Archive and delete are followed in a popup (check, confirmation, progress, outcome). quota.codex reports why no usage was read. PTY host protocol unchanged. Inputs: shipped sources (src, rust, wpf, maintenance) changed since 0.11.0-claudegpt.36, the protocol and cutover docs, the version and release notes.",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -31,6 +31,10 @@
     {
       "file": "rust/reframe-services/src/quota.rs",
       "sha256": "ed4584e5363962757d534d5e0d4f48a98ed20c7052b19c6b44bb1af74649c214"
+    },
+    {
+      "file": "src/ptyhost/host.conformance.ts",
+      "sha256": "cefffa229ba699fdd929f7484caf75f19c74d860a589b820631058d9fb12c607"
     },
     {
       "file": "src/shared/state.ts",
