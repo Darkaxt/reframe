@@ -155,7 +155,7 @@ public partial class MainWindow : Window
         var layoutColumn = LayoutColumn();
         Grid.SetColumn(layoutColumn, 1);
         workspace.Children.Add(layoutColumn);
-        AddOverview(workspace);
+        AddOverview(workspace, layoutColumn);
         root.Children.Add(workspace);
         PreviewKeyDown += (_, e) => LayoutKeys(e);
         PreviewKeyDown += (_, e) => SettingsKeys(e);

@@ -65,7 +65,7 @@ fn tool() -> Value {
     json!({
         "name": "open_thread",
         "description": "Open another Reframe thread: a separate Claude Code session in a tile of its own that the user \
-            sees and can take over, running on OpenAI (the default) or Claude. It starts with your prompt, told which \
+            sees and can take over, running on the provider you choose, OpenAI or Claude. It starts with your prompt, told which \
             thread opened it. Once it runs, talk to it with SendMessage to its name (messages between threads carry \
             each side's provider and model). Use it to hand work to an OpenAI model, or to get a second opinion.",
         "inputSchema": {
@@ -73,11 +73,11 @@ fn tool() -> Value {
             "properties": {
                 "name": { "type": "string", "description": "The new thread's name, which SendMessage reaches it by." },
                 "prompt": { "type": "string", "description": "Its first prompt: the task, with what it needs to know." },
-                "provider": { "type": "string", "enum": ["openai", "claude"], "description": "openai (default) or claude." },
+                "provider": { "type": "string", "enum": ["openai", "claude"], "description": "Which models the new thread runs on: openai or claude. Always chosen, never assumed." },
                 "folder": { "type": "string", "description": "An absolute folder to work in; this thread's folder by default." },
                 "model": { "type": "string", "description": "A model; the user's default for the provider if left out." },
             },
-            "required": ["name", "prompt"],
+            "required": ["name", "prompt", "provider"],
         },
     })
 }
@@ -100,9 +100,9 @@ fn call(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
         );
     }
     let provider = match text("provider") {
-        None | Some("openai") => "openai",
+        Some("openai") => "openai",
         Some("claude") => "claude",
-        Some(_) => return text_result(true, "provider is openai or claude."),
+        _ => return text_result(true, "Choose the provider: openai or claude."),
     };
     let folder = text("folder");
     if folder.is_some_and(|f| !std::path::Path::new(f).is_absolute()) {
@@ -164,7 +164,7 @@ mod tests {
         let mut posted = Vec::new();
         let call = rpc(
             "tools/call",
-            json!({ "name": "open_thread", "arguments": { "name": " Docs ", "prompt": "Review it", "folder": "D:\\P" } }),
+            json!({ "name": "open_thread", "arguments": { "name": " Docs ", "prompt": "Review it", "provider": "openai", "folder": "D:\\P" } }),
         );
         let result = answer(&call, &mut |body| {
             posted.push(serde_json::from_slice::<Value>(body).unwrap());
@@ -184,10 +184,11 @@ mod tests {
     fn refuses_what_reframe_could_not_open() {
         let mut never = |_: &[u8]| panic!("nothing is posted");
         for arguments in [
-            json!({ "prompt": "x" }),
-            json!({ "name": "a", "prompt": " " }),
+            json!({ "prompt": "x", "provider": "openai" }),
+            json!({ "name": "a", "prompt": " ", "provider": "openai" }),
+            json!({ "name": "a", "prompt": "x" }),
             json!({ "name": "a", "prompt": "x", "provider": "gemini" }),
-            json!({ "name": "a", "prompt": "x", "folder": "relative" }),
+            json!({ "name": "a", "prompt": "x", "provider": "claude", "folder": "relative" }),
         ] {
             let call = rpc("tools/call", json!({ "name": "open_thread", "arguments": arguments }));
             assert_eq!(answer(&call, &mut never).unwrap()["result"]["isError"], true);

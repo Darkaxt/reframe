@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "13e15f300120be4a0d8d18b4de5e7015b734a948",
-  "scope": "open_thread tool: threads open other threads on OpenAI or Claude",
+  "sourceBase": "41e9c4eb539afe17161da1f69f9aa2c2735b0ff2",
+  "scope": "open_thread requires the provider; the Overview hides the terminals",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
-      "sha256": "08672bf1bd7f37d0c28726fe9fd67747cac4e34a266415832343c53a11cd3be0"
+      "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.45.md",
-      "sha256": "58fc2be98d89e2145c66af379468954883949df1f2c71869fe4b46be662150a1"
+      "file": "docs/releases/v0.11.0-claudegpt.46.md",
+      "sha256": "efcdefbf9fb0149119029a14a59364894b980b58a4dcbe3283ce84bef441ddd7"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,55 +18,31 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "387584e7e2335d2329b4a2c385b1a6b4f423fcfb718e21c4a9ee225655f49ef8"
+      "sha256": "0b1e60d3dd62ab67db39e1e41b054599ce77248ce6c6a575a98f65ff532952b8"
     },
     {
       "file": "package.json",
-      "sha256": "e7066433f2afe6566dc984ac739e2764d9225344f6dcc01e26eb6b33e315377f"
-    },
-    {
-      "file": "rust/reframe-host/src/hooks.rs",
-      "sha256": "b90a78da67035d3cc38bbbb11d87499ff282234dc7dc6e04c3d18704bbe88acb"
-    },
-    {
-      "file": "rust/reframe-host/src/host.rs",
-      "sha256": "83e181f390ebe105c478e87843014ad7ec8ac92478a7518762eb60f970228d76"
-    },
-    {
-      "file": "rust/reframe-host/src/main.rs",
-      "sha256": "f8e63d6d721730d5d6317ebe3cd4474c92572f69677eb55cb554fc1979870352"
-    },
-    {
-      "file": "rust/reframe-host/src/services.rs",
-      "sha256": "80031ee37fb78101a107b68182669bf2acfaa619c10f292999fd4079f07d7a96"
-    },
-    {
-      "file": "rust/reframe-host/src/statusline.rs",
-      "sha256": "66766bcdbe7bc42665a21cd1f4a483476557562ea5b0d75cc9f0e1dc92bdb45a"
+      "sha256": "adfb2e10f434832a1163fc5f53a00d691e22ccf47bd4ebef68df941c4a9d401c"
     },
     {
       "file": "rust/reframe-host/src/threads.rs",
-      "sha256": "3b385355b282dcc76252c28714611df3cc9607ed986b552375e5ff887137d0b6"
-    },
-    {
-      "file": "rust/reframe-services/src/spawn_plan.rs",
-      "sha256": "b4c544c7b44b8d093efb11530b1cc8d68f1c5aa1492ece1aa48a189aac50a753"
-    },
-    {
-      "file": "src/ptyhost/host.conformance.ts",
-      "sha256": "fdd2798ae4ce2d6d2c7fd82e5013abef4336dd22dd303aa277da25bad17d6130"
+      "sha256": "a044cbda8b2d4c1bfade4ab193eaad51063754f0efeaef2603037edebeb677dc"
     },
     {
       "file": "wpf/Reframe.Shell.Core/NewSession.cs",
-      "sha256": "fe52d10a75c7b40bf27e19109b12d68fe8c60bb0fe63b68468756bb3a21db187"
+      "sha256": "9fec3d12a860b1d9e641cf0c25fba49704b33d112fb57be479bca502d4383ed0"
     },
     {
       "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
-      "sha256": "ccf482111c4b19886c4504709c35cc6f69033d402a9ce77c3b06f7c36f4e8ed1"
+      "sha256": "c41f8ee79016e37353c4a42c475cd85ef30ff27c8e2d56285087d467ac68e39a"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
-      "sha256": "8a9915f74b78600f3bc28c0708981de805dab29ac18f67fa553e48498d7aa8ff"
+      "file": "wpf/Reframe.Shell/MainWindow.Overview.cs",
+      "sha256": "66c44d9cd4eda3aaed918cf454f6ae9d505ff06e225860524b884258b549e64e"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
+      "sha256": "686d4fed181fe77f06f52a39805763a78d5bb882fcd388db5601b84dc994ac8d"
     }
   ],
   "checksNotYetRun": [

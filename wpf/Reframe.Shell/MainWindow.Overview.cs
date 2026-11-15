@@ -39,8 +39,13 @@ public partial class MainWindow
         return button;
     }
 
-    void AddOverview(Grid workspace)
+    /// <summary>What the Overview covers: the layout, whose terminals are windows of their own that WPF cannot draw over
+    /// (they showed through the pane), so the layout is hidden while the pane shows.</summary>
+    UIElement? overviewCovers;
+
+    void AddOverview(Grid workspace, UIElement layout)
     {
+        overviewCovers = layout;
         Grid.SetColumn(overview, 1);
         Panel.SetZIndex(overview, 3);
         workspace.Children.Add(overview);
@@ -63,6 +68,11 @@ public partial class MainWindow
         // The host's index (a capture sets its fixture's instead).
         if (show && fixture is null) overview.SetSource(services?.Overview);
         overview.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        // Hidden, not collapsed: the tiles keep their size. Shown again, they are fitted (a snapshot that came while
+        // hidden kept its own size).
+        if (overviewCovers is null || overviewCovers.Visibility == (show ? Visibility.Hidden : Visibility.Visible)) return;
+        overviewCovers.Visibility = show ? Visibility.Hidden : Visibility.Visible;
+        if (!show) Relayout();
         if (overviewButton is not null) overviewButton.BorderBrush = show ? B("accentBrush") : B("border-strongBrush");
     }
 
