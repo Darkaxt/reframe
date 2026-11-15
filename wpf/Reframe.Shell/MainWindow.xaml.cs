@@ -68,6 +68,7 @@ public partial class MainWindow : Window
     readonly string home = ClaudeRegistry.Home();
     string query = "";
     HashSet<string>? expanded;
+    readonly HashSet<string> openedWhileRunning = [];
     SessionList? list;
     bool refreshing, refreshAgain;
 
@@ -369,7 +370,11 @@ public partial class MainWindow : Window
     void Render()
     {
         if (list is null) return;
-        expanded ??= [.. list.ExpandedProjects];
+        // Projects open once, when a thread of theirs is first seen running (at start or later); the user's own
+        // toggles stand after that.
+        expanded ??= [];
+        foreach (var id in SidebarView.RunningProjects(list))
+            if (openedWhileRunning.Add(id)) expanded.Add(id);
         sidebar.Show(SidebarView.Build(list with { ExpandedProjects = [.. expanded] }, Now));
     }
 

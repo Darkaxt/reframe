@@ -220,6 +220,7 @@ public class SidebarTests
         Assert.Equal(4, projects["webshop"].Count);
         Assert.Equal(new ProjectActivity(2, "waiting"), projects["webshop"].Activity);
         Assert.Null(projects["docs-site"].Activity);
+        Assert.Equal(new[] { projects["api-gateway"].Id, projects["webshop"].Id }.Order(), SidebarView.RunningProjects(list).Order());
         // ci-pipeline has no time (no transcript, no start time in the registry entry), so it comes last.
         Assert.Equal(["db-migration", "rate-limiter", "old-checkout", "checkout-fix", "release-notes", "Add dark mode to the account settings",
             "Pinned: plan the Q3 roadmap", "Bump dependencies and fix the deprecation warnings", "ci-pipeline"], view.Recents.Select(r => r.Label));

@@ -90,6 +90,14 @@ public static class SidebarView
         };
     }
 
+    /// <summary>The projects (folder workspaces) with a thread running now: a fresh start opens those, and a project
+    /// whose first thread starts later, and leaves the rest closed (the saved expandedProjects are not used).</summary>
+    public static List<string> RunningProjects(SessionList list)
+    {
+        var activity = ProjectView.Activity(list.App.Select(a => (a.Cwd, a.Status)));
+        return [.. list.FolderWorkspaces.Select(p => p.Id).Where(activity.ContainsKey)];
+    }
+
     /// <summary>list.wslStopped's note beside a stopped distribution.</summary>
     public static string WslStoppedText(string distro) => $"{distro} (WSL) is not running: its sessions show up here once it runs.";
 
