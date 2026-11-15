@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "6c2bb5b028e2a18cb00a8d4b9b3dee3d428e3f51",
-  "scope": "open_thread requires the provider",
+  "sourceBase": "41e9c4eb539afe17161da1f69f9aa2c2735b0ff2",
+  "scope": "open_thread requires the provider; the Overview hides the terminals",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.46.md",
-      "sha256": "45e1314188cdaefdbfd79eaa4abfbe61332c1bbb82fd3b5f638439098af8aa85"
+      "sha256": "efcdefbf9fb0149119029a14a59364894b980b58a4dcbe3283ce84bef441ddd7"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -35,6 +35,14 @@
     {
       "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
       "sha256": "c41f8ee79016e37353c4a42c475cd85ef30ff27c8e2d56285087d467ac68e39a"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Overview.cs",
+      "sha256": "66c44d9cd4eda3aaed918cf454f6ae9d505ff06e225860524b884258b549e64e"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
+      "sha256": "686d4fed181fe77f06f52a39805763a78d5bb882fcd388db5601b84dc994ac8d"
     }
   ],
   "checksNotYetRun": [
