@@ -24,7 +24,7 @@ use crate::transcripts::{SvcError, Work};
 pub const SERVICES: [(&str, u32); 8] = [
     ("quota", 1),
     ("clients", 1),
-    ("launch", 4),
+    ("launch", 5),
     ("state", 1),
     ("overview", 1),
     ("cleanup", 1),
@@ -129,7 +129,7 @@ impl Services {
             ("launch", "spawnPlan") => {
                 let mut input = params.clone();
                 // launch 3: the host itself relays an Anthropic session's status line to the user's own; launch 4: it also tags
-                // what a session sends another thread (msgtag.rs).
+                // what a session sends another thread (msgtag.rs); launch 5: it gives sessions its thread tools (threads.rs).
                 if let (Some(object), Ok(exe)) = (input.as_object_mut(), std::env::current_exe()) {
                     object.entry("statusLineRelay").or_insert(json!(exe.to_string_lossy()));
                 }

@@ -53,6 +53,11 @@ sealed partial class ShellController
         var type = (string?)message["type"];
         if (type == "hook")
         {
+            if (message["message"] is JsonObject asked && (string?)asked["event"] == "OpenThread")
+            {
+                _ = OpenThreadAsync(asked);
+                return;
+            }
             // The status line input of reframe's Anthropic sessions: its rate_limits are the Claude quota.
             if (message["message"] is JsonObject hook && (string?)hook["event"] == "StatusLine"
                 && Quotas.ApplyStatusLine(hook["payload"]?["rate_limits"], DateTimeOffset.Now.ToUnixTimeMilliseconds()))
@@ -117,6 +122,32 @@ sealed partial class ShellController
         else Save();
         await SpawnAsync(record, plan);
         return (null, null);
+    }
+
+    /// <summary>A thread another session asked for (its <c>open_thread</c> tool): created as New session creates one,
+    /// placed in the window that shows the session that asked (else the first), and started with its prompt.</summary>
+    async Task OpenThreadAsync(JsonObject hook)
+    {
+        var openerId = (string?)hook["sessionId"];
+        if (openerId is null || !State.Sessions.TryGetValue(openerId, out var opener)
+            || NewSession.OpenedBy(hook["payload"], opener, State.Preferences) is not { } request)
+        {
+            System.Diagnostics.Trace.WriteLine($"threads: an open_thread request of {openerId} is not one reframe can open");
+            return;
+        }
+        var window = State.Windows.FirstOrDefault(w => LayoutActions.WindowHasSession(w, openerId)) ?? State.Windows.FirstOrDefault();
+        if (window is null) return;
+        try
+        {
+            var (error, _) = await CreateSessionAsync(window.Id, request, _ => false);
+            System.Diagnostics.Trace.WriteLine(error is null
+                ? $"threads: opened \"{request.Name}\" ({request.Provider}) for {openerId}"
+                : $"threads: \"{request.Name}\" for {openerId} could not open: {error}");
+        }
+        catch (Exception e)
+        {
+            System.Diagnostics.Trace.WriteLine($"threads: \"{request.Name}\" for {openerId} failed: {e.Message}");
+        }
     }
 
     static bool FolderThere(string cwd) => cwd != "" && Directory.Exists(cwd);

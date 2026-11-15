@@ -1091,7 +1091,7 @@ describe.each(['node', 'rust'] as const)('the %s PTY host', (kind) => {
         wsl: 2,
         history: 1,
         // The Overview's activity index and the status line relay (launch 3) and the message tag (launch 4) are the Rust host's only (the WPF shell's).
-        ...(kind === 'rust' ? { launch: 4, overview: 1, monitor: 2 } : { launch: 2 }),
+        ...(kind === 'rust' ? { launch: 5, overview: 1, monitor: 2 } : { launch: 2 }),
       });
       const index = new TranscriptIndex(home);
       let id = 0;

@@ -147,6 +147,26 @@ public static partial class NewSession
         else set.Chatgpt = remembered;
     }
 
+    /// <summary>A thread another thread asked for (its thread tools' <c>open_thread</c>, which the host tells as that
+    /// session's <c>OpenThread</c> hook): what the New session dialog would ask with the provider's defaults, in the
+    /// opener's folder unless another is given, its first prompt after a line saying which thread opened it and how to
+    /// answer. Null when the request lacks a name or a prompt.</summary>
+    public static NewSessionRequest? OpenedBy(JsonNode? payload, SessionRecord opener, Preferences preferences)
+    {
+        string? Text(string key) =>
+            payload is JsonObject o && o[key] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim() is { Length: > 0 } t ? t : null;
+        if (Text("name") is not { } name || Text("prompt") is not { } prompt) return null;
+        var provider = Text("provider") == "claude" ? "anthropic" : "chatgpt";
+        var defaults = DefaultsFor(preferences, provider);
+        var family = opener.Launch.Provider == "anthropic" ? "Claude (Anthropic)" : "OpenAI";
+        var openerName = (string.IsNullOrWhiteSpace(opener.Name) ? opener.ClaudeName : opener.Name)?.Trim();
+        var by = string.IsNullOrEmpty(openerName)
+            ? $"[opened by a Reframe thread on {family}; answer it with SendMessage]"
+            : $"[opened by the Reframe thread \"{openerName}\" on {family}; answer it with SendMessage to \"{openerName}\"]";
+        return new NewSessionRequest(Text("folder") ?? opener.Cwd, provider, name, Model: Text("model") ?? defaults.Model,
+            Effort: defaults.Effort, PermissionMode: defaults.PermissionMode, InitialPrompt: $"{by}\n{prompt}");
+    }
+
     /// <summary>restartSession: open again; a fresh start is a new, unused conversation, last used now.</summary>
     public static void Restart(SessionRecord record, bool fresh, string freshClaudeSessionId, double now)
     {

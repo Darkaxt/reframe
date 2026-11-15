@@ -11,6 +11,8 @@ use crate::protocol::same_token;
 /// Events with a hook (HOOK_EVENTS in settings.ts) and the status line's own.
 pub const HOOK_EVENTS: [&str; 3] = ["UserPromptSubmit", "Stop", "Notification"];
 pub const STATUS_LINE_EVENT: &str = "StatusLine";
+/// A session's thread tools asking reframe to open another thread (threads.rs).
+pub const OPEN_THREAD_EVENT: &str = "OpenThread";
 const TOKEN_HEADER: &str = "x-reframe-token";
 const MAX_BODY: usize = 1024 * 1024;
 const MAX_HEAD: usize = 64 * 1024;
@@ -227,7 +229,7 @@ pub fn route(head: &Head, token: &str) -> Route {
     if !head.token.as_deref().is_some_and(|given| same_token(given, token)) {
         return Route::Status(403);
     }
-    if event != STATUS_LINE_EVENT && !HOOK_EVENTS.contains(&event) {
+    if event != STATUS_LINE_EVENT && event != OPEN_THREAD_EVENT && !HOOK_EVENTS.contains(&event) {
         return Route::Status(404);
     }
     match decode_uri_component(id) {
@@ -285,6 +287,13 @@ mod tests {
             Route::Hook {
                 session_id: "s".into(),
                 event: "StatusLine".into()
+            }
+        );
+        assert_eq!(
+            route(&head("POST", "/hook/s/OpenThread", Some(t)), t),
+            Route::Hook {
+                session_id: "s".into(),
+                event: "OpenThread".into()
             }
         );
         assert_eq!(route(&head("GET", "/hook/s/Stop", Some(t)), t), Route::Status(404));

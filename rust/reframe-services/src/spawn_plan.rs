@@ -522,6 +522,21 @@ fn message_tag_hook(relay: &str, provider: Option<&str>) -> Value {
     }] }])
 }
 
+/// The MCP server (`--mcp-config`, as JSON) of the host's thread tools (reframe-host's threads.rs): its `open_thread`
+/// asks reframe, through the hook server, to open another thread with a first prompt. Not for WSL sessions, nor for a
+/// claude that runs through cmd.exe (whose command line would have to carry the JSON's quotes).
+fn thread_tools_config(relay: &str, port: u64, token: &str, session_id: &str) -> String {
+    let url = format!(
+        "http://127.0.0.1:{port}/hook/{}/OpenThread",
+        encode_uri_component(session_id)
+    );
+    json!({ "mcpServers": { "reframe": { "type": "stdio", "command": relay, "args": [THREAD_TOOLS_ARG, url, token] } } })
+        .to_string()
+}
+
+/// The host executable's argument that makes it the thread tools' MCP server (reframe-host's threads.rs).
+pub const THREAD_TOOLS_ARG: &str = "--thread-tools";
+
 /// The host executable's argument that makes it the message tagger (reframe-host's msgtag.rs).
 pub const MESSAGE_TAG_ARG: &str = "--tag-message";
 
@@ -895,6 +910,9 @@ pub fn spawn_plan(input: &Value, fs: &dyn PlanFs) -> Result<Value, String> {
         )),
         None => {
             let mut args = claude.prefix_args.clone();
+            if let Some(relay) = relay {
+                args.extend(["--mcp-config".into(), thread_tools_config(relay, port, token, &id)]);
+            }
             args.extend(claude_args(&session, mode, Some(&file), true));
             json!(args)
         }
@@ -924,6 +942,17 @@ pub fn spawn_plan(input: &Value, fs: &dyn PlanFs) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_host_gives_sessions_its_thread_tools() {
+        let config: Value =
+            serde_json::from_str(&thread_tools_config("C:/h/reframe-host.exe", 4100, "tok", "s 1")).unwrap();
+        assert_eq!(
+            config,
+            json!({ "mcpServers": { "reframe": { "type": "stdio", "command": "C:/h/reframe-host.exe",
+                "args": ["--thread-tools", "http://127.0.0.1:4100/hook/s%201/OpenThread", "tok"] } } })
+        );
+    }
 
     #[test]
     fn messages_to_other_threads_are_tagged_by_the_host() {

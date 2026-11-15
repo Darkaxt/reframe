@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::files::Files;
-use crate::hooks::{HookMessage, STATUS_LINE_EVENT};
+use crate::hooks::{HookMessage, OPEN_THREAD_EVENT, STATUS_LINE_EVENT};
 use crate::mirror::Mirror;
 use crate::monitor::{self, Monitor};
 use crate::process::{self, Process, ProcessEvent};
@@ -995,7 +995,8 @@ impl Host {
         }
         if self.client.is_some() {
             self.send(json!({ "type": "hook", "message": message.to_json() }));
-        } else if message.event != STATUS_LINE_EVENT {
+        } else if message.event != STATUS_LINE_EVENT && message.event != OPEN_THREAD_EVENT {
+            // Status lines are told again; a thread asked for while no reframe is attached is not opened later.
             self.held.push_back(message);
             if self.held.len() > MAX_HELD_HOOKS {
                 self.held.pop_front();
