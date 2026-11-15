@@ -59,6 +59,8 @@ public partial class MainWindow
     string? selected;
     /// <summary>A single window whose shown thread closed shows none (<see cref="pick"/>) until one is picked.</summary>
     bool blank;
+    /// <summary>The thread the single window showed at the last layout.</summary>
+    string? lastShown;
     readonly FrameworkElement pick = PickState();
     /// <summary>The tile the user types in (its accent ring).</summary>
     string? focused;
@@ -170,8 +172,16 @@ public partial class MainWindow
 
         var single = LayoutActions.ViewModeOf(win) == "single";
         ApplyViewMode(LayoutActions.ViewModeOf(win));
+        // The shown thread left the window by any path (closed here, or ended or moved by the ShellController's
+        // LayoutChanged): the single window shows none until one is picked, not another thread.
+        if (single && selected is not null && selected == lastShown && !windowSessions.Contains(selected))
+        {
+            selected = null;
+            blank = true;
+        }
         if (selected is not null || !single) blank = false;
         var shown = single ? (selected is not null && leaves.Contains(selected) ? selected : blank ? null : leaves.FirstOrDefault()) : null;
+        lastShown = shown;
         if (zoom is { } z && (z.Layout != LayoutKey(win) || !leaves.Contains(z.SessionId))) zoom = null;
         var one = shown ?? zoom?.SessionId;
         var area = new Box(0, 0, surface.ActualWidth, surface.ActualHeight);
@@ -252,6 +262,7 @@ public partial class MainWindow
         Dispatcher.InvokeAsync(() =>
         {
             if (!control.IsVisible || control.RenderSize.Width < 1 || control.RenderSize.Height < 1) return;
+            HostTerminalConnection.Unpin(control);
             control.TriggerResize(control.RenderSize);
         }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
