@@ -19,6 +19,7 @@ mod jobs;
 mod limit;
 mod mirror;
 mod monitor;
+mod msgtag;
 mod process;
 mod protocol;
 mod services;
@@ -42,6 +43,9 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).map(String::as_str) == Some(reframe_services::spawn_plan::STATUS_LINE_RELAY_ARG) {
         std::process::exit(statusline::relay(&args[2..]));
+    }
+    if args.get(1).map(String::as_str) == Some(reframe_services::spawn_plan::MESSAGE_TAG_ARG) {
+        std::process::exit(msgtag::run(&args[2..]));
     }
     let Some(dir) = std::env::var_os("REFRAME_PTYHOST_DIR").map(PathBuf::from) else {
         std::process::exit(2);
