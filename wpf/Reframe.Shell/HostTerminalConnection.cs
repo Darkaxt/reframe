@@ -20,6 +20,7 @@ sealed class HostTerminalConnection : ITerminalConnection
             // As reframe's renderer does: a terminal of the snapshot's size, reset, then the repaint.
             await control.ResizeAsync((uint)rows, (uint)cols, CancellationToken.None);
             Output("\u001bc" + data);
+            Unpin(control);
             // Back to the control's own size; that resize goes to the host. A hidden one (a single window's other
             // threads) keeps the snapshot's size: its stale size would shrink the session; it is fitted when shown.
             if (control.IsVisible) control.TriggerResize(control.RenderSize);
@@ -29,6 +30,18 @@ sealed class HostTerminalConnection : ITerminalConnection
     }
 
     public TerminalModes Modes { get; } = new();
+
+    /// <summary>
+    /// ResizeAsync also sets a margin on the control's grid that keeps its terminal window at the size it resized to,
+    /// and with AutoResize nothing takes it off again: a snapshot of a smaller terminal (the session last shown in a
+    /// quarter tile) kept the terminal window that small in a whole tile, and the window's own resizes kept the session
+    /// at that size. Without the margin the terminal window fills the control and fits the session to it.
+    /// </summary>
+    public static void Unpin(TerminalControl control)
+    {
+        if (control.FindName("terminalGrid") is System.Windows.FrameworkElement grid && grid.Margin != default)
+            grid.Margin = default;
+    }
 
     void Output(string data)
     {
