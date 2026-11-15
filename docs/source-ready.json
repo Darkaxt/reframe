@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "996b59a19a8cf61a45b9b7b245772087e0ca2ab8",
-  "scope": "terminal margin unpin, single window blank on close",
+  "sourceBase": "59c83b336ae18abbd776e64739817c5faf488aad",
+  "scope": "message tag with provider and model",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
-      "sha256": "356cf4aea35323b20c0fc4467db7cb18c56c506e91d4f2fbbe8a800efda89fe9"
+      "sha256": "0ae9c054d7622e8e42299ea01adbd1893479dbf1e2c0e7c6c50fbe36cbe46197"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.43.md",
-      "sha256": "c2d4fc1a83418b73912bb0eb58cebffa38176afb49b8a4d9e846f4ebb0497f96"
+      "file": "docs/releases/v0.11.0-claudegpt.44.md",
+      "sha256": "5a82f3183487d3c39fa46127dcc2b568a9788b379c10dbcba556df7803d08e34"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,31 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "77df1d77cb8bf248175333010f92d0cf265a053490d8a400a69986deb2378b66"
+      "sha256": "0630b2b8b47fd1539e387e43fa1a0ba864d9d26119a060b2f7ad44706d979cda"
     },
     {
       "file": "package.json",
-      "sha256": "93809d6d39ec17a7e7b67ca927c41b7b57f1523bf0e0ff47a1288f707e63776f"
+      "sha256": "84c1387ff114b0bf16d1fff5e14fd7e02bdfab1292fca275c816377182313990"
     },
     {
-      "file": "wpf/Reframe.Shell/HostTerminalConnection.cs",
-      "sha256": "7bfa9536fe2b3a3a108be7a89cb4576cadea81bc54dcd9375cff7b2770940c0c"
+      "file": "rust/reframe-host/src/main.rs",
+      "sha256": "98197d6b29da010a629d7937c9773327b886cbf76571900249d6353abcc51c36"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "2b7fa5501c69caa74dd150ea513314ea88076f64d418aa9e69f6f549a94508c6"
+      "file": "rust/reframe-host/src/msgtag.rs",
+      "sha256": "3d8b4251922a54d8ea43605a075bd61172f79d2323ae308c69a2510dbc61fd0c"
+    },
+    {
+      "file": "rust/reframe-host/src/services.rs",
+      "sha256": "a1be670148ea1774b45bb7ba530816c2fd1ebbca2be30e23848d3305cd79da7a"
+    },
+    {
+      "file": "rust/reframe-services/src/spawn_plan.rs",
+      "sha256": "175cb19518ca257dd463d2b58d1cde3445b6567ea9a901c4032f70b014ced2f5"
+    },
+    {
+      "file": "src/ptyhost/host.conformance.ts",
+      "sha256": "a210cabc975f676c95d81254b0b3e816eaa4a3ca3388f17267b4dac16511d70a"
     }
   ],
   "checksNotYetRun": [
