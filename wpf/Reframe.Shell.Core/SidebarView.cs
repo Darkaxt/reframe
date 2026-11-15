@@ -55,7 +55,7 @@ public static class SidebarView
     public static readonly IReadOnlyDictionary<string, string> StatusLabels = new Dictionary<string, string>
     {
         ["starting"] = "Starting", ["idle"] = "Ready", ["busy"] = "Working", ["background"] = "Idle, background work running",
-        ["waiting"] = "Needs you", ["ended"] = "Ended", ["error"] = "Error",
+        ["waiting"] = "Needs you", ["ended"] = "Ended", ["error"] = "Error", ["detached"] = "Running in another terminal",
     };
 
     const string OpenHint = "Click to open here, or drag onto a tile. Shift/Ctrl+click selects several, right-click for more.";
