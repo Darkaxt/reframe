@@ -58,23 +58,45 @@ public sealed class VectorIcon : FrameworkElement
     }
 }
 
-/// <summary>StatusDot.tsx: an 8 px dot per status (styles.css .status-*): idle green, busy accent (pulsing), background
-/// accent dimmed, waiting yellow (pulsing faster), starting grey (pulsing), ended a hollow ring, error red.</summary>
+/// <summary>A thread's status as a media-player icon (StatusDot.tsx's dot before; the user's choice, in its colours):
+/// busy a play triangle (accent, pulsing), background work a pause (accent, dimmed), waiting for the user a question
+/// mark (yellow, pulsing faster), idle a check (green), starting an outlined play (grey, pulsing), ended a stop square
+/// (grey), error an exclamation mark (red). 10 px, with the status as its tooltip.</summary>
 public sealed class StatusDot : FrameworkElement
 {
     public static readonly DependencyProperty StatusProperty = DependencyProperty.Register(nameof(Status), typeof(string), typeof(StatusDot),
-        new FrameworkPropertyMetadata("ended", FrameworkPropertyMetadataOptions.AffectsRender, (d, _) => ((StatusDot)d).Animate()));
+        new FrameworkPropertyMetadata("ended", FrameworkPropertyMetadataOptions.AffectsRender, (d, _) => ((StatusDot)d).Changed()));
 
     /// <summary>No pulse (diagnostic captures, so that the same frame is captured each time).</summary>
     public static bool Still { get; set; }
+
+    const double Size = 10;
 
     public string Status { get => (string)GetValue(StatusProperty); set => SetValue(StatusProperty, value); }
 
     public StatusDot()
     {
-        Width = Height = 8;
+        Width = Height = Size;
         SnapsToDevicePixels = true;
-        Loaded += (_, _) => Animate();
+        Loaded += (_, _) => Changed();
+    }
+
+    /// <summary>What the icon says, for its tooltip.</summary>
+    public static string Describe(string status) => status switch
+    {
+        "busy" => "Running",
+        "background" => "Waiting on a background command",
+        "waiting" => "Needs you",
+        "idle" => "Ready for a prompt",
+        "starting" => "Starting",
+        "error" => "Could not start",
+        _ => "Ended",
+    };
+
+    void Changed()
+    {
+        ToolTip = Describe(Status);
+        Animate();
     }
 
     void Animate()
@@ -83,7 +105,7 @@ public sealed class StatusDot : FrameworkElement
         if (seconds == 0 || Still || SystemParameters.ClientAreaAnimation == false)
         {
             BeginAnimation(OpacityProperty, null);
-            Opacity = Status == "background" ? 0.45 : 1;
+            Opacity = Status == "background" ? 0.6 : 1;
             return;
         }
         // @keyframes pulse { 50% { opacity: 0.35 } }, ease-in-out.
@@ -95,15 +117,16 @@ public sealed class StatusDot : FrameworkElement
 
     static Brush Resource(string key) => (Brush)Application.Current.FindResource(key);
 
+    static Geometry Shape(params Point[] points)
+    {
+        var figure = new PathFigure { StartPoint = points[0], IsClosed = true, IsFilled = true };
+        foreach (var point in points.Skip(1)) figure.Segments.Add(new LineSegment(point, true));
+        return new PathGeometry([figure]);
+    }
+
     protected override void OnRender(DrawingContext dc)
     {
-        var center = new Point(4, 4);
-        if (Status == "ended")
-        {
-            dc.DrawEllipse(null, new Pen(Resource("mutedBrush"), 1.5), center, 3.25, 3.25);
-            return;
-        }
-        var fill = Status switch
+        var brush = Status switch
         {
             "idle" => Resource("okBrush"),
             "busy" or "background" => Resource("accentBrush"),
@@ -111,7 +134,43 @@ public sealed class StatusDot : FrameworkElement
             "error" => Resource("dangerBrush"),
             _ => Resource("mutedBrush"),
         };
-        dc.DrawEllipse(fill, null, center, 4, 4);
+        var play = Shape(new(2, 1), new(9.5, 5), new(2, 9));
+        switch (Status)
+        {
+            case "busy":
+                dc.DrawGeometry(brush, null, play);
+                break;
+            case "starting":
+                dc.DrawGeometry(null, new Pen(brush, 1.2) { LineJoin = PenLineJoin.Round }, Shape(new(2.6, 2), new(8.3, 5), new(2.6, 8)));
+                break;
+            case "background":
+                dc.DrawRoundedRectangle(brush, null, new Rect(1.5, 1, 2.6, 8), 0.6, 0.6);
+                dc.DrawRoundedRectangle(brush, null, new Rect(5.9, 1, 2.6, 8), 0.6, 0.6);
+                break;
+            case "idle":
+                var check = new StreamGeometry();
+                using (var g = check.Open())
+                {
+                    g.BeginFigure(new Point(1.5, 5.3), false, false);
+                    g.LineTo(new Point(4, 7.8), true, false);
+                    g.LineTo(new Point(8.7, 2.3), true, false);
+                }
+                dc.DrawGeometry(null, new Pen(brush, 1.8) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round }, check);
+                break;
+            case "waiting" or "error":
+                var text = new FormattedText(Status == "waiting" ? "?" : "!", CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                    new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Black, FontStretches.Normal), 12.5, brush,
+                    VisualTreeHelper.GetDpi(this).PixelsPerDip);
+                // The glyph's own outline, centred (the text's box holds line spacing above and below it).
+                var glyph = text.BuildGeometry(new Point(0, 0));
+                var bounds = glyph.Bounds;
+                glyph.Transform = new TranslateTransform((Size - bounds.Width) / 2 - bounds.X, (Size - bounds.Height) / 2 - bounds.Y);
+                dc.DrawGeometry(brush, null, glyph);
+                break;
+            default:
+                dc.DrawRoundedRectangle(brush, null, new Rect(1.5, 1.5, 7, 7), 1, 1);
+                break;
+        }
     }
 }
 
