@@ -437,6 +437,7 @@ fn hook_settings_json(
     session_id: &str,
     provider: Option<&str>,
     status_line: Option<Value>,
+    message_tag: Option<Value>,
 ) -> String {
     let id = encode_uri_component(session_id);
     let mut hooks = Map::new();
@@ -449,6 +450,9 @@ fn hook_settings_json(
                 "headers": { HOOK_TOKEN_HEADER: token },
             }] }]),
         );
+    }
+    if let Some(tag) = message_tag {
+        hooks.insert("PreToolUse".into(), tag);
     }
     let mut out = Map::new();
     out.insert("hooks".into(), Value::Object(hooks));
@@ -501,6 +505,25 @@ fn status_line_settings(
     line["command"] = json!(format!("\"{}\" {STATUS_LINE_RELAY_ARG} {url} {token} {hex}", relay?));
     Some(line)
 }
+
+/// The PreToolUse hook that tags what the session sends another thread (SendMessage) with the provider and the
+/// exact model it runs on (reframe-host's msgtag.rs), so the receiving thread knows whether a Claude or an OpenAI
+/// model wrote it.
+fn message_tag_hook(relay: &str, provider: Option<&str>) -> Value {
+    let provider = if provider == Some("anthropic") {
+        "anthropic"
+    } else {
+        "openai"
+    };
+    json!([{ "matcher": "SendMessage", "hooks": [{
+        "type": "command",
+        "command": format!("\"{relay}\" {MESSAGE_TAG_ARG} {provider}"),
+        "timeout": 5,
+    }] }])
+}
+
+/// The host executable's argument that makes it the message tagger (reframe-host's msgtag.rs).
+pub const MESSAGE_TAG_ARG: &str = "--tag-message";
 
 /// The host executable's argument that makes it the status line relay (reframe-host's statusline.rs).
 pub const STATUS_LINE_RELAY_ARG: &str = "--status-line-relay";
@@ -852,14 +875,19 @@ pub fn spawn_plan(input: &Value, fs: &dyn PlanFs) -> Result<Value, String> {
     }
     let file = win32_join(&[settings_dir, &format!("{id}.json")]);
     let capture = provider == Some("anthropic") && truthy(input.get("captureStatusLine"));
+    let in_wsl = input.get("wsl").is_some_and(Value::is_object);
+    let relay = nonempty(input, "statusLineRelay").filter(|_| !in_wsl);
     let status_line = capture
-        .then(|| {
-            let in_wsl = input.get("wsl").is_some_and(Value::is_object);
-            let relay = nonempty(input, "statusLineRelay").filter(|_| !in_wsl);
-            status_line_settings(fs, port, token, &id, claude_home, relay)
-        })
+        .then(|| status_line_settings(fs, port, token, &id, claude_home, relay))
         .flatten();
-    let content = hook_settings_json(port, token, &id, provider, status_line);
+    let content = hook_settings_json(
+        port,
+        token,
+        &id,
+        provider,
+        status_line,
+        relay.map(|relay| message_tag_hook(relay, provider)),
+    );
     let args = match &claude.via_cmd {
         Some(script) => json!(cmd_command_line(
             script,
@@ -896,6 +924,26 @@ pub fn spawn_plan(input: &Value, fs: &dyn PlanFs) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn messages_to_other_threads_are_tagged_by_the_host() {
+        let hook = message_tag_hook("C:/h/reframe-host.exe", None);
+        let content: Value =
+            serde_json::from_str(&hook_settings_json(4100, "tok", "s", None, None, Some(hook))).unwrap();
+        let pre = &content["hooks"]["PreToolUse"][0];
+        assert_eq!(pre["matcher"], json!("SendMessage"));
+        assert_eq!(
+            pre["hooks"][0]["command"],
+            json!("\"C:/h/reframe-host.exe\" --tag-message openai")
+        );
+        let anthropic = message_tag_hook("C:/h/reframe-host.exe", Some("anthropic"));
+        assert!(anthropic[0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap()
+            .ends_with(" anthropic"));
+        let none: Value = serde_json::from_str(&hook_settings_json(4100, "tok", "s", None, None, None)).unwrap();
+        assert!(none["hooks"].get("PreToolUse").is_none());
+    }
 
     #[test]
     fn status_line_is_captured_and_relayed_to_the_users_own() {
