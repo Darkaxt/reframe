@@ -61,7 +61,8 @@ public sealed class VectorIcon : FrameworkElement
 /// <summary>A thread's status as a media-player icon (StatusDot.tsx's dot before; the user's choice, in its colours):
 /// busy a play triangle (accent, pulsing), background work a pause (accent, dimmed), waiting for the user a question
 /// mark (yellow, pulsing faster), idle a check (green), starting an outlined play (grey, pulsing), ended a stop square
-/// (grey), error an exclamation mark (red). 10 px, with the status as its tooltip.</summary>
+/// (grey), error an exclamation mark (red), detached (running in another terminal) an arrow out of a box (accent). 10 px,
+/// with the status as its tooltip.</summary>
 public sealed class StatusDot : FrameworkElement
 {
     public static readonly DependencyProperty StatusProperty = DependencyProperty.Register(nameof(Status), typeof(string), typeof(StatusDot),
@@ -90,6 +91,7 @@ public sealed class StatusDot : FrameworkElement
         "idle" => "Ready for a prompt",
         "starting" => "Starting",
         "error" => "Could not start",
+        "detached" => "Running in another terminal",
         _ => "Ended",
     };
 
@@ -129,7 +131,7 @@ public sealed class StatusDot : FrameworkElement
         var brush = Status switch
         {
             "idle" => Resource("okBrush"),
-            "busy" or "background" => Resource("accentBrush"),
+            "busy" or "background" or "detached" => Resource("accentBrush"),
             "waiting" => Resource("warnBrush"),
             "error" => Resource("dangerBrush"),
             _ => Resource("mutedBrush"),
@@ -166,6 +168,21 @@ public sealed class StatusDot : FrameworkElement
                 var bounds = glyph.Bounds;
                 glyph.Transform = new TranslateTransform((Size - bounds.Width) / 2 - bounds.X, (Size - bounds.Height) / 2 - bounds.Y);
                 dc.DrawGeometry(brush, null, glyph);
+                break;
+            case "detached":
+                // A box open at its top right, with an arrow leaving it there.
+                var pen = new Pen(brush, 1.3) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+                var detached = new StreamGeometry();
+                using (var g = detached.Open())
+                {
+                    g.BeginFigure(new Point(4.2, 1.8), false, false);
+                    g.PolyLineTo([new Point(1.4, 1.8), new Point(1.4, 8.6), new Point(8.2, 8.6), new Point(8.2, 5.8)], true, false);
+                    g.BeginFigure(new Point(4.4, 5.6), false, false);
+                    g.LineTo(new Point(8.8, 1.2), true, false);
+                    g.BeginFigure(new Point(5.8, 1.2), false, false);
+                    g.PolyLineTo([new Point(8.8, 1.2), new Point(8.8, 4.2)], true, false);
+                }
+                dc.DrawGeometry(null, pen, detached);
                 break;
             default:
                 dc.DrawRoundedRectangle(brush, null, new Rect(1.5, 1.5, 7, 7), 1, 1);

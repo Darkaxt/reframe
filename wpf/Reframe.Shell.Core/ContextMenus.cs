@@ -59,10 +59,21 @@ public static class ContextMenus
             new("submenu", c.Inactive ? "Model provider" : "Model provider (end chat first)", Submenu:
                 [.. StateValues.Providers.Select(p => new MenuSpec("radio", ProviderName(p), c.Inactive, current == p, Action: "provider:" + p))]),
             new("normal", "Change model…", c.Inactive && !c.BatchRunning, Action: "changeModel"),
+            .. c.Record is { } record ? [PermissionMenu(record, c.Inactive)] : Array.Empty<MenuSpec>(),
             new("normal", c.Inactive ? "Archive chat…" : "Archive chat (end chat first)", c.Inactive, Action: "archive"),
             new("normal", c.Inactive ? "Delete chat…" : "Delete chat (end chat first)", c.Inactive, Action: "delete"),
         ];
     }
+
+    /// <summary>The permission mode a session of reframe's starts with (the WPF shell's; Electron had it only in New
+    /// session): Default or one of Claude Code's modes, bypassPermissions being --dangerously-skip-permissions. It can be
+    /// changed while the session runs: it applies when it starts next.</summary>
+    static MenuSpec PermissionMenu(SessionRecord record, bool inactive) =>
+        new("submenu", inactive ? "Permission mode" : "Permission mode (next start)", Submenu:
+        [
+            new("radio", "Default", Checked: record.Launch.PermissionMode is null, Action: "permission:"),
+            .. StateValues.PermissionModes.Select(m => new MenuSpec("radio", m, Checked: record.Launch.PermissionMode == m, Action: "permission:" + m)),
+        ]);
 
     /// <summary>batchChatActions: the selection's provider (no radio: they may differ), model, archive and delete.</summary>
     public static List<MenuSpec> BatchChatActions(bool batchRunning) =>

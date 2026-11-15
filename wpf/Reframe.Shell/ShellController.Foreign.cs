@@ -58,6 +58,16 @@ sealed partial class ShellController
     public void NoteForeignPointer(string windowId, Point? point, bool hasData) =>
         foreign?.NotePointer(windowId, point is { } p ? new ScreenPoint(p.X, p.Y) : null, hasData);
 
+    /// <summary>The launch options of a claude outside reframe (provider, model, effort, permission mode), logged without
+    /// its command line; null (reframe's defaults) when they cannot be read.</summary>
+    static LaunchOptions? LaunchOfOutside(int pid)
+    {
+        var launch = ProcessLaunch.Of(pid);
+        Log(launch is null ? $"launch options of {pid} could not be read"
+            : $"launch options of {pid}: provider {launch.Provider ?? "unknown"}, model {launch.Model ?? "default"}, effort {launch.Effort ?? "default"}, permission mode {launch.PermissionMode ?? "default"}");
+        return launch;
+    }
+
     static Task KillTreeAsync(int pid)
     {
         try
@@ -140,12 +150,14 @@ sealed partial class ShellController
             // A shell in that console, to ask it afterwards what is left there.
             var shell = await takeover.ShellOfAsync(consolePid);
             var latest = await Task.Run(() => ClaudeRegistry.Entry(home, entry.Pid)) is { } now && now.SessionId == entry.SessionId ? now : entry;
+            // How it was started, read before it is ended: it goes on with the same provider and options here.
+            var launch = LaunchOfOutside(entry.Pid);
             var stopped = await takeover.StopExternalClaudeAsync(entry.Pid);
             Log($"other terminal stopped: {entry.Pid} {stopped}");
             if (stopped == "failed") continue;
             var modified = await Task.Run(() => ClaudeRegistry.TranscriptModifiedAt(home, latest.SessionId));
             // A name the user gave it survives; one Claude made up is made up again.
-            var record = Takeover.Adopted(latest.SessionId, latest.Cwd ?? entry.Cwd!, latest.NameSource == "user" ? latest.Name : null, modified, Now());
+            var record = Takeover.Adopted(latest.SessionId, latest.Cwd ?? entry.Cwd!, latest.NameSource == "user" ? latest.Name : null, modified, Now(), launch);
             State.Sessions[record.Id] = record;
             window.PlaceSession(record.Id, target);
             // Continued here: resumed (it was ended in its terminal just now).

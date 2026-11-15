@@ -486,7 +486,8 @@ public partial class MainWindow : Window
     bool Supported(string action) =>
         action is "open" or "properties" || (Writable && (action is "takeOver" or "rename" or "pin" or "hide" or "newGroup" or "removeFromGroup" or "group"
             or "changeModel" or "archive" or "delete"
-            || action.StartsWith("addToGroup:", StringComparison.Ordinal) || action.StartsWith("provider:", StringComparison.Ordinal)));
+            || action.StartsWith("addToGroup:", StringComparison.Ordinal) || action.StartsWith("provider:", StringComparison.Ordinal)
+            || action.StartsWith("permission:", StringComparison.Ordinal)));
 
     ContextMenu BuildMenu(IEnumerable<MenuSpec> items, ChatRow? chat, string? sessionId) =>
         ShellMenus.Build(items, Supported, action => Run(action, chat, sessionId));
@@ -524,6 +525,9 @@ public partial class MainWindow : Window
                 break;
             case "properties":
                 ShowProperties(chat, sessionId);
+                break;
+            case var p when p.StartsWith("permission:", StringComparison.Ordinal) && sessionId is not null:
+                if (ShellActions.SetPermissionMode(state, sessionId, p["permission:".Length..])) Saved();
                 break;
             default:
                 if (!RunHistoryAction(action, chat, sessionId)) RunGroupAction(action, sessionId);

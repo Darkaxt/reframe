@@ -10,6 +10,17 @@ public static class ShellActions
 {
     /// <summary>renameSession: the name trimmed to 100 characters (empty: the automatic name again). Claude Code keeps
     /// the name it was started with, so the first rename records it as claudeName.</summary>
+    /// <summary>The permission mode the session starts with next time ("" for Claude Code's default); false when
+    /// nothing changed or the mode is not one of Claude Code's.</summary>
+    public static bool SetPermissionMode(AppState state, string sessionId, string mode)
+    {
+        if (!state.Sessions.TryGetValue(sessionId, out var record)) return false;
+        string? chosen = mode == "" ? null : StateValues.PermissionModes.FirstOrDefault(m => m == mode);
+        if ((mode != "" && chosen is null) || record.Launch.PermissionMode == chosen) return false;
+        record.Launch.PermissionMode = chosen;
+        return true;
+    }
+
     public static bool Rename(AppState state, string sessionId, string name)
     {
         if (!state.Sessions.TryGetValue(sessionId, out var record)) return false;

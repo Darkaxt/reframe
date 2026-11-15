@@ -331,13 +331,14 @@ sealed partial class ShellController
         }
         if (!window.ConfirmTakeover(entry.Name ?? Path.GetFileName(cwd.TrimEnd('\\', '/')))) return null;
         Log($"taking over session from another terminal: pid {item.Pid}");
+        var launch = LaunchOfOutside(entry.Pid);
         if (!await StopOutsideAsync(new Elsewhere(entry, null, home)))
         {
             MessageBox.Show(window, Strings.T("takeover.failed"), "Reframe", MessageBoxButton.OK, MessageBoxImage.Error);
             return null;
         }
         var modified = await Task.Run(() => ClaudeRegistry.TranscriptModifiedAt(home, claudeId));
-        return Takeover.Adopted(claudeId, cwd, entry.NameSource == "user" ? entry.Name : null, modified, Now());
+        return Takeover.Adopted(claudeId, cwd, entry.NameSource == "user" ? entry.Name : null, modified, Now(), launch);
     }
 
     static string Label(SessionRecord record) => StateValues.SessionLabel(record.Name, record.ClaudeName, record.Cwd);
