@@ -18,7 +18,7 @@ public class NewSessionTests
             ProviderDefaults = new ProviderDefaultsSet { Chatgpt = new ProviderDefaults { Model = "gpt-6.1-sol", PermissionMode = "auto" } },
         };
         var opener = new SessionRecord { Id = "s1", Cwd = @"D:\Projects\app", Name = "Lead", Launch = new LaunchOptions { Provider = "anthropic" } };
-        var request = NewSession.OpenedBy(JsonNode.Parse("""{ "name": " Docs ", "prompt": "Review the API" }"""), opener, preferences);
+        var request = NewSession.OpenedBy(JsonNode.Parse("""{ "name": " Docs ", "prompt": "Review the API", "provider": "openai" }"""), opener, preferences);
         Assert.Equal(new NewSessionRequest(@"D:\Projects\app", "chatgpt", "Docs", Model: "gpt-6.1-sol", PermissionMode: "auto",
             InitialPrompt: "[opened by the Reframe thread \"Lead\" on Claude (Anthropic); answer it with SendMessage to \"Lead\"]\nReview the API"),
             request);
@@ -27,6 +27,7 @@ public class NewSessionTests
         Assert.Equal(("anthropic", @"E:\w", "opus", "high"), (claude.Provider, claude.Cwd, claude.Model, claude.Effort));
         Assert.StartsWith("[opened by a Reframe thread on OpenAI;", claude.InitialPrompt);
         Assert.Null(NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B" }"""), opener, preferences));
+        Assert.Null(NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B", "prompt": "x" }"""), opener, preferences));
         Assert.Null(NewSession.OpenedBy(null, opener, preferences));
     }
 
