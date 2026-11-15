@@ -10,6 +10,27 @@ namespace Reframe.Shell.Tests;
 public class NewSessionTests
 {
     [Fact]
+    public void A_thread_asked_for_by_another_gets_the_providers_defaults_and_who_opened_it()
+    {
+        var preferences = new Preferences
+        {
+            DefaultEffort = "high",
+            ProviderDefaults = new ProviderDefaultsSet { Chatgpt = new ProviderDefaults { Model = "gpt-6.1-sol", PermissionMode = "auto" } },
+        };
+        var opener = new SessionRecord { Id = "s1", Cwd = @"D:\Projects\app", Name = "Lead", Launch = new LaunchOptions { Provider = "anthropic" } };
+        var request = NewSession.OpenedBy(JsonNode.Parse("""{ "name": " Docs ", "prompt": "Review the API" }"""), opener, preferences);
+        Assert.Equal(new NewSessionRequest(@"D:\Projects\app", "chatgpt", "Docs", Model: "gpt-6.1-sol", PermissionMode: "auto",
+            InitialPrompt: "[opened by the Reframe thread \"Lead\" on Claude (Anthropic); answer it with SendMessage to \"Lead\"]\nReview the API"),
+            request);
+        var claude = NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B", "prompt": "x", "provider": "claude", "folder": "E:\\w", "model": "opus" }"""),
+            new SessionRecord { Cwd = @"D:\a" }, preferences)!;
+        Assert.Equal(("anthropic", @"E:\w", "opus", "high"), (claude.Provider, claude.Cwd, claude.Model, claude.Effort));
+        Assert.StartsWith("[opened by a Reframe thread on OpenAI;", claude.InitialPrompt);
+        Assert.Null(NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B" }"""), opener, preferences));
+        Assert.Null(NewSession.OpenedBy(null, opener, preferences));
+    }
+
+    [Fact]
     public void Falls_back_to_Settings_the_default_model_only_for_the_ChatGPT_route()
     {
         var preferences = new Preferences { DefaultModel = "opus", DefaultEffort = "high", DefaultPermissionMode = "plan" };

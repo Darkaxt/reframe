@@ -24,6 +24,7 @@ mod process;
 mod protocol;
 mod services;
 mod statusline;
+mod threads;
 mod transcripts;
 mod warnings;
 
@@ -46,6 +47,9 @@ fn main() {
     }
     if args.get(1).map(String::as_str) == Some(reframe_services::spawn_plan::MESSAGE_TAG_ARG) {
         std::process::exit(msgtag::run(&args[2..]));
+    }
+    if args.get(1).map(String::as_str) == Some(reframe_services::spawn_plan::THREAD_TOOLS_ARG) {
+        std::process::exit(threads::run(&args[2..]));
     }
     let Some(dir) = std::env::var_os("REFRAME_PTYHOST_DIR").map(PathBuf::from) else {
         std::process::exit(2);

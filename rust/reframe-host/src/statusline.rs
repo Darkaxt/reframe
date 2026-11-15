@@ -35,7 +35,8 @@ fn split_url(url: &str) -> Option<(u16, &str)> {
     Some((rest[..slash].parse().ok()?, &rest[slash..]))
 }
 
-fn post(url: &str, token: &str, body: &[u8]) -> std::io::Result<()> {
+/// Whether the hook server answered 200 (also the thread tools' post, threads.rs).
+pub(crate) fn post(url: &str, token: &str, body: &[u8]) -> std::io::Result<bool> {
     let (port, path) = split_url(url).ok_or(std::io::ErrorKind::InvalidInput)?;
     let address = std::net::SocketAddr::from(([127, 0, 0, 1], port));
     let mut stream = TcpStream::connect_timeout(&address, POST_TIMEOUT)?;
@@ -49,8 +50,8 @@ fn post(url: &str, token: &str, body: &[u8]) -> std::io::Result<()> {
     stream.write_all(body)?;
     // The answer (200) only says it arrived.
     let mut answer = [0u8; 256];
-    let _ = stream.read(&mut answer);
-    Ok(())
+    let n = stream.read(&mut answer).unwrap_or(0);
+    Ok(answer[..n].starts_with(b"HTTP/1.1 200"))
 }
 
 fn decode_hex(hex: &str) -> Option<String> {
