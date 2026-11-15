@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "6485306722319289ed3215da06319edc1f88878e",
-  "scope": "status icons",
+  "sourceBase": "2fac592347a608cac5fafb5db0528ede156ec6e5",
+  "scope": "status icons; folders with running threads start expanded",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.47.md",
-      "sha256": "9167dc1a49b3deac343f0164efba209ffc6e47aad5e62d714299af5082be6529"
+      "sha256": "3d634e69db851e5bdbca223b6d9935d1ab2e0e644fa4cec36426517bf70310be"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -25,8 +25,20 @@
       "sha256": "f552005f0aae891d12afa6a16661229fd461dd7fd3e91cb61003b112b44d9147"
     },
     {
+      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
+      "sha256": "5bf9785bfacad77272395d216cc293721e26349f70a8ea07796471d86078312a"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/SidebarTests.cs",
+      "sha256": "86da136b1986d9c027e6b91409c91b0014dacc776c5e58d182f1df02412efd69"
+    },
+    {
       "file": "wpf/Reframe.Shell/Controls.cs",
       "sha256": "bfdde5281debdc7e65e55c9302f308a9728f14eb8567b9ae96cbd681b8529311"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
+      "sha256": "14c02fa9543d8a6cc9334746141b2ed47ec6f0049d07344aa5263a5d5944d886"
     }
   ],
   "checksNotYetRun": [
