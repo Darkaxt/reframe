@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "6e39270bbebc52520dc44717f003457c71e2c671",
+  "sourceBase": "a5af69e7b415fc7bf6cef25bff4415cb11b62907",
   "scope": "takeover launch options, permission mode menu, detached status icon, tile minimize beside close",
   "inputHashes": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.48.md",
-      "sha256": "dfb1386892a4db0b76fe726843b17818b1875252e8c32bc0a04573da1e10b158"
+      "sha256": "48d80a3799e6431dd47f2d980ccb79418f44a57d184d45fc69736f474f4586a5"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -41,6 +41,10 @@
       "sha256": "bc342de7a16d286bc2ff71047eb825483cf163c8003035ebc750b642a0ac169a"
     },
     {
+      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
+      "sha256": "8e2e96524b2c9eaaa21d6404e2ff6adb9e47d77eb6fb38eba74be8ad8cb5f170"
+    },
+    {
       "file": "wpf/Reframe.Shell.Tests/ForeignTests.cs",
       "sha256": "53e1a388c81cb622efcfd3fb5e05ed3c74c0bff3af3ba35823a7f202e60cbfc6"
     },
@@ -67,6 +71,10 @@
     {
       "file": "wpf/Reframe.Shell/ProcessLaunch.cs",
       "sha256": "2b877b72c36c0e737f7536b784840ee8e7af8cfa7fe76489f45108fe2b8e4f42"
+    },
+    {
+      "file": "wpf/Reframe.Shell/SessionSidebar.cs",
+      "sha256": "2d05274b82358c0bbcc132baaaa9ed9a397bdd62aec22268b26bf447fa8b7369"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Foreign.cs",
