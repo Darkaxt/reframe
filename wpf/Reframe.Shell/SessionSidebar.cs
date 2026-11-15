@@ -380,11 +380,9 @@ sealed class SessionSidebar : Border
         var grid = new Grid();
         foreach (var w in new[] { 8.0, 8, 16, 8 }) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w) });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
-        FrameworkElement mark = chat.RunningMark
-            ? new TextBlock { Text = "▶", FontSize = 9, Foreground = B("okBrush"), Width = 8 }
-            : new StatusDot { Status = chat.Status };
-        mark.VerticalAlignment = VerticalAlignment.Center;
-        AutomationProperties.SetName(mark, chat.RunningMark ? "Running" : SidebarView.StatusLabels.GetValueOrDefault(chat.Status, chat.Status));
+        // A claude running in another terminal is "detached" (Electron's green ▶ before).
+        var mark = new StatusDot { Status = chat.Status, VerticalAlignment = VerticalAlignment.Center };
+        AutomationProperties.SetName(mark, SidebarView.StatusLabels.GetValueOrDefault(chat.Status, chat.Status));
         grid.Children.Add(mark);
         var icon = Provider(chat.Provider);
         Grid.SetColumn(icon, 2);

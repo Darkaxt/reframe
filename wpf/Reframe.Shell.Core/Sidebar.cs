@@ -123,7 +123,7 @@ public static class SidebarChats
                 item.Provider ?? (item.Kind == ListItemKind.Found ? "chatgpt" : null),
                 item.Kind == ListItemKind.Found && item.Provider is null,
                 item.Kind == ListItemKind.Found ? item.ModifiedAt : item.LastActiveAt,
-                item.Kind switch { ListItemKind.App => item.Status, ListItemKind.Running => "idle", _ => "ended" },
+                item.Kind switch { ListItemKind.App => item.Elsewhere ? "detached" : item.Status, ListItemKind.Running => "detached", _ => "ended" },
                 item);
         }
         return result.Values.OrderByDescending(c => c.LastActiveAt).ThenBy(c => c.Key, StringComparer.Ordinal).ToList();

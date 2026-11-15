@@ -200,6 +200,8 @@ public partial class MainWindow
             view.Ring.Visibility = Visibility.Visible;
             RefitSoon(view);
             var filling = view.SessionId == one;
+            // A single window's tile already fills it; the toolbar's Tiled view goes back to the tiles.
+            view.Zoom.Visibility = single ? Visibility.Collapsed : Visibility.Visible;
             view.ZoomIcon.Kind = filling ? "unzoom" : "zoom";
             var name = filling ? "Show all tiles again" : "Fill the window";
             view.Zoom.ToolTip = $"{name} (Ctrl+Shift+Z)";
@@ -344,9 +346,6 @@ public partial class MainWindow
             DockPanel.SetDock(element, Dock.Right);
             header.Children.Add(element);
         }
-        var collapse = TileButton("collapse", "Collapse to the side bar", "Collapse to the side bar (Ctrl+Shift+M)");
-        collapse.Click += (_, _) => Act(new LayoutAction.TileCollapse(sessionId));
-        Left(collapse);
         Left(new VectorIcon { Kind = "grip", Size = 14, Foreground = B("mutedBrush"), Opacity = 0.6, VerticalAlignment = VerticalAlignment.Center });
         var dot = new StatusDot { Status = StatusOf(sessionId), VerticalAlignment = VerticalAlignment.Center };
         Left(dot);
@@ -364,6 +363,10 @@ public partial class MainWindow
         var close = TileButton("close", "End session", "End session");
         close.Click += (_, _) => CloseTile(sessionId);
         Right(close);
+        // Minimize beside the close button, as a window has them (the user's choice; Electron had it at the far left).
+        var collapse = TileButton("collapse", "Collapse to the side bar", "Collapse to the side bar (Ctrl+Shift+M)");
+        collapse.Click += (_, _) => Act(new LayoutAction.TileCollapse(sessionId));
+        Right(collapse);
         var zoomIcon = new VectorIcon { Kind = "zoom", Size = 14 };
         var zoomButton = new Button { Style = S("IconButton"), Content = zoomIcon, VerticalAlignment = VerticalAlignment.Center };
         zoomButton.Click += (_, _) => ToggleZoom(sessionId);

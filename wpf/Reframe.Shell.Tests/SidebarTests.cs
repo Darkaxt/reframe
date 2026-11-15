@@ -30,6 +30,19 @@ public class SidebarTests
     }
 
     [Fact]
+    public void ChatsRunningInAnotherTerminalShowDetachedNotEndedOrReady()
+    {
+        var resumedOutside = SidebarChats.Build(new SessionList { App = [Managed with { Elsewhere = true }] })[0];
+        Assert.Equal("detached", resumedOutside.Status);
+        Assert.Equal("ended", SidebarChats.Build(new SessionList { App = [Managed] })[0].Status);
+        var outside = SidebarChats.Build(new SessionList
+        {
+            Running = [new ListItem { Kind = ListItemKind.Running, Pid = 1, ClaudeSessionId = Id, Cwd = @"D:\Project" }],
+        })[0];
+        Assert.Equal("detached", outside.Status);
+    }
+
+    [Fact]
     public void ChatsKeepTheirIdentityThroughHistoryAdoptionAndTheRecordedProvider()
     {
         var found = new ListItem { Kind = ListItemKind.Found, ClaudeSessionId = Id, Cwd = @"D:\Project", Title = "Old", ModifiedAt = 5 };

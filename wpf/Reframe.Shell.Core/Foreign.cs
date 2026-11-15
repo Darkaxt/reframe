@@ -179,14 +179,100 @@ public sealed class Takeover(IConsoleHelper console, Func<int, bool> isAlive, Fu
         }
     }
 
+    /// <summary>How a claude running outside reframe was started, from its executable and command line, so that it goes on
+    /// the same way here: the provider (a client of D:\Tools\Reframe\clients\&lt;provider&gt;, or Anthropic's address in its
+    /// --settings), model, effort and permission mode (--dangerously-skip-permissions is bypassPermissions). Null when
+    /// neither could be read.</summary>
+    public static LaunchOptions? LaunchOf(string? executable, string? commandLine)
+    {
+        if (string.IsNullOrEmpty(executable) && string.IsNullOrEmpty(commandLine)) return null;
+        var args = CommandLineArgs(commandLine ?? "");
+        string? Value(string flag)
+        {
+            string? found = null;
+            for (var i = 0; i < args.Count; i++)
+            {
+                if (args[i] == flag && i + 1 < args.Count) found = args[i + 1];
+                else if (args[i].StartsWith(flag + "=", StringComparison.Ordinal)) found = args[i][(flag.Length + 1)..];
+            }
+            return found is { Length: > 0 } && !found.StartsWith('-') ? found : null;
+        }
+        string? provider = null;
+        var parts = (executable ?? (args.Count > 0 ? args[0] : "")).Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries);
+        var clients = Array.FindLastIndex(parts, p => p.Equals("clients", StringComparison.OrdinalIgnoreCase));
+        if (clients >= 0 && clients + 1 < parts.Length && StateValues.Providers.FirstOrDefault(p => p.Equals(parts[clients + 1], StringComparison.OrdinalIgnoreCase)) is { } known)
+            provider = known;
+        else if (Value("--settings") is { } settings && settings.Contains("https://api.anthropic.com", StringComparison.OrdinalIgnoreCase))
+            provider = "anthropic";
+        var mode = args.Contains("--dangerously-skip-permissions") ? "bypassPermissions" : Value("--permission-mode");
+        return new LaunchOptions
+        {
+            Provider = provider,
+            Model = Value("--model"),
+            Effort = Value("--effort"),
+            PermissionMode = mode is not null && StateValues.PermissionModes.Contains(mode) ? mode : null,
+        };
+    }
+
+    /// <summary>A Windows command line split as programs see it (CommandLineToArgvW's rules: quotes group, a backslash
+    /// escapes only before a quote, "" inside quotes is a quote).</summary>
+    public static List<string> CommandLineArgs(string commandLine)
+    {
+        var args = new List<string>();
+        var current = new System.Text.StringBuilder();
+        bool quoted = false, any = false;
+        for (var i = 0; i < commandLine.Length; i++)
+        {
+            var c = commandLine[i];
+            if (c == '\\')
+            {
+                var slashes = 0;
+                while (i < commandLine.Length && commandLine[i] == '\\') { slashes++; i++; }
+                if (i < commandLine.Length && commandLine[i] == '"')
+                {
+                    current.Append('\\', slashes / 2);
+                    if (slashes % 2 == 1) current.Append('"');
+                    else i--;
+                }
+                else
+                {
+                    current.Append('\\', slashes);
+                    i--;
+                }
+                any = true;
+            }
+            else if (c == '"')
+            {
+                if (quoted && i + 1 < commandLine.Length && commandLine[i + 1] == '"') { current.Append('"'); i++; }
+                else quoted = !quoted;
+                any = true;
+            }
+            else if (char.IsWhiteSpace(c) && !quoted)
+            {
+                if (any) args.Add(current.ToString());
+                current.Clear();
+                any = false;
+            }
+            else
+            {
+                current.Append(c);
+                any = true;
+            }
+        }
+        if (any) args.Add(current.ToString());
+        return args;
+    }
+
     /// <summary>The record for a session taken over (app.ts adopted): open, last used when its transcript was last
     /// written (opening it here is not using it), unused without a transcript (it then starts fresh under the same id).</summary>
-    public static SessionRecord Adopted(string claudeSessionId, string cwd, string? name, double? transcriptModifiedAt, double now) => new()
+    public static SessionRecord Adopted(string claudeSessionId, string cwd, string? name, double? transcriptModifiedAt, double now,
+        LaunchOptions? launch = null) => new()
     {
         Id = Guid.NewGuid().ToString(),
         ClaudeSessionId = claudeSessionId,
         Cwd = cwd,
         Name = name,
+        Launch = launch ?? new(),
         Lifecycle = "open",
         CreatedAt = now,
         LastActiveAt = transcriptModifiedAt is > 0 ? transcriptModifiedAt.Value : now,

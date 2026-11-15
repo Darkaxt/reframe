@@ -196,6 +196,19 @@ public class ShellActionTests
     }
 
     [Fact]
+    public void Permission_mode_is_set_for_the_next_start_and_default_clears_it()
+    {
+        var state = Full();
+        Assert.True(ShellActions.SetPermissionMode(state, "s1", "bypassPermissions"));
+        Assert.Equal("bypassPermissions", state.Sessions["s1"].Launch.PermissionMode);
+        Assert.False(ShellActions.SetPermissionMode(state, "s1", "bypassPermissions"));
+        Assert.False(ShellActions.SetPermissionMode(state, "s1", "everything"));
+        Assert.True(ShellActions.SetPermissionMode(state, "s1", ""));
+        Assert.Null(state.Sessions["s1"].Launch.PermissionMode);
+        Assert.False(ShellActions.SetPermissionMode(state, "nope", "plan"));
+    }
+
+    [Fact]
     public void Pin_appends_once_and_unpin_removes()
     {
         var state = Full();
@@ -287,7 +300,7 @@ public class ContextMenuTests
     public void List_menu_of_an_ended_session_of_reframe_s()
     {
         var chat = ContextMenus.ChatActions(new ChatMenuContext(ListItemKind.App, Record(), "k", false, true, false, true));
-        Assert.Equal("Open|Rename|-|Pin chat|Hide from Reframe…|-|Model provider[ChatGPT*|Anthropic]|Change model…|Archive chat…|Delete chat…|-|Open in a new group|Open in a new group in a new window|-|Properties…",
+        Assert.Equal("Open|Rename|-|Pin chat|Hide from Reframe…|-|Model provider[ChatGPT*|Anthropic]|Change model…|Permission mode[Default*|acceptEdits|auto|bypassPermissions|manual|dontAsk|plan]|Archive chat…|Delete chat…|-|Open in a new group|Open in a new group in a new window|-|Properties…",
             Shape(ContextMenus.ListMenu(1, true, chat)));
     }
 
@@ -295,7 +308,7 @@ public class ContextMenuTests
     public void A_running_session_must_be_ended_first()
     {
         var chat = ContextMenus.ChatActions(new ChatMenuContext(ListItemKind.App, Record("open", "anthropic"), "k", true, false, false, false));
-        Assert.Equal("Open|Rename|-|Unpin chat|Hide from Reframe (end chat first)(off)|-|Model provider (end chat first)[ChatGPT(off)|Anthropic(off)*]|Change model…(off)|Archive chat (end chat first)(off)|Delete chat (end chat first)(off)|-|Open in a new group|Open in a new group in a new window|-|Properties…",
+        Assert.Equal("Open|Rename|-|Unpin chat|Hide from Reframe (end chat first)(off)|-|Model provider (end chat first)[ChatGPT(off)|Anthropic(off)*]|Change model…(off)|Permission mode (next start)[Default*|acceptEdits|auto|bypassPermissions|manual|dontAsk|plan]|Archive chat (end chat first)(off)|Delete chat (end chat first)(off)|-|Open in a new group|Open in a new group in a new window|-|Properties…",
             Shape(ContextMenus.ListMenu(1, true, chat)));
     }
 

@@ -88,6 +88,43 @@ public class ForeignTests
         Assert.NotEqual(used.Id, fresh.Id);
     }
 
+    [Fact]
+    public void A_claude_started_by_the_anthropic_launcher_goes_on_with_its_provider_and_options()
+    {
+        const string exe = @"D:\Tools\Reframe\clients\anthropic\2.1.322-11a05940383b\claude.exe";
+        var line = "\"" + exe + "\" --settings \"{\\\"env\\\":{\\\"ANTHROPIC_BASE_URL\\\":\\\"https://api.anthropic.com\\\"},\\\"model\\\":\\\"sonnet\\\"}\" --model opus --effort medium --dangerously-skip-permissions --resume 0f4c";
+        var launch = Takeover.LaunchOf(exe, line)!;
+        Assert.Equal(("anthropic", "opus", "medium", "bypassPermissions"), (launch.Provider, launch.Model, launch.Effort, launch.PermissionMode));
+        // Not one of reframe's clients: Anthropic's address in --settings still tells.
+        Assert.Equal("anthropic", Takeover.LaunchOf(@"C:\other\claude.exe", line)!.Provider);
+    }
+
+    [Fact]
+    public void A_claude_of_reframe_s_chatgpt_client_and_one_with_nothing_known()
+    {
+        var launch = Takeover.LaunchOf(@"D:\Tools\Reframe\clients\chatgpt\2.1.322-x\claude.exe", @"claude.exe --permission-mode acceptEdits --model gpt-6.1-sol")!;
+        Assert.Equal(("chatgpt", "gpt-6.1-sol", null, "acceptEdits"), (launch.Provider, launch.Model, launch.Effort, launch.PermissionMode));
+        var plain = Takeover.LaunchOf(@"C:\Users\u\.local\bin\claude.exe", "claude.exe --permission-mode everything --model")!;
+        Assert.Equal((null, null, null), (plain.Provider, plain.Model, plain.PermissionMode));
+        Assert.Null(Takeover.LaunchOf(null, null));
+    }
+
+    [Fact]
+    public void Command_lines_split_as_windows_programs_see_them()
+    {
+        Assert.Equal(["a b", "c", "d\"e", @"f\g", "h\\\"i", ""], Takeover.CommandLineArgs("\"a b\" c d\\\"e f\\g \"h\\\\\\\"i\" \"\""));
+        Assert.Equal(["x\"y"], Takeover.CommandLineArgs("\"x\"\"y\""));
+        Assert.Empty(Takeover.CommandLineArgs("   "));
+    }
+
+    [Fact]
+    public void A_session_taken_over_keeps_the_launch_it_was_given()
+    {
+        var record = Takeover.Adopted("c", @"C:\src", null, null, 5000, new LaunchOptions { Provider = "anthropic", PermissionMode = "bypassPermissions" });
+        Assert.Equal(("anthropic", "bypassPermissions"), (record.Launch.Provider, record.Launch.PermissionMode));
+        Assert.Null(Takeover.Adopted("c", @"C:\src", null, null, 5000).Launch.Provider);
+    }
+
     // ---------- takeover.ts and closeIdleConsole, against fakes ----------
 
     sealed class FakeConsole : IConsoleHelper
