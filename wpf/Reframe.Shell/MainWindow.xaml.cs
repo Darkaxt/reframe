@@ -517,6 +517,7 @@ public partial class MainWindow : Window
                 {
                     if (tiles.TryGetValue(sessionId, out var view)) view.Label.Text = LabelOf(sessionId);
                     Saved();
+                    shell.SyncNames();
                 }
                 break;
             case "pin" when key != "":

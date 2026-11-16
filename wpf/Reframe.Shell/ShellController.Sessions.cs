@@ -443,6 +443,12 @@ sealed partial class ShellController
             }
             catch (HostServiceException) { }
         }
+        // A session renamed here starts with its new name (the spawn plan passes claudeName as --name).
+        if (ShellActions.NameToSync(record) is { } renamed)
+        {
+            ShellActions.NameSynced(record, renamed);
+            SaveSoon();
+        }
         var input = SpawnPlans.Input(record, mode, freshClaudeSessionId, env, claudeHome, Path.Combine(App.ProfileDir, "hooks"), hooks,
             State.Preferences.ClaudeBin, env.GetValueOrDefault("REFRAME_CLIENT_ADOPTION"), capture, wsl);
         // The thread tools' scheduled tasks (a host without them ignores it).

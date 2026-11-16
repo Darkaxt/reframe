@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "14959028a1487c02573eeda215565344a82123cd",
-  "scope": "scheduled tasks for threads",
+  "sourceBase": "d9c8cd63e83378d6f698d6d035df8e9818cf5668",
+  "scope": "rename sync to Claude Code",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.50.md",
-      "sha256": "9ddb0025c4821466ee68ff3ad74b36229ca10b553ad2a17decd56ac837108313"
+      "file": "docs/releases/v0.11.0-claudegpt.51.md",
+      "sha256": "de41f34a525f4b1f959f7c0ea2c58bde4ae77df7d68aa35b60df04c2fde61046"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,83 +18,31 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "8ea613966e137aa3ff51318c92829770b3ab16625a09d8a68343d1241047ba22"
+      "sha256": "e80465ecb810d1c09bd9b4154d7f51a24b3d6d47fbdca8668ca12305c1a545f5"
     },
     {
       "file": "package.json",
-      "sha256": "34b2f51196dc3fd8a79ef7e3c1ba211a6a029319acf67dff043ea3657f5c232b"
+      "sha256": "9164e2d7a794884fd67596918b64f0f5c6657b468613df00848f9b23df27f8b3"
     },
     {
-      "file": "rust/reframe-host/src/main.rs",
-      "sha256": "6f31d5b5639e3141e2a4659f7f235f6923a68e8ee9ec73cd94e185c948c8fd10"
+      "file": "wpf/Reframe.Shell.Core/ShellActions.cs",
+      "sha256": "ed09c8229686dbb73cc223a70d8d0a5aa9654789636152f925911f43373abae2"
     },
     {
-      "file": "rust/reframe-host/src/tasks.rs",
-      "sha256": "f6d885d0da4756c9c0b561a9c1b1e4c86157309d75e37f618023b1d13a550a24"
+      "file": "wpf/Reframe.Shell.Tests/StateWriteTests.cs",
+      "sha256": "5fb3fd1861f5a74d285592ce9cd67e29993d09d43c14c1006204fe2c8f65766d"
     },
     {
-      "file": "rust/reframe-host/src/threads.rs",
-      "sha256": "131b44e2a993f1f2f90779993c656340c4c7eca4c668b8f17f42cd74cbcd9cef"
-    },
-    {
-      "file": "rust/reframe-services/src/spawn_plan.rs",
-      "sha256": "84873547ff12d84f4387eda44025cc73313a29dea5f5795fea86f84bcd3bf327"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/AppState.cs",
-      "sha256": "fcbb87e50836bf97289171c47c93564a0614d612f5f811ba7754c1d3462a04b3"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/ScheduledTasks.cs",
-      "sha256": "1ce38b98f6f1b3232846ab615aff243d2efe120559fb7e3dec9eb041d95d1755"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Settings.cs",
-      "sha256": "b2ed064ab05c11cb974aca6e256d673d3a5eecae912c1c78cb83ae8891a3393e"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/StateJson.cs",
-      "sha256": "82d450010cc73d2fc27e715f963d7b150aad2b4733f1c4759aff5939a6f2624c"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/StateParser.cs",
-      "sha256": "3a80337bf73fd27cdba48b7e5c87398e0e68485a27319246606fa558eaa87b79"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Strings.cs",
-      "sha256": "764b18202d43bc1e2b3322c26ad4bbe1de53db208ca757be05f78cf8ad5e1a9a"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/ScheduledTasksTests.cs",
-      "sha256": "f2e90d4d973f90f70d12a76f1d22186e649a44611e6ce346202b82d1c4d4b274"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.Broadcast.cs",
-      "sha256": "2c75507a54376ec6d0be57ed56bc1123951b68550e5a4b702b0ea64a9a87532c"
-    },
-    {
-      "file": "wpf/Reframe.Shell/SettingsDialog.cs",
-      "sha256": "7ee7b88997867cc8d6669fdf622a4b59d874cebc82b9feea2cddee2d8d64af6a"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.Broadcast.cs",
-      "sha256": "c8c1246b7c5acb8173eecab359a8a1467cc1085a5727cc27e669dd7772abcd6b"
+      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
+      "sha256": "f0520e41a91ed442fcc126300254f69110eb8bc09ed7f5f2c16c41f6bef9d9eb"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
-      "sha256": "dc7c5b5665047422cb02ac89f555a5cb626a0d996c3f03fdd0fb80babe90a70c"
+      "sha256": "089ff0d1f232db7d3b017ebaf504d880d0d4d15d46a095144a70778d6732b1f9"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
-      "sha256": "a3601de25175f5949bf22f2719b574b40f84462d0e696c676c77acd7e19cb788"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "6bfb95445a8e89bcaa399f594ce6ecd1b33599a3045f0b56d581e094f8ff7d6f"
-    },
-    {
-      "file": "wpf/Reframe.Shell/TasksDialog.cs",
-      "sha256": "0fe9e06a3f7326ba681835b78dae02a84cdb4f6b3eef4cbf078036bf00d78590"
+      "sha256": "9c4f943da2211febd5e030b7cb8beded7b30773b6c0cc60d50f1160b4ad7caff"
     }
   ],
   "checksNotYetRun": [
