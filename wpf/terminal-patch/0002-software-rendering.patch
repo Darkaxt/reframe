@@ -1,0 +1,81 @@
+diff --git a/src/cascadia/TerminalControl/HwndTerminal.cpp b/src/cascadia/TerminalControl/HwndTerminal.cpp
+index 8d01a19..3d71aa7 100644
+--- a/src/cascadia/TerminalControl/HwndTerminal.cpp
++++ b/src/cascadia/TerminalControl/HwndTerminal.cpp
+@@ -21,6 +21,9 @@ static LPCWSTR term_window_class = L"HwndTerminalClass";
+ 
+ // reframe: the scrollback of terminals created from now on (TerminalSetDefaultHistorySize); 9001 as before by default.
+ static til::CoordType s_defaultHistorySize = 9001;
++// reframe: whether terminals created from now on draw without the graphics card (TerminalSetDefaultSoftwareRendering):
++// AtlasEngine's software rendering (Direct3D's WARP rasterizer), as Windows Terminal's "Use software rendering".
++static bool s_softwareRendering = false;
+ 
+ STDMETHODIMP HwndTerminal::TsfDataProvider::QueryInterface(REFIID, void**) noexcept
+ {
+@@ -290,6 +293,7 @@ HRESULT HwndTerminal::Initialize()
+     _renderer = std::make_unique<::Microsoft::Console::Render::Renderer>(renderSettings, _terminal.get());
+ 
+     auto engine = std::make_unique<::Microsoft::Console::Render::AtlasEngine>();
++    engine->SetSoftwareRendering(s_softwareRendering);
+     RETURN_IF_FAILED(engine->SetHwnd(_hwnd.get()));
+     _renderer->AddRenderEngine(engine.get());
+ 
+@@ -988,6 +992,11 @@ void _stdcall TerminalSetTheme(void* terminal, TerminalTheme theme, LPCWSTR font
+     publicTerminal->Refresh(windowSize, &dimensions);
+ }
+ 
++void _stdcall TerminalSetDefaultSoftwareRendering(bool enable)
++{
++    s_softwareRendering = enable;
++}
++
+ void _stdcall TerminalSetDefaultHistorySize(til::CoordType lines)
+ {
+     s_defaultHistorySize = std::clamp<til::CoordType>(lines, 0, 1000000);
+diff --git a/src/cascadia/TerminalControl/HwndTerminal.hpp b/src/cascadia/TerminalControl/HwndTerminal.hpp
+index 73fac6d..bc705ec 100644
+--- a/src/cascadia/TerminalControl/HwndTerminal.hpp
++++ b/src/cascadia/TerminalControl/HwndTerminal.hpp
+@@ -62,6 +62,8 @@ __declspec(dllexport) void _stdcall TerminalSetFocused(void* terminal, bool focu
+ // reframe: scrollback for terminals created after this call, font size in fractional points with a cell size
+ // (CSS lengths as Windows Terminal's font.cellWidth/cellHeight), and search with every match highlighted.
+ __declspec(dllexport) void _stdcall TerminalSetDefaultHistorySize(til::CoordType lines);
++// reframe: software rendering (no graphics card) for terminals created after this call.
++__declspec(dllexport) void _stdcall TerminalSetDefaultSoftwareRendering(bool enable);
+ __declspec(dllexport) void _stdcall TerminalSetFont(void* terminal, LPCWSTR fontFamily, float fontSize, LPCWSTR cellWidth, LPCWSTR cellHeight, int newDpi);
+ __declspec(dllexport) int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView, _Out_ int* currentMatch);
+ __declspec(dllexport) void _stdcall TerminalClearSearch(void* terminal);
+diff --git a/src/cascadia/WpfTerminalControl/NativeMethods.cs b/src/cascadia/WpfTerminalControl/NativeMethods.cs
+index 6407f4b..f1361e0 100644
+--- a/src/cascadia/WpfTerminalControl/NativeMethods.cs
++++ b/src/cascadia/WpfTerminalControl/NativeMethods.cs
+@@ -227,6 +227,9 @@ namespace Microsoft.Terminal.Wpf
+         [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
+         public static extern void TerminalSetDefaultHistorySize(int lines);
+ 
++        [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
++        public static extern void TerminalSetDefaultSoftwareRendering([MarshalAs(UnmanagedType.U1)] bool enable);
++
+         [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
+         public static extern void TerminalSetFont(IntPtr terminal, string fontFamily, float fontSize, string cellWidth, string cellHeight, int newDpi);
+ 
+diff --git a/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs b/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
+index d1ad07b..9db55d9 100644
+--- a/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
++++ b/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
+@@ -111,6 +111,15 @@ namespace Microsoft.Terminal.Wpf
+             NativeMethods.TerminalSetDefaultHistorySize(lines);
+         }
+ 
++        /// <summary>
++        /// Sets whether terminals created after this call draw without the graphics card (software rendering).
++        /// </summary>
++        /// <param name="enable">Whether to use software rendering.</param>
++        public static void SetDefaultSoftwareRendering(bool enable)
++        {
++            NativeMethods.TerminalSetDefaultSoftwareRendering(enable);
++        }
++
+         /// <summary>
+         /// Sets the font with a fractional point size and a cell size, kept by later <see cref="SetTheme"/> calls.
+         /// </summary>

@@ -27,6 +27,19 @@ public partial class App : Application
 
     SingleInstance? instance;
 
+    /// <summary>Whether this run draws with the graphics card (the setting as it was at start).</summary>
+    public static bool GpuAccelerated { get; private set; } = true;
+
+    /// <summary>"Use GPU acceleration" off (the default): WPF and the terminals' AtlasEngine draw in software (WARP),
+    /// as Electron's disableHardwareAcceleration did; NVIDIA driver resets were seen while reframe used the GPU.</summary>
+    static void ApplyGpuPreference()
+    {
+        GpuAccelerated = GpuPreference.Saved(Path.Combine(ProfileDir, "state.json"));
+        if (GpuAccelerated) return;
+        System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+        Microsoft.Terminal.Wpf.TerminalControl.SetDefaultSoftwareRendering(true);
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         // A console helper (ConsoleHelper.cs): one request in another console, no window, then gone.
@@ -85,6 +98,8 @@ public partial class App : Application
                 return;
             }
             FileLog.Start(ProfileDir, AboutDialog.Version);
+            ApplyGpuPreference();
+            System.Diagnostics.Trace.WriteLine($"gpu: {(GpuAccelerated ? "hardware" : "software")} rendering");
             if (HostLauncher.FindSource(hostDir, AppContext.BaseDirectory) is { } source)
                 Starter = new HostLauncher(source, $"shell-{typeof(App).Assembly.GetName().Version}").StartAsync;
             KeepEntryPoints();
