@@ -55,7 +55,7 @@ sealed partial class ShellController
         {
             if (message["message"] is JsonObject asked && (string?)asked["event"] == "OpenThread")
             {
-                _ = OpenThreadAsync(asked);
+                _ = asked["payload"] is JsonObject { } body && body.ContainsKey("wake") ? WakeThreadAsync(asked) : OpenThreadAsync(asked);
                 return;
             }
             // The status line input of reframe's Anthropic sessions: its rate_limits are the Claude quota.
@@ -69,6 +69,7 @@ sealed partial class ShellController
         switch (type)
         {
             case "spawned":
+                endedAt.Remove(id);
                 HostSessions[id] = hosted with { Pid = (int?)message["pid"] ?? 0 };
                 if (State.Sessions.TryGetValue(id, out var record) && (int?)message["pid"] is { } pid) record.Pid = pid;
                 return;
@@ -76,6 +77,7 @@ sealed partial class ShellController
                 startErrors[id] = "spawnFailed";
                 break;
             case "exit":
+                endedAt[id] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 break;
             default:
                 return;

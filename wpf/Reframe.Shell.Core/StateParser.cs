@@ -362,6 +362,8 @@ public static class StateParser
         p.CloseWindow = o.OptEnum("closeWindow", StateValues.CloseWindow) ?? "ask";
         p.GpuAcceleration = o.OptBool("gpuAcceleration") ?? false;
         p.WakeForTasks = o.OptBool("wakeForTasks") ?? false;
+        // A value the setting does not offer means never (an older or edited file is not rejected for it).
+        p.CloseEndedAfterHours = o.OptNum("closeEndedAfterHours") is { } hours && PreferencesPatch.CloseEndedChoices.Contains((int)hours) && hours == Math.Floor(hours) ? (int)hours : 0;
         p.PtyHost = o.OptEnum("ptyHost", StateValues.PtyHosts) ?? "node";
         p.ClaudeBin = o.OptStr("claudeBin");
         p.DefaultModel = o.OptStr("defaultModel");

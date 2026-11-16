@@ -166,7 +166,8 @@ public static partial class NewSession
             ? $"[opened by a Reframe thread on {family}; answer it with SendMessage]"
             : $"[opened by the Reframe thread \"{openerName}\" on {family}; answer it with SendMessage to \"{openerName}\"]";
         return new NewSessionRequest(Text("folder") ?? opener.Cwd, provider, name, Model: Text("model") ?? defaults.Model,
-            Effort: defaults.Effort, PermissionMode: defaults.PermissionMode, InitialPrompt: $"{by}\n{prompt}");
+            Effort: Text("effort") is { } effort && EffortLevels.Contains(effort) ? effort : defaults.Effort,
+            PermissionMode: defaults.PermissionMode, InitialPrompt: $"{by}\n{prompt}");
     }
 
     /// <summary>restartSession: open again; a fresh start is a new, unused conversation, last used now.</summary>

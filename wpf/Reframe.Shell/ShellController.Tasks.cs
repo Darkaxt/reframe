@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json.Nodes;
 using System.Windows.Threading;
 using Reframe.Shell.Core;
 
@@ -21,6 +22,9 @@ sealed partial class ShellController
         public DateTimeOffset Since { get; } = since;
         public DateTimeOffset? ResumedAt { get; set; }
         public bool Busy { get; set; }
+        /// <summary>The text to type instead of the task's prompt: a wake-up from another thread (wake_thread), which
+        /// is not a saved task (nothing of it is written, only a failure is told).</summary>
+        public string? Wake { get; init; }
     }
 
     static readonly TimeSpan TaskWaitLimit = TimeSpan.FromHours(12);
@@ -73,7 +77,11 @@ sealed partial class ShellController
         ReloadTasks();
         // The first look comes after the sessions resumed at start had a moment to come up.
         taskTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
-        taskTimer.Tick += (_, _) => TickTasks();
+        taskTimer.Tick += (_, _) =>
+        {
+            TickTasks();
+            CloseEnded();
+        };
         taskTimer.Start();
     }
 
@@ -98,6 +106,31 @@ sealed partial class ShellController
     }
 
     readonly HashSet<string> renaming = [];
+
+    /// <summary>When each session's Claude exited while the shell ran (ms since the epoch); a session found ended
+    /// counts from its last use.</summary>
+    readonly Dictionary<string, long> endedAt = [];
+
+    /// <summary>"Close ended threads after": a thread whose Claude ended that long ago, still in a window, is ended as
+    /// its tile's × ends it (the tile goes, the thread stays in the list and can be resumed). Never a running thread, one
+    /// starting, one a task or a wake-up is about to resume, or one whose start failed (its tile says why).</summary>
+    void CloseEnded()
+    {
+        var hours = State.Preferences.CloseEndedAfterHours;
+        if (hours <= 0 || Quitting || Fixture is not null || !Writable) return;
+        var limit = DateTimeOffset.UtcNow.AddHours(-hours).ToUnixTimeMilliseconds();
+        var waiting = pendingRuns.Values.Select(r => r.Task.TargetThreadId).ToHashSet();
+        foreach (var window in State.Windows.ToList())
+            foreach (var id in LayoutActions.WindowSessions(window).ToList())
+            {
+                if (Runs(id) || startsPending.Contains(id) || startErrors.ContainsKey(id) || waiting.Contains(id)) continue;
+                if (!State.Sessions.TryGetValue(id, out var record) || record.Lifecycle != "open") continue;
+                var since = endedAt.TryGetValue(id, out var at) ? at : (long)record.LastActiveAt;
+                if (since <= 0 || since > limit) continue;
+                Trace.WriteLine($"closing: {id} ended more than {hours} h ago");
+                EndSession(window.Id, id, closeIfEmpty: false);
+            }
+    }
 
     /// <summary>Tells each running, idle Claude Code renamed here its new name with /rename (a busy one at a later
     /// tick; one not running gets it with --name at its next start).</summary>
@@ -131,6 +164,33 @@ sealed partial class ShellController
         pendingRuns[task.Id] = new PendingRun(task, now);
         TaskLog($"{task.Id}: run taken ({why})");
         TasksChanged?.Invoke();
+    }
+
+    /// <summary>A thread asked to wake another by name (its <c>wake_thread</c> tool): the message is delivered like a
+    /// task's run (waiting for idle, resuming an ended thread); an unknown or ambiguous name is told to the asker.</summary>
+    async Task WakeThreadAsync(JsonObject hook)
+    {
+        var askerId = (string?)hook["sessionId"];
+        string? Text(string key) => hook["payload"] is JsonObject o && o[key] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim() is { Length: > 0 } t ? t : null;
+        if (askerId is null || !State.Sessions.TryGetValue(askerId, out var asker) || Text("wake") is not { } name || Text("message") is not { } message) return;
+        var matches = State.Sessions.Values
+            .Where(r => r.Id != askerId && string.Equals(StateValues.SessionLabel(r.Name, r.ClaudeName, r.Cwd).Trim(), name, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var askerName = StateValues.SessionLabel(asker.Name, asker.ClaudeName, asker.Cwd);
+        if (matches.Count != 1)
+        {
+            var why = matches.Count == 0 ? $"no thread is named \"{name}\"" : $"more than one thread is named \"{name}\"";
+            TaskLog($"wake: {askerId}: {why}");
+            if (Runs(askerId)) await TypeIntoAsync(askerId, $"[Reframe: could not wake: {why}]");
+            return;
+        }
+        var target = matches[0];
+        var by = $"[woken by the Reframe thread \"{askerName}\"; answer it with SendMessage to \"{askerName}\"]";
+        var task = new ScheduledTask($"wake-{Guid.NewGuid():N}", "heartbeat", name, message, "ACTIVE", "", target.Id, "important", 0, 0, new Dictionary<string, object>());
+        var run = new PendingRun(task, DateTimeOffset.Now) { Wake = $"{by}\n{message}" };
+        pendingRuns[task.Id] = run;
+        TaskLog($"wake: {askerId} wakes {target.Id}");
+        await AdvanceAsync(run);
     }
 
     /// <summary>Run now (the Tasks dialog): taken at once, the schedule going on from now.</summary>
@@ -172,7 +232,7 @@ sealed partial class ShellController
             {
                 if (StatusOf(record.Id) == "idle")
                 {
-                    var typed = await TypeIntoAsync(record.Id, ScheduledTasks.RunText(task));
+                    var typed = await TypeIntoAsync(record.Id, run.Wake ?? ScheduledTasks.RunText(task));
                     Finish(run, typed, typed ? "delivered" : "could not type into its thread");
                 }
                 else if (DateTimeOffset.Now - run.Since > TaskWaitLimit) Finish(run, false, "its thread stayed busy for 12 hours");
@@ -213,6 +273,12 @@ sealed partial class ShellController
     {
         var task = run.Task;
         pendingRuns.Remove(task.Id);
+        if (run.Wake is not null)
+        {
+            TaskLog($"{task.Id}: {result}");
+            if (!delivered) toasts?.Show(task.TargetThreadId, $"Could not wake: {task.Name}", result);
+            return;
+        }
         var runs = ScheduledTasks.ReadRuns(TasksDir, task.Id);
         ScheduledTasks.WriteRuns(TasksDir, task.Id, runs with { LastResult = result, LastResultAt = DateTimeOffset.Now.ToUnixTimeMilliseconds() });
         TaskLog($"{task.Id}: {result}");

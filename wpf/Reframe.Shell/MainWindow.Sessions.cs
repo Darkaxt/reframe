@@ -21,7 +21,13 @@ public partial class MainWindow
         var (roots, recent) = shell.DialogDefaults();
         var dialog = newSessionDialog = new NewSessionDialog(state.Preferences, roots, recent, preset);
         dialog.CloseRequested += CloseModal;
-        dialog.Create = request => shell.CreateSessionAsync(WindowId, request, AskToCreateFolder);
+        dialog.Create = async request =>
+        {
+            var result = await shell.CreateSessionAsync(WindowId, request, AskToCreateFolder);
+            // The new thread is the one the sidebar highlights (as a click on its row would), not the one clicked before.
+            if (result.Error is null && state.Sessions.Values.MaxBy(r => r.CreatedAt) is { } created) sidebar.Select(ChatKeyOf(created.Id));
+            return result;
+        };
         ShowModal(dialog.Frame);
         modal!.Closed += () => newSessionDialog = null;
         if (!Capturing) Dispatcher.BeginInvoke(() =>

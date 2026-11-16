@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "ca261256dad56700c2eb0ce4b5db858cfcb627d2",
-  "scope": "task editor prompt box",
+  "sourceBase": "fba7c31ba97c599c9b6959b7dac28edb6bdf90ab",
+  "scope": "wake_thread, close ended threads, sidebar select, delete never-started, open_thread effort",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.54.md",
-      "sha256": "4a387ba2c6e70d8d0b428c4a031fd32eba6dcaea222f806bff213e8441e50316"
+      "file": "docs/releases/v0.11.0-claudegpt.55.md",
+      "sha256": "6e99961febae0e9ed73355615b501b1507aa290a84b2368324df2fe27a64407e"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,15 +18,71 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "5038e6e3146459925279bb26325ccb381e67a6c481dacbe505895ea33061c1d0"
+      "sha256": "76a688c958b0874ca7c2e718e5e90f1f692455e4cff099e51f1e25dfa6dbda0d"
     },
     {
       "file": "package.json",
-      "sha256": "b10101991164e42a96651ffbfac0b9a6c634bd9403f4fdc7c0da19e8786141fe"
+      "sha256": "e1d1a7b5a2815c8c00bf584a2a3decd8dbe38a57178b5bf19740cfd85fa3c3e0"
     },
     {
-      "file": "wpf/Reframe.Shell/TasksDialog.cs",
-      "sha256": "b4f78e94ff37d813a698ddb0f1d40200499488097c3295035d347468f1d45dba"
+      "file": "rust/reframe-host/src/threads.rs",
+      "sha256": "af44457d6571d58c8abe495d0e38c6b8969d9fed83539e3dbb4fe35039a9988d"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/AppState.cs",
+      "sha256": "b42287f40468e06c475a0895b651c04e149782f4502eda26a724d6b50ff6ba70"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/ChatHistory.cs",
+      "sha256": "52e485575f6e0ebdd27f89d3a05a278396fd6451d99bf3362d404e9e8b64e822"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/NewSession.cs",
+      "sha256": "371baefcea20240df43f813d4ef3e1d68671720d52abb8e74836ab133ce62700"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/Settings.cs",
+      "sha256": "8b9f9a874c56783375f132f14479ba40385a0f9e46fd86c1c551384b77221fc0"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/StateJson.cs",
+      "sha256": "aa038b7ac0a7d043b0c1f2f5eb8e6e80c28d0248760ff85ab9710876b79cdf79"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/StateParser.cs",
+      "sha256": "d52aa99e16c4246554152df1257325418e104663a3d9596061657b28115dd457"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/Strings.cs",
+      "sha256": "50df7461be172874441d91d12eb796370255c4e0e51039d6d231db1294f08146"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/ChatHistoryTests.cs",
+      "sha256": "249dfa92a18b2e068a325f4bc6b0cb6892d6ec812ab99d3db8a4f436b3677da0"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
+      "sha256": "fd8a6f94a69c0bd54c33cd0498697c6992b4cc91dadab818986cee160a60c744"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/SettingsTests.cs",
+      "sha256": "c1e3ee64f2ec75891980d2d5f5b6ddb1f660e0a7325fc499b6efb969c6673772"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Sessions.cs",
+      "sha256": "68e9b752f740aef32f09ebc9f3e87855d6ef6e5ae58ad3a4a91c66441980895a"
+    },
+    {
+      "file": "wpf/Reframe.Shell/SettingsDialog.cs",
+      "sha256": "d5fa8843a892ba52614d84b13cb449ec63c8ee6d286c9791e1651350da6ecde1"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
+      "sha256": "c32d69e41eaef01fb4e20d44dcee770b472eb19f1ac0919770750d2a2375f41d"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
+      "sha256": "f78622bee4adeedf1164a516ef69f6b04d70e92b9c316113243608fb65f8c0e5"
     }
   ],
   "checksNotYetRun": [
