@@ -76,7 +76,11 @@ sealed partial class ShellController
         ReloadTasks();
         // The first look comes after the sessions resumed at start had a moment to come up.
         taskTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
-        taskTimer.Tick += (_, _) => TickTasks();
+        taskTimer.Tick += (_, _) =>
+        {
+            TickTasks();
+            CloseEnded();
+        };
         taskTimer.Start();
     }
 
@@ -101,6 +105,31 @@ sealed partial class ShellController
     }
 
     readonly HashSet<string> renaming = [];
+
+    /// <summary>When each session's Claude exited while the shell ran (ms since the epoch); a session found ended
+    /// counts from its last use.</summary>
+    readonly Dictionary<string, long> endedAt = [];
+
+    /// <summary>"Close ended threads after": a thread whose Claude ended that long ago, still in a window, is ended as
+    /// its tile's × ends it (the tile goes, the thread stays in the list and can be resumed). Never a running thread, one
+    /// starting, one a task or a wake-up is about to resume, or one whose start failed (its tile says why).</summary>
+    void CloseEnded()
+    {
+        var hours = State.Preferences.CloseEndedAfterHours;
+        if (hours <= 0 || Quitting || Fixture is not null || !Writable) return;
+        var limit = DateTimeOffset.UtcNow.AddHours(-hours).ToUnixTimeMilliseconds();
+        var waiting = pendingRuns.Values.Select(r => r.Task.TargetThreadId).ToHashSet();
+        foreach (var window in State.Windows.ToList())
+            foreach (var id in LayoutActions.WindowSessions(window).ToList())
+            {
+                if (Runs(id) || startsPending.Contains(id) || startErrors.ContainsKey(id) || waiting.Contains(id)) continue;
+                if (!State.Sessions.TryGetValue(id, out var record) || record.Lifecycle != "open") continue;
+                var since = endedAt.TryGetValue(id, out var at) ? at : (long)record.LastActiveAt;
+                if (since <= 0 || since > limit) continue;
+                Trace.WriteLine($"closing: {id} ended more than {hours} h ago");
+                EndSession(window.Id, id, closeIfEmpty: false);
+            }
+    }
 
     /// <summary>Tells each running, idle Claude Code renamed here its new name with /rename (a busy one at a later
     /// tick; one not running gets it with --name at its next start).</summary>
@@ -157,8 +186,7 @@ sealed partial class ShellController
         var target = matches[0];
         var by = $"[woken by the Reframe thread \"{askerName}\"; answer it with SendMessage to \"{askerName}\"]";
         var task = new ScheduledTask($"wake-{Guid.NewGuid():N}", "heartbeat", name, message, "ACTIVE", "", target.Id, "important", 0, 0, new Dictionary<string, object>());
-        var run = new PendingRun(task, DateTimeOffset.Now) { Wake = $"{by}
-{message}" };
+        var run = new PendingRun(task, DateTimeOffset.Now) { Wake = $"{by}\n{message}" };
         pendingRuns[task.Id] = run;
         TaskLog($"wake: {askerId} wakes {target.Id}");
         await AdvanceAsync(run);

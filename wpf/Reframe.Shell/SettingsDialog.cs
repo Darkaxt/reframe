@@ -219,6 +219,11 @@ sealed class SettingsDialog
         Add(Check(T("settings.lookInWsl"), p.LookInWsl, v => Set(new PreferencesPatch { LookInWsl = v })));
         AddHint(T("settings.lookInWslHint"));
 
+        Add(Row(T("settings.closeEnded"), Select(T("settings.closeEnded"),
+            [.. PreferencesPatch.CloseEndedChoices.Select(h => (h.ToString(), h == 0 ? T("settings.closeEndedNever") : T("settings.closeEndedHours", ("hours", h.ToString()))))],
+            p.CloseEndedAfterHours.ToString(), v => Set(new PreferencesPatch { CloseEndedAfterHours = int.Parse(v) }))));
+        AddHint(T("settings.closeEndedHint"));
+
         Add(Check(T("settings.wakeForTasks"), p.WakeForTasks, v => Set(new PreferencesPatch { WakeForTasks = v })));
         AddHint(T("settings.wakeForTasksHint"));
 

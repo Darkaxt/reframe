@@ -270,4 +270,16 @@ public class SettingsFixtureTests
         Assert.Equal(("h1", "An experiment", Path.Combine(@"D:\home", "projects", "webshop"), 1_000_000_000 - 3_600_000.0),
             (hidden.ClaudeSessionId, hidden.Label, hidden.Cwd, hidden.HiddenAt));
     }
+
+    [Fact]
+    public void CloseEndedAfterHoursTakesOnlyTheOfferedChoices()
+    {
+        var p = new Preferences();
+        Assert.Equal(0, p.CloseEndedAfterHours);
+        Assert.True(Settings.Apply(p, new PreferencesPatch { CloseEndedAfterHours = 3 }));
+        Assert.Equal(3, p.CloseEndedAfterHours);
+        Assert.False(Settings.Apply(p, new PreferencesPatch { CloseEndedAfterHours = 5 }));
+        Assert.Equal(3, p.CloseEndedAfterHours);
+        Assert.True(Settings.Apply(p, new PreferencesPatch { CloseEndedAfterHours = 0 }));
+    }
 }

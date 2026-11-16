@@ -69,6 +69,7 @@ sealed partial class ShellController
         switch (type)
         {
             case "spawned":
+                endedAt.Remove(id);
                 HostSessions[id] = hosted with { Pid = (int?)message["pid"] ?? 0 };
                 if (State.Sessions.TryGetValue(id, out var record) && (int?)message["pid"] is { } pid) record.Pid = pid;
                 return;
@@ -76,6 +77,7 @@ sealed partial class ShellController
                 startErrors[id] = "spawnFailed";
                 break;
             case "exit":
+                endedAt[id] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 break;
             default:
                 return;
