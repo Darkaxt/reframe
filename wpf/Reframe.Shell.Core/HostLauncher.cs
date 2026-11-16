@@ -59,6 +59,20 @@ public sealed class HostLauncher(string sourceDir, string version)
         }
     }
 
+    /// <summary>Whether the host process <paramref name="pid"/> runs the files this launcher would start (its folder under
+    /// the host root is named for their hash). Unknown (the process path is unreadable) counts as current, so nothing is
+    /// started on a guess.</summary>
+    public bool RunsCurrentBuild(int pid)
+    {
+        try
+        {
+            using var process = System.Diagnostics.Process.GetProcessById(pid);
+            var folder = Path.GetFileName(Path.GetDirectoryName(process.MainModule?.FileName));
+            return folder is null || !folder.StartsWith("shell-rust-", StringComparison.Ordinal) || folder == $"shell-rust-{Hash(SourceDir)[..12]}";
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or Win32Exception or IOException) { return true; }
+    }
+
     /// <summary>Hash of what the host runs (runtimeHash in ptyhost-files.ts: the kind, then each file's name and content).</summary>
     public static string Hash(string sourceDir)
     {

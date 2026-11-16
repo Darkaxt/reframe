@@ -31,11 +31,13 @@ public static class ShellAttach
     /// <summary>
     /// Attaches to the profile's running host (the profile is reframe's user-data folder; its host folder is
     /// <c>ptyhost</c> in it), or starts one with <paramref name="start"/> when none runs. <paramref name="connect"/> is
-    /// for tests; by default the descriptor's pipe.
+    /// for tests; by default the descriptor's pipe. <paramref name="isCurrent"/> tells whether a host (by pid) runs the
+    /// build this shell ships: one that does not keeps its sessions but is not given new ones while a current host can be
+    /// started, so the host side (thread tools, spawn plans) follows an update, not only the shell.
     /// </summary>
     public static async Task<AttachResult> AttachAsync(string profileDir, bool takeOver,
         Func<HostDescriptor, string, Task<HostConnection>>? connect = null, Func<int, bool>? isAlive = null,
-        HostStarter? start = null)
+        HostStarter? start = null, Func<int, bool>? isCurrent = null)
     {
         var hostDir = HostFiles.HostDir(profileDir);
         var token = HostFiles.ReadToken(hostDir);
@@ -97,7 +99,7 @@ public static class ShellAttach
                 errors.Add($"pid {host.Pid}: {e.Message}");
             }
         }
-        var primary = connected.FirstOrDefault(c => c.CanStartSessions);
+        var primary = connected.FirstOrDefault(c => c.CanStartSessions && (isCurrent?.Invoke(c.Welcome.Pid) ?? true));
         var how = "attached to";
         if (primary is null && start is not null && other is null)
         {
@@ -111,7 +113,7 @@ public static class ShellAttach
                 errors.Add("could not start a pty host: " + e.Message);
             }
         }
-        primary ??= connected.FirstOrDefault();
+        primary ??= connected.FirstOrDefault(c => c.CanStartSessions) ?? connected.FirstOrDefault();
         if (primary is null)
         {
             shellLock?.Dispose();

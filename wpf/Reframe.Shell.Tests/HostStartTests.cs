@@ -58,6 +58,48 @@ public class HostStartTests
         result.Lock!.Dispose();
     }
 
+    [Fact]
+    public async Task A_host_of_another_build_keeps_its_sessions_beside_a_current_one_started_for_new_ones()
+    {
+        // Same release line, but its files differ from the ones this shell ships (a Rust-side change): it can start
+        // sessions, yet the thread tools it hands them would be the old build's.
+        await using var stale = new FakeHost(launch: true, session: true);
+        FakeHost? started = null;
+        try
+        {
+            var result = await ShellAttach.AttachAsync(stale.ProfileDir, takeOver: false, isAlive: _ => true,
+                isCurrent: pid => pid != stale.Descriptor.Pid, start: (_, _, _) =>
+                {
+                    started = new FakeHost(profileDir: stale.ProfileDir, launch: true, session: false, pid: 1);
+                    return Task.FromResult(started.Descriptor);
+                });
+            Assert.True(result.Outcome == AttachOutcome.Attached, result.Message);
+            Assert.StartsWith("started and attached", result.Message);
+            Assert.Equal(started!.Descriptor.Pid, result.Connection!.Welcome.Pid);
+            var older = Assert.Single(result.Older!);
+            Assert.Equal("s1", Assert.Single(older.Welcome.Sessions).SessionId);
+            await older.DisposeAsync();
+            await result.Connection.DisposeAsync();
+            result.Lock!.Dispose();
+        }
+        finally
+        {
+            if (started is not null) await started.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task A_host_of_another_build_is_still_used_when_no_current_one_can_be_started()
+    {
+        await using var stale = new FakeHost(launch: true);
+        var result = await ShellAttach.AttachAsync(stale.ProfileDir, takeOver: false, isCurrent: _ => false,
+            start: (_, _, _) => throw new IOException("no host files"));
+        Assert.Equal(AttachOutcome.Attached, result.Outcome);
+        Assert.Equal(stale.Descriptor.Pid, result.Connection!.Welcome.Pid);
+        await result.Connection.DisposeAsync();
+        result.Lock!.Dispose();
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

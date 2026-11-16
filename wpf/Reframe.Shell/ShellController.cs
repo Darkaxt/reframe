@@ -162,7 +162,7 @@ sealed partial class ShellController
     public async Task AttachAsync()
     {
         SetStatus($"Profile {App.ProfileDir}: attaching...");
-        var result = await ShellAttach.AttachAsync(App.ProfileDir, App.TakeOver, start: App.Starter);
+        var result = await ShellAttach.AttachAsync(App.ProfileDir, App.TakeOver, start: App.Starter, isCurrent: App.IsCurrentHost);
         SetStatus($"Profile {App.ProfileDir}: {result.Message}");
         System.Diagnostics.Trace.WriteLine($"terminal host: {result.Message}");
         if (result.Connection is null) return;
