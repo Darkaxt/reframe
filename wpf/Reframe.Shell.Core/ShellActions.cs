@@ -35,6 +35,19 @@ public static class ShellActions
         return true;
     }
 
+    /// <summary>The name a running Claude Code should be told with /rename: the session renamed here after it was
+    /// started (claudeName still the old name, or none), so that Claude Code's own name (its session list, the
+    /// coordinator's records) follows Reframe's.</summary>
+    public static string? NameToSync(SessionRecord record) =>
+        record.HasClaudeName && record.Name is { } name && record.ClaudeName != name ? name : null;
+
+    /// <summary>Records that Claude Code has <paramref name="name"/> now (told by /rename or started with --name).</summary>
+    public static void NameSynced(SessionRecord record, string name)
+    {
+        record.ClaudeName = name;
+        record.HasClaudeName = true;
+    }
+
     public static bool IsPinned(AppState state, string chatKey) => state.PinnedChats?.Contains(chatKey) == true;
 
     /// <summary>Pin chat / Unpin chat: the chat key added at the end (once) or taken out.</summary>

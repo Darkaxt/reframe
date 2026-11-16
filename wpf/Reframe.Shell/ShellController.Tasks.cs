@@ -94,6 +94,35 @@ sealed partial class ShellController
             Take(task, runs, now, $"due {due:yyyy-MM-dd HH:mm:ss}");
         }
         foreach (var run in pendingRuns.Values.Where(r => !r.Busy).ToList()) _ = AdvanceAsync(run);
+        SyncNames();
+    }
+
+    readonly HashSet<string> renaming = [];
+
+    /// <summary>Tells each running, idle Claude Code renamed here its new name with /rename (a busy one at a later
+    /// tick; one not running gets it with --name at its next start).</summary>
+    public void SyncNames()
+    {
+        if (Quitting || Connection is not { IsOpen: true, IsObserver: false }) return;
+        foreach (var record in State.Sessions.Values.ToList())
+            if (ShellActions.NameToSync(record) is { } name && !renaming.Contains(record.Id) && Runs(record.Id) && StatusOf(record.Id) == "idle")
+                _ = RenameRunningAsync(record, name);
+    }
+
+    async Task RenameRunningAsync(SessionRecord record, string name)
+    {
+        renaming.Add(record.Id);
+        try
+        {
+            if (!await TypeIntoAsync(record.Id, "/rename " + name)) return;
+            if (record.Name == name) ShellActions.NameSynced(record, name);
+            SaveSoon();
+            Trace.WriteLine($"rename: {record.Id} told its name");
+        }
+        finally
+        {
+            renaming.Remove(record.Id);
+        }
     }
 
     void Take(ScheduledTask task, TaskRuns runs, DateTimeOffset now, string why)

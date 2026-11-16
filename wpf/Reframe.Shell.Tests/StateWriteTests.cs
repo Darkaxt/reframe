@@ -196,6 +196,21 @@ public class ShellActionTests
     }
 
     [Fact]
+    public void A_rename_is_synced_to_claude_code_once()
+    {
+        var state = Full();
+        var s1 = state.Sessions["s1"];
+        ShellActions.Rename(state, "s1", "DualSouls");
+        Assert.Equal("DualSouls", ShellActions.NameToSync(s1));
+        ShellActions.NameSynced(s1, "DualSouls");
+        Assert.Null(ShellActions.NameToSync(s1));
+        // Back to the automatic name: nothing to tell; never renamed: nothing either.
+        ShellActions.Rename(state, "s1", "");
+        Assert.Null(ShellActions.NameToSync(s1));
+        Assert.Null(ShellActions.NameToSync(new SessionRecord { Id = "x", Name = "Started so" }));
+    }
+
+    [Fact]
     public void Permission_mode_is_set_for_the_next_start_and_default_clears_it()
     {
         var state = Full();
