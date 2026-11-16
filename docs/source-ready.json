@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "c9b6c25c014174da2d345298ba83125915a735db",
-  "scope": "wake_thread, close ended, sidebar selection, delete never-started",
+  "sourceBase": "fba7c31ba97c599c9b6959b7dac28edb6bdf90ab",
+  "scope": "wake_thread, close ended threads, sidebar select, delete never-started, open_thread effort",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.55.md",
-      "sha256": "9cac53ba8e4fce80396124746f359555f4851b6a521bfdb5c52d554a8c85ed80"
+      "sha256": "6e99961febae0e9ed73355615b501b1507aa290a84b2368324df2fe27a64407e"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -26,7 +26,7 @@
     },
     {
       "file": "rust/reframe-host/src/threads.rs",
-      "sha256": "0132fbf82a27a8d92d17ae8d2ee93565c3f2ed1bfa2cbcb36ea86141b7a3ce34"
+      "sha256": "af44457d6571d58c8abe495d0e38c6b8969d9fed83539e3dbb4fe35039a9988d"
     },
     {
       "file": "wpf/Reframe.Shell.Core/AppState.cs",
@@ -35,6 +35,10 @@
     {
       "file": "wpf/Reframe.Shell.Core/ChatHistory.cs",
       "sha256": "52e485575f6e0ebdd27f89d3a05a278396fd6451d99bf3362d404e9e8b64e822"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/NewSession.cs",
+      "sha256": "371baefcea20240df43f813d4ef3e1d68671720d52abb8e74836ab133ce62700"
     },
     {
       "file": "wpf/Reframe.Shell.Core/Settings.cs",
@@ -55,6 +59,10 @@
     {
       "file": "wpf/Reframe.Shell.Tests/ChatHistoryTests.cs",
       "sha256": "249dfa92a18b2e068a325f4bc6b0cb6892d6ec812ab99d3db8a4f436b3677da0"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
+      "sha256": "fd8a6f94a69c0bd54c33cd0498697c6992b4cc91dadab818986cee160a60c744"
     },
     {
       "file": "wpf/Reframe.Shell.Tests/SettingsTests.cs",
