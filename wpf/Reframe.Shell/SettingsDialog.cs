@@ -219,6 +219,9 @@ sealed class SettingsDialog
         Add(Check(T("settings.lookInWsl"), p.LookInWsl, v => Set(new PreferencesPatch { LookInWsl = v })));
         AddHint(T("settings.lookInWslHint"));
 
+        Add(Check(T("settings.wakeForTasks"), p.WakeForTasks, v => Set(new PreferencesPatch { WakeForTasks = v })));
+        AddHint(T("settings.wakeForTasksHint"));
+
         HiddenSection = Hidden(state.HiddenThreads);
         Add(HiddenSection);
         Add(Excluded(state.TakeoverExclusions ?? []));

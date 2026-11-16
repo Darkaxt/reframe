@@ -525,13 +525,15 @@ fn message_tag_hook(relay: &str, provider: Option<&str>) -> Value {
 /// The MCP server (`--mcp-config`, as JSON) of the host's thread tools (reframe-host's threads.rs): its `open_thread`
 /// asks reframe, through the hook server, to open another thread with a first prompt. Not for WSL sessions, nor for a
 /// claude that runs through cmd.exe (whose command line would have to carry the JSON's quotes).
-fn thread_tools_config(relay: &str, port: u64, token: &str, session_id: &str) -> String {
+/// With `tasks_dir` (the profile's scheduled tasks), the server also has the task tools.
+fn thread_tools_config(relay: &str, port: u64, token: &str, session_id: &str, tasks_dir: Option<&str>) -> String {
     let url = format!(
         "http://127.0.0.1:{port}/hook/{}/OpenThread",
         encode_uri_component(session_id)
     );
-    json!({ "mcpServers": { "reframe": { "type": "stdio", "command": relay, "args": [THREAD_TOOLS_ARG, url, token] } } })
-        .to_string()
+    let mut args = vec![THREAD_TOOLS_ARG.to_owned(), url, token.to_owned()];
+    args.extend(tasks_dir.map(str::to_owned));
+    json!({ "mcpServers": { "reframe": { "type": "stdio", "command": relay, "args": args } } }).to_string()
 }
 
 /// The host executable's argument that makes it the thread tools' MCP server (reframe-host's threads.rs).
@@ -911,7 +913,10 @@ pub fn spawn_plan(input: &Value, fs: &dyn PlanFs) -> Result<Value, String> {
         None => {
             let mut args = claude.prefix_args.clone();
             if let Some(relay) = relay {
-                args.extend(["--mcp-config".into(), thread_tools_config(relay, port, token, &id)]);
+                args.extend([
+                    "--mcp-config".into(),
+                    thread_tools_config(relay, port, token, &id, nonempty(input, "tasksDir")),
+                ]);
             }
             args.extend(claude_args(&session, mode, Some(&file), true));
             json!(args)
@@ -946,11 +951,28 @@ mod tests {
     #[test]
     fn the_host_gives_sessions_its_thread_tools() {
         let config: Value =
-            serde_json::from_str(&thread_tools_config("C:/h/reframe-host.exe", 4100, "tok", "s 1")).unwrap();
+            serde_json::from_str(&thread_tools_config("C:/h/reframe-host.exe", 4100, "tok", "s 1", None)).unwrap();
         assert_eq!(
             config,
             json!({ "mcpServers": { "reframe": { "type": "stdio", "command": "C:/h/reframe-host.exe",
                 "args": ["--thread-tools", "http://127.0.0.1:4100/hook/s%201/OpenThread", "tok"] } } })
+        );
+        let config: Value = serde_json::from_str(&thread_tools_config(
+            "C:/h/reframe-host.exe",
+            4100,
+            "tok",
+            "s",
+            Some("D:/p/tasks"),
+        ))
+        .unwrap();
+        assert_eq!(
+            config["mcpServers"]["reframe"]["args"],
+            json!([
+                "--thread-tools",
+                "http://127.0.0.1:4100/hook/s/OpenThread",
+                "tok",
+                "D:/p/tasks"
+            ])
         );
     }
 

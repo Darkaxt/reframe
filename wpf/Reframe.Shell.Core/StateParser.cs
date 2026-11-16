@@ -361,6 +361,7 @@ public static class StateParser
         p.LookInWsl = o.OptBool("lookInWsl") ?? false;
         p.CloseWindow = o.OptEnum("closeWindow", StateValues.CloseWindow) ?? "ask";
         p.GpuAcceleration = o.OptBool("gpuAcceleration") ?? false;
+        p.WakeForTasks = o.OptBool("wakeForTasks") ?? false;
         p.PtyHost = o.OptEnum("ptyHost", StateValues.PtyHosts) ?? "node";
         p.ClaudeBin = o.OptStr("claudeBin");
         p.DefaultModel = o.OptStr("defaultModel");

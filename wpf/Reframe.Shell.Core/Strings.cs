@@ -51,6 +51,8 @@ public static class Strings
         ["settings.autostartHint"] = "When you log in, Reframe starts in the tray with its windows hidden and resumes your sessions in the background.",
         ["settings.lookInWsl"] = "Look for Claude Code in WSL",
         ["settings.lookInWslHint"] = "The session list also shows sessions from running WSL distributions. Checking them regularly keeps WSL from stopping when idle.",
+        ["settings.wakeForTasks"] = "Wake Reframe for scheduled tasks",
+        ["settings.wakeForTasksHint"] = "When you quit Reframe, a Windows scheduled task starts it again in the tray when the next scheduled task is due. Without it, runs missed while Reframe is closed run once when it opens.",
         ["settings.updates"] = "Check for updates",
         ["settings.updatesHint"] = "Half a minute after starting and then every six hours, Reframe asks GitHub whether there is a newer version. Nothing else is sent.",
         ["settings.closeWindow"] = "Closing a window with sessions",

@@ -24,6 +24,7 @@ mod process;
 mod protocol;
 mod services;
 mod statusline;
+mod tasks;
 mod threads;
 mod transcripts;
 mod warnings;

@@ -10,13 +10,23 @@ use std::io::{BufRead, Write};
 use serde_json::{json, Value};
 
 use crate::statusline;
+use crate::tasks::{self, Tasks};
 
 /// Characters: reframe takes a first prompt of up to 20000 (NewSession.MaxPrompt), with the line saying who opened it.
 const MAX_PROMPT: usize = 19_000;
 
 pub fn run(args: &[String]) -> i32 {
-    let [url, token] = args else {
-        return 2;
+    let (url, token, tasks) = match args {
+        [url, token] => (url, token, None),
+        [url, token, dir] => (
+            url,
+            token,
+            session_of(url).map(|session_id| Tasks {
+                dir: dir.into(),
+                session_id,
+            }),
+        ),
+        _ => return 2,
     };
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout();
@@ -27,7 +37,7 @@ pub fn run(args: &[String]) -> i32 {
         let Ok(message) = serde_json::from_str::<Value>(&line) else {
             continue;
         };
-        if let Some(answer) = answer(&message, &mut |body| {
+        if let Some(answer) = answer(&message, tasks.as_ref(), &mut |body| {
             statusline::post(url, token, body).unwrap_or(false)
         }) {
             if writeln!(stdout, "{answer}").and_then(|_| stdout.flush()).is_err() {
@@ -40,19 +50,45 @@ pub fn run(args: &[String]) -> i32 {
 
 /// The answer to one JSON-RPC message (none for a notification). `post` sends the request to reframe and says
 /// whether the host took it.
-fn answer(message: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Option<Value> {
+/// The reframe session of the hook address `http://…/hook/<session id>/OpenThread`.
+fn session_of(url: &str) -> Option<String> {
+    let rest = &url[url.find("/hook/")? + 6..];
+    crate::hooks::decode_uri_component(rest.split('/').next()?)
+}
+
+fn answer(message: &Value, tasks: Option<&Tasks>, post: &mut dyn FnMut(&[u8]) -> bool) -> Option<Value> {
     let id = message.get("id")?.clone();
     let method = message.get("method").and_then(Value::as_str).unwrap_or("");
     let result = match method {
-        "initialize" => json!({
-            "protocolVersion": message["params"]["protocolVersion"].as_str().unwrap_or("2025-06-18"),
-            "capabilities": { "tools": {} },
-            "serverInfo": { "name": "reframe", "version": env!("CARGO_PKG_VERSION") },
-        }),
+        "initialize" => {
+            let mut result = json!({
+                "protocolVersion": message["params"]["protocolVersion"].as_str().unwrap_or("2025-06-18"),
+                "capabilities": { "tools": {} },
+                "serverInfo": { "name": "reframe", "version": env!("CARGO_PKG_VERSION") },
+            });
+            if tasks.is_some() {
+                result["instructions"] = json!(tasks::INSTRUCTIONS);
+            }
+            result
+        }
         "ping" => json!({}),
-        "tools/list" => json!({ "tools": [tool()] }),
+        "tools/list" => {
+            let mut tools = vec![tool()];
+            if tasks.is_some() {
+                tools.extend(tasks::tools());
+            }
+            json!({ "tools": tools })
+        }
         "tools/call" if message["params"]["name"] == "open_thread" => call(&message["params"]["arguments"], post),
-        "tools/call" => text_result(true, "Unknown tool."),
+        "tools/call" => match (tasks, message["params"]["name"].as_str()) {
+            (Some(tasks), Some(name)) if tasks::NAMES.contains(&name) => {
+                match tasks.call(name, &message["params"]["arguments"]) {
+                    Ok(text) => text_result(false, &text),
+                    Err(text) => text_result(true, &text),
+                }
+            }
+            _ => text_result(true, "Unknown tool."),
+        },
         _ => {
             return Some(json!({ "jsonrpc": "2.0", "id": id,
                 "error": { "code": -32601, "message": format!("Unknown method {method}") } }))
@@ -142,19 +178,20 @@ mod tests {
         let mut never = |_: &[u8]| panic!("nothing is posted");
         let init = answer(
             &rpc("initialize", json!({ "protocolVersion": "2025-03-26" })),
+            None,
             &mut never,
         )
         .unwrap();
         assert_eq!(init["result"]["protocolVersion"], "2025-03-26");
         assert_eq!(init["id"], 7);
-        let list = answer(&rpc("tools/list", json!({})), &mut never).unwrap();
+        let list = answer(&rpc("tools/list", json!({})), None, &mut never).unwrap();
         assert_eq!(list["result"]["tools"][0]["name"], "open_thread");
         assert_eq!(
-            answer(&json!({ "method": "notifications/initialized" }), &mut never),
+            answer(&json!({ "method": "notifications/initialized" }), None, &mut never),
             None
         );
         assert_eq!(
-            answer(&rpc("resources/list", json!({})), &mut never).unwrap()["error"]["code"],
+            answer(&rpc("resources/list", json!({})), None, &mut never).unwrap()["error"]["code"],
             -32601
         );
     }
@@ -166,7 +203,7 @@ mod tests {
             "tools/call",
             json!({ "name": "open_thread", "arguments": { "name": " Docs ", "prompt": "Review it", "provider": "openai", "folder": "D:\\P" } }),
         );
-        let result = answer(&call, &mut |body| {
+        let result = answer(&call, None, &mut |body| {
             posted.push(serde_json::from_slice::<Value>(body).unwrap());
             true
         })
@@ -176,8 +213,40 @@ mod tests {
             posted,
             [json!({ "name": "Docs", "prompt": "Review it", "provider": "openai", "folder": "D:\\P", "model": null })]
         );
-        let refused = answer(&call, &mut |_| false).unwrap();
+        let refused = answer(&call, None, &mut |_| false).unwrap();
         assert_eq!(refused["result"]["isError"], true);
+    }
+
+    #[test]
+    fn has_the_task_tools_with_a_tasks_folder() {
+        let mut never = |_: &[u8]| panic!("nothing is posted");
+        assert_eq!(
+            session_of("http://127.0.0.1:4100/hook/s%201/OpenThread").as_deref(),
+            Some("s 1")
+        );
+        let dir = std::env::temp_dir().join(format!("reframe-thread-tasks-{}", std::process::id()));
+        let tasks = Tasks {
+            dir: dir.clone(),
+            session_id: "s1".into(),
+        };
+        let init = answer(&rpc("initialize", json!({})), Some(&tasks), &mut never).unwrap();
+        assert!(init["result"]["instructions"]
+            .as_str()
+            .unwrap()
+            .contains("schedule_task"));
+        let list = answer(&rpc("tools/list", json!({})), Some(&tasks), &mut never).unwrap();
+        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 5);
+        let call = rpc(
+            "tools/call",
+            json!({ "name": "schedule_task", "arguments": { "name": "Daily", "prompt": "p", "rrule": "FREQ=DAILY" } }),
+        );
+        assert_eq!(
+            answer(&call, Some(&tasks), &mut never).unwrap()["result"]["isError"],
+            false
+        );
+        assert!(dir.join("daily").join(tasks::FILE).exists());
+        assert_eq!(answer(&call, None, &mut never).unwrap()["result"]["isError"], true);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -191,7 +260,7 @@ mod tests {
             json!({ "name": "a", "prompt": "x", "provider": "claude", "folder": "relative" }),
         ] {
             let call = rpc("tools/call", json!({ "name": "open_thread", "arguments": arguments }));
-            assert_eq!(answer(&call, &mut never).unwrap()["result"]["isError"], true);
+            assert_eq!(answer(&call, None, &mut never).unwrap()["result"]["isError"], true);
         }
     }
 }
