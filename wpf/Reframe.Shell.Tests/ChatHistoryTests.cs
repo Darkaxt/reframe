@@ -122,6 +122,13 @@ public class ChatHistoryTests
             File.WriteAllText(Path.Combine(home, "projects", "D--Project", Id + ".jsonl"), "");
             Assert.True(ChatHistory.HasClaudeHistory(home, Id));
             Assert.False(ChatHistory.HasClaudeHistory(Path.Combine(home, "missing"), Id));
+            // A thread never started leaves empty folders only: no files, so no history to retire.
+            var never = "11111111-2222-3333-4444-555555555555";
+            Directory.CreateDirectory(Path.Combine(home, "session-env", never));
+            Directory.CreateDirectory(Path.Combine(home, "tasks", never));
+            Assert.False(ChatHistory.HasClaudeHistory(home, never));
+            File.WriteAllText(Path.Combine(home, "tasks", never, "1.json"), "{}");
+            Assert.True(ChatHistory.HasClaudeHistory(home, never));
         }
         finally
         {

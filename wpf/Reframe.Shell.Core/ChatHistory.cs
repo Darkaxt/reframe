@@ -134,7 +134,21 @@ public static class ChatHistory
     /// <summary>Whether Claude wrote anything for the session that the history helper would plan (hasClaudeHistory).</summary>
     public static bool HasClaudeHistory(string home, string id)
     {
-        bool Exists(params string[] parts) => Path.Exists(Path.Combine([home, .. parts]));
+        // A file, or a folder with something in it: an empty folder (a thread never started leaves session-env or tasks
+        // folders behind) has no files for the cleanup helper to find, so it is not history (the chat only loses its entry).
+        bool Exists(params string[] parts)
+        {
+            var path = Path.Combine([home, .. parts]);
+            if (File.Exists(path)) return true;
+            try
+            {
+                return Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any();
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                return true;
+            }
+        }
         string[] projects;
         try
         {
