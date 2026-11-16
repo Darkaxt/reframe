@@ -29,6 +29,8 @@ sealed class TileView
     public required Button Zoom { get; init; }
     /// <summary>The CPU, GPU and RAM meters of the header (shown once the host tells what the session uses).</summary>
     public required UsageMeters Meters { get; init; }
+    /// <summary>The header's clock: the thread's scheduled tasks (shown when it has any).</summary>
+    public required Button Tasks { get; init; }
     public TerminalControl? Control { get; init; }
     public HostTerminalConnection? Terminal { get; init; }
     public TerminalBehaviour? Behaviour { get; init; }
@@ -372,6 +374,10 @@ public partial class MainWindow
         zoomButton.Click += (_, _) => ToggleZoom(sessionId);
         Right(zoomButton);
         Right(noticePill);
+        var tasksButton = new Button { Style = S("IconButton"), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
+        AutomationProperties.SetName(tasksButton, "Scheduled tasks");
+        tasksButton.Click += (_, _) => TasksDialog.OpenFor(this, shell, sessionId, tasksButton);
+        Right(tasksButton);
         var meters = new UsageMeters();
         Right(meters.Element);
         // .tile-cwd: cut off at the start, read left to right.
@@ -420,7 +426,7 @@ public partial class MainWindow
         var view = new TileView
         {
             SessionId = sessionId, Ring = ring, Frame = frame, Head = head, Dot = dot, Label = title, Cwd = cwdText,
-            ZoomIcon = zoomIcon, Zoom = zoomButton, Meters = meters, Control = control, Terminal = terminal, Behaviour = behaviour,
+            ZoomIcon = zoomIcon, Zoom = zoomButton, Meters = meters, Tasks = tasksButton, Control = control, Terminal = terminal, Behaviour = behaviour,
         };
         // Files (and images from a browser) dropped on the tile are typed in as their paths, as in reframe.
         if (behaviour is not null)
@@ -453,6 +459,7 @@ public partial class MainWindow
             if (control is not null && FindHost(control) is { } host) FocusTerminal(host);
         };
         tiles[sessionId] = view;
+        ShowTaskMark(view);
         surface.Children.Add(ring);
         ring.Visibility = Visibility.Hidden;
     }
