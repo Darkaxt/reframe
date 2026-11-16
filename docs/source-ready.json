@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "ca261256dad56700c2eb0ce4b5db858cfcb627d2",
-  "scope": "task editor prompt box",
+  "sourceBase": "32f56957d12d29b2b58149a17842b6229931749a",
+  "scope": "wake_thread tool",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.54.md",
-      "sha256": "4a387ba2c6e70d8d0b428c4a031fd32eba6dcaea222f806bff213e8441e50316"
+      "file": "docs/releases/v0.11.0-claudegpt.55.md",
+      "sha256": "afee04e94124a51837e8814828b07ccd41d11263220f30f1ef49f7501fe72a4c"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,15 +18,23 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "5038e6e3146459925279bb26325ccb381e67a6c481dacbe505895ea33061c1d0"
+      "sha256": "76a688c958b0874ca7c2e718e5e90f1f692455e4cff099e51f1e25dfa6dbda0d"
     },
     {
       "file": "package.json",
-      "sha256": "b10101991164e42a96651ffbfac0b9a6c634bd9403f4fdc7c0da19e8786141fe"
+      "sha256": "e1d1a7b5a2815c8c00bf584a2a3decd8dbe38a57178b5bf19740cfd85fa3c3e0"
     },
     {
-      "file": "wpf/Reframe.Shell/TasksDialog.cs",
-      "sha256": "b4f78e94ff37d813a698ddb0f1d40200499488097c3295035d347468f1d45dba"
+      "file": "rust/reframe-host/src/threads.rs",
+      "sha256": "0132fbf82a27a8d92d17ae8d2ee93565c3f2ed1bfa2cbcb36ea86141b7a3ce34"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
+      "sha256": "278106d31989f85b50bc5d874f9431d097f3be68fc686eec97d0ebf01a47fea7"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
+      "sha256": "fccba12b4f7eb3aa35e45a2dff4b6b4602d6ff9aaa674bffb1ab165f72e78f16"
     }
   ],
   "checksNotYetRun": [
