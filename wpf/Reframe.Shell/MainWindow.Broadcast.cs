@@ -42,6 +42,23 @@ sealed partial class MainWindow
         return panel;
     }
 
+    int TaskCountOf(string sessionId) => shell.ScheduledTasksList.Count(t => t.TargetThreadId == sessionId);
+
+    /// <summary>A tile header's clock: shown with the thread's task count while it has scheduled tasks.</summary>
+    void ShowTaskMark(TileView view)
+    {
+        var count = TaskCountOf(view.SessionId);
+        view.Tasks.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (count > 0) view.Tasks.Content = SessionSidebar.TasksMark(count);
+    }
+
+    /// <summary>The tasks changed (a thread saved one, or the dialog): the clocks of the list and the tiles follow.</summary>
+    void TasksChangedHere()
+    {
+        foreach (var view in tiles.Values) ShowTaskMark(view);
+        Render();
+    }
+
     static Button GlyphButton(string glyph, string name, string tooltip, Action click)
     {
         var button = new Button

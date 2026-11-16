@@ -15,18 +15,24 @@ namespace Reframe.Shell;
 sealed class TasksDialog : Window
 {
     readonly ShellController shell;
+    /// <summary>The thread whose tasks the panel shows (opened from its clock), or null for all of them.</summary>
+    readonly string? threadId;
+    /// <summary>A question of the panel is open: losing the focus to it does not close the panel.</summary>
+    bool asking;
+    bool closing;
     readonly StackPanel list = new();
     readonly Button import;
 
     static Style S(string key) => (Style)Application.Current.FindResource(key);
     static Brush B(string key) => (Brush)Application.Current.FindResource(key);
 
-    TasksDialog(Window owner, ShellController shell)
+    TasksDialog(Window owner, ShellController shell, string? threadId = null)
     {
         this.shell = shell;
+        this.threadId = threadId;
         Owner = owner;
-        Title = "Scheduled tasks";
-        Width = 720;
+        Title = threadId is null ? "Scheduled tasks" : $"Scheduled tasks of {ThreadName(threadId)}";
+        Width = threadId is null ? 720 : 600;
         Height = 520;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
@@ -57,6 +63,20 @@ sealed class TasksDialog : Window
         root.Children.Add(buttons);
         root.Children.Add(new ScrollViewer { Content = list, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         Content = root;
+        if (threadId is not null)
+        {
+            // The floating panel of one thread: no hint nor import, as tall as its tasks, closed when it loses the focus.
+            hint.Visibility = Visibility.Collapsed;
+            import.Visibility = Visibility.Collapsed;
+            SizeToContent = SizeToContent.Height;
+            MaxHeight = 480;
+            WindowStyle = WindowStyle.ToolWindow;
+            Closing += (_, _) => closing = true;
+            Deactivated += (_, _) =>
+            {
+                if (!asking && !closing && IsLoaded) Close();
+            };
+        }
 
         shell.TasksChanged += Refresh;
         Closed += (_, _) => shell.TasksChanged -= Refresh;
@@ -65,17 +85,34 @@ sealed class TasksDialog : Window
 
     public static void Open(Window owner, ShellController shell) => new TasksDialog(owner, shell).ShowDialog();
 
+    /// <summary>The floating panel of one thread's tasks, below <paramref name="anchor"/> (a clock).</summary>
+    public static void OpenFor(Window owner, ShellController shell, string threadId, FrameworkElement anchor)
+    {
+        var panel = new TasksDialog(owner, shell, threadId) { WindowStartupLocation = WindowStartupLocation.Manual };
+        var corner = anchor.PointToScreen(new Point(0, anchor.ActualHeight));
+        if (PresentationSource.FromVisual(anchor)?.CompositionTarget is { } target) corner = target.TransformFromDevice.Transform(corner);
+        var area = SystemParameters.WorkArea;
+        panel.Left = Math.Max(area.Left, Math.Min(corner.X, area.Right - panel.Width));
+        panel.Top = Math.Max(area.Top, Math.Min(corner.Y + 4, area.Bottom - panel.MaxHeight));
+        panel.Show();
+    }
+
     string ThreadName(string id) =>
         shell.State.Sessions.TryGetValue(id, out var r) ? StateValues.SessionLabel(r.Name, r.ClaudeName, r.Cwd) : "(thread not in Reframe)";
 
     void Refresh()
     {
         list.Children.Clear();
-        var tasks = shell.ScheduledTasksList;
+        var tasks = shell.ScheduledTasksList.Where(t => threadId is null || t.TargetThreadId == threadId).ToList();
+        if (tasks.Count == 0 && threadId is not null && IsLoaded)
+        {
+            if (!closing) Close();
+            return;
+        }
         if (tasks.Count == 0)
             list.Children.Add(new TextBlock { Style = S("Text13"), Foreground = B("mutedBrush"), Text = "No scheduled tasks yet. Ask a thread to do something on a schedule." });
         foreach (var task in tasks) list.Children.Add(Row(task));
-        import.IsEnabled = shell.CodexTasks().Count > 0;
+        if (threadId is null) import.IsEnabled = shell.CodexTasks().Count > 0;
     }
 
     UIElement Row(ScheduledTask task)
@@ -114,7 +151,7 @@ sealed class TasksDialog : Window
         Action("Edit", () => Edit(task));
         Action("Delete", () =>
         {
-            if (CloseWindowDialog.Confirm(this, null, $"Delete the scheduled task \"{task.Name}\"?", task.Prompt, "Delete")) shell.DeleteTask(task);
+            if (Asking(() => CloseWindowDialog.Confirm(this, null, $"Delete the scheduled task \"{task.Name}\"?", task.Prompt, "Delete"))) shell.DeleteTask(task);
         });
 
         var row = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
@@ -126,7 +163,20 @@ sealed class TasksDialog : Window
 
     void Edit(ScheduledTask task)
     {
-        if (TaskEditor.Ask(this, task) is { } changes) shell.ChangeTask(task, changes);
+        if (Asking(() => TaskEditor.Ask(this, task)) is { } changes) shell.ChangeTask(task, changes);
+    }
+
+    T Asking<T>(Func<T> question)
+    {
+        asking = true;
+        try
+        {
+            return question();
+        }
+        finally
+        {
+            asking = false;
+        }
     }
 
     void Import()

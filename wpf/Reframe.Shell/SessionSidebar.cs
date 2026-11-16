@@ -50,6 +50,20 @@ sealed class SessionSidebar : Border
     /// <summary>A project's "+": New session there.</summary>
     public event Action<ProjectRow>? NewSessionIn;
     public event Action<string>? QueryChanged;
+    /// <summary>The number of scheduled tasks of a chat's thread (its row shows a clock when there are any).</summary>
+    public Func<ChatRow, int>? TaskCount { get; set; }
+    /// <summary>A row's clock is clicked: the thread's tasks.</summary>
+    public event Action<ChatRow, FrameworkElement>? TasksClicked;
+
+    const string TasksMarkTag = "tasks-mark";
+
+    /// <summary>The clock of a thread with scheduled tasks (Codex's mark), Segoe Fluent's clock at 12 px.</summary>
+    public static TextBlock TasksMark(int count) => new()
+    {
+        Text = "\uE823", FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 12, Tag = TasksMarkTag,
+        Foreground = B("mutedBrush"), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
+        ToolTip = count == 1 ? "1 scheduled task" : $"{count} scheduled tasks",
+    };
 
     static Brush B(string key) => (Brush)Application.Current.FindResource(key);
     static Style S(string key) => (Style)Application.Current.FindResource(key);
@@ -300,6 +314,12 @@ sealed class SessionSidebar : Border
         AutomationProperties.SetHelpText(item, chat.Tooltip);
         item.PreviewMouseLeftButtonUp += (_, e) =>
         {
+            if (e.OriginalSource is FrameworkElement { Tag: TasksMarkTag } mark)
+            {
+                TasksClicked?.Invoke(chat, mark);
+                e.Handled = true;
+                return;
+            }
             Click(chat, Keyboard.Modifiers);
             e.Handled = true;
         };
@@ -391,12 +411,22 @@ sealed class SessionSidebar : Border
         var titleLine = new Grid();
         titleLine.ColumnDefinitions.Add(new ColumnDefinition());
         titleLine.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        titleLine.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         titleLine.Children.Add(new TextBlock { Text = chat.Label, Style = S("Text13"), Foreground = B("textBrush"), TextWrapping = TextWrapping.Wrap });
+        if (TaskCount?.Invoke(chat) is > 0 and var count)
+        {
+            var clock = TasksMark(count);
+            clock.Margin = new Thickness(6, 2, 0, 0);
+            clock.VerticalAlignment = VerticalAlignment.Top;
+            AutomationProperties.SetName(clock, "Scheduled tasks");
+            Grid.SetColumn(clock, 1);
+            titleLine.Children.Add(clock);
+        }
         if (chat.Stamp != "")
         {
             // .sidebar-used: 11px, muted, on the title's baseline (gap 8).
             var stamp = new TextBlock { Text = chat.Stamp, Style = S("Text11"), Foreground = B("mutedBrush"), Margin = new Thickness(8, 2, 0, 0), VerticalAlignment = VerticalAlignment.Top };
-            Grid.SetColumn(stamp, 1);
+            Grid.SetColumn(stamp, 2);
             titleLine.Children.Add(stamp);
         }
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };

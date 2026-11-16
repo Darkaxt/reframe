@@ -168,6 +168,13 @@ public partial class MainWindow : Window
         sidebar.Open += OpenChat;
         sidebar.NewSessionIn += project => OpenNewSession(new NewSessionPreset(project.Cwd, project.Locations?.FirstOrDefault()?.Provider ?? "chatgpt", project.Locations));
         sidebar.RowMenu += (chat, target) => ShowMenu(ListMenuOf(chat), target, chat);
+        sidebar.TaskCount = chat => chat.Ref is { Kind: ListItemKind.App, SessionId: { } id } ? TaskCountOf(id) : 0;
+        sidebar.TasksClicked += (chat, target) =>
+        {
+            if (chat.Ref.SessionId is { } id) TasksDialog.OpenFor(this, shell, id, target);
+        };
+        shell.TasksChanged += TasksChangedHere;
+        Closed += (_, _) => shell.TasksChanged -= TasksChangedHere;
         sidebar.SelectionMenu += ShowSelectionMenu;
         sidebar.RestoreArchive += RestoreArchiveAsync;
         sidebar.StartWsl += distro => _ = shell.StartWslAsync(distro);
