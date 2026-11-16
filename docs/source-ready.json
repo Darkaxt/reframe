@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "5f381a0e0567f248c6db5f79829c78a9e7ab96c7",
-  "scope": "GPU acceleration setting applied",
+  "sourceBase": "ca261256dad56700c2eb0ce4b5db858cfcb627d2",
+  "scope": "task editor prompt box",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.53.md",
-      "sha256": "8edf70354be867d479e7d3d9272cbb358b1387972e459ee2dab7223edf1d430c"
+      "file": "docs/releases/v0.11.0-claudegpt.54.md",
+      "sha256": "4a387ba2c6e70d8d0b428c4a031fd32eba6dcaea222f806bff213e8441e50316"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,39 +18,15 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "04b85b5a78dbda3cbd40b4723bfcd3928288b2056af55d817ba1aa1702994051"
+      "sha256": "5038e6e3146459925279bb26325ccb381e67a6c481dacbe505895ea33061c1d0"
     },
     {
       "file": "package.json",
-      "sha256": "553f37726e16880dc58aeee7d64c90e6d0dd2c0ee96bf9d3404ab77754c820bd"
+      "sha256": "b10101991164e42a96651ffbfac0b9a6c634bd9403f4fdc7c0da19e8786141fe"
     },
     {
-      "file": "wpf/Get-TerminalPackage.ps1",
-      "sha256": "5863423c8ee3a7c871bed82bd152071a4cf65fa2fac413d7151d692a95613070"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/GpuPreference.cs",
-      "sha256": "56d68b1d7bb1e72865be075f771fb68e24dc858b254332cf533333200595253d"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/GpuPreferenceTests.cs",
-      "sha256": "db6f75ff871a7f5e6445c64406a3f3f16ef9ce5768ce4c1ed190952ff0bff17c"
-    },
-    {
-      "file": "wpf/Reframe.Shell/App.xaml.cs",
-      "sha256": "53e66ce98caafa74eaa35e2307572f0127f63d385fe28f917d242ee10c0024a1"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.Settings.cs",
-      "sha256": "141669f69417e0f27f253ae114e5bbf7dee0b9a5a66183a802d1c8695671a896"
-    },
-    {
-      "file": "wpf/Reframe.Shell/Reframe.Shell.csproj",
-      "sha256": "5de1615eacbffa124ef8f13db6c6453c3d7400eadc3ebaf70a6c40a8e346935d"
-    },
-    {
-      "file": "wpf/terminal-patch/0002-software-rendering.patch",
-      "sha256": "f5f0290b34c95f469e2387a1ee0583030847f17a8450aa9e720e38c1edb565ec"
+      "file": "wpf/Reframe.Shell/TasksDialog.cs",
+      "sha256": "b4f78e94ff37d813a698ddb0f1d40200499488097c3295035d347468f1d45dba"
     }
   ],
   "checksNotYetRun": [
