@@ -80,7 +80,7 @@ public static class Settings
         if (patch.CheckForUpdates is { } updates) p.CheckForUpdates = updates;
         if (patch.LookInWsl is { } wsl) p.LookInWsl = wsl;
         if (patch.WakeForTasks is { } wake) p.WakeForTasks = wake;
-        if (patch.CloseEndedAfterHours is { } hours && CloseEndedChoices.Contains(hours)) p.CloseEndedAfterHours = hours;
+        if (patch.CloseEndedAfterHours is { } hours && PreferencesPatch.CloseEndedChoices.Contains(hours)) p.CloseEndedAfterHours = hours;
         if (patch.GpuAcceleration is { } gpu) p.GpuAcceleration = gpu;
         if (patch.PtyHost is { } host && StateValues.PtyHosts.Contains(host)) p.PtyHost = host;
         if (patch.CloseWindow is { } close && StateValues.CloseWindow.Contains(close)) p.CloseWindow = close;
