@@ -21,33 +21,8 @@ sealed partial class ShellController
     /// <summary>Types <paramref name="text"/> into each target; the number of threads it reached.</summary>
     public async Task<int> BroadcastAsync(string kind, string text, IReadOnlyList<Broadcast.Target> targets)
     {
-        if (Connection is not { IsOpen: true, IsObserver: false } connection) return 0;
-        var sent = await Task.WhenAll(targets.Select(async target =>
-        {
-            var view = connection.CreateView(target.SessionId);
-            try
-            {
-                await view.OpenAsync();
-                if (target.Interrupt)
-                {
-                    await view.InputAsync(Broadcast.Background);
-                    await Task.Delay(TimeSpan.FromMilliseconds(300));
-                }
-                await view.InputAsync("\u001b[200~" + text + "\u001b[201~");
-                await Task.Delay(TimeSpan.FromMilliseconds(300));
-                await view.InputAsync("\r");
-                return true;
-            }
-            catch (Exception e)
-            {
-                System.Diagnostics.Trace.WriteLine($"broadcast: {kind} to {target.SessionId} failed: {e.Message}");
-                return false;
-            }
-            finally
-            {
-                view.Close();
-            }
-        }));
+        if (Connection is not { IsOpen: true, IsObserver: false }) return 0;
+        var sent = await Task.WhenAll(targets.Select(target => TypeIntoAsync(target.SessionId, text, target.Interrupt)));
         for (var i = 0; i < targets.Count; i++)
         {
             if (!sent[i]) continue;

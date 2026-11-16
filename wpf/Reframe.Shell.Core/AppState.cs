@@ -214,6 +214,8 @@ public sealed class Preferences : StateObject
     public string? DefaultEffort { get; set; }
     public string? DefaultPermissionMode { get; set; }
     public ProviderDefaultsSet? ProviderDefaults { get; set; }
+    /// <summary>Quitting leaves a Task Scheduler task that starts reframe when the next scheduled task is due.</summary>
+    public bool WakeForTasks { get; set; }
 }
 
 public sealed class HiddenThread : StateObject

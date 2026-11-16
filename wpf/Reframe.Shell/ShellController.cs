@@ -299,6 +299,7 @@ sealed partial class ShellController
         StartMonitor();
         _ = StartWarningsAsync();
         WatchForeignWindows();
+        StartTasks();
     }
 
     // ---------- windows ----------
@@ -480,6 +481,7 @@ sealed partial class ShellController
         Quitting = true;
         trayTimer?.Stop();
         StopWatchingForeignWindows();
+        StopTasks();
         if (Store is not null)
         {
             Store.Save(State, Synthetic);

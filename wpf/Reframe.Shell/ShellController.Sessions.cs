@@ -445,6 +445,8 @@ sealed partial class ShellController
         }
         var input = SpawnPlans.Input(record, mode, freshClaudeSessionId, env, claudeHome, Path.Combine(App.ProfileDir, "hooks"), hooks,
             State.Preferences.ClaudeBin, env.GetValueOrDefault("REFRAME_CLIENT_ADOPTION"), capture, wsl);
+        // The thread tools' scheduled tasks (a host without them ignores it).
+        if (wsl is null) input["tasksDir"] = TasksDir;
         var plan = SpawnPlans.Parse(await connection.CallAsync("launch", "spawnPlan", input));
         foreach (var warning in plan.Warnings) Log($"spawn plan: {record.Id}: {warning}");
         return plan;

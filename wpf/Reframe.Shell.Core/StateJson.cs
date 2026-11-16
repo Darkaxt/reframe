@@ -172,6 +172,7 @@ public static class StateJson
             Opt(o, "defaultModel", p.DefaultModel);
             Opt(o, "defaultEffort", p.DefaultEffort);
             Opt(o, "defaultPermissionMode", p.DefaultPermissionMode);
+            if (p.WakeForTasks) o["wakeForTasks"] = true;
             if (p.ProviderDefaults is { } set)
             {
                 var d = new JsonObject();

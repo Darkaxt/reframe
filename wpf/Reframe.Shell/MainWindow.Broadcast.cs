@@ -18,6 +18,8 @@ sealed partial class MainWindow
     StackPanel BroadcastButtons()
     {
         var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        panel.Children.Add(GlyphButton("E823", "Scheduled tasks", "Scheduled tasks of the threads", () => TasksDialog.Open(this, shell)));
+        panel.Children.Add(new Border { Width = 1, Height = 16, Background = B("borderBrush"), Margin = new Thickness(4, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
         panel.Children.Add(GlyphButton("E769", "Pause threads", "Ask running threads to reach a safe pause point", () => _ = SendBroadcastAsync(Broadcast.Pause)));
         panel.Children.Add(GlyphButton("E768", "Continue threads", "Tell the threads paused from here to continue", () => _ = SendBroadcastAsync(Broadcast.Continue)));
         panel.Children.Add(GlyphButton("E74D", "Clean up old files", "Ask running threads to delete their old and superseded files first", () => _ = SendBroadcastAsync(Broadcast.Cleanup)));
@@ -53,6 +55,9 @@ sealed partial class MainWindow
         button.Click += (_, _) => click();
         return button;
     }
+
+    /// <summary>A scheduled task's thread placed in the window without moving the focus.</summary>
+    public void PlaceSessionQuietly(string sessionId) => Dispatch(w => LayoutActions.AddTile(w, sessionId));
 
     /// <summary>The thread "This" means: the one a single window shows, else the tile focused last.</summary>
     string? BroadcastFocus() => LayoutActions.ViewModeOf(Win) == "single" ? selected : lastFocused ?? selected;
