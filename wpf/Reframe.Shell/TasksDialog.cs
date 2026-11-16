@@ -222,6 +222,7 @@ sealed class TaskEditor : Window
     readonly TextBlock problem;
 
     static Style S(string key) => (Style)Application.Current.FindResource(key);
+    static Brush B(string key) => (Brush)Application.Current.FindResource(key);
 
     TaskEditor(Window owner, ScheduledTask task)
     {
@@ -238,10 +239,13 @@ sealed class TaskEditor : Window
         FontSize = 13;
 
         name = new TextBox { Style = S("SearchBox"), Text = task.Name, Tag = "Name", Margin = new Thickness(0, 0, 0, 8) };
+        // Not the SearchBox style: its text area is one line high.
         prompt = new TextBox
         {
-            Style = S("SearchBox"), Text = task.Prompt, Tag = "Prompt", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Height = 160,
-            VerticalContentAlignment = VerticalAlignment.Top, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(0, 0, 0, 8),
+            Text = task.Prompt, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Height = 160, Padding = new Thickness(8, 6, 8, 6),
+            VerticalContentAlignment = VerticalAlignment.Top, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Foreground = B("textBrush"), CaretBrush = B("textBrush"), SelectionBrush = B("accentBrush"), Background = B("bgBrush"),
+            BorderBrush = B("border-strongBrush"), FontSize = 13, Margin = new Thickness(0, 0, 0, 8),
         };
         rule = new TextBox { Style = S("SearchBox"), Text = task.RRule.Replace("\n", "\\n"), Tag = "Repeat rule (RRULE)", Margin = new Thickness(0, 0, 0, 4) };
         var described = new TextBlock { Style = S("Text12"), Opacity = 0.7, Margin = new Thickness(0, 0, 0, 8), Text = ScheduledTasks.Describe(task.RRule) };
