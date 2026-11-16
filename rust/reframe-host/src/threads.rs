@@ -113,6 +113,7 @@ fn tool() -> Value {
                 "provider": { "type": "string", "enum": ["openai", "claude"], "description": "Which models the new thread runs on: openai or claude. Always chosen, never assumed." },
                 "folder": { "type": "string", "description": "An absolute folder to work in; this thread's folder by default." },
                 "model": { "type": "string", "description": "A model; the user's default for the provider if left out." },
+                "effort": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"], "description": "The reasoning effort; the user's default for the provider if left out." },
             },
             "required": ["name", "prompt", "provider"],
         },
@@ -145,8 +146,12 @@ fn call(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
     if folder.is_some_and(|f| !std::path::Path::new(f).is_absolute()) {
         return text_result(true, "folder must be an absolute path.");
     }
-    let request =
-        json!({ "name": name, "prompt": prompt, "provider": provider, "folder": folder, "model": text("model") });
+    let effort = match text("effort") {
+        None => None,
+        Some(e @ ("low" | "medium" | "high" | "xhigh" | "max")) => Some(e),
+        Some(_) => return text_result(true, "effort is one of low, medium, high, xhigh or max."),
+    };
+    let request = json!({ "name": name, "prompt": prompt, "provider": provider, "folder": folder, "model": text("model"), "effort": effort });
     if !post(request.to_string().as_bytes()) {
         return text_result(true, "Reframe's host did not take the request (is Reframe running?).");
     }
@@ -255,7 +260,9 @@ mod tests {
         assert_eq!(result["result"]["isError"], false);
         assert_eq!(
             posted,
-            [json!({ "name": "Docs", "prompt": "Review it", "provider": "openai", "folder": "D:\\P", "model": null })]
+            [
+                json!({ "name": "Docs", "prompt": "Review it", "provider": "openai", "folder": "D:\\P", "model": null, "effort": null })
+            ]
         );
         let refused = answer(&call, None, &mut |_| false).unwrap();
         assert_eq!(refused["result"]["isError"], true);
