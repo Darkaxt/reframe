@@ -73,13 +73,14 @@ fn answer(message: &Value, tasks: Option<&Tasks>, post: &mut dyn FnMut(&[u8]) ->
         }
         "ping" => json!({}),
         "tools/list" => {
-            let mut tools = vec![tool()];
+            let mut tools = vec![tool(), wake_tool()];
             if tasks.is_some() {
                 tools.extend(tasks::tools());
             }
             json!({ "tools": tools })
         }
         "tools/call" if message["params"]["name"] == "open_thread" => call(&message["params"]["arguments"], post),
+        "tools/call" if message["params"]["name"] == "wake_thread" => wake(&message["params"]["arguments"], post),
         "tools/call" => match (tasks, message["params"]["name"].as_str()) {
             (Some(tasks), Some(name)) if tasks::NAMES.contains(&name) => {
                 match tasks.call(name, &message["params"]["arguments"]) {
@@ -161,6 +162,49 @@ fn call(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
     )
 }
 
+fn wake_tool() -> Value {
+    json!({
+        "name": "wake_thread",
+        "description": "Wake another Reframe thread that has ended (its tile closed or its Claude stopped) and give it a message.             Reframe resumes the thread's own conversation, as the user's Resume does, waits until it is idle and types your message in.             A thread that still runs just gets the message once it is idle (SendMessage does the same for those). Once it runs,             talk to it with SendMessage to its name. If no thread has that name, Reframe tells you in a message.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string", "description": "The name of the thread to wake, as Reframe shows it." },
+                "message": { "type": "string", "description": "What it should do or know: stand-alone, as it has no memory of why you wake it." },
+            },
+            "required": ["name", "message"],
+        },
+    })
+}
+
+fn wake(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
+    let text = |key: &str| {
+        arguments
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+    };
+    let (Some(name), Some(message)) = (text("name"), text("message")) else {
+        return text_result(true, "Give the name of the thread and a message.");
+    };
+    if message.chars().count() > MAX_PROMPT {
+        return text_result(
+            true,
+            "The message is too long; put the details in a file and point to it.",
+        );
+    }
+    if !post(json!({ "wake": name, "message": message }).to_string().as_bytes()) {
+        return text_result(true, "Reframe's host did not take the request (is Reframe running?).");
+    }
+    text_result(
+        false,
+        &format!(
+            "Reframe was asked to wake the thread \"{name}\" with your message. It resumes it if it ended, which takes a              minute, and types the message in once it is idle. If no thread has that name, a message tells you."
+        ),
+    )
+}
+
 fn text_result(error: bool, text: &str) -> Value {
     json!({ "content": [{ "type": "text", "text": text }], "isError": error })
 }
@@ -218,6 +262,28 @@ mod tests {
     }
 
     #[test]
+    fn wakes_a_thread_by_name() {
+        let mut posted = Vec::new();
+        let call = rpc(
+            "tools/call",
+            json!({ "name": "wake_thread", "arguments": { "name": " Navic ", "message": " Carry on " } }),
+        );
+        let result = answer(&call, None, &mut |body| {
+            posted.push(serde_json::from_slice::<Value>(body).unwrap());
+            true
+        })
+        .unwrap();
+        assert_eq!(result["result"]["isError"], false);
+        assert_eq!(posted, [json!({ "wake": "Navic", "message": "Carry on" })]);
+        let bad = rpc(
+            "tools/call",
+            json!({ "name": "wake_thread", "arguments": { "name": "Navic" } }),
+        );
+        assert_eq!(answer(&bad, None, &mut |_| true).unwrap()["result"]["isError"], true);
+        assert_eq!(answer(&call, None, &mut |_| false).unwrap()["result"]["isError"], true);
+    }
+
+    #[test]
     fn has_the_task_tools_with_a_tasks_folder() {
         let mut never = |_: &[u8]| panic!("nothing is posted");
         assert_eq!(
@@ -235,7 +301,7 @@ mod tests {
             .unwrap()
             .contains("schedule_task"));
         let list = answer(&rpc("tools/list", json!({})), Some(&tasks), &mut never).unwrap();
-        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 5);
+        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 6);
         let call = rpc(
             "tools/call",
             json!({ "name": "schedule_task", "arguments": { "name": "Daily", "prompt": "p", "rrule": "FREQ=DAILY" } }),
