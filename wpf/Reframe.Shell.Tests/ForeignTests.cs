@@ -125,6 +125,51 @@ public class ForeignTests
         Assert.Null(Takeover.Adopted("c", @"C:\src", null, null, 5000).Launch.Provider);
     }
 
+    [Fact]
+    public void A_session_of_reframe_s_resumed_elsewhere_goes_on_as_it_ran_there()
+    {
+        var launch = new LaunchOptions { Provider = "chatgpt", Model = "gpt-6.1-sol", PermissionMode = "plan" };
+        Takeover.Resumed(launch, new LaunchOptions { Provider = "anthropic", Model = "opus", Effort = "medium", PermissionMode = "bypassPermissions" });
+        Assert.Equal(("anthropic", "opus", "medium", "bypassPermissions"), (launch.Provider, launch.Model, launch.Effort, launch.PermissionMode));
+        // A provider that could not be told stays; options not given there are not kept.
+        Takeover.Resumed(launch, new LaunchOptions());
+        Assert.Equal(("anthropic", null, null, null), (launch.Provider, launch.Model, launch.Effort, launch.PermissionMode));
+        Takeover.Resumed(launch, null);
+        Assert.Equal("anthropic", launch.Provider);
+    }
+
+    [Theory]
+    [InlineData("claude-opus-4-5", "anthropic")]
+    [InlineData("Claude-Sonnet", "anthropic")]
+    [InlineData("gpt-6.1-sol", "chatgpt")]
+    [InlineData("<synthetic>", null)]
+    [InlineData("", null)]
+    [InlineData(null, null)]
+    public void A_transcript_s_model_tells_its_provider(string? model, string? provider) =>
+        Assert.Equal(provider, Takeover.ProviderOfModel(model));
+
+    [Fact]
+    public void The_newest_real_assistant_model_of_a_transcript()
+    {
+        var file = Path.Combine(Path.GetTempPath(), $"reframe-model-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            File.WriteAllText(file, string.Join("\n",
+                "{\"type\":\"assistant\",\"message\":{\"model\":\"gpt-6.1-sol\"}}",
+                "{\"type\":\"assistant\",\"message\":{\"model\":\"claude-opus-4-5\"}}",
+                "{\"type\":\"user\",\"message\":{\"content\":\"the model is \\\"assistant\\\" \\\"model\\\"\"}}",
+                "{\"type\":\"assistant\",\"message\":{\"model\":\"<synthetic>\"}}",
+                "{\"type\":\"assistant\",\"mess"));
+            Assert.Equal("claude-opus-4-5", ClaudeRegistry.LastModelIn(file));
+            File.WriteAllText(file, "{\"type\":\"user\"}\n");
+            Assert.Null(ClaudeRegistry.LastModelIn(file));
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
     // ---------- takeover.ts and closeIdleConsole, against fakes ----------
 
     sealed class FakeConsole : IConsoleHelper

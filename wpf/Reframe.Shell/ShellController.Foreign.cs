@@ -68,6 +68,11 @@ sealed partial class ShellController
         return launch;
     }
 
+    readonly System.Collections.Concurrent.ConcurrentDictionary<int, string?> processProviders = new();
+
+    /// <summary>The provider of a claude running outside reframe, read once per process (query-only).</summary>
+    public string? ProviderOfProcess(int pid) => processProviders.GetOrAdd(pid, p => ProcessLaunch.Of(p)?.Provider);
+
     static Task KillTreeAsync(int pid)
     {
         try

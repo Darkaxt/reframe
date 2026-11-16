@@ -35,6 +35,8 @@ public sealed record ListSources
     /// <summary>A session's label (labelOf); by default sessionLabel of its name, Claude Code's name, its folder.</summary>
     public Func<SessionRecord, string>? LabelOf { get; init; }
     public IReadOnlyList<RunningClaude> Running { get; init; } = [];
+    /// <summary>The provider a claude running outside reframe was started with (its process), null when unknown.</summary>
+    public Func<int, string?> ProviderOfProcess { get; init; } = _ => null;
     public required ITranscriptSource Transcripts { get; init; }
     /// <summary>Claude Code in each running WSL distribution that has it (claudeSources' WSL sources).</summary>
     public IReadOnlyList<WslSource> Wsl { get; init; } = [];
@@ -122,7 +124,7 @@ public static class SessionListBuilder
                 ClaudeSessionId = e.SessionId,
                 Cwd = e.Cwd!,
                 Name = e.Name,
-                Provider = KnownProvider(e.SessionId),
+                Provider = KnownProvider(e.SessionId) ?? sources.ProviderOfProcess(e.Pid),
                 LastActiveAt = usedOutside.GetValueOrDefault(e.SessionId),
             })
             .Where(item => Matches(item.Name, item.Cwd) && InFolder(item.Cwd))

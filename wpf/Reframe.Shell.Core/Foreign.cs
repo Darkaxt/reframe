@@ -214,6 +214,23 @@ public sealed class Takeover(IConsoleHelper console, Func<int, bool> isAlive, Fu
         };
     }
 
+    /// <summary>A session of reframe's resumed elsewhere goes on here as it ran there: the provider found (else its own),
+    /// and the model, effort and permission mode it was started with there (none given there: none here).</summary>
+    public static void Resumed(LaunchOptions launch, LaunchOptions? there)
+    {
+        if (there is null) return;
+        launch.Provider = there.Provider ?? launch.Provider;
+        launch.Model = there.Model;
+        launch.Effort = there.Effort;
+        launch.PermissionMode = there.PermissionMode;
+    }
+
+    /// <summary>The provider a transcript's model tells: Claude's models are Anthropic's, any other real one came
+    /// through the ChatGPT route; null for none or a placeholder such as &lt;synthetic&gt;.</summary>
+    public static string? ProviderOfModel(string? model) =>
+        string.IsNullOrWhiteSpace(model) || model.StartsWith('<') ? null
+        : model.StartsWith("claude", StringComparison.OrdinalIgnoreCase) ? "anthropic" : "chatgpt";
+
     /// <summary>A Windows command line split as programs see it (CommandLineToArgvW's rules: quotes group, a backslash
     /// escapes only before a quote, "" inside quotes is a quote).</summary>
     public static List<string> CommandLineArgs(string commandLine)
