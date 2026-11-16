@@ -44,7 +44,7 @@ public partial class MainWindow
 
     SettingsContext SettingsContextOf()
     {
-        gpuAtStart ??= state.Preferences.GpuAcceleration;
+        gpuAtStart ??= Capturing ? state.Preferences.GpuAcceleration : App.GpuAccelerated;
         // The shell's own login entry, named after its profile, unless managed (S14): then reframe's own (the app id's);
         // none in a capture.
         if (!Capturing && Environment.ProcessPath is { } exe) autostart ??= new Autostart(new RegistryRunKeys(), App.ProfileDir, exe, App.ManagedAppId);

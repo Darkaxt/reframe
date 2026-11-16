@@ -39,7 +39,7 @@ version, a release asset (`terminal-wpf-v<tag>-reframe.N`); `wpf/Get-TerminalPac
 it before building; run it once before a local build. A patch change bumps `reframe.N` in the workflow, the script and
 `Reframe.Shell.csproj`, then pins the new hash.
 
-The patch (all in `HwndTerminal` and the WPF wrapper; the wrapper's existing API is unchanged):
+The patches (all in `HwndTerminal` and the WPF wrapper; the wrapper's existing API is unchanged):
 
 - `TerminalSetFont(terminal, family, float points, cellWidth, cellHeight, dpi)`: as `TerminalSetTheme`'s font part,
   with a fractional size and `FontInfoDesired::SetCellSize` (the setting behind Windows Terminal's `font.cellWidth` /
@@ -49,6 +49,9 @@ The patch (all in `HwndTerminal` and the WPF wrapper; the wrapper's existing API
   Wrapper: `TerminalControl.SetDefaultHistorySize`.
 - `TerminalSearch` / `TerminalClearSearch`: `ControlCore::Search` / `ClearSearch` over the console's `Search`, with
   `Terminal::SetSearchHighlights`, so the renderer marks every match. Wrapper: `TerminalControl.Search` / `ClearSearch`.
+- `TerminalSetDefaultSoftwareRendering(enable)` (`0002-software-rendering.patch`): `AtlasEngine::SetSoftwareRendering`
+  (Direct3D's WARP rasterizer, Windows Terminal's "Use software rendering") for terminals created afterwards; the
+  shell turns it on when "Use GPU acceleration" is off. Wrapper: `TerminalControl.SetDefaultSoftwareRendering`.
 
 ### Earlier decision (S6)
 
