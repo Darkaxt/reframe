@@ -74,6 +74,52 @@ public static class ClaudeRegistry
         return null;
     }
 
+    /// <summary>The model of the newest assistant message in the session's transcript (read from its last 512 KB);
+    /// null without a transcript or one.</summary>
+    public static string? LastModel(string home, string claudeSessionId)
+    {
+        try
+        {
+            var projects = Path.Combine(home, "projects");
+            if (!Directory.Exists(projects)) return null;
+            foreach (var folder in Directory.EnumerateDirectories(projects))
+            {
+                var file = Path.Combine(folder, claudeSessionId + ".jsonl");
+                if (File.Exists(file)) return LastModelIn(file);
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+        }
+        return null;
+    }
+
+    /// <summary>The model of the newest assistant message in a transcript file (its last 512 KB).</summary>
+    public static string? LastModelIn(string file)
+    {
+        using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        const int tail = 512 * 1024;
+        if (stream.Length > tail) stream.Seek(-tail, SeekOrigin.End);
+        using var reader = new StreamReader(stream);
+        var lines = reader.ReadToEnd().Split('\n');
+        for (var i = lines.Length - 1; i >= 0; i--)
+        {
+            var line = lines[i];
+            if (!line.Contains("\"assistant\"", StringComparison.Ordinal) || !line.Contains("\"model\"", StringComparison.Ordinal)) continue;
+            try
+            {
+                var entry = JsonNode.Parse(line);
+                if ((string?)entry?["type"] == "assistant" && (string?)entry["message"]?["model"] is { Length: > 0 } model && !model.StartsWith('<'))
+                    return model;
+            }
+            catch (Exception error) when (error is System.Text.Json.JsonException or InvalidOperationException or FormatException)
+            {
+                // The first line of the tail may be cut off.
+            }
+        }
+        return null;
+    }
+
     public static bool Alive(int pid)
     {
         try

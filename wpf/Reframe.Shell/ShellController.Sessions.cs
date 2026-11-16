@@ -219,6 +219,8 @@ sealed partial class ShellController
             {
                 var asked = windowId is not null && windows.TryGetValue(windowId, out var window) && window.ConfirmTakeover(Label(record));
                 Log($"session runs elsewhere already: {sessionId} pid {found.Entry.Pid} asked {asked}");
+                // How it runs there, read before it is ended: it goes on here with that provider and those options.
+                var there = asked && found.Distro is null ? LaunchOfOutside(found.Entry.Pid) : null;
                 if (!asked || !await StopOutsideAsync(found))
                 {
                     if (asked) MessageBox.Show(windows[windowId!], Strings.T("takeover.failed"), "Reframe", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -228,6 +230,7 @@ sealed partial class ShellController
                 }
                 // Resumed in another folder, the conversation went on there; so it does here. It was used there, too.
                 if (found.Entry.Cwd is { Length: > 0 } cwd) record.Cwd = found.WindowsPath(cwd);
+                Takeover.Resumed(record.Launch, there);
                 if (await WithTimeout(Task.Run(() => ClaudeRegistry.TranscriptModifiedAt(found.Home, record.ClaudeSessionId)), null) is { } usedThere
                     && usedThere > record.LastActiveAt)
                     record.LastActiveAt = usedThere;
@@ -314,7 +317,12 @@ sealed partial class ShellController
             Log($"found session has no folder: {claudeId}");
             return null;
         }
-        return Takeover.Adopted(claudeId, windowsPath(info.Cwd), null, info.ModifiedAt > 0 ? info.ModifiedAt : null, Now());
+        // Its provider, from the model its transcript last used (Windows chats; reframe's default otherwise).
+        var model = string.IsNullOrEmpty(item.Distro) ? await Task.Run(() => ClaudeRegistry.LastModel(ClaudeRegistry.Home(), claudeId)) : null;
+        var provider = Takeover.ProviderOfModel(model);
+        Log($"found session's provider from its transcript: {claudeId} {provider ?? "unknown"}");
+        return Takeover.Adopted(claudeId, windowsPath(info.Cwd), null, info.ModifiedAt > 0 ? info.ModifiedAt : null, Now(),
+            provider is null ? null : new LaunchOptions { Provider = provider });
     }
 
     /// <summary>A claude running in another terminal (Windows): asked first, ended there, then adopted; a name the user

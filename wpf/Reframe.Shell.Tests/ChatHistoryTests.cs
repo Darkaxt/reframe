@@ -179,6 +179,18 @@ public class ChatHistoryTests
     }
 
     [Fact]
+    public async Task AClaudeRunningOutsideShowsTheProviderItWasStartedWith()
+    {
+        var list = await SessionListBuilder.BuildAsync(new ListSources
+        {
+            State = new AppState(), StatusOf = _ => "ended", Transcripts = new MemoryTranscriptSource([]),
+            Running = [new RunningClaude(41, Id, @"D:\Project", "outside"), new RunningClaude(42, "b34f6c30-9f9c-4fe5-a76d-5091b6b1f11a", @"D:\Other", "other")],
+            ProviderOfProcess = pid => pid == 41 ? "anthropic" : null,
+        }, "", SessionListBuilder.Page);
+        Assert.Equal(["anthropic", null], list.Running.OrderBy(r => r.Pid).Select(r => r.Provider));
+    }
+
+    [Fact]
     public void TheHistoryAndWslFixturesParse()
     {
         var root = AppContext.BaseDirectory;

@@ -121,6 +121,7 @@ public partial class MainWindow : Window
         exitFullscreenButton.Margin = new Thickness(0, 0, 8, 0);
         exitFullscreenButton.Visibility = Visibility.Collapsed;
         right.Children.Add(exitFullscreenButton);
+        right.Children.Add(BroadcastButtons());
         right.Children.Add(WarningsButton());
         var gearButton = IconButton("gear", "Settings", "Settings (Ctrl+,)");
         gearButton.Click += (_, _) => OpenSettings();
@@ -328,6 +329,7 @@ public partial class MainWindow : Window
             StatusOf = r => StatusOf(r.Id),
             RunsInReframe = hostSessions.ContainsKey,
             Running = ClaudeRegistry.Running(home),
+            ProviderOfProcess = shell.ProviderOfProcess,
             Transcripts = transcripts,
             Wsl = wsl,
             WslStopped = wslStopped,

@@ -439,7 +439,7 @@ public partial class MainWindow
         }
         frame.IsKeyboardFocusWithinChanged += (_, _) =>
         {
-            if (frame.IsKeyboardFocusWithin) focused = sessionId;
+            if (frame.IsKeyboardFocusWithin) focused = lastFocused = sessionId;
             else if (focused == sessionId) focused = null;
             ShowFocus(view);
         };
