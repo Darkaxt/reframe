@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "0df46ca2339f1040e94ba6acf16fd1066dea608f",
-  "scope": "wake explicit name, reasoning_effort",
+  "sourceBase": "db38a2a6334f56077a44e3e0ae0593ce96b812ad",
+  "scope": "quiet agent opens",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.60.md",
-      "sha256": "e986c32cd678deb374a2da4d19b129c41b30fa02f0eea4af93c163e6a8b65c2a"
+      "file": "docs/releases/v0.11.0-claudegpt.61.md",
+      "sha256": "d43ffa9dfd1f7fb3d7dc0d27266c4e7a7e0e173256506e037490a3e9993a1ec1"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,27 +18,19 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "7b56a9982779d997c3b7105d50e28c1890672b5026931a09c7364de5f6ef934e"
+      "sha256": "1950cb1f9f598c6aa4f30847071f970290892d9349fe5e1ec17a037fc59b4035"
     },
     {
       "file": "package.json",
-      "sha256": "e3cacf049cb5b3c6909975577cf32f5f3c02c9b917122f9cb18f93d034721536"
+      "sha256": "06b5cbd1d14938acc009d568762f47213ad30e165a839e072f8dd43991cd4fef"
     },
     {
-      "file": "rust/reframe-host/src/threads.rs",
-      "sha256": "fc0e5aa3fa477fd6d8b84ecd78703391ad06f5b537ae3994a849eb6a6f28b3c7"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/NewSession.cs",
-      "sha256": "970bdc601328ebd9c8c6546a5e01689e19e4c19394cc76c072520bea9816922a"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
-      "sha256": "4e22bdc9f8697cdc6db613489569e6cadeb52c79825f2eb7c2f4a58bc1583cdf"
+      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
+      "sha256": "83374fbbc2a2f182dc1aee320102ff7f0884706159092de974e5058747d9320c"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
-      "sha256": "e7c63e70091667de9cde9f3a1e8ca09e4485667281ba26760cab3e709cbf9dad"
+      "sha256": "7325816378f661c2312f7c33bdd58d5f9b97f58ee1813b80d0007dcd51a6df3a"
     }
   ],
   "checksNotYetRun": [
