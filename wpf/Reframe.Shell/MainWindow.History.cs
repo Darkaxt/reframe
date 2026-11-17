@@ -45,7 +45,9 @@ public partial class MainWindow
             ? item.SessionId is { } id ? state.Sessions.GetValueOrDefault(id) : null
             : state.Sessions.Values.FirstOrDefault(r => r.ClaudeSessionId == item.ClaudeSessionId);
 
-    bool Active(SessionRecord r) => r.Lifecycle != "ended" || Runs(r.Id) || InWsl(r.Cwd);
+    // A thread whose process has exited stays "open" in the state until its tile is closed (its tile shows the exit
+    // card), so the lifecycle alone does not say it runs: only a running session, or one in WSL, blocks a change.
+    bool Active(SessionRecord r) => Runs(r.Id) || InWsl(r.Cwd);
 
     /// <summary>inactiveChat: the chat's record (a found chat's adopted one, not yet in the state), or why it cannot change.</summary>
     async Task<SessionRecord> InactiveChatAsync(ListItemRef item)
