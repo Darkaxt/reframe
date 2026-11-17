@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "795116ca9bb6c188b17438aefb54fd60da0c497b",
-  "scope": "input hold while Reframe types into a thread",
+  "sourceBase": "09355e559f2a157db5d41b336a6b08a34901e7f6",
+  "scope": "input hold; quiet opens collapsed",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
