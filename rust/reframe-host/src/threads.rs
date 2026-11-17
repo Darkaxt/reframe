@@ -113,7 +113,7 @@ fn tool() -> Value {
                 "provider": { "type": "string", "enum": ["openai", "claude"], "description": "Which models the new thread runs on: openai or claude. Always chosen, never assumed." },
                 "folder": { "type": "string", "description": "An absolute folder to work in; this thread's folder by default." },
                 "model": { "type": "string", "description": "A model; the user's default for the provider if left out." },
-                "effort": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"], "description": "The reasoning effort; the user's default for the provider if left out." },
+                "reasoning_effort": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"], "description": "The reasoning effort; the user's default for the provider if left out." },
             },
             "required": ["name", "prompt", "provider"],
         },
@@ -146,7 +146,8 @@ fn call(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
     if folder.is_some_and(|f| !std::path::Path::new(f).is_absolute()) {
         return text_result(true, "folder must be an absolute path.");
     }
-    let effort = match text("effort") {
+    // Advertised as reasoning_effort: Claude Code does not show an MCP tool a parameter called effort.
+    let effort = match text("reasoning_effort").or_else(|| text("effort")) {
         None => None,
         Some(e @ ("low" | "medium" | "high" | "xhigh" | "max")) => Some(e),
         Some(_) => return text_result(true, "effort is one of low, medium, high, xhigh or max."),
@@ -266,6 +267,29 @@ mod tests {
         );
         let refused = answer(&call, None, &mut |_| false).unwrap();
         assert_eq!(refused["result"]["isError"], true);
+    }
+
+    #[test]
+    fn takes_the_reasoning_effort() {
+        let list = answer(&rpc("tools/list", json!({})), None, &mut |_| true).unwrap();
+        let properties = &list["result"]["tools"][0]["inputSchema"]["properties"];
+        assert!(properties["reasoning_effort"].is_object());
+        let call = |effort: &str| {
+            rpc(
+                "tools/call",
+                json!({ "name": "open_thread", "arguments": { "name": "W", "prompt": "p", "provider": "openai", "reasoning_effort": effort } }),
+            )
+        };
+        let mut posted = Vec::new();
+        let ok = answer(&call("low"), None, &mut |body| {
+            posted.push(serde_json::from_slice::<Value>(body).unwrap());
+            true
+        })
+        .unwrap();
+        assert_eq!(ok["result"]["isError"], false);
+        assert_eq!(posted[0]["effort"], "low");
+        let bad = answer(&call("bogus"), None, &mut |_| panic!("posted a bad effort")).unwrap();
+        assert_eq!(bad["result"]["isError"], true);
     }
 
     #[test]
