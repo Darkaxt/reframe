@@ -15,7 +15,9 @@ public sealed record NewSessionRequest(
     string? Effort = null,
     string? PermissionMode = null,
     IReadOnlyList<string>? AddDirs = null,
-    string? InitialPrompt = null);
+    string? InitialPrompt = null,
+    /// <summary>The id of the thread that opened it (open_thread), recorded as its owner.</summary>
+    string? OpenedBy = null);
 
 /// <summary>The dialog's starting values for a provider (defaultsFor).</summary>
 public sealed record DialogDefaults(string? Model, string? Effort, string? PermissionMode, IReadOnlyList<string> AddDirs);
@@ -116,6 +118,7 @@ public static partial class NewSession
             ClaudeSessionId = claudeSessionId,
             Cwd = request.Cwd.Trim(),
             Name = string.IsNullOrWhiteSpace(request.Name) ? null : request.Name.Trim(),
+            OpenedBy = request.OpenedBy,
             Launch = new LaunchOptions
             {
                 Provider = StateValues.Providers.Contains(request.Provider) ? request.Provider : "chatgpt",
@@ -167,7 +170,7 @@ public static partial class NewSession
             : $"[opened by the Reframe thread \"{openerName}\" on {family}; answer it with SendMessage to \"{openerName}\"]";
         return new NewSessionRequest(Text("folder") ?? opener.Cwd, provider, name, Model: Text("model") ?? defaults.Model,
             Effort: (Text("reasoning_effort") ?? Text("effort")) is { } effort && EffortLevels.Contains(effort) ? effort : defaults.Effort,
-            PermissionMode: defaults.PermissionMode, InitialPrompt: $"{by}\n{prompt}");
+            PermissionMode: defaults.PermissionMode, InitialPrompt: $"{by}\n{prompt}", OpenedBy: opener.Id);
     }
 
     /// <summary>restartSession: open again; a fresh start is a new, unused conversation, last used now.</summary>

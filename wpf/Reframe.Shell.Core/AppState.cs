@@ -93,6 +93,8 @@ public sealed class SessionRecord : StateObject
     public double? Pid { get; set; }
     public double? LinuxPid { get; set; }
     public bool? Used { get; set; }
+    /// <summary>The id of the thread that opened this one (its open_thread tool), or null; that thread owns it (it may delete it).</summary>
+    public string? OpenedBy { get; set; }
 }
 
 public sealed class LaunchOptions : StateObject

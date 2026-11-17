@@ -201,6 +201,7 @@ public static class StateParser
         s.Pid = o.OptNum("pid");
         s.LinuxPid = o.OptNum("linuxPid");
         s.Used = o.OptBool("used");
+        s.OpenedBy = o.OptStr("openedBy");
         o.KeepExtra(s);
         return s;
     }

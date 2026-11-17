@@ -71,6 +71,7 @@ public static class StateJson
             Opt(o, "pid", s.Pid);
             Opt(o, "linuxPid", s.LinuxPid);
             Opt(o, "used", s.Used);
+            Opt(o, "openedBy", s.OpenedBy);
             return Done(o, s);
         }
 

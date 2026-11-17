@@ -218,13 +218,14 @@ fn close_tool() -> Value {
         "description": "Shut down another Reframe thread (for example one you opened with open_thread) when its work is done. \
             action \"end\" (the default) stops its Claude session and closes its tile; the thread stays in Reframe's list, \
             ended, and wake_thread or the user's Resume brings it back. action \"archive\" ends it and then archives its \
-            conversation to a verified ZIP, which Reframe asks the user to confirm in its window first. Not for the thread \
-            you run in. If no thread has that name, Reframe tells you in a message.",
+            conversation to a verified ZIP, and action \"delete\" ends it and deletes it for good; both ask the user to confirm in \
+            Reframe's window first, unless you opened the thread yourself with open_thread (then they just happen), and delete \
+            is refused for any thread you did not open. Not for the thread you run in. If no thread has that name, Reframe tells you in a message.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "name": { "type": "string", "description": "The name of the thread to close, as Reframe shows it." },
-                "action": { "type": "string", "enum": ["end", "archive"], "description": "end (default) or archive." },
+                "action": { "type": "string", "enum": ["end", "archive", "delete"], "description": "end (default), archive or delete (only a thread you opened)." },
             },
             "required": ["name"],
         },
@@ -245,7 +246,8 @@ fn close(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
     let action = match text("action") {
         None | Some("end") => "end",
         Some("archive") => "archive",
-        Some(_) => return text_result(true, "action is end or archive."),
+        Some("delete") => "delete",
+        Some(_) => return text_result(true, "action is end, archive or delete."),
     };
     if !post(json!({ "close": name, "action": action }).to_string().as_bytes()) {
         return text_result(true, "Reframe's host did not take the request (is Reframe running?).");
@@ -340,7 +342,7 @@ mod tests {
         );
         let bad = rpc(
             "tools/call",
-            json!({ "name": "close_thread", "arguments": { "name": "Docs", "action": "delete" } }),
+            json!({ "name": "close_thread", "arguments": { "name": "Docs", "action": "remove" } }),
         );
         let refused = answer(&bad, None, &mut |_| panic!("nothing is posted")).unwrap();
         assert_eq!(refused["result"]["isError"], true);
