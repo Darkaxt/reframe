@@ -411,7 +411,7 @@ mod tests {
             .unwrap()
             .contains("schedule_task"));
         let list = answer(&rpc("tools/list", json!({})), Some(&tasks), &mut never).unwrap();
-        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 6);
+        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 7);
         let call = rpc(
             "tools/call",
             json!({ "name": "schedule_task", "arguments": { "name": "Daily", "prompt": "p", "rrule": "FREQ=DAILY" } }),
