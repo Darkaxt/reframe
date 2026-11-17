@@ -77,6 +77,7 @@ sealed partial class ShellController
     {
         if (Connection is not { IsOpen: true, IsObserver: false } connection || !CanNotify(warning)) return;
         var view = connection.CreateView(warning.SessionId);
+        using var hold = InputGuard.Hold(warning.SessionId);
         try
         {
             await view.OpenAsync();
