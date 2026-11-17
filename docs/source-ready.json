@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "544783e5dc4c3da4ee4e69480abb325471ca9dd6",
+  "sourceBase": "cab04e14ec9c0cd213bb6c570bcf5f1c4ab97c1a",
   "scope": "close_thread tool",
   "inputHashes": [
     {
@@ -26,7 +26,7 @@
     },
     {
       "file": "rust/reframe-host/src/threads.rs",
-      "sha256": "b00dbd3c4e9960e0e69adccfa427b18f6691f99024bfb0041df4e0ead39f6458"
+      "sha256": "ec752407f58953879355158d381d30d15ad876049147c4c8c12df3668a8ffec2"
     },
     {
       "file": "wpf/Reframe.Shell.Core/AppState.cs",
