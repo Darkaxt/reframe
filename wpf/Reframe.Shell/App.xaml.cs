@@ -21,6 +21,7 @@ public partial class App : Application
     /// <summary>Starts the profile's Rust host when none runs (from <c>--host-dir</c>, REFRAME_RUST_HOST_DIR or
     /// <c>reframe-host</c> beside the shell); null when there is none to start, and in diagnostics (which only attach).</summary>
     public static HostStarter? Starter { get; private set; }
+    public static Func<int, bool>? IsCurrentHost { get; private set; }
     /// <summary>Started by the system (<c>--autostart</c>, the login entry Settings writes): the windows stay in the tray,
     /// as reframe's startedBySystem().</summary>
     public static bool StartedBySystem { get; private set; }
@@ -101,7 +102,11 @@ public partial class App : Application
             ApplyGpuPreference();
             System.Diagnostics.Trace.WriteLine($"gpu: {(GpuAccelerated ? "hardware" : "software")} rendering");
             if (HostLauncher.FindSource(hostDir, AppContext.BaseDirectory) is { } source)
-                Starter = new HostLauncher(source, $"shell-{typeof(App).Assembly.GetName().Version}").StartAsync;
+            {
+                var launcher = new HostLauncher(source, $"shell-{typeof(App).Assembly.GetName().Version}");
+                Starter = launcher.StartAsync;
+                IsCurrentHost = launcher.RunsCurrentBuild;
+            }
             KeepEntryPoints();
             // Closing the last window leaves the shell in the tray; only the tray's Quit ends it.
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
