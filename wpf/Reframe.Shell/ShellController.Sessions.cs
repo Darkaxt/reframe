@@ -100,7 +100,7 @@ sealed partial class ShellController
 
     /// <summary>createSession: checks the folder (offering to create it) and claude, then the session is added to
     /// the window and started. The error the dialog shows (and the WSL distribution without claude), or null.</summary>
-    public async Task<(string? Error, string? Distro)> CreateSessionAsync(string windowId, NewSessionRequest request, Func<string, bool> offerToCreate)
+    public async Task<(string? Error, string? Distro)> CreateSessionAsync(string windowId, NewSessionRequest request, Func<string, bool> offerToCreate, bool quiet = false)
     {
         var cwd = request.Cwd.Trim();
         var wsl = WslPaths.Parse(cwd, WslShare);
@@ -120,7 +120,12 @@ sealed partial class ShellController
         }
         if (!plan.Ok) return (plan.Error == "folderMissing" ? "folderMissing" : "claudeNotFound", plan.Error == "claudeNotFound" ? wsl?.Distro : null);
         NewSession.Remember(State, record);
-        if (windows.TryGetValue(windowId, out var window)) window.PlaceSession(record.Id, null);
+        // A thread another thread or a task opens is placed without taking the selection or the focus from the user.
+        if (windows.TryGetValue(windowId, out var window))
+        {
+            if (quiet) window.PlaceSessionQuietly(record.Id);
+            else window.PlaceSession(record.Id, null);
+        }
         else Save();
         await SpawnAsync(record, plan);
         return (null, null);
@@ -141,7 +146,7 @@ sealed partial class ShellController
         if (window is null) return;
         try
         {
-            var (error, _) = await CreateSessionAsync(window.Id, request, _ => false);
+            var (error, _) = await CreateSessionAsync(window.Id, request, _ => false, quiet: true);
             System.Diagnostics.Trace.WriteLine(error is null
                 ? $"threads: opened \"{request.Name}\" ({request.Provider}) for {openerId}"
                 : $"threads: \"{request.Name}\" for {openerId} could not open: {error}");

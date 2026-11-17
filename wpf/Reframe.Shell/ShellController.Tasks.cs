@@ -284,7 +284,7 @@ sealed partial class ShellController
                 var request = new NewSessionRequest(record.Cwd, record.Launch.Provider ?? "chatgpt", $"{task.Name} {run.Since:MM-dd HH:mm}",
                     Model: record.Launch.Model ?? defaults.Model, Effort: record.Launch.Effort ?? defaults.Effort,
                     PermissionMode: record.Launch.PermissionMode ?? defaults.PermissionMode, InitialPrompt: ScheduledTasks.RunText(task));
-                var (error, _) = await CreateSessionAsync(window.Id, request, _ => false);
+                var (error, _) = await CreateSessionAsync(window.Id, request, _ => false, quiet: true);
                 Finish(run, error is null, error is null ? "started a new thread" : $"the new thread did not start: {error}");
                 return;
             }
