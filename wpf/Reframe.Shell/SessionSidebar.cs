@@ -21,6 +21,7 @@ sealed class SessionSidebar : Border
     public ScrollViewer Scroll { get; }
     /// <summary>The subscription quota at the list's foot (.sidebar-quota).</summary>
     public QuotaPanel Quota { get; } = new();
+    public ProxyPanel Proxy { get; } = new();
     readonly StackPanel content = new();
     readonly Dictionary<string, Border> rows = [];
     /// <summary>The selected chats (keys), the Shift+click anchor, and the rows in the order shown.</summary>
@@ -129,6 +130,8 @@ sealed class SessionSidebar : Border
         panel.Children.Add(selectionBar);
         DockPanel.SetDock(Quota, Dock.Bottom);
         panel.Children.Add(Quota);
+        DockPanel.SetDock(Proxy, Dock.Bottom);
+        panel.Children.Add(Proxy);
         panel.Children.Add(Scroll);
         Child = panel;
     }

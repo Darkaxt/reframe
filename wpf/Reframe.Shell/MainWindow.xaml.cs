@@ -193,6 +193,7 @@ public partial class MainWindow : Window
 
         shell.StatusChanged += ShowStatus;
         shell.QuotaChanged += ShowQuota;
+        shell.ProxyChanged += ShowProxy;
         if (App.CaptureDir is null)
         {
             Content = root;
@@ -294,6 +295,7 @@ public partial class MainWindow : Window
         LayoutLoaded();
         await RefreshAsync();
         StartQuota();
+        ShowProxy();
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         timer.Tick += async (_, _) => await RefreshAsync();
         timer.Start();

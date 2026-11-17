@@ -85,6 +85,7 @@ public partial class MainWindow
             foreach (var id in tiles.Keys.ToList()) DisposeTile(id);
             shell.StatusChanged -= ShowStatus;
             shell.QuotaChanged -= ShowQuota;
+            shell.ProxyChanged -= ShowProxy;
         };
     }
 
