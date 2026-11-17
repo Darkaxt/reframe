@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "4e665fd8ca9a7f53663efd95084846b2fe4d7504",
-  "scope": "delete/archive of exited threads",
+  "sourceBase": "a21258f29ac6d5b1c61f15af09bdd592487dbdc8",
+  "scope": "proxy stop/start/restart",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.65.md",
-      "sha256": "57b7e8430056f4e439e05cd73e964dd6efdef3994949f8fb3acb8ea28e40ef25"
+      "file": "docs/releases/v0.11.0-claudegpt.66.md",
+      "sha256": "8ab509a3bfde3aac89ba5ae5d5e63c5f53afc1793fc4c5102722700f780f877e"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,15 +18,35 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "4192d056c5ded9689fd745b0e2b46af26298db2db5ccd858b895b280dbfe9042"
+      "sha256": "eefc6d479a85744dd7010145c76d6a30dbb11bc00bc9dfe321cb7038d2c7afc7"
     },
     {
       "file": "package.json",
-      "sha256": "b8dc5130fc7a40e8b3bff146edd43cd21485e7d207ef1b5d4223b14b3a88d34a"
+      "sha256": "16e5d3db34cc2acf5078fe6799ebdf061f5cb523ec653306497378ef167a2c7a"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.History.cs",
-      "sha256": "140ab79b26d86a6f70e8d7638d051fbb379592b5526b4ea718d09c49b854b44b"
+      "file": "wpf/Reframe.Shell.Core/ProxyControl.cs",
+      "sha256": "09e74c612f1d49e2d912587c40584f50db7e25069c0cb8ddff4887f0ea3849d2"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/ProxyControlTests.cs",
+      "sha256": "221f172a5a4b34603ba8da08f780b53cfe135c71f414b9f8d51f2e58ae5a5488"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Settings.cs",
+      "sha256": "1e7b45bc4c78395d4a47434b4b6f1c34910f6338c80027ba8bed18fe6c46d477"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
+      "sha256": "cb16ea6bdc8e977c7fbda5a94530bf6429e3cb08e0d9cd7e7bea2d063739b6b1"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ProxyPanel.cs",
+      "sha256": "23fc40dad44c3c927c34eec30c378dd0bc452871bb35a985ef149623a8378506"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Proxy.cs",
+      "sha256": "2a17e4637d21d796a974da808b11307a4f979464d676f04aee0e24eeca06225b"
     }
   ],
   "checksNotYetRun": [

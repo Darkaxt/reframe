@@ -194,6 +194,7 @@ public partial class MainWindow : Window
         shell.StatusChanged += ShowStatus;
         shell.QuotaChanged += ShowQuota;
         shell.ProxyChanged += ShowProxy;
+        sidebar.Proxy.Act = ProxyAction;
         if (App.CaptureDir is null)
         {
             Content = root;
