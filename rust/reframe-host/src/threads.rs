@@ -73,7 +73,7 @@ fn answer(message: &Value, tasks: Option<&Tasks>, post: &mut dyn FnMut(&[u8]) ->
         }
         "ping" => json!({}),
         "tools/list" => {
-            let mut tools = vec![tool(), wake_tool()];
+            let mut tools = vec![tool(), wake_tool(), close_tool()];
             if tasks.is_some() {
                 tools.extend(tasks::tools());
             }
@@ -81,6 +81,7 @@ fn answer(message: &Value, tasks: Option<&Tasks>, post: &mut dyn FnMut(&[u8]) ->
         }
         "tools/call" if message["params"]["name"] == "open_thread" => call(&message["params"]["arguments"], post),
         "tools/call" if message["params"]["name"] == "wake_thread" => wake(&message["params"]["arguments"], post),
+        "tools/call" if message["params"]["name"] == "close_thread" => close(&message["params"]["arguments"], post),
         "tools/call" => match (tasks, message["params"]["name"].as_str()) {
             (Some(tasks), Some(name)) if tasks::NAMES.contains(&name) => {
                 match tasks.call(name, &message["params"]["arguments"]) {
@@ -211,6 +212,52 @@ fn wake(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
     )
 }
 
+fn close_tool() -> Value {
+    json!({
+        "name": "close_thread",
+        "description": "Shut down another Reframe thread (for example one you opened with open_thread) when its work is done. \
+            action \"end\" (the default) stops its Claude session and closes its tile; the thread stays in Reframe's list, \
+            ended, and wake_thread or the user's Resume brings it back. action \"archive\" ends it and then archives its \
+            conversation to a verified ZIP, which Reframe asks the user to confirm in its window first. Not for the thread \
+            you run in. If no thread has that name, Reframe tells you in a message.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string", "description": "The name of the thread to close, as Reframe shows it." },
+                "action": { "type": "string", "enum": ["end", "archive"], "description": "end (default) or archive." },
+            },
+            "required": ["name"],
+        },
+    })
+}
+
+fn close(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
+    let text = |key: &str| {
+        arguments
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+    };
+    let Some(name) = text("name") else {
+        return text_result(true, "Give the name of the thread to close.");
+    };
+    let action = match text("action") {
+        None | Some("end") => "end",
+        Some("archive") => "archive",
+        Some(_) => return text_result(true, "action is end or archive."),
+    };
+    if !post(json!({ "close": name, "action": action }).to_string().as_bytes()) {
+        return text_result(true, "Reframe's host did not take the request (is Reframe running?).");
+    }
+    text_result(
+        false,
+        &format!(
+            "Reframe was asked to {action} the thread \"{name}\". If no thread has that name, or it is the thread you run in, a message tells you."
+        ),
+    )
+}
+
 fn text_result(error: bool, text: &str) -> Value {
     json!({ "content": [{ "type": "text", "text": text }], "isError": error })
 }
@@ -266,6 +313,36 @@ mod tests {
             ]
         );
         let refused = answer(&call, None, &mut |_| false).unwrap();
+        assert_eq!(refused["result"]["isError"], true);
+    }
+
+    #[test]
+    fn closes_a_thread_by_name() {
+        let mut posted = Vec::new();
+        for arguments in [
+            json!({ "name": " Docs " }),
+            json!({ "name": "Docs", "action": "archive" }),
+        ] {
+            let call = rpc("tools/call", json!({ "name": "close_thread", "arguments": arguments }));
+            let result = answer(&call, None, &mut |body| {
+                posted.push(serde_json::from_slice::<Value>(body).unwrap());
+                true
+            })
+            .unwrap();
+            assert_eq!(result["result"]["isError"], false);
+        }
+        assert_eq!(
+            posted,
+            [
+                json!({ "close": "Docs", "action": "end" }),
+                json!({ "close": "Docs", "action": "archive" })
+            ]
+        );
+        let bad = rpc(
+            "tools/call",
+            json!({ "name": "close_thread", "arguments": { "name": "Docs", "action": "delete" } }),
+        );
+        let refused = answer(&bad, None, &mut |_| panic!("nothing is posted")).unwrap();
         assert_eq!(refused["result"]["isError"], true);
     }
 

@@ -457,6 +457,11 @@ public partial class MainWindow
         return Task.CompletedTask;
     }
 
+    /// <summary>Another thread asked for this one to be archived (its close_thread tool): as the list's Archive does, with
+    /// the same confirmation, so nothing is archived without the user seeing it.</summary>
+    public void ArchiveThread(string sessionId) =>
+        _ = Report(RunChatBatchAsync([new ListItemRef(ListItemKind.App, sessionId)], "archive"));
+
     async Task Report(Task work)
     {
         try
