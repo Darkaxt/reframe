@@ -64,7 +64,7 @@ public class ProxyControlTests
             Assert.Null(ProxyControl.Find(root));
             File.WriteAllText(Path.Combine(dir, "supervise-proxy.ps1"), "");
             var install = Assert.IsType<ProxyInstall>(ProxyControl.Find(root));
-            Assert.Equal(["//B", "//Nologo", Path.Combine(dir, "start-hidden.vbs"), "D:\s", "k.md"], ProxyControl.StartArguments(install, "D:\s", "k.md"));
+            Assert.Equal(["//B", "//Nologo", Path.Combine(dir, "start-hidden.vbs"), "scratch", "k.md"], ProxyControl.StartArguments(install, "scratch", "k.md"));
         }
         finally
         {
