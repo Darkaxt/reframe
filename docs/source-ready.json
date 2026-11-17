@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "45c0ca2584dffefddaca8e8411c7660d9193353a",
+  "sourceBase": "a21258f29ac6d5b1c61f15af09bdd592487dbdc8",
   "scope": "proxy stop/start/restart",
   "inputHashes": [
     {
@@ -30,7 +30,7 @@
     },
     {
       "file": "wpf/Reframe.Shell.Tests/ProxyControlTests.cs",
-      "sha256": "e0555ca11c5238300098ae38f1955c502cc127e03aa6d61988d13eb0e935dda6"
+      "sha256": "221f172a5a4b34603ba8da08f780b53cfe135c71f414b9f8d51f2e58ae5a5488"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Settings.cs",
