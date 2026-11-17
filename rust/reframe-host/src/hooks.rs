@@ -1,6 +1,9 @@
 //! The local HTTP endpoint for Claude Code's HTTP hooks and status line (src/main/hooks/server.ts):
 //! `POST /hook/<reframe session id>/<event>` with the host's token in `X-Reframe-Token`.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
 use serde_json::{json, Map, Value};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -32,7 +35,13 @@ impl HookMessage {
 }
 
 /// Listens on 127.0.0.1 (a free port); hooks go to `sink`.
-pub async fn start(token: String, sink: UnboundedSender<HookMessage>) -> std::io::Result<u16> {
+/// `attached`: whether a reframe is attached now. An `OpenThread` asked for while none is gets 503, so the
+/// open_thread tool says it was not taken instead of that it was asked (the host does not keep it for later).
+pub async fn start(
+    token: String,
+    sink: UnboundedSender<HookMessage>,
+    attached: Arc<AtomicBool>,
+) -> std::io::Result<u16> {
     let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
     let port = listener.local_addr()?.port();
     tokio::spawn(async move {
@@ -40,9 +49,9 @@ pub async fn start(token: String, sink: UnboundedSender<HookMessage>) -> std::io
             let Ok((stream, _)) = listener.accept().await else {
                 continue;
             };
-            let (token, sink) = (token.clone(), sink.clone());
+            let (token, sink, attached) = (token.clone(), sink.clone(), attached.clone());
             tokio::spawn(async move {
-                if let Some(message) = serve(stream, &token).await {
+                if let Some(message) = serve(stream, &token, &attached).await {
                     let _ = sink.send(message);
                 }
             });
@@ -52,7 +61,7 @@ pub async fn start(token: String, sink: UnboundedSender<HookMessage>) -> std::io
 }
 
 /// Answers one request; returns the hook it carried, if it was one.
-async fn serve(mut stream: TcpStream, token: &str) -> Option<HookMessage> {
+async fn serve(mut stream: TcpStream, token: &str, attached: &AtomicBool) -> Option<HookMessage> {
     let mut buffer = Vec::new();
     let head_end = loop {
         if let Some(at) = find(&buffer, b"\r\n\r\n") {
@@ -98,6 +107,10 @@ async fn serve(mut stream: TcpStream, token: &str) -> Option<HookMessage> {
         body.truncate(length);
         body
     };
+    if event == OPEN_THREAD_EVENT && !attached.load(Ordering::SeqCst) {
+        reply(&mut stream, 503).await;
+        return None;
+    }
     reply(&mut stream, 200).await;
     // An empty or broken body still tells that the event happened.
     let payload = match serde_json::from_slice::<Value>(&body) {
@@ -156,6 +169,7 @@ async fn reply(stream: &mut TcpStream, status: u16) {
         200 => "OK",
         400 => "Bad Request",
         403 => "Forbidden",
+        503 => "Service Unavailable",
         _ => "Not Found",
     };
     let response = format!(
@@ -335,7 +349,8 @@ mod tests {
     #[tokio::test]
     async fn serves_hooks_over_http() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let port = start("tok".into(), tx).await.unwrap();
+        let attached = Arc::new(AtomicBool::new(false));
+        let port = start("tok".into(), tx, attached.clone()).await.unwrap();
         let send = |request: String| async move {
             let mut stream = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
             stream.write_all(request.as_bytes()).await.unwrap();
@@ -360,5 +375,17 @@ mod tests {
         assert_eq!(rx.recv().await.unwrap().payload, json!({}));
         let answer = send("POST /hook/s1/Stop HTTP/1.1\r\nContent-Length: 0\r\n\r\n".into()).await;
         assert!(answer.starts_with("HTTP/1.1 403"), "{answer}");
+        // A thread asked for while no reframe is attached is refused (it would be dropped), and taken once one is.
+        let open = r#"{"name":"n","prompt":"p","provider":"claude"}"#;
+        let request = format!(
+            "POST /hook/s1/OpenThread HTTP/1.1\r\nX-Reframe-Token: tok\r\nContent-Length: {}\r\n\r\n{open}",
+            open.len()
+        );
+        let answer = send(request.clone()).await;
+        assert!(answer.starts_with("HTTP/1.1 503"), "{answer}");
+        attached.store(true, Ordering::SeqCst);
+        let answer = send(request).await;
+        assert!(answer.starts_with("HTTP/1.1 200"), "{answer}");
+        assert_eq!(rx.recv().await.unwrap().event, OPEN_THREAD_EVENT);
     }
 }

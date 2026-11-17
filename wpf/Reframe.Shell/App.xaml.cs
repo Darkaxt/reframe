@@ -110,7 +110,22 @@ public partial class App : Application
             KeepEntryPoints();
             // Closing the last window leaves the shell in the tray; only the tray's Quit ends it.
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            Dispatcher.InvokeAsync(async () => await shell.StartAsync(StartedBySystem));
+            Dispatcher.InvokeAsync(async () =>
+            {
+                try
+                {
+                    await shell.StartAsync(StartedBySystem);
+                }
+                catch (Exception error)
+                {
+                    // A start that fails must not leave a process with no window holding the profile (every later
+                    // launch hands over to it and nothing opens): say why, then end.
+                    System.Diagnostics.Trace.WriteLine($"reframe could not start: {error}");
+                    MessageBox.Show($"Reframe could not start: {error.Message}\n\nThe details are in main.log.", "Reframe",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    Shutdown(1);
+                }
+            });
             return;
         }
         var window = new MainWindow(new ShellController(), null);

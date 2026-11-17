@@ -3,6 +3,7 @@
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -230,6 +231,8 @@ pub struct Host {
     connections: HashMap<u64, Connection>,
     /// The connection of the attached reframe.
     client: Option<u64>,
+    /// Whether `client` is set, for the hook endpoint (it refuses an OpenThread nobody would open).
+    attached: Arc<AtomicBool>,
     held: VecDeque<HookMessage>,
     idle_since: Instant,
     next_serial: u64,
@@ -252,6 +255,13 @@ pub struct Host {
 }
 
 impl Host {
+    /// Shares whether a reframe is attached with the hook endpoint (see `hooks::start`).
+    pub fn with_attached_flag(mut self, attached: Arc<AtomicBool>) -> Self {
+        attached.store(self.client.is_some(), Ordering::SeqCst);
+        self.attached = attached;
+        self
+    }
+
     pub fn new(config: Config, files: Files, inputs: UnboundedSender<Input>) -> Self {
         Self {
             config,
@@ -261,6 +271,7 @@ impl Host {
             views: BTreeMap::new(),
             connections: HashMap::new(),
             client: None,
+            attached: Arc::default(),
             held: VecDeque::new(),
             idle_since: Instant::now(),
             next_serial: 0,
@@ -439,6 +450,7 @@ impl Host {
                 self.close_views_of(old);
             }
             self.client = Some(conn);
+            self.attached.store(true, Ordering::SeqCst);
             self.log("reframe attached", json!({ "sessions": self.sessions.len() }));
         }
         let sessions: Vec<Value> = self
@@ -516,6 +528,7 @@ impl Host {
             return;
         }
         self.client = None;
+        self.attached.store(false, Ordering::SeqCst);
         self.idle_since = Instant::now();
         self.log("reframe detached", json!({ "sessions": self.sessions.len() }));
         self.primary_changed();
