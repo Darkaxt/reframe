@@ -91,7 +91,21 @@ sealed partial class ShellController
         TasksChanged?.Invoke();
     }
 
+    /// <summary>The scheduler's tick; whatever it trips on is logged, never allowed to take the shell (and every
+    /// terminal in it) down.</summary>
     void TickTasks()
+    {
+        try
+        {
+            TickTasksOnce();
+        }
+        catch (Exception e)
+        {
+            TaskLog($"tick failed: {e.GetType().Name}: {e.Message}");
+        }
+    }
+
+    void TickTasksOnce()
     {
         if (Quitting || Connection is not { IsOpen: true, IsObserver: false }) return;
         var now = DateTimeOffset.Now;
