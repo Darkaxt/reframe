@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "421a058e51c8fb7206f0097d0f96d6f92db19719",
-  "scope": "task clock pulse",
+  "sourceBase": "c7d8b846b1972233fea8cf4e51d9ca0b8c675762",
+  "scope": "quiet task resume",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.58.md",
-      "sha256": "b5a61bf1dd6aba4cb6e5489cef2cca84424c23a089f6ac88102e17c36170d945"
+      "file": "docs/releases/v0.11.0-claudegpt.59.md",
+      "sha256": "4f97088aba10f17d99bcb5f97eac07b3ca2c4dfef3c39842761b95624dc37106"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,31 +18,19 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "5ddbb5ecdfba7f4555382f4ee348548ff5c215cf66392959ff59e4d680943e03"
+      "sha256": "602bdb59869f79f2d2e4a565fedf4269e594a5de51046144f1914e82d5bf86fe"
     },
     {
       "file": "package.json",
-      "sha256": "23b8982f32243e062d8afcd8fe09948e6a74833875d35093fc446692bf271df5"
+      "sha256": "4bee35fcd74b0654929a47d18c2f128dccdc467e66d1508326431df86855103a"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.Broadcast.cs",
-      "sha256": "214ee279d761e0b48b2d8c17b41485e777f6578dfdad39078d9983a3fd62b62d"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "eaca604e980e187a5fc38fd40958f4de733788800a803f7f2b5f4198bd536504"
-    },
-    {
-      "file": "wpf/Reframe.Shell/SessionSidebar.cs",
-      "sha256": "815e244a2d363242aa547e5485e2ad84c94fd4c68bfd2df634f9d47b4654e1eb"
+      "file": "wpf/Reframe.Shell/MainWindow.Sessions.cs",
+      "sha256": "055a739f384741d6b87a81107523a88a032d56e3cf88923526b7dbda1e1746e8"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
-      "sha256": "d1c6e35548e8ffb8a9ec099880275bf0ec49624a9d0587a672cc4d615aafc64c"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "80df1827e46b577eba1c95e0047127ce3d41ebf8ce1a3b3eaa51d25f976e61f5"
+      "sha256": "e9bbc65c2fe8fded7d108f37500eced7c71fdad89a4b8ab8e4d1d07c95bc939a"
     }
   ],
   "checksNotYetRun": [

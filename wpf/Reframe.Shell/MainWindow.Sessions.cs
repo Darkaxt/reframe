@@ -55,7 +55,7 @@ public partial class MainWindow
         if (discarded || !tiles.ContainsKey(sessionId)) return;
         DisposeTile(sessionId);
         Relayout();
-        if (selected == sessionId) SelectTile(sessionId);
+        if (selected == sessionId && !shell.StartsQuietly(sessionId)) SelectTile(sessionId);
     }
 
     /// <summary>The "hidden" fixture's New Session states (e2e/visual-reference.spec.ts: Anthropic, then ChatGPT, then

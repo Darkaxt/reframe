@@ -50,6 +50,13 @@ sealed partial class ShellController
 
     readonly Dictionary<string, TaskActivity> taskActive = [];
 
+    /// <summary>Threads a task or a wake-up resumed, and when: while their start is awaited their tile does not take the
+    /// keyboard focus when the terminal appears (the run must not pull the focus from what the user is typing in).</summary>
+    readonly Dictionary<string, DateTimeOffset> quietStarts = [];
+
+    public bool StartsQuietly(string sessionId) =>
+        quietStarts.TryGetValue(sessionId, out var at) && DateTimeOffset.Now - at < ResumeLimit;
+
     /// <summary>Whether a scheduled task is running in the thread (its run taken and being delivered, or delivered and the
     /// thread still at it): its clock pulses. A wake-up from another thread is not a task.</summary>
     public bool TaskRunningOn(string sessionId) =>
@@ -308,6 +315,7 @@ sealed partial class ShellController
             }
             run.ResumedAt = DateTimeOffset.Now;
             TaskLog($"{task.Id}: resuming {record.Id} for the run");
+            quietStarts[record.Id] = DateTimeOffset.Now;
             Resume(owner.Id, record.Id);
         }
         catch (Exception e)
