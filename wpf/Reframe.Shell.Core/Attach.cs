@@ -88,18 +88,21 @@ public static class ShellAttach
         // (an earlier release's, kept running across the update) keeps serving the sessions it runs, beside a current
         // host started for the new ones, and is let go once they ended (it exits by itself then).
         var connected = new List<HostConnection>();
+        var pids = new Dictionary<HostConnection, int>();
         foreach (var host in hosts)
         {
             try
             {
-                connected.Add(await connect(host, token));
+                var connection = await connect(host, token);
+                connected.Add(connection);
+                pids[connection] = host.Pid;
             }
             catch (Exception e) when (IsConnectError(e))
             {
                 errors.Add($"pid {host.Pid}: {e.Message}");
             }
         }
-        var primary = connected.FirstOrDefault(c => c.CanStartSessions && (isCurrent?.Invoke(c.Welcome.Pid) ?? true));
+        var primary = connected.FirstOrDefault(c => c.CanStartSessions && (isCurrent?.Invoke(pids[c]) ?? true));
         var how = "attached to";
         if (primary is null && start is not null && other is null)
         {

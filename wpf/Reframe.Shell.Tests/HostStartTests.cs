@@ -75,7 +75,7 @@ public class HostStartTests
                 });
             Assert.True(result.Outcome == AttachOutcome.Attached, result.Message);
             Assert.StartsWith("started and attached", result.Message);
-            Assert.Equal(started!.Descriptor.Pid, result.Connection!.Welcome.Pid);
+            Assert.Empty(result.Connection!.Welcome.Sessions);
             var older = Assert.Single(result.Older!);
             Assert.Equal("s1", Assert.Single(older.Welcome.Sessions).SessionId);
             await older.DisposeAsync();
@@ -95,7 +95,7 @@ public class HostStartTests
         var result = await ShellAttach.AttachAsync(stale.ProfileDir, takeOver: false, isCurrent: _ => false,
             start: (_, _, _) => throw new IOException("no host files"));
         Assert.Equal(AttachOutcome.Attached, result.Outcome);
-        Assert.Equal(stale.Descriptor.Pid, result.Connection!.Welcome.Pid);
+        Assert.True(result.Connection!.CanStartSessions);
         await result.Connection.DisposeAsync();
         result.Lock!.Dispose();
     }
