@@ -40,6 +40,11 @@ public class ScheduledTasksTests
             Assert.False(Assert.Single(ScheduledTasks.Load(dir)).Active);
             ScheduledTasks.WriteRuns(dir, "daily", new TaskRuns(7, 2, "delivered", 8));
             Assert.Equal(new TaskRuns(7, 2, "delivered", 8), ScheduledTasks.ReadRuns(dir, "daily"));
+            // A run taken but not finished yet is written with nulls (it crashed the shell's timer when read back).
+            ScheduledTasks.WriteRuns(dir, "daily", new TaskRuns(7, 1, null, null));
+            Assert.Equal(new TaskRuns(7, 1, null, null), ScheduledTasks.ReadRuns(dir, "daily"));
+            File.WriteAllText(Path.Combine(dir, "daily", "runs.json"), """{"lastRunAt":"x","runs":[],"lastResultAt":true}""");
+            Assert.Equal(new TaskRuns(null, 0, null, null), ScheduledTasks.ReadRuns(dir, "daily"));
             ScheduledTasks.Delete(dir, "daily");
             Assert.Empty(ScheduledTasks.Load(dir));
         }

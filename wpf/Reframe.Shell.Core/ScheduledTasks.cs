@@ -185,11 +185,11 @@ public static class ScheduledTasks
             if (!File.Exists(file)) return new TaskRuns(null, 0, null, null);
             using var doc = JsonDocument.Parse(File.ReadAllText(file));
             var r = doc.RootElement;
-            long? Long(string k) => r.TryGetProperty(k, out var v) && v.TryGetInt64(out var n) ? n : null;
+            long? Long(string k) => r.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n : null;
             return new TaskRuns(Long("lastRunAt"), (int)(Long("runs") ?? 0),
                 r.TryGetProperty("lastResult", out var res) && res.ValueKind == JsonValueKind.String ? res.GetString() : null, Long("lastResultAt"));
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
         {
             return new TaskRuns(null, 0, null, null);
         }
