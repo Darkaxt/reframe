@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "3adf2853dee651878c31bbd20437ff5aba88a68d",
+  "sourceBase": "da6e00aca4ca1d278dbe5db213aa7b6e331be210",
   "scope": "close_thread tool",
   "inputHashes": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.67.md",
-      "sha256": "d89d1479dbe75c01fd5c9bbf53cbdfbbdc558117ca245948a9aad90f858e2041"
+      "sha256": "e0aff9f5da2b0416b32e388b4b772a7e94e979c412435ee154a1d9d71d4edfc0"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -26,15 +26,31 @@
     },
     {
       "file": "rust/reframe-host/src/threads.rs",
-      "sha256": "31fefd4aec02d9de07ef90cb0eaa870ef45335ac594abd4ce749d5aff9550658"
+      "sha256": "b00dbd3c4e9960e0e69adccfa427b18f6691f99024bfb0041df4e0ead39f6458"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/AppState.cs",
+      "sha256": "00ae46e0e2a6987a6699e63ceb77997364ee7427a2d0bda9e66fdabd42fbb806"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/NewSession.cs",
+      "sha256": "0ba631f3e825690b245251a08db6d5a1f64e6a3ddf6382bf2a3d88011b28a563"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/StateJson.cs",
+      "sha256": "c9c35ac5f90e02958ab8b4ae414c11e327533d182d129571d664067bd5f80874"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/StateParser.cs",
+      "sha256": "c210d05c1f35a822c27424c32e47819749fe777a465f33264433c11e2657ceca"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.History.cs",
-      "sha256": "a74cc3327c8cbb5b84735404edfb153a949e47310dfcb7bcb433a00eb1b7560f"
+      "sha256": "6d75a0bf313a3e87b2a6ff9d3373bb29dbac26cbc96a2ea4b1c778917e6f0e73"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Close.cs",
-      "sha256": "4c8b2eeab79b2625ab36bb33eeafcecfc44c0eef7c6c5791f7609c3450793df8"
+      "sha256": "7e86642b43e1b7212baea2dc85310833800485a3c54d05950fe5653f15f9e55f"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
