@@ -52,18 +52,30 @@ sealed class SessionSidebar : Border
     public event Action<string>? QueryChanged;
     /// <summary>The number of scheduled tasks of a chat's thread (its row shows a clock when there are any).</summary>
     public Func<ChatRow, int>? TaskCount { get; set; }
+    /// <summary>Whether a task is running in a chat's thread (its clock pulses).</summary>
+    public Func<ChatRow, bool>? TaskRunning { get; set; }
     /// <summary>A row's clock is clicked: the thread's tasks.</summary>
     public event Action<ChatRow, FrameworkElement>? TasksClicked;
 
     const string TasksMarkTag = "tasks-mark";
 
     /// <summary>The clock of a thread with scheduled tasks (Codex's mark), Segoe Fluent's clock at 12 px.</summary>
-    public static TextBlock TasksMark(int count) => new()
+    public static TextBlock TasksMark(int count, bool running = false)
     {
-        Text = "\uE823", FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 12, Tag = TasksMarkTag,
-        Foreground = B("mutedBrush"), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
-        ToolTip = count == 1 ? "1 scheduled task" : $"{count} scheduled tasks",
-    };
+        var mark = new TextBlock
+        {
+            Text = "\uE823", FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 12, Tag = TasksMarkTag,
+            Foreground = B(running ? "accentBrush" : "mutedBrush"), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
+            ToolTip = (count == 1 ? "1 scheduled task" : $"{count} scheduled tasks") + (running ? ", running now" : ""),
+        };
+        // A task is at work in the thread: the clock pulses until it is done.
+        if (running)
+            mark.BeginAnimation(UIElement.OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(1, 0.3, TimeSpan.FromMilliseconds(700))
+            {
+                AutoReverse = true, RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+            });
+        return mark;
+    }
 
     static Brush B(string key) => (Brush)Application.Current.FindResource(key);
     static Style S(string key) => (Style)Application.Current.FindResource(key);
@@ -415,7 +427,7 @@ sealed class SessionSidebar : Border
         titleLine.Children.Add(new TextBlock { Text = chat.Label, Style = S("Text13"), Foreground = B("textBrush"), TextWrapping = TextWrapping.Wrap });
         if (TaskCount?.Invoke(chat) is > 0 and var count)
         {
-            var clock = TasksMark(count);
+            var clock = TasksMark(count, TaskRunning?.Invoke(chat) == true);
             clock.Margin = new Thickness(6, 2, 0, 0);
             clock.VerticalAlignment = VerticalAlignment.Top;
             AutomationProperties.SetName(clock, "Scheduled tasks");

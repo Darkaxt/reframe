@@ -49,7 +49,7 @@ sealed partial class MainWindow
     {
         var count = TaskCountOf(view.SessionId);
         view.Tasks.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (count > 0) view.Tasks.Content = SessionSidebar.TasksMark(count);
+        if (count > 0) view.Tasks.Content = SessionSidebar.TasksMark(count, shell.TaskRunningOn(view.SessionId));
     }
 
     /// <summary>The tasks changed (a thread saved one, or the dialog): the clocks of the list and the tiles follow.</summary>
