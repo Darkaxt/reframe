@@ -89,7 +89,13 @@ public sealed class HostConnection : IAsyncDisposable
             var type = (string?)first["type"];
             if (type == "refused") throw new HostRefusedException((string?)first["reason"] ?? "unknown");
             if (type != "welcome") throw new HostRefusedException(type ?? "unknown");
-            connection.Welcome = ReadWelcome(first);
+            // A welcome this shell cannot read refuses the host (it is skipped like one that does not answer),
+            // instead of failing the whole start.
+            try { connection.Welcome = ReadWelcome(first); }
+            catch (Exception e) when (e is FormatException or InvalidOperationException or OverflowException)
+            {
+                throw new HostRefusedException($"unreadable welcome ({e.Message})");
+            }
             break;
         }
         _ = Task.Run(() => connection.ReadLoopAsync(reader));
@@ -105,7 +111,7 @@ public sealed class HostConnection : IAsyncDisposable
             var meta = s["meta"];
             // claudeSessionId (since 0.10.1-claudegpt.25) is what the host knows, also of a session started directly.
             sessions.Add(new HostSession((string)s["sessionId"]!, (int)s["instance"]!, (int?)s["pid"] ?? 0,
-                (int?)s["exitCode"], (string?)meta?["claudeHome"],
+                ExitCode(s["exitCode"]), (string?)meta?["claudeHome"],
                 (string?)s["claudeSessionId"] ?? (string?)meta?["launched"]?["claudeSessionId"] ?? (string?)meta?["wsl"]?["claudeSessionId"]));
         }
         var services = new Dictionary<string, int>();
@@ -117,6 +123,11 @@ public sealed class HostConnection : IAsyncDisposable
             w["hooks"] is JsonObject hooks && (int?)hooks["port"] is { } port ? new SpawnPlans.Hooks(port, (string?)hooks["token"] ?? "") : null);
     }
 
+    /// <summary>A Windows exit code: the host sends it unsigned (0xC000013A is more than an int holds); read as the
+    /// signed value Windows tools show.</summary>
+    internal static int? ExitCode(JsonNode? node) =>
+        node is JsonValue v && v.TryGetValue<long>(out var code) ? unchecked((int)code) : null;
+
     async Task ReadLoopAsync(LineReader reader)
     {
         var replaced = false;
@@ -125,12 +136,20 @@ public sealed class HostConnection : IAsyncDisposable
             while (await reader.ReadLineAsync(CancellationToken.None) is { } line)
             {
                 if (Parse(line) is not { } message) continue;
-                if ((string?)message["type"] == "replaced") replaced = true;
-                else Received(message);
+                if ((string?)message["type"] == "replaced")
+                {
+                    replaced = true;
+                    continue;
+                }
+                // One message this shell cannot handle must not end the reading: everything after it (the terminals'
+                // output, service answers, hooks) would wait forever on a connection that still looks open.
+                try { Received(message); }
+                catch (Exception e) { System.Diagnostics.Trace.WriteLine($"host: message {message["type"]?.ToString() ?? "?"} not handled: {e.GetType().Name}: {e.Message}"); }
             }
         }
         catch (Exception e) when (e is IOException or ObjectDisposedException or OperationCanceledException) { }
-        Close(replaced);
+        catch (Exception e) { System.Diagnostics.Trace.WriteLine($"host: reading stopped: {e.GetType().Name}: {e.Message}"); }
+        finally { Close(replaced); }
     }
 
     void Received(JsonObject message)
@@ -311,7 +330,7 @@ public sealed class HostView
         {
             case "snapshot": Snapshot?.Invoke((string?)message["data"] ?? "", (int?)message["cols"] ?? 80, (int?)message["rows"] ?? 24); break;
             case "data": Data?.Invoke((string?)message["data"] ?? ""); break;
-            case "exit": Exit?.Invoke((int?)message["exitCode"] ?? 0); break;
+            case "exit": Exit?.Invoke(HostConnection.ExitCode(message["exitCode"]) ?? 0); break;
         }
     }
 

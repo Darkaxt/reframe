@@ -154,7 +154,7 @@ fn call(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
     };
     let request = json!({ "name": name, "prompt": prompt, "provider": provider, "folder": folder, "model": text("model"), "effort": effort });
     if !post(request.to_string().as_bytes()) {
-        return text_result(true, "Reframe's host did not take the request (is Reframe running?).");
+        return text_result(true, "Reframe did not take the request: no Reframe window is attached to this thread's host (or it is not running), so nothing was opened. Try again once Reframe is open.");
     }
     let family = if provider == "claude" { "Claude" } else { "OpenAI" };
     text_result(

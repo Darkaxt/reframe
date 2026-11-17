@@ -97,7 +97,8 @@ async fn run(files: Files, mut config: Config) -> i32 {
     let (inputs, mut received) = mpsc::unbounded_channel::<Input>();
 
     let (hook_tx, mut hook_rx) = mpsc::unbounded_channel();
-    config.hooks_port = match hooks::start(config.hooks_token.clone(), hook_tx).await {
+    let attached = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    config.hooks_port = match hooks::start(config.hooks_token.clone(), hook_tx, attached.clone()).await {
         Ok(port) => port,
         Err(error) => {
             files.log("hook endpoint failed", json!({ "error": error.to_string() }));
@@ -119,7 +120,7 @@ async fn run(files: Files, mut config: Config) -> i32 {
         }
     };
     let (pipe, version, port) = (config.pipe.clone(), config.version.clone(), config.hooks_port);
-    let mut host = Host::new(config, files, inputs.clone());
+    let mut host = Host::new(config, files, inputs.clone()).with_attached_flag(attached);
     host.write_descriptor();
     host.log(
         "host started",
