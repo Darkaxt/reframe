@@ -222,6 +222,7 @@ sealed partial class ShellController
         services.StatusChanged += changed => Ui.InvokeAsync(() =>
         {
             HostStatus[changed.SessionId] = changed;
+            TaskActivityChanged(changed.SessionId);
             foreach (var window in windows.Values) window.HostStatusChanged(changed.SessionId);
             if (changed.Notify is "done" or "waiting") Notify(changed.SessionId, changed.Notify);
             RefreshTray();

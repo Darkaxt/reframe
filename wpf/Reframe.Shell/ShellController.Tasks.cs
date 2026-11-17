@@ -39,6 +39,42 @@ sealed partial class ShellController
     public static string TasksDir => Path.Combine(App.ProfileDir, "tasks");
     public IReadOnlyList<ScheduledTask> ScheduledTasksList => tasks;
     public bool IsRunPending(string taskId) => pendingRuns.ContainsKey(taskId);
+
+    /// <summary>A task's run that was typed into a thread, until the thread is idle again (seen busy since), or for two
+    /// minutes when it never showed busy.</summary>
+    sealed class TaskActivity(DateTimeOffset at)
+    {
+        public DateTimeOffset At { get; } = at;
+        public bool SeenBusy { get; set; }
+    }
+
+    readonly Dictionary<string, TaskActivity> taskActive = [];
+
+    /// <summary>Whether a scheduled task is running in the thread (its run taken and being delivered, or delivered and the
+    /// thread still at it): its clock pulses. A wake-up from another thread is not a task.</summary>
+    public bool TaskRunningOn(string sessionId) =>
+        taskActive.ContainsKey(sessionId) || pendingRuns.Values.Any(r => r.Wake is null && r.Task.TargetThreadId == sessionId);
+
+    /// <summary>The thread's status changed: a task's run ends when it is idle again after having been busy.</summary>
+    void TaskActivityChanged(string sessionId)
+    {
+        if (!taskActive.TryGetValue(sessionId, out var activity)) return;
+        var status = StatusOf(sessionId);
+        if (status is "busy" or "background") activity.SeenBusy = true;
+        else if (activity.SeenBusy && status is "idle" or "ended" or "error" or "done") EndTaskActivity(sessionId);
+    }
+
+    void EndTaskActivity(string sessionId)
+    {
+        if (taskActive.Remove(sessionId)) TasksChanged?.Invoke();
+    }
+
+    void ExpireTaskActivity()
+    {
+        var now = DateTimeOffset.Now;
+        foreach (var (id, activity) in taskActive.ToList())
+            if (now - activity.At > (activity.SeenBusy ? TaskWaitLimit : TimeSpan.FromMinutes(2)) || !Runs(id)) EndTaskActivity(id);
+    }
     public event Action? TasksChanged;
 
     static void TaskLog(string message) => Trace.WriteLine($"tasks: {message}");
@@ -80,6 +116,7 @@ sealed partial class ShellController
         taskTimer.Tick += (_, _) =>
         {
             TickTasks();
+            ExpireTaskActivity();
             CloseEnded();
         };
         taskTimer.Start();
@@ -296,6 +333,7 @@ sealed partial class ShellController
         var runs = ScheduledTasks.ReadRuns(TasksDir, task.Id);
         ScheduledTasks.WriteRuns(TasksDir, task.Id, runs with { LastResult = result, LastResultAt = DateTimeOffset.Now.ToUnixTimeMilliseconds() });
         TaskLog($"{task.Id}: {result}");
+        if (delivered && !task.NewChat) taskActive[task.TargetThreadId] = new TaskActivity(DateTimeOffset.Now);
         TasksChanged?.Invoke();
         var tell = delivered ? task.NotificationPolicy == "all" : true;
         if (tell) toasts?.Show(task.TargetThreadId, delivered ? $"Scheduled task: {task.Name}" : $"Scheduled task not run: {task.Name}", result);
