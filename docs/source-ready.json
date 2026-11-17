@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "e8de80edaf9842d2010faec93a8d8933fd75df73",
-  "scope": "wake explicit name",
+  "sourceBase": "0df46ca2339f1040e94ba6acf16fd1066dea608f",
+  "scope": "wake explicit name, reasoning_effort",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.60.md",
-      "sha256": "18a11de9f3e47637e36b18edff5057ea671c174ba8856abac2f8d5c4c6440385"
+      "sha256": "e986c32cd678deb374a2da4d19b129c41b30fa02f0eea4af93c163e6a8b65c2a"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -23,6 +23,18 @@
     {
       "file": "package.json",
       "sha256": "e3cacf049cb5b3c6909975577cf32f5f3c02c9b917122f9cb18f93d034721536"
+    },
+    {
+      "file": "rust/reframe-host/src/threads.rs",
+      "sha256": "fc0e5aa3fa477fd6d8b84ecd78703391ad06f5b537ae3994a849eb6a6f28b3c7"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/NewSession.cs",
+      "sha256": "970bdc601328ebd9c8c6546a5e01689e19e4c19394cc76c072520bea9816922a"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
+      "sha256": "4e22bdc9f8697cdc6db613489569e6cadeb52c79825f2eb7c2f4a58bc1583cdf"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
