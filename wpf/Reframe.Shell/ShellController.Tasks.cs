@@ -231,9 +231,11 @@ sealed partial class ShellController
         var askerId = (string?)hook["sessionId"];
         string? Text(string key) => hook["payload"] is JsonObject o && o[key] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim() is { Length: > 0 } t ? t : null;
         if (askerId is null || !State.Sessions.TryGetValue(askerId, out var asker) || Text("wake") is not { } name || Text("message") is not { } message) return;
-        var matches = State.Sessions.Values
-            .Where(r => r.Id != askerId && string.Equals(StateValues.SessionLabel(r.Name, r.ClaudeName, r.Cwd).Trim(), name, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        // A thread's own name (given here or by Claude) wins over the folder name a nameless thread is shown by.
+        var others = State.Sessions.Values.Where(r => r.Id != askerId).ToList();
+        var matches = others.Where(r => string.Equals((string.IsNullOrWhiteSpace(r.Name) ? r.ClaudeName : r.Name)?.Trim(), name, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (matches.Count == 0)
+            matches = others.Where(r => string.Equals(StateValues.SessionLabel(r.Name, r.ClaudeName, r.Cwd).Trim(), name, StringComparison.OrdinalIgnoreCase)).ToList();
         var askerName = StateValues.SessionLabel(asker.Name, asker.ClaudeName, asker.Cwd);
         if (matches.Count != 1)
         {

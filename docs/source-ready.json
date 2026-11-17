@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "c7d8b846b1972233fea8cf4e51d9ca0b8c675762",
-  "scope": "quiet task resume",
+  "sourceBase": "0df46ca2339f1040e94ba6acf16fd1066dea608f",
+  "scope": "wake explicit name, reasoning_effort",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.59.md",
-      "sha256": "4f97088aba10f17d99bcb5f97eac07b3ca2c4dfef3c39842761b95624dc37106"
+      "file": "docs/releases/v0.11.0-claudegpt.60.md",
+      "sha256": "e986c32cd678deb374a2da4d19b129c41b30fa02f0eea4af93c163e6a8b65c2a"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,27 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "602bdb59869f79f2d2e4a565fedf4269e594a5de51046144f1914e82d5bf86fe"
+      "sha256": "7b56a9982779d997c3b7105d50e28c1890672b5026931a09c7364de5f6ef934e"
     },
     {
       "file": "package.json",
-      "sha256": "4bee35fcd74b0654929a47d18c2f128dccdc467e66d1508326431df86855103a"
+      "sha256": "e3cacf049cb5b3c6909975577cf32f5f3c02c9b917122f9cb18f93d034721536"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.Sessions.cs",
-      "sha256": "055a739f384741d6b87a81107523a88a032d56e3cf88923526b7dbda1e1746e8"
+      "file": "rust/reframe-host/src/threads.rs",
+      "sha256": "fc0e5aa3fa477fd6d8b84ecd78703391ad06f5b537ae3994a849eb6a6f28b3c7"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/NewSession.cs",
+      "sha256": "970bdc601328ebd9c8c6546a5e01689e19e4c19394cc76c072520bea9816922a"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
+      "sha256": "4e22bdc9f8697cdc6db613489569e6cadeb52c79825f2eb7c2f4a58bc1583cdf"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
-      "sha256": "e9bbc65c2fe8fded7d108f37500eced7c71fdad89a4b8ab8e4d1d07c95bc939a"
+      "sha256": "e7c63e70091667de9cde9f3a1e8ca09e4485667281ba26760cab3e709cbf9dad"
     }
   ],
   "checksNotYetRun": [
