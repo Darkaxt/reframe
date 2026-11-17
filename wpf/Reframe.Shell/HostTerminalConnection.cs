@@ -54,12 +54,18 @@ sealed class HostTerminalConnection : ITerminalConnection
     public void Start() => _ = view.OpenAsync();
 
     /// <summary>What the control types (keys, its own mouse reports).</summary>
-    public void WriteInput(string data) => _ = view.InputAsync(data);
+    public void WriteInput(string data) => Send(data);
 
     /// <summary>Text pasted, as xterm's paste sends it (CR line breaks, bracketed while the program asked for it).</summary>
     public void Paste(string text)
     {
-        if (text.Length > 0) _ = view.InputAsync(PasteText.Prepare(text, Modes.BracketedPaste));
+        if (text.Length > 0) Send(PasteText.Prepare(text, Modes.BracketedPaste));
+    }
+
+    /// <summary>The user's input; it waits while Reframe types a message of its own into the thread (<see cref="InputGuard"/>).</summary>
+    void Send(string data)
+    {
+        if (!InputGuard.Defer(view.SessionId, () => view.InputAsync(data))) _ = view.InputAsync(data);
     }
 
     (uint Rows, uint Columns)? sent;

@@ -73,8 +73,10 @@ sealed partial class MainWindow
         return button;
     }
 
-    /// <summary>A scheduled task's thread placed in the window without moving the focus.</summary>
-    public void PlaceSessionQuietly(string sessionId) => Dispatch(w => LayoutActions.AddTile(w, sessionId));
+    /// <summary>A thread another thread or a task opens: added to the window collapsed (in the strip of collapsed
+    /// sessions), so it runs without a tile being drawn, the layout moving or the focus going to it. Expand it to see it.</summary>
+    public void PlaceSessionQuietly(string sessionId) =>
+        Dispatch(w => LayoutActions.Apply(LayoutActions.AddTile(w, sessionId), new LayoutAction.TileCollapse(sessionId)));
 
     /// <summary>The thread "This" means: the one a single window shows, else the tile focused last.</summary>
     string? BroadcastFocus() => LayoutActions.ViewModeOf(Win) == "single" ? selected : lastFocused ?? selected;

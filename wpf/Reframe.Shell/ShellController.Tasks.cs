@@ -354,6 +354,8 @@ sealed partial class ShellController
     {
         if (Connection is not { IsOpen: true, IsObserver: false } connection) return false;
         var view = connection.CreateView(sessionId);
+        // The user's own typing into this thread waits until the message is in.
+        using var hold = InputGuard.Hold(sessionId);
         try
         {
             await view.OpenAsync();

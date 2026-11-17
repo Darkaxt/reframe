@@ -380,6 +380,11 @@ public partial class MainWindow : Window
     void Render()
     {
         if (list is null) return;
+        if (openMenu is { IsOpen: true })
+        {
+            renderDeferred = true;
+            return;
+        }
         // Projects open once, when a thread of theirs is first seen running (at start or later); the user's own
         // toggles stand after that.
         expanded ??= [];
@@ -507,8 +512,21 @@ public partial class MainWindow : Window
         var menu = BuildMenu(items, chat, sessionId);
         menu.PlacementTarget = target;
         menu.Placement = PlacementMode.MousePoint;
+        openMenu = menu;
+        menu.Closed += (_, _) =>
+        {
+            if (openMenu == menu) openMenu = null;
+            if (!renderDeferred) return;
+            renderDeferred = false;
+            Render();
+        };
         menu.IsOpen = true;
     }
+
+    /// <summary>The menu being shown, and whether the list changed under it: the list is rebuilt when it closes, as a
+    /// rebuild drops the row the menu hangs from and closes it before a choice is made.</summary>
+    ContextMenu? openMenu;
+    bool renderDeferred;
 
     void Run(string action, ChatRow? chat, string? sessionId)
     {

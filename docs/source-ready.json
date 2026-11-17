@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "db38a2a6334f56077a44e3e0ae0593ce96b812ad",
-  "scope": "quiet agent opens",
+  "sourceBase": "58c075850d33ae570da34468191b2735a0893ce5",
+  "scope": "input hold; quiet opens; menu stays open",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.61.md",
-      "sha256": "d43ffa9dfd1f7fb3d7dc0d27266c4e7a7e0e173256506e037490a3e9993a1ec1"
+      "file": "docs/releases/v0.11.0-claudegpt.62.md",
+      "sha256": "9e746e7fd0dbfe61523a95c3a9608d78260e6f6993e1336ce2c9299d6a13e193"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,35 @@
     },
     {
       "file": "package-lock.json",
-      "sha256": "1950cb1f9f598c6aa4f30847071f970290892d9349fe5e1ec17a037fc59b4035"
+      "sha256": "d623c1946c135e51f2c6ccd378594dcf181e80059758ba391a0b9d2f6b42e051"
     },
     {
       "file": "package.json",
-      "sha256": "06b5cbd1d14938acc009d568762f47213ad30e165a839e072f8dd43991cd4fef"
+      "sha256": "6c77669bdc653117c69ed32c611303d358a9d2e54a38d987e1f8a4fb932f94e0"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
-      "sha256": "83374fbbc2a2f182dc1aee320102ff7f0884706159092de974e5058747d9320c"
+      "file": "wpf/Reframe.Shell.Core/InputGuard.cs",
+      "sha256": "3a2c0f091e7f9bdc17a915c44ad82b7f0724fb37ec20ab0366f6aa2ba404ddb0"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/InputGuardTests.cs",
+      "sha256": "22f7d4cb5c7259d901dd87f1c1eaf76bac7e6462ec51466660fbde0e2309d391"
+    },
+    {
+      "file": "wpf/Reframe.Shell/HostTerminalConnection.cs",
+      "sha256": "38d86cb1e2813030371e9f843dc414c16a58da95235aa5f0f9792598e352d5ea"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Broadcast.cs",
+      "sha256": "b3d0a0110670c8c297afc841339f85c3e163c03a151427d907b35b5de2f8b5b1"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
-      "sha256": "7325816378f661c2312f7c33bdd58d5f9b97f58ee1813b80d0007dcd51a6df3a"
+      "sha256": "4356915d6a23a90734fa1dfd330922fe9c46c3d38fc6957a5729d5e1fa1923fa"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Warnings.cs",
+      "sha256": "400504ea16d172e9c7c96e2308999d74b463007e0a72e54212587b2e5615747b"
     }
   ],
   "checksNotYetRun": [
