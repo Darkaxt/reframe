@@ -160,7 +160,21 @@ public partial class MainWindow
 
     void ShowQuota() => sidebar.Quota.Show(quota.Shown, Now);
 
-    void ShowProxy() => sidebar.Proxy.Show(shell.ProxyState, shell.ProxyAddress, shell.ProxyCheckedAt);
+    void ShowProxy() => sidebar.Proxy.Show(shell.ProxyState, shell.ProxyAddress, shell.ProxyCheckedAt, shell.ProxyControllable, shell.ProxyBusy);
+
+    /// <summary>The proxy row's buttons. Stopping or restarting cuts the running ChatGPT threads off from their model for a
+    /// moment, so it is confirmed while any runs.</summary>
+    void ProxyAction(string action)
+    {
+        var running = shell.ChatGptRunning;
+        if (action != "start" && running > 0)
+        {
+            var verb = action == "stop" ? "Stop" : "Restart";
+            if (!CloseWindowDialog.Confirm(this, null, $"{verb} the proxy?",
+                $"{running} ChatGPT thread{(running == 1 ? " is" : "s are")} running and cannot reach {(running == 1 ? "its" : "their")} model while the proxy is down.", verb)) return;
+        }
+        _ = shell.ProxyActionAsync(action);
+    }
 
     // ---------- capture ----------
 
