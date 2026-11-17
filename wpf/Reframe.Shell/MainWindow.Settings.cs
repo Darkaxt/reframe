@@ -160,6 +160,8 @@ public partial class MainWindow
 
     void ShowQuota() => sidebar.Quota.Show(quota.Shown, Now);
 
+    void ShowProxy() => sidebar.Proxy.Show(shell.ProxyState, shell.ProxyAddress, shell.ProxyCheckedAt);
+
     // ---------- capture ----------
 
     /// <summary>The "empty" fixture's states after main-empty: the quota (set as Electron's test hook sets it), About,

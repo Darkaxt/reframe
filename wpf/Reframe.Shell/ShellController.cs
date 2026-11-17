@@ -298,6 +298,7 @@ sealed partial class ShellController
         trayTimer.Tick += (_, _) => RefreshTray();
         trayTimer.Start();
         StartMonitor();
+        StartProxyWatch();
         _ = StartWarningsAsync();
         WatchForeignWindows();
         StartTasks();
@@ -491,6 +492,7 @@ sealed partial class ShellController
         foreach (var window in windows.Values.ToList()) window.Close();
         tray?.Dispose();
         tray = null;
+        StopProxyWatch();
         toasts?.Dispose();
         toasts = null;
         // Lets go of the WSL distributions started from the list (WslDistros.release at quit).
