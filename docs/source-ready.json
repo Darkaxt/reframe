@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "19318f11fd41202452a23c215e92cb85251e5e11",
-  "scope": "Cap subagent rows",
+  "sourceBase": "8a51295a6ba00a6a7ed05c72688dd04fb33a0855",
+  "scope": "manager thread",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.75.md",
-      "sha256": "5e6eb28047783f5bcb4b09ae33545547995d340409ec7c8897d9d2c4be470371"
+      "file": "docs/releases/v0.11.0-claudegpt.76.md",
+      "sha256": "fe6d20e5953a90a46c80de0ea1245a4505892d71af893b6a3d790209ef3578e9"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,15 +18,35 @@
     },
     {
       "file": "package.json",
-      "sha256": "65a5189700c078640eceeb3138085bbaf89cc89879988bc58ffe4b5f8fefe31a"
+      "sha256": "d6627314d3ea8c646fd2a454f68ecff57164d7171ad54425f77be29cbfdd3970"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
-      "sha256": "a42cc4f40845cd6daa4d8d69baa0ac993c8454c54afa4cb3a831536020f38fb1"
+      "file": "wpf/Reframe.Shell.Core/AppState.cs",
+      "sha256": "f4fe0fa0f0cd8b51da8350df5d7fa204fd79fe6d4126f55160bc76c584aa1b4b"
     },
     {
-      "file": "wpf/Reframe.Shell/SessionSidebar.cs",
-      "sha256": "ca05b621fea2d35850c77e54f79649bd87dcb81374d580ff71fd85ce97815a5d"
+      "file": "wpf/Reframe.Shell.Core/ContextMenus.cs",
+      "sha256": "345f0e4b7a024f974e63e5a65131cd01b168365b87f9586d8256ddeeace000db"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/StateJson.cs",
+      "sha256": "6aff6ad160ab96197a70751e33b3bf2d64220192618cdbc58872960b430c6f1c"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/StateParser.cs",
+      "sha256": "e857f792de825d18e60fc0a5ee5175fa11a0c966d7fac21c2ed359968e7af94c"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/StateWriteTests.cs",
+      "sha256": "3dfbc27f62198c06809103e50915833f40e390a7fc68d700318dabffad2c1eb5"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
+      "sha256": "6545aa95fe3066b6068bf204660c8468e13b9b990ad916f9a46e92c8cea1ccf6"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Close.cs",
+      "sha256": "31636a32399a6ebdbe4bbf96f6f7dc67ae9e689b2d7cc029e2c3a7f7f800cc9e"
     }
   ],
   "checksNotYetRun": [
