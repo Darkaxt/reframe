@@ -31,7 +31,7 @@ public sealed record MenuSpec(string Type, string Label = "", bool Enabled = tru
 /// <param name="Wsl">The chat lives in WSL (a found one with a distro, or a record whose folder is in WSL).</param>
 /// <param name="Inactive">No reframe session of it runs and no history operation is going on.</param>
 public sealed record ChatMenuContext(ListItemKind Kind, SessionRecord? Record, string ChatKey, bool Pinned, bool Hideable,
-    bool Wsl, bool Inactive, bool BatchRunning = false);
+    bool Wsl, bool Inactive, bool BatchRunning = false, bool Manager = false);
 
 /// <summary>The context menus of src/main/menus.ts and app.ts (English texts of src/shared/i18n.ts), as specs.</summary>
 public static class ContextMenus
@@ -62,6 +62,7 @@ public static class ContextMenus
             .. c.Record is { } record ? [PermissionMenu(record, c.Inactive)] : Array.Empty<MenuSpec>(),
             new("normal", c.Inactive ? "Archive chat…" : "Archive chat (end chat first)", c.Inactive, Action: "archive"),
             new("normal", c.Inactive ? "Delete chat…" : "Delete chat (end chat first)", c.Inactive, Action: "delete"),
+            .. c.Record is not null ? new MenuSpec[] { MenuSpec.Separator, new("checkbox", "Manages Reframe (may delete any thread)", Checked: c.Manager, Action: "manager") } : [],
         ];
     }
 
