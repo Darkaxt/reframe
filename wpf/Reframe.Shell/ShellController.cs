@@ -173,6 +173,7 @@ sealed partial class ShellController
         if (connection.IsObserver) SetStatus(Status + " Terminals are read-only (start with --take-over to type in them).");
         var services = Services = new HostServices(connection);
         await FollowHostAsync(connection, services);
+        _ = WatchTranscriptsAsync(services);
         foreach (var older in result.Older ?? [])
         {
             System.Diagnostics.Trace.WriteLine($"pty host {older.Welcome.Kind} {older.Welcome.Version} (pid {older.Welcome.Pid}) keeps its {older.Welcome.Sessions.Count} sessions");
