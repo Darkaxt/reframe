@@ -38,7 +38,7 @@ sealed partial class ShellController
                 {
                     foreach (var (id, use) in await older.MonitorSampleAsync()) usage[id] = use;
                 }
-                catch (Exception e) when (e is HostServiceException or InvalidOperationException or IOException) { }
+                catch (Exception e) when (e is HostServiceException or InvalidOperationException or System.IO.IOException) { }
             }
             monitorFailed = false;
             foreach (var window in windows.Values) window.ShowUsage(usage);
