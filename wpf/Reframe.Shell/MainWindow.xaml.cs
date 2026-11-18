@@ -201,6 +201,7 @@ public partial class MainWindow : Window
             subagentsShown[chat.Key] = !chat.SubagentsShown;
             Render();
         };
+        sidebar.SubagentsMenu += (chat, target) => ShowEndedAgentsMenu(chat, target);
         sidebar.Proxy.Act = ProxyAction;
         if (App.CaptureDir is null)
         {

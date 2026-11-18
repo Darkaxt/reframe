@@ -64,6 +64,9 @@ sealed class SessionSidebar : Border
     /// <summary>A parent row's subagent count is clicked: show or hide its subagents.</summary>
     public event Action<ChatRow>? SubagentsToggled;
 
+    /// <summary>A parent row's subagent count is right-clicked: its menu (delete the ended ones).</summary>
+    public event Action<ChatRow, FrameworkElement>? SubagentsMenu;
+
     /// <summary>The clock of a thread with scheduled tasks (Codex's mark), Segoe Fluent's clock at 12 px.</summary>
     public static TextBlock TasksMark(int count, bool running = false)
     {
@@ -469,7 +472,12 @@ sealed class SessionSidebar : Border
                 Text = $"{(chat.SubagentsShown ? "▾" : "▸")} {label}", Style = S("Text12"), Foreground = B("textBrush"), Tag = SubagentsTag,
                 Background = B("surfaceBrush"), Padding = new Thickness(6, 1, 6, 1),
                 Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
-                ToolTip = $"{label}: click to {(chat.SubagentsShown ? "hide" : "show")}",
+                ToolTip = $"{label}: click to {(chat.SubagentsShown ? "hide" : "show")}; right-click to delete the ended ones",
+            };
+            subagents.MouseRightButtonUp += (_, e) =>
+            {
+                SubagentsMenu?.Invoke(chat, subagents);
+                e.Handled = true;
             };
             AutomationProperties.SetName(subagents, $"{label}, {(chat.SubagentsShown ? "shown" : "hidden")}");
             Grid.SetColumn(subagents, 3);
