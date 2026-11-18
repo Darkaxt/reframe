@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "ca153c51fb1e34f9579f95e0eb5d29183b586e95",
-  "scope": "Subagent count excludes ended",
+  "sourceBase": "8faa2abf5460af53a29f1ccc4070a6d0b920a4c0",
+  "scope": "Subagent count excludes ended; empty projects hidden",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.73.md",
-      "sha256": "052cef6ab0cf7f2cddf1c2c5ffbf3e3fac716880c8739a3ee69224ee0ec5f05b"
+      "sha256": "d4f027af8510aac177cbe7d8a4c071189992a5d9fa0205b5a2c85818661460fa"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -22,11 +22,11 @@
     },
     {
       "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
-      "sha256": "d9918294e7b7aa8f255861fbd7cb5a9ad6defa3b4b87e8389dbd5fcf953a64d9"
+      "sha256": "cbcd334d3fbf5241488aaabe12bac2b16798a7d053255b4de39adca2dfc66072"
     },
     {
       "file": "wpf/Reframe.Shell.Tests/SubagentTreeTests.cs",
-      "sha256": "9d4bfe379e1db9eac792e2d2d6a9ef9b1d966e4caef0280485e91d26ebe0f8b1"
+      "sha256": "ce1db2aed8458f4330679839160aca50846eec84f992ebfae92de61dfacd0888"
     },
     {
       "file": "wpf/Reframe.Shell/SessionSidebar.cs",
