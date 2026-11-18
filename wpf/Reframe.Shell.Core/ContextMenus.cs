@@ -69,7 +69,7 @@ public static class ContextMenus
     /// <summary>The permission mode a session of reframe's starts with (the WPF shell's; Electron had it only in New
     /// session): Default or one of Claude Code's modes, bypassPermissions being --dangerously-skip-permissions. It can be
     /// changed while the session runs: it applies when it starts next.</summary>
-    static MenuSpec PermissionMenu(SessionRecord record, bool inactive) =>
+    public static MenuSpec PermissionMenu(SessionRecord record, bool inactive) =>
         new("submenu", inactive ? "Permission mode" : "Permission mode (next start)", Submenu:
         [
             new("radio", "Default", Checked: record.Launch.PermissionMode is null, Action: "permission:"),

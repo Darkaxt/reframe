@@ -1,6 +1,8 @@
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -8,37 +10,38 @@ using Reframe.Shell.Core;
 
 namespace Reframe.Shell;
 
-/// <summary>The read-only chat view of a thread (chat-view-spec stage 2): its transcript as messages, with tool calls,
-/// thinking and long results folded until clicked. It only reads the file the CLI writes; the terminal stays the place
-/// for input. Rows are rebuilt when the transcript grew, at most once a second while the view is shown.</summary>
+/// <summary>The chat view of a thread, laid out as Codex lays out a thread: your messages as bubbles on the right, each turn's
+/// work folded under "Worked for …" with the final answer open, steps as muted one-line rows that open to the command and its
+/// output, markdown in the answers, a card of the files edited, and a rounded message box with a + button and the permission
+/// mode. It reads the transcript file the CLI writes; the message box types into the running session. Rebuilt when the
+/// transcript grew, at most once a second while shown.</summary>
 sealed class ChatView : Border
 {
-    const int MaxItems = 250;
+    const int MaxItems = 400;
     const int MaxResult = 6000;
     static Brush B(string key) => (Brush)Application.Current.FindResource(key);
     static Style S(string key) => (Style)Application.Current.FindResource(key);
 
     readonly string claudeSessionId;
     readonly TranscriptModel model = new();
-    readonly StackPanel rows = new() { Margin = new Thickness(10, 8, 10, 12) };
+    readonly StackPanel rows = new() { Margin = new Thickness(0, 8, 0, 12), MaxWidth = 860 };
     readonly ScrollViewer scroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     readonly DispatcherTimer timer;
-    readonly HashSet<string> opened = [];
+    readonly Dictionary<string, bool> open = [];
     string? path;
     long offset;
 
-    public ChatView(string claudeSessionId, Func<string, Task<bool>> send)
+    public ChatView(string claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu)
     {
         this.claudeSessionId = claudeSessionId;
         Background = B("terminalBrush");
-        // The composer: Enter sends the text into the running session (as the terminal would receive it), Shift+Enter breaks the line.
         var input = new TextBox
         {
-            AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 120, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Background = B("surfaceBrush"), Foreground = B("textBrush"), BorderBrush = B("borderBrush"), CaretBrush = B("textBrush"),
-            Padding = new Thickness(8, 6, 8, 6), FontSize = 13,
+            AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 140, MinHeight = 28, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Background = Brushes.Transparent, Foreground = B("textBrush"), BorderThickness = new Thickness(0), CaretBrush = B("textBrush"),
+            Padding = new Thickness(4, 4, 4, 4), FontSize = 13,
         };
-        var status = new TextBlock { Style = S("Text12"), Foreground = B("mutedBrush"), Margin = new Thickness(10, 2, 10, 4), Text = "Enter sends to the terminal · Shift+Enter new line" };
+        var status = new TextBlock { Style = S("Text12"), Foreground = B("mutedBrush"), VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         async Task Send()
         {
             var text = input.Text.Trim();
@@ -49,10 +52,10 @@ sealed class ChatView : Border
             if (sent)
             {
                 input.Clear();
-                status.Text = "Sent";
-                Refresh();
+                status.Text = "";
+                Refresh(true);
             }
-            else status.Text = "Not sent: the session is not running (open it in the terminal first)";
+            else status.Text = "Not sent: the session is not running";
             input.Focus();
         }
         input.PreviewKeyDown += (_, e) =>
@@ -61,26 +64,55 @@ sealed class ChatView : Border
             e.Handled = true;
             _ = Send();
         };
-        var composer = new StackPanel { Margin = new Thickness(8, 0, 8, 0) };
-        composer.Children.Add(input);
-        composer.Children.Add(status);
+        var plus = Chip("+", "Add files: their paths are put in the message");
+        plus.Click += (_, _) =>
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog { Multiselect = true, Title = "Add files to the message" };
+            if (dialog.ShowDialog() != true) return;
+            input.SelectedText = string.Join(" ", dialog.FileNames.Select(f => f.Contains(' ') ? "\"" + f + "\"" : f)) + " ";
+            input.CaretIndex = input.SelectionStart + input.SelectionLength;
+            input.Focus();
+        };
+        var mode = Chip(permission(), "Permission mode (applies when the session starts next)");
+        mode.Click += (_, _) => permissionMenu(mode);
+        var bar = new DockPanel { Margin = new Thickness(0, 2, 0, 0) };
+        DockPanel.SetDock(plus, Dock.Left);
+        DockPanel.SetDock(mode, Dock.Left);
+        bar.Children.Add(plus);
+        bar.Children.Add(mode);
+        bar.Children.Add(status);
+        var stack = new StackPanel();
+        stack.Children.Add(input);
+        stack.Children.Add(bar);
+        var composer = new Border
+        {
+            Background = B("surfaceBrush"), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14),
+            Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(16, 4, 16, 12), MaxWidth = 860, Child = stack,
+        };
         var layout = new DockPanel();
         DockPanel.SetDock(composer, Dock.Bottom);
         layout.Children.Add(composer);
+        scroll.Content = rows;
         layout.Children.Add(scroll);
         Child = layout;
-        scroll.Content = rows;
-        timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Refresh(), Dispatcher);
+        timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Refresh(false), Dispatcher);
         IsVisibleChanged += (_, _) =>
         {
             if (IsVisible)
             {
-                Refresh();
+                ((TextBlock)mode.Content).Text = permission();
+                Refresh(false);
                 timer.Start();
             }
             else timer.Stop();
         };
     }
+
+    static Button Chip(string text, string tip) => new()
+    {
+        Style = S("IconButton"), Width = double.NaN, MinWidth = 24, ToolTip = tip, Margin = new Thickness(0, 0, 4, 0),
+        Content = new TextBlock { Text = text, Style = S("Text12"), Margin = new Thickness(8, 0, 8, 0) },
+    };
 
     string? Find()
     {
@@ -100,7 +132,7 @@ sealed class ChatView : Border
         return null;
     }
 
-    void Refresh()
+    void Refresh(bool toEnd)
     {
         if (string.IsNullOrEmpty(claudeSessionId)) return;
         if (Find() is not { } file)
@@ -115,30 +147,80 @@ sealed class ChatView : Border
         offset = read.NewOffset;
         if (read.Lines.Count == 0 && rows.Children.Count > 0 && !read.WasReset) return;
         model.Append(read.Lines);
-        var atEnd = scroll.VerticalOffset >= scroll.ScrollableHeight - 24;
+        var atEnd = toEnd || scroll.VerticalOffset >= scroll.ScrollableHeight - 24;
         rows.Children.Clear();
-        var items = model.Items;
-        if (items.Count > MaxItems) rows.Children.Add(Note($"{items.Count - MaxItems} earlier items not shown"));
-        foreach (var item in items.Skip(Math.Max(0, items.Count - MaxItems))) rows.Children.Add(Row(item));
+        List<ChatItem> items = [.. model.Items];
+        if (items.Count > MaxItems) items = items.GetRange(items.Count - MaxItems, MaxItems);
         if (items.Count == 0) rows.Children.Add(Note("The transcript is empty."));
+        var turns = new List<List<ChatItem>>();
+        foreach (var item in items)
+        {
+            if (item is UserMessageItem || turns.Count == 0) turns.Add([]);
+            turns[^1].Add(item);
+        }
+        for (var n = 0; n < turns.Count; n++) AddTurn(turns[n], n == turns.Count - 1);
         if (atEnd) scroll.ScrollToEnd();
+    }
+
+    void AddTurn(List<ChatItem> turn, bool last)
+    {
+        List<ChatItem> rest = turn;
+        if (turn[0] is UserMessageItem user)
+        {
+            rows.Children.Add(Bubble(user));
+            rest = turn.GetRange(1, turn.Count - 1);
+        }
+        var finalText = rest.OfType<AssistantTextItem>().LastOrDefault();
+        List<ChatItem> work = [.. rest.Where(i => !ReferenceEquals(i, finalText))];
+        var turnKey = turn[0].Uuid ?? turn[0].Timestamp ?? "";
+        if (work.Count > 0)
+        {
+            List<ChatItem> timed = [.. work];
+            if (finalText is not null) timed.Add(finalText);
+            rows.Children.Add(Fold("turn:" + turnKey, "Worked" + Duration(timed), () =>
+            {
+                var inner = new StackPanel();
+                foreach (var item in work) inner.Children.Add(Row(item));
+                return inner;
+            }, defaultOpen: last && finalText is null));
+        }
+        if (finalText is not null) rows.Children.Add(new Border { Margin = new Thickness(0, 8, 16, 8), Child = Markdown(finalText.Text) });
+        var edited = new List<string>();
+        foreach (var call in CallsOf(rest))
+            if (call.Name is "Edit" or "Write" or "MultiEdit" or "NotebookEdit" && !edited.Contains(call.Summary)) edited.Add(call.Summary);
+        if (edited.Count > 0 && finalText is not null) rows.Children.Add(FilesCard(edited, "turnfiles:" + turnKey));
+    }
+
+    static IEnumerable<ToolCallItem> CallsOf(IEnumerable<ChatItem> items)
+    {
+        foreach (var item in items)
+        {
+            if (item is ToolGroupItem group) foreach (var call in group.Calls) yield return call;
+            else if (item is ToolCallItem single) yield return single;
+        }
+    }
+
+    static string Duration(IEnumerable<ChatItem> items)
+    {
+        var times = new List<DateTimeOffset>();
+        foreach (var item in items)
+            if (DateTimeOffset.TryParse(item.Timestamp, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t)) times.Add(t);
+        if (times.Count < 2) return "";
+        var span = times.Max() - times.Min();
+        return " for " + (span.TotalHours >= 1 ? $"{(int)span.TotalHours}h {span.Minutes}m {span.Seconds}s" : span.TotalMinutes >= 1 ? $"{span.Minutes}m {span.Seconds}s" : $"{Math.Max(1, (int)span.TotalSeconds)}s");
     }
 
     UIElement Row(ChatItem item) => item switch
     {
-        UserMessageItem u => new Border
-        {
-            Background = B("surfaceBrush"), CornerRadius = new CornerRadius(6), Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(0, 6, 0, 6),
-            Child = Text(u.Text, "textBrush"),
-        },
-        AssistantTextItem a => new Border { Margin = new Thickness(0, 4, 0, 4), Child = Text(a.Text, "textBrush") },
-        ThinkingItem t => Fold("thinking:" + t.Uuid, "Thinking", () => Text(t.Text, "mutedBrush")),
+        UserMessageItem u => Bubble(u),
+        AssistantTextItem a => new Border { Margin = new Thickness(0, 6, 16, 6), Child = Markdown(a.Text) },
+        ThinkingItem t => Fold("thinking:" + t.Uuid, "Thinking", () => Text(t.Text, "mutedBrush"), step: true),
         ToolGroupItem g => Fold("group:" + g.Uuid + g.Label, g.Label, () =>
         {
             var inner = new StackPanel { Margin = new Thickness(14, 0, 0, 0) };
             foreach (var call in g.Calls) inner.Children.Add(Call(call));
             return inner;
-        }),
+        }, step: true),
         ToolCallItem c => Call(c),
         CompactionItem => Note("Conversation compacted"),
         SystemNoticeItem s => Note(s.Text),
@@ -146,50 +228,163 @@ sealed class ChatView : Border
         _ => Note(""),
     };
 
+    static UIElement Bubble(UserMessageItem user) => new Border
+    {
+        Background = B("surfaceBrush"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(60, 10, 16, 10),
+        HorizontalAlignment = HorizontalAlignment.Right, Child = Text(user.Text, "textBrush"),
+    };
+
     UIElement Call(ToolCallItem call)
     {
-        var head = $"{call.Name}  {call.Summary}".TrimEnd() + (call.IsPending ? "  …" : call.IsError ? "  (error)" : "");
+        var verb = call.Name switch
+        {
+            "Bash" => "Ran",
+            "Edit" or "MultiEdit" or "NotebookEdit" => "Edited",
+            "Write" => "Wrote",
+            "Read" => "Read",
+            "Grep" or "Glob" => "Searched",
+            "Task" or "Agent" => "Agent:",
+            _ => call.Name,
+        };
+        var head = $"{verb} {call.Summary}".TrimEnd() + (call.IsPending ? "  …" : call.IsError ? "  (error)" : "");
         return Fold("call:" + call.Id, head, () =>
         {
-            var inner = new StackPanel { Margin = new Thickness(14, 0, 0, 4) };
+            var inner = new StackPanel { Margin = new Thickness(14, 2, 0, 6) };
             var result = call.Result ?? "(no result yet)";
-            inner.Children.Add(Text(result.Length > MaxResult ? result[..MaxResult] + "\n… " + (result.Length - MaxResult) + " more characters" : result, call.IsError ? "textBrush" : "mutedBrush", mono: true));
+            var shown = result.Length > MaxResult ? result[..MaxResult] + "\n… " + (result.Length - MaxResult) + " more characters" : result;
+            inner.Children.Add(new Border
+            {
+                Background = B("surfaceBrush"), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(10, 8, 10, 8), Child = Text(call.Summary + "\n\n" + shown, call.IsError ? "textBrush" : "mutedBrush", mono: true),
+            });
             if (call.Children.Count > 0)
             {
                 inner.Children.Add(Note($"{call.Children.Count} subagent items"));
                 foreach (var child in call.Children.Take(60)) inner.Children.Add(Row(child));
             }
             return inner;
-        });
+        }, step: true);
     }
 
-    /// <summary>A row folded until its header is clicked; the body is made on demand and remembered as open across rebuilds.</summary>
-    UIElement Fold(string key, string header, Func<UIElement> body)
+    /// <summary>"Edited 3 files" and the files, as Codex's card of a turn's changes (without counts: the transcript does not hold them).</summary>
+    UIElement FilesCard(List<string> files, string key)
     {
-        var panel = new StackPanel { Margin = new Thickness(0, 1, 0, 1) };
-        var label = new TextBlock { Style = S("Text12"), Foreground = B("mutedBrush"), Cursor = Cursors.Hand, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = header };
-        var content = new ContentPresenter();
-        void Show(bool open)
+        var card = new StackPanel();
+        card.Children.Add(new TextBlock
         {
-            label.Text = (open ? "▾ " : "▸ ") + header;
-            content.Content = open ? body() : null;
+            Text = files.Count == 1 ? "Edited 1 file" : $"Edited {files.Count} files", Style = S("Text13"), Foreground = B("textBrush"),
+            FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4),
+        });
+        foreach (var file in files.Take(3)) card.Children.Add(FileLine(file));
+        if (files.Count > 3)
+            card.Children.Add(Fold(key, $"Show {files.Count - 3} more files", () =>
+            {
+                var more = new StackPanel();
+                foreach (var file in files.Skip(3)) more.Children.Add(FileLine(file));
+                return more;
+            }));
+        return new Border
+        {
+            Background = B("surfaceBrush"), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 4, 16, 8), Child = card,
+        };
+    }
+
+    static TextBlock FileLine(string file) => new()
+    {
+        Text = file, Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = file, Margin = new Thickness(0, 2, 0, 2),
+    };
+
+    /// <summary>A row folded until its header is clicked. The body is made when opened; the choice is kept across rebuilds.</summary>
+    UIElement Fold(string key, string header, Func<UIElement> body, bool step = false, bool defaultOpen = false)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 2, 0, 2) };
+        var label = new TextBlock
+        {
+            Style = S("Text12"), Foreground = B("mutedBrush"), Cursor = Cursors.Hand, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = header,
+            Margin = step ? new Thickness(0, 3, 0, 3) : new Thickness(0, 6, 0, 6),
+        };
+        var content = new ContentPresenter();
+        void Show(bool isOpen)
+        {
+            label.Text = header + (isOpen ? " ⌄" : " ›");
+            content.Content = isOpen ? body() : null;
         }
         label.MouseLeftButtonUp += (_, _) =>
         {
-            var open = !opened.Remove(key);
-            if (open) opened.Add(key);
-            Show(open);
+            var now = !(open.TryGetValue(key, out var was) ? was : defaultOpen);
+            open[key] = now;
+            Show(now);
         };
-        Show(opened.Contains(key));
+        Show(open.TryGetValue(key, out var current) ? current : defaultOpen);
         panel.Children.Add(label);
         panel.Children.Add(content);
         return panel;
     }
 
+    /// <summary>The Markdown the answers use (MarkdownLite): headings, lists, fenced code, bold and inline code.</summary>
+    static UIElement Markdown(string text)
+    {
+        var stack = new StackPanel();
+        foreach (var block in MarkdownLite.Parse(text))
+        {
+            switch (block.Kind)
+            {
+                case MdBlockKind.Code:
+                    stack.Children.Add(new Border
+                    {
+                        Background = B("surfaceBrush"), CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 4, 0, 4),
+                        Child = Text(block.Raw, "textBrush", mono: true),
+                    });
+                    break;
+                case MdBlockKind.Bullet:
+                    var line = new DockPanel { Margin = new Thickness(8, 2, 0, 2) };
+                    var marker = new TextBlock { Text = block.Marker, Style = S("Text13"), Foreground = B("mutedBrush"), Width = 22 };
+                    DockPanel.SetDock(marker, Dock.Left);
+                    line.Children.Add(marker);
+                    line.Children.Add(Inline(block.Spans, 13, FontWeights.Normal));
+                    stack.Children.Add(line);
+                    break;
+                case MdBlockKind.Heading:
+                    var heading = Inline(block.Spans, block.Level == 1 ? 17 : block.Level == 2 ? 15 : 14, FontWeights.SemiBold);
+                    heading.Margin = new Thickness(0, 8, 0, 4);
+                    stack.Children.Add(heading);
+                    break;
+                default:
+                    var paragraph = Inline(block.Spans, 13, FontWeights.Normal);
+                    paragraph.Margin = new Thickness(0, 3, 0, 3);
+                    stack.Children.Add(paragraph);
+                    break;
+            }
+        }
+        return stack;
+    }
+
+    static TextBlock Inline(IReadOnlyList<MdSpan> spans, double size, FontWeight weight)
+    {
+        var block = new TextBlock { Style = S("Text13"), Foreground = B("textBrush"), TextWrapping = TextWrapping.Wrap, FontSize = size, FontWeight = weight };
+        foreach (var span in spans)
+        {
+            var run = new Run(span.Text);
+            if (span.Bold) run.FontWeight = FontWeights.Bold;
+            if (span.Code)
+            {
+                run.FontFamily = new FontFamily("Consolas");
+                run.Background = B("surfaceBrush");
+            }
+            block.Inlines.Add(run);
+        }
+        return block;
+    }
+
     static TextBlock Text(string text, string brush, bool mono = false)
     {
         var block = new TextBlock { Text = text, Style = S("Text13"), Foreground = B(brush), TextWrapping = TextWrapping.Wrap };
-        if (mono) block.FontFamily = new FontFamily("Consolas");
+        if (mono)
+        {
+            block.FontFamily = new FontFamily("Consolas");
+            block.FontSize = 12;
+        }
         return block;
     }
 
