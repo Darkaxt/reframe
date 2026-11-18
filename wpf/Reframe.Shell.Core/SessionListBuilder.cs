@@ -108,6 +108,7 @@ public static class SessionListBuilder
                     WindowNumber = window is null ? null : state.Windows.IndexOf(window) + 1,
                     LastActiveAt = Math.Max(record.LastActiveAt, elsewhere ? usedOutside.GetValueOrDefault(record.ClaudeSessionId) : 0),
                     Elsewhere = elsewhere,
+                    OpenedBy = record.OpenedBy,
                 };
             })
             .Where(item => Matches(item.Label, item.Cwd) && InFolder(item.Cwd))

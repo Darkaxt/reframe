@@ -16,7 +16,14 @@ public sealed record ChatRow(
     string Meta,
     string Tooltip,
     ListItemRef Ref,
-    SidebarChat Chat);
+    SidebarChat Chat)
+{
+    /// <summary>1 for a thread another thread opened (a subagent), shown under it; else 0.</summary>
+    public int Depth { get; init; }
+    /// <summary>The subagents this thread opened that are listed, and whether they are shown under it now.</summary>
+    public int Subagents { get; init; }
+    public bool SubagentsShown { get; init; }
+}
 
 /// <summary>A project branch (folder workspace) of the sidebar.</summary>
 public sealed record ProjectRow(
@@ -63,13 +70,38 @@ public static class SidebarView
 
     static string FolderName(string cwd) => cwd.Split('\\', '/').LastOrDefault(p => p != "") ?? cwd;
 
-    public static SidebarSections Build(SessionList list, double now, int limit = SessionListBuilder.Page, string? activeProject = null)
+    /// <summary>The chats with each subagent (a thread opened by another listed thread, <see cref="SidebarChat.ParentKey"/>)
+    /// right under its parent, and no longer apart from it; a parent's subagents are hidden when <paramref name="shown"/>
+    /// says so (by default they are shown while any of them is not ended). A subagent whose parent is not in
+    /// <paramref name="chats"/> stands alone.</summary>
+    public static List<(SidebarChat Chat, int Depth, int Subagents, bool Shown)> Nest(IReadOnlyList<SidebarChat> chats, IReadOnlyDictionary<string, bool>? shown)
+    {
+        var keys = chats.Select(c => c.Key).ToHashSet();
+        var children = chats.Where(c => c.ParentKey is { } p && keys.Contains(p))
+            .GroupBy(c => c.ParentKey!).ToDictionary(g => g.Key, g => g.ToList());
+        var result = new List<(SidebarChat, int, int, bool)>();
+        foreach (var chat in chats)
+        {
+            if (chat.ParentKey is { } parent && keys.Contains(parent)) continue;
+            var own = children.GetValueOrDefault(chat.Key) ?? [];
+            var show = own.Count > 0 && (shown is not null && shown.TryGetValue(chat.Key, out var chosen) ? chosen : own.Any(c => c.Status != "ended"));
+            result.Add((chat, 0, own.Count, show));
+            if (show) result.AddRange(own.Select(c => (c, 1, 0, false)));
+        }
+        return result;
+    }
+
+    static ChatRow Nested(SidebarChat chat, int depth, int subagents, bool shown, string section, double now) =>
+        Row(chat, section, now) with { Depth = depth, Subagents = subagents, SubagentsShown = shown };
+
+    public static SidebarSections Build(SessionList list, double now, int limit = SessionListBuilder.Page, string? activeProject = null,
+        IReadOnlyDictionary<string, bool>? subagentsShown = null)
     {
         var catalogue = SidebarChats.Build(list);
         var activity = ProjectView.Activity(list.App.Select(a => (a.Cwd, a.Status)));
         var pinned = list.PinnedChats.Select(key => catalogue.FirstOrDefault(c => c.Key == key)).OfType<SidebarChat>()
             .Select(c => Row(c, "pinned", now)).ToList();
-        var recents = catalogue.Take(limit).Select(c => Row(c, "recents", now)).ToList();
+        var recents = Nest(catalogue, subagentsShown).Take(limit).Select(n => Nested(n.Chat, n.Depth, n.Subagents, n.Shown, "recents", now)).ToList();
         var projects = list.FolderWorkspaces.Select(project =>
         {
             var busy = activity.GetValueOrDefault(project.Id);
@@ -82,7 +114,8 @@ public static class SidebarView
             return new ProjectRow(project.Id, project.Name, project.Cwd, project.SessionIds.Count, busy, state,
                 list.ExpandedProjects.Contains(project.Id), activeProject == project.Id,
                 busy is null ? paths : $"{paths}\n{busy.Count} running · {state}",
-                chats.Take(limit).Select(c => Row(c, section, now)).ToList(), chats.Count > limit, project.Locations);
+                Nest(chats, subagentsShown).Take(limit).Select(n => Nested(n.Chat, n.Depth, n.Subagents, n.Shown, section, now)).ToList(),
+                chats.Count > limit, project.Locations);
         }).ToList();
         return new SidebarSections(pinned, projects, recents, list.HasMore || catalogue.Count > limit)
         {

@@ -34,6 +34,8 @@ public sealed record ListItem
     public double LastActiveAt { get; init; }
     /// <summary>App: not running in reframe, but resumed in another terminal.</summary>
     public bool Elsewhere { get; init; }
+    /// <summary>App: reframe's session id of the thread that opened it (open_thread), or null.</summary>
+    public string? OpenedBy { get; init; }
     /// <summary>Running: its process id.</summary>
     public int Pid { get; init; }
     /// <summary>Running: its name in Claude Code's registry.</summary>
@@ -65,7 +67,11 @@ public sealed record ListItemRef(ListItemKind Kind, string? SessionId = null, in
 
 /// <summary>One conversation of the sidebar, whatever its source (SidebarChat).</summary>
 public sealed record SidebarChat(string Key, ListItemRef Ref, string Label, string Cwd, string? Provider, bool Defaulted,
-    double LastActiveAt, string Status, ListItem Item);
+    double LastActiveAt, string Status, ListItem Item)
+{
+    /// <summary>The chat key of the thread that opened this one, when that thread is listed too.</summary>
+    public string? ParentKey { get; init; }
+}
 
 public static class SidebarChats
 {
@@ -126,6 +132,10 @@ public static class SidebarChats
                 item.Kind switch { ListItemKind.App => item.Elsewhere ? "detached" : item.Status, ListItemKind.Running => "detached", _ => "ended" },
                 item);
         }
+        var keyOfSession = result.Values.Where(c => c.Item.Kind == ListItemKind.App).ToDictionary(c => c.Item.Id, c => c.Key);
+        foreach (var (key, chat) in result.ToList())
+            if (chat.Item.OpenedBy is { } opener && keyOfSession.TryGetValue(opener, out var parent) && parent != key)
+                result[key] = chat with { ParentKey = parent };
         return result.Values.OrderByDescending(c => c.LastActiveAt).ThenBy(c => c.Key, StringComparer.Ordinal).ToList();
     }
 }

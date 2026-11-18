@@ -59,6 +59,10 @@ sealed class SessionSidebar : Border
     public event Action<ChatRow, FrameworkElement>? TasksClicked;
 
     const string TasksMarkTag = "tasks-mark";
+    const string SubagentsTag = "subagents-mark";
+
+    /// <summary>A parent row's subagent count is clicked: show or hide its subagents.</summary>
+    public event Action<ChatRow>? SubagentsToggled;
 
     /// <summary>The clock of a thread with scheduled tasks (Codex's mark), Segoe Fluent's clock at 12 px.</summary>
     public static TextBlock TasksMark(int count, bool running = false)
@@ -335,6 +339,12 @@ sealed class SessionSidebar : Border
                 e.Handled = true;
                 return;
             }
+            if (e.OriginalSource is FrameworkElement { Tag: SubagentsTag })
+            {
+                SubagentsToggled?.Invoke(chat);
+                e.Handled = true;
+                return;
+            }
             Click(chat, Keyboard.Modifiers);
             e.Handled = true;
         };
@@ -427,6 +437,7 @@ sealed class SessionSidebar : Border
         titleLine.ColumnDefinitions.Add(new ColumnDefinition());
         titleLine.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         titleLine.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        titleLine.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         titleLine.Children.Add(new TextBlock { Text = chat.Label, Style = S("Text13"), Foreground = B("textBrush"), TextWrapping = TextWrapping.Wrap });
         if (TaskCount?.Invoke(chat) is > 0 and var count)
         {
@@ -444,12 +455,28 @@ sealed class SessionSidebar : Border
             Grid.SetColumn(stamp, 2);
             titleLine.Children.Add(stamp);
         }
+        if (chat.Subagents > 0)
+        {
+            // "▾ 3": the subagents this thread opened, shown under it (click to hide) or hidden (click to show).
+            var count = new TextBlock
+            {
+                Text = $"{(chat.SubagentsShown ? "▾" : "▸")} {chat.Subagents}", Style = S("Text11"), Foreground = B("mutedBrush"), Tag = SubagentsTag,
+                Margin = new Thickness(8, 2, 0, 0), VerticalAlignment = VerticalAlignment.Top, Cursor = Cursors.Hand,
+                ToolTip = $"{chat.Subagents} subagent{(chat.Subagents == 1 ? "" : "s")}: click to {(chat.SubagentsShown ? "hide" : "show")}",
+            };
+            AutomationProperties.SetName(count, $"{chat.Subagents} subagents, {(chat.SubagentsShown ? "shown" : "hidden")}");
+            Grid.SetColumn(count, 3);
+            titleLine.Children.Add(count);
+        }
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(titleLine);
         text.Children.Add(new TextBlock { Text = chat.Meta, Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis });
         Grid.SetColumn(text, 4);
         grid.Children.Add(text);
-        return Row(grid, chat, chat.Key + "|" + chat.Section);
+        var visual = Row(grid, chat, chat.Key + "|" + chat.Section);
+        // A subagent sits under its parent, indented.
+        if (chat.Depth > 0) visual.Margin = new Thickness(16 * chat.Depth, 0, 0, 0);
+        return visual;
     }
 
     Border Row(UIElement child, object tag, string id)
