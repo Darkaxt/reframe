@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "2623430eca649fe539568ca9fd493de5b14e96bb",
-  "scope": "chat button width",
+  "sourceBase": "3c375fe4d7d2e7710841c05cc6b5ff95fdc20b89",
+  "scope": "chat view layout",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.80.md",
-      "sha256": "ea7316a1f5ee2eb2e8be826d06b69dff883836344abd7244b6527a575363a170"
+      "file": "docs/releases/v0.11.0-claudegpt.81.md",
+      "sha256": "554f42cb73c752e31c2cbfc56dd0d84e1f31b5a2f4da9f385dbfa588157704ea"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,11 +18,27 @@
     },
     {
       "file": "package.json",
-      "sha256": "e8643a7a0c81f37d63315d96d50a92d463911483c026401cf51420ded2bae1c8"
+      "sha256": "3b7f1c70ff2b89ede10db59f08b6de90279952f0fb881a0cfb4db0ddee492b74"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/ContextMenus.cs",
+      "sha256": "ebebb7a46cde7a2c5fc21cf75dd7c5f7a8489232c5e2c0b862d9e9d7db08fc54"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Core/MarkdownLite.cs",
+      "sha256": "2e36a52e2ba01be5f5df634aa0ca9ea01d2be2e3cac322320492deb4e9e532f0"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/MarkdownLiteTests.cs",
+      "sha256": "018f4a151fecce76c26673acc12a82d01d6d24da09a7c5988e1e6e736748c477"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ChatView.cs",
+      "sha256": "b842f6fcd911b15084df9b75b76a421bff43afabc779253d70ffd3f95ed5bbca"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "0a73d5e26c0b6207b52015f22d6f1e940b2a57981ae2dec968b4862dc4414506"
+      "sha256": "4e11d115c2884735955a6442e38e898b1e3fccecf09a04d1859820a56e7cff19"
     }
   ],
   "checksNotYetRun": [
