@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "3d2291da130425a4533b2801b4f401617d299d0c",
+  "sourceBase": "eae9581ffe55ab9aee00ada04b7617bd3d9c73b4",
   "scope": "Retire the Electron app and its CI",
   "inputHashes": [
     {
@@ -19,6 +19,22 @@
     {
       "file": "package.json",
       "sha256": "bbdffda8c2b8f7c791b2719c37f6f1c3c18e482d03cc12ea9f0b4b7b9b1b7a00"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/ForeignTests.cs",
+      "sha256": "6a71e575db6cae6bad97695e5d923f1c61b46b309c828edf7046d08631f260bd"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
+      "sha256": "6d136dac45911c5ed6db755c2031d4d53a872acfc40542ea250add52abae8ed2"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/ShellWindowsTests.cs",
+      "sha256": "09a930d60004e8d5fbbe9377c3e64b6c68bd7035dfb1ed98c6ae4f13cff0a425"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/SidebarTests.cs",
+      "sha256": "08476f3af3ab4bf3b889582b1c5792a0d7527cce09a11c9c7dc14462991ae26f"
     }
   ],
   "checksNotYetRun": [
