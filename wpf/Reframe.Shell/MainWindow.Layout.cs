@@ -448,6 +448,9 @@ public partial class MainWindow
                 if (!showChat && FindHost(control) is { } host) FocusTerminal(host);
             };
             Right(chatToggle);
+            // The header's last child fills what is left (the folder text); the button must stay before it.
+            header.Children.Remove(chatToggle);
+            header.Children.Insert(header.Children.IndexOf(cwdText), chatToggle);
         }
         var frame = new Border
         {
