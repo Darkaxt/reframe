@@ -98,6 +98,7 @@ public static class SidebarView
         IReadOnlyDictionary<string, bool>? subagentsShown = null)
     {
         var catalogue = SidebarChats.Build(list);
+        var catalogueKeys = catalogue.Select(c => c.Key).ToHashSet();
         var activity = ProjectView.Activity(list.App.Select(a => (a.Cwd, a.Status)));
         var pinned = list.PinnedChats.Select(key => catalogue.FirstOrDefault(c => c.Key == key)).OfType<SidebarChat>()
             .Select(c => Row(c, "pinned", now)).ToList();
@@ -110,7 +111,12 @@ public static class SidebarView
             if (paths == "") paths = project.Cwd;
             var section = "project:" + project.Id;
             // The project's chats among those listed (reframe asks for a page of the project's own when expanded).
-            var chats = catalogue.Where(c => Workspaces.WorkspaceKey(c.Cwd) == project.Id).ToList();
+            // A subagent stands under the thread that opened it, wherever its own folder is: so it is listed in its
+            // opener's project, not its own, when the opener is listed.
+            var ownKeys = catalogue.Where(c => Workspaces.WorkspaceKey(c.Cwd) == project.Id).Select(c => c.Key).ToHashSet();
+            var chats = catalogue.Where(c => ownKeys.Contains(c.Key)
+                ? c.ParentKey is null || ownKeys.Contains(c.ParentKey) || !catalogueKeys.Contains(c.ParentKey)
+                : c.ParentKey is not null && ownKeys.Contains(c.ParentKey)).ToList();
             return new ProjectRow(project.Id, project.Name, project.Cwd, project.SessionIds.Count, busy, state,
                 list.ExpandedProjects.Contains(project.Id), activeProject == project.Id,
                 busy is null ? paths : $"{paths}\n{busy.Count} running · {state}",
