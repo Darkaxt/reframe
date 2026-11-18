@@ -181,7 +181,7 @@ public partial class MainWindow
 
     /// <summary>retireChats: one confirmation for the chats; one prepare and one retire job; a chat that started
     /// meanwhile is skipped. A chat without Claude history only loses Reframe's entry (delete).</summary>
-    async Task<List<ChatBatchEntry>> RetireChatsAsync(IReadOnlyList<ChatTarget> targets, string operation, RetireDialog? ui = null)
+    async Task<List<ChatBatchEntry>> RetireChatsAsync(IReadOnlyList<ChatTarget> targets, string operation, RetireDialog? ui = null, bool preConfirmed = false)
     {
         var results = new List<ChatBatchEntry>();
         void Skip(ChatTarget t, string detail, string status = "skipped") => results.Add(new(t.Key, LabelOfRecord(t.Record), status, detail));
@@ -227,7 +227,7 @@ public partial class MainWindow
             if (confirmed.Count == 0) return results;
             var (message, detail, button) = ChatHistory.Confirmation(operation,
                 [.. confirmed.Select(t => (LabelOfRecord(t.Record), t.Record, prepared.GetValueOrDefault(t.Record.ClaudeSessionId)))]);
-            var ok = ui is { Visible: true }
+            var ok = preConfirmed ? true : ui is { Visible: true }
                 ? await ui.ConfirmAsync(message, detail, button)
                 : MessageBox.Show(this, $"{message}\n\n{detail}\n\nOK: {button}.", "Reframe", MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel) == MessageBoxResult.OK;
             if (!ok || shell.Quitting)
@@ -308,7 +308,7 @@ public partial class MainWindow
 
     /// <summary>runChatBatch: each distinct chat checked, then archived/deleted together or its route changed; the
     /// report shows progress and the outcome of each.</summary>
-    async Task RunChatBatchAsync(IReadOnlyList<ListItemRef> items, string operation, string? provider = null, string? model = null)
+    async Task RunChatBatchAsync(IReadOnlyList<ListItemRef> items, string operation, string? provider = null, string? model = null, bool preConfirmed = false)
     {
         if (shell.ChatBatchRunning || shell.Quitting) throw new HistoryError("Another batch or shutdown is already running.");
         shell.ChatBatchRunning = true;
@@ -340,7 +340,7 @@ public partial class MainWindow
             }
             if (operation is "archive" or "delete")
             {
-                if (targets.Count > 0) results.AddRange(await RetireChatsAsync([.. targets.Select(t => t.Target)], operation, dialog));
+                if (targets.Count > 0) results.AddRange(await RetireChatsAsync([.. targets.Select(t => t.Target)], operation, dialog, preConfirmed));
                 return;
             }
             foreach (var (item, target) in targets)
@@ -456,6 +456,11 @@ public partial class MainWindow
         EditChatModels([item]);
         return Task.CompletedTask;
     }
+
+    /// <summary>Another thread asked for this one to be archived or deleted (its close_thread tool): as the list does it. The
+    /// user confirms first unless the asker opened this thread (it owns it).</summary>
+    public void RetireThread(string sessionId, string operation, bool confirmed) =>
+        _ = Report(RunChatBatchAsync([new ListItemRef(ListItemKind.App, sessionId)], operation, preConfirmed: confirmed));
 
     async Task Report(Task work)
     {
