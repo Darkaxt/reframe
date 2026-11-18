@@ -414,7 +414,36 @@ public partial class MainWindow
             DockPanel.SetDock(behaviour.FindBar, Dock.Top);
             body.Children.Add(behaviour.FindBar);
         }
-        body.Children.Add(control is not null ? new Border { Margin = new Thickness(6, 4, 2, 2), Child = control } : EndedCard(sessionId));
+        var terminalHost = control is not null ? new Border { Margin = new Thickness(6, 4, 2, 2), Child = control } : EndedCard(sessionId);
+        var content = new Grid();
+        content.Children.Add(terminalHost);
+        body.Children.Add(content);
+        // Chat / Terminal: the same session, read from its transcript (ChatView); the terminal keeps running underneath.
+        if (control is not null && record?.ClaudeSessionId is { Length: > 0 } transcriptId)
+        {
+            ChatView? chat = null;
+            var chatToggle = new Button
+            {
+                Style = S("IconButton"), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Show the conversation as a chat (read only)",
+                Content = new TextBlock { Text = "Chat", Style = S("Text12") },
+            };
+            AutomationProperties.SetName(chatToggle, "Chat view");
+            chatToggle.Click += (_, _) =>
+            {
+                if (chat is null)
+                {
+                    chat = new ChatView(transcriptId) { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 0, 0, 0) };
+                    content.Children.Add(chat);
+                }
+                var showChat = chat.Visibility != Visibility.Visible;
+                chat.Visibility = showChat ? Visibility.Visible : Visibility.Collapsed;
+                terminalHost.Visibility = showChat ? Visibility.Collapsed : Visibility.Visible;
+                ((TextBlock)chatToggle.Content).Text = showChat ? "Terminal" : "Chat";
+                chatToggle.ToolTip = showChat ? "Back to the terminal" : "Show the conversation as a chat (read only)";
+                if (!showChat && FindHost(control) is { } host) FocusTerminal(host);
+            };
+            Right(chatToggle);
+        }
         var frame = new Border
         {
             BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
@@ -456,7 +485,7 @@ public partial class MainWindow
             // terminal's native window took the press away, so the click was lost and the header flickered.
             for (var at = e.OriginalSource as DependencyObject; at is not null && at != body; at = at is Visual ? VisualTreeHelper.GetParent(at) : LogicalTreeHelper.GetParent(at))
                 if (at is ButtonBase) return;
-            if (control is not null && FindHost(control) is { } host) FocusTerminal(host);
+            if (control is not null && terminalHost.Visibility == Visibility.Visible && FindHost(control) is { } host) FocusTerminal(host);
         };
         tiles[sessionId] = view;
         ShowTaskMark(view);
