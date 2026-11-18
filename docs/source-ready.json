@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "eae9581ffe55ab9aee00ada04b7617bd3d9c73b4",
+  "sourceBase": "ae39be144bb7ae3642c119c779bf5f341a8c37a6",
   "scope": "Retire the Electron app and its CI",
   "inputHashes": [
     {
