@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "effda8e9308d8a2dc4d4b57eda93162f2745705f",
+  "sourceBase": "679c277c0bfe3ba144f0b8ddf3975b10a174bc2e",
   "scope": "transcript watch",
   "inputHashes": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.68.md",
-      "sha256": "2a4cd006b6782a0519eb4178e5a3323d1cff4245ad35b42dc6d96de19d21a2f4"
+      "sha256": "9e6c188e2ce658f33377627403392b8ffc909c60634744d43260082ac037b6a4"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -30,7 +30,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Transcripts.cs",
-      "sha256": "f34adb6fddaa7671d6fc181b5ab557098d99b3edc3620b641b33da0da8d8aecd"
+      "sha256": "dba5ada42c71acf6376183630a108305549f5d0d1d8b67c4d27dc247151c171c"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.cs",
