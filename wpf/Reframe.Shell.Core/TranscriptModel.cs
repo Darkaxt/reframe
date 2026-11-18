@@ -6,52 +6,52 @@ namespace Reframe.Shell.Core;
 public enum TranscriptItemKind { UserMessage, AssistantText, Thinking, ToolCall, ToolGroup, Compaction, SystemNotice, Unknown }
 
 /// <summary>One row of the chat view.</summary>
-public abstract class TranscriptItem
+public abstract class ChatItem
 {
     public abstract TranscriptItemKind Kind { get; }
     public string? Uuid { get; init; }
     public string? Timestamp { get; init; }
 }
 
-public sealed class UserMessageItem : TranscriptItem
+public sealed class UserMessageItem : ChatItem
 {
     public override TranscriptItemKind Kind => TranscriptItemKind.UserMessage;
     public string Text { get; init; } = "";
 }
 
-public sealed class AssistantTextItem : TranscriptItem
+public sealed class AssistantTextItem : ChatItem
 {
     public override TranscriptItemKind Kind => TranscriptItemKind.AssistantText;
     public string Text { get; init; } = "";
 }
 
-public sealed class ThinkingItem : TranscriptItem
+public sealed class ThinkingItem : ChatItem
 {
     public override TranscriptItemKind Kind => TranscriptItemKind.Thinking;
     public string Text { get; init; } = "";
 }
 
-public sealed class CompactionItem : TranscriptItem
+public sealed class CompactionItem : ChatItem
 {
     public override TranscriptItemKind Kind => TranscriptItemKind.Compaction;
     public string? Text { get; init; }
 }
 
-public sealed class SystemNoticeItem : TranscriptItem
+public sealed class SystemNoticeItem : ChatItem
 {
     public override TranscriptItemKind Kind => TranscriptItemKind.SystemNotice;
     public string Text { get; init; } = "";
 }
 
 /// <summary>A shape the model does not know: a generic row showing the raw type name.</summary>
-public sealed class UnknownItem : TranscriptItem
+public sealed class UnknownItem : ChatItem
 {
     public override TranscriptItemKind Kind => TranscriptItemKind.Unknown;
     public string RawKind { get; init; } = "";
 }
 
 /// <summary>A tool call. Result stays null while the call is pending. Mutated in place when the result arrives.</summary>
-public sealed class ToolCallItem : TranscriptItem
+public sealed class ToolCallItem : ChatItem
 {
     public override TranscriptItemKind Kind => TranscriptItemKind.ToolCall;
     public string Id { get; init; } = "";
@@ -62,11 +62,11 @@ public sealed class ToolCallItem : TranscriptItem
     public bool IsError { get; internal set; }
     public bool IsPending => Result is null;
     /// <summary>Subagent (sidechain) items spawned by this call, in arrival order. Flat, not grouped.</summary>
-    public List<TranscriptItem> Children { get; } = new();
+    public List<ChatItem> Children { get; } = new();
 }
 
 /// <summary>Consecutive tool calls folded into one row.</summary>
-public sealed class ToolGroupItem : TranscriptItem
+public sealed class ToolGroupItem : ChatItem
 {
     public override TranscriptItemKind Kind => TranscriptItemKind.ToolGroup;
     public string Label { get; init; } = "";
@@ -81,8 +81,8 @@ public sealed class ToolGroupItem : TranscriptItem
 /// </summary>
 public sealed class TranscriptModel
 {
-    readonly List<TranscriptItem> top = new();
-    readonly List<TranscriptItem> sidechain = new();
+    readonly List<ChatItem> top = new();
+    readonly List<ChatItem> sidechain = new();
     readonly Dictionary<string, ToolCallItem> calls = new();
     readonly Dictionary<string, (string Text, bool IsError)> orphanResults = new();
     // uuid of a line -> the Task/Agent call that owns it (assistant line with the call, or a sidechain line below it)
@@ -91,10 +91,10 @@ public sealed class TranscriptModel
     public int MalformedLines { get; private set; }
 
     /// <summary>Sidechain items that could not be tied to a parent tool call.</summary>
-    public IReadOnlyList<TranscriptItem> SidechainItems => sidechain.ToArray();
+    public IReadOnlyList<ChatItem> SidechainItems => sidechain.ToArray();
 
     /// <summary>Top-level items with consecutive tool calls folded into groups. A snapshot; later appends do not change the list (tool call objects do update).</summary>
-    public IReadOnlyList<TranscriptItem> Items => BuildItems();
+    public IReadOnlyList<ChatItem> Items => BuildItems();
 
     public void Reset()
     {
@@ -138,7 +138,7 @@ public sealed class TranscriptModel
         string? ts = Str(root, "timestamp");
         bool isSide = Bool(root, "isSidechain");
 
-        var produced = new List<TranscriptItem>();
+        var produced = new List<ChatItem>();
         switch (type)
         {
             case "summary":
@@ -191,7 +191,7 @@ public sealed class TranscriptModel
         }
     }
 
-    void ParseUser(JsonElement root, string? uuid, string? ts, List<TranscriptItem> produced)
+    void ParseUser(JsonElement root, string? uuid, string? ts, List<ChatItem> produced)
     {
         if (!TryContent(root, out var content)) return;
         if (content.ValueKind == JsonValueKind.String)
@@ -232,7 +232,7 @@ public sealed class TranscriptModel
         if (text.Length > 0) produced.Add(new UserMessageItem { Uuid = uuid, Timestamp = ts, Text = text.ToString() });
     }
 
-    void ParseAssistant(JsonElement root, string? uuid, string? ts, List<TranscriptItem> produced)
+    void ParseAssistant(JsonElement root, string? uuid, string? ts, List<ChatItem> produced)
     {
         if (!TryContent(root, out var content)) return;
         if (content.ValueKind == JsonValueKind.String)
@@ -369,9 +369,9 @@ public sealed class TranscriptModel
 
     static bool IsSubagentTool(string name) => name is "Task" or "Agent";
 
-    List<TranscriptItem> BuildItems()
+    List<ChatItem> BuildItems()
     {
-        var result = new List<TranscriptItem>();
+        var result = new List<ChatItem>();
         var run = new List<ToolCallItem>();
         foreach (var item in top)
         {
@@ -387,7 +387,7 @@ public sealed class TranscriptModel
         return result;
     }
 
-    static void Flush(List<ToolCallItem> run, List<TranscriptItem> result)
+    static void Flush(List<ToolCallItem> run, List<ChatItem> result)
     {
         if (run.Count == 0) return;
         result.Add(new ToolGroupItem { Uuid = run[0].Uuid, Timestamp = run[0].Timestamp, Calls = run.ToArray(), Label = Label(run) });
