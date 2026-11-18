@@ -425,7 +425,8 @@ public partial class MainWindow
             var chatToggle = new Button
             {
                 Style = S("IconButton"), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Show the conversation as a chat",
-                Content = new TextBlock { Text = "Chat", Style = S("Text12") },
+                Width = double.NaN, MinWidth = 24,
+                Content = new TextBlock { Text = "Chat", Style = S("Text12"), Margin = new Thickness(8, 0, 8, 0) },
             };
             AutomationProperties.SetName(chatToggle, "Chat view");
             chatToggle.Click += (_, _) =>
