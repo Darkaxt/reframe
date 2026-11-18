@@ -345,6 +345,9 @@ sealed partial class ShellController
         if (tell) toasts?.Show(task.TargetThreadId, delivered ? $"Scheduled task: {task.Name}" : $"Scheduled task not run: {task.Name}", result);
     }
 
+    /// <summary>A message the user wrote in the chat view: typed into the running thread as Reframe's own messages are.</summary>
+    public Task<bool> SendChatMessageAsync(string sessionId, string text) => Runs(sessionId) ? TypeIntoAsync(sessionId, text) : Task.FromResult(false);
+
     /// <summary>Types the text into the thread (a bracketed paste, then Enter a moment later), through a view of its own.</summary>
     async Task<bool> TypeIntoAsync(string sessionId, string text, bool interrupt = false)
     {
