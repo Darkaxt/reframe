@@ -109,6 +109,7 @@ public static class SidebarView
         var pinned = list.PinnedChats.Select(key => catalogue.FirstOrDefault(c => c.Key == key)).OfType<SidebarChat>()
             .Select(c => Row(c, "pinned", now)).ToList();
         var recents = Nest(catalogue, subagentsShown, limit).Select(n => Nested(n.Chat, n.Depth, n.Subagents, n.Ended, n.Shown, "recents", now)).ToList();
+        var nestedAway = new HashSet<string>();
         var projects = list.FolderWorkspaces.Select(project =>
         {
             var busy = activity.GetValueOrDefault(project.Id);
@@ -123,12 +124,14 @@ public static class SidebarView
             var chats = catalogue.Where(c => ownKeys.Contains(c.Key)
                 ? c.ParentKey is null || ownKeys.Contains(c.ParentKey) || !catalogueKeys.Contains(c.ParentKey)
                 : c.ParentKey is not null && ownKeys.Contains(c.ParentKey)).ToList();
+            // Every chat of this folder is a subagent listed under its opener elsewhere: no empty project to show.
+            if (ownKeys.Count > 0 && chats.Count == 0) nestedAway.Add(project.Id);
             return new ProjectRow(project.Id, project.Name, project.Cwd, project.SessionIds.Count, busy, state,
                 list.ExpandedProjects.Contains(project.Id), activeProject == project.Id,
                 busy is null ? paths : $"{paths}\n{busy.Count} running · {state}",
                 Nest(chats, subagentsShown, limit).Select(n => Nested(n.Chat, n.Depth, n.Subagents, n.Ended, n.Shown, section, now)).ToList(),
                 chats.Count > limit, project.Locations);
-        }).ToList();
+        }).Where(p => !nestedAway.Contains(p.Id)).ToList();
         return new SidebarSections(pinned, projects, recents, list.HasMore || catalogue.Count > limit)
         {
             Archives = list.Archives, WslStopped = list.WslStopped,

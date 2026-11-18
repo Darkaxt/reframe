@@ -50,7 +50,7 @@ public class SubagentTreeTests
         var main = sections.Projects.Single(p => p.Cwd == @"D:\P");
         Assert.Equal(["lead", "w1"], main.Chats.Select(c => c.Label));
         Assert.Equal([0, 1], main.Chats.Select(c => c.Depth));
-        Assert.Empty(sections.Projects.Single(p => p.Cwd == @"D:\Workers").Chats);
+        Assert.DoesNotContain(sections.Projects, p => p.Cwd == @"D:\Workers");
     }
 
     [Fact]
