@@ -61,6 +61,6 @@ public class SubagentTreeTests
         var rows = SidebarView.Nest(SidebarChats.Build(new SessionList { App = items }), null, limit: 20);
         var lead = rows.Single(r => r.Depth == 0);
         Assert.Equal((1, 30, true), (lead.Subagents, lead.Ended, lead.Shown));
-        Assert.Equal(32, rows.Count);
+        Assert.Equal(1 + SidebarView.MaxSubagentRows, rows.Count);
     }
 }

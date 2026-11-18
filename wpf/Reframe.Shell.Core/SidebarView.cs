@@ -76,6 +76,8 @@ public static class SidebarView
     /// right under its parent, and no longer apart from it; a parent's subagents are hidden when <paramref name="shown"/>
     /// says so (by default they are shown while any of them is not ended). A subagent whose parent is not in
     /// <paramref name="chats"/> stands alone.</summary>
+    public const int MaxSubagentRows = 25;
+
     public static List<(SidebarChat Chat, int Depth, int Subagents, int Ended, bool Shown)> Nest(IReadOnlyList<SidebarChat> chats,
         IReadOnlyDictionary<string, bool>? shown, int limit = int.MaxValue)
     {
@@ -92,7 +94,8 @@ public static class SidebarView
             var live = own.Count(c => c.Status != "ended");
             var show = own.Count > 0 && (shown is not null && shown.TryGetValue(chat.Key, out var chosen) ? chosen : live > 0);
             result.Add((chat, 0, live, own.Count - live, show));
-            if (show) result.AddRange(own.Select(c => (c, 1, 0, 0, false)));
+            // Live subagents first, and no more than MaxSubagentRows rows (hundreds of rows make the list lag).
+            if (show) result.AddRange(own.OrderBy(c => c.Status == "ended").Take(MaxSubagentRows).Select(c => (c, 1, 0, 0, false)));
         }
         return result;
     }

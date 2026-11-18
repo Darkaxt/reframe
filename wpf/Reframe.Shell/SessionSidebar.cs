@@ -460,6 +460,7 @@ sealed class SessionSidebar : Border
         }
         if (chat.Subagents + chat.SubagentsEnded > 0)
         {
+            var more = chat.Subagents + chat.SubagentsEnded - SidebarView.MaxSubagentRows;
             var label = (chat.Subagents, chat.SubagentsEnded) switch
             {
                 (0, var e) => $"{e} ended",
@@ -469,7 +470,7 @@ sealed class SessionSidebar : Border
             // "▾ 3": the subagents this thread opened, shown under it (click to hide) or hidden (click to show).
             var subagents = new TextBlock
             {
-                Text = $"{(chat.SubagentsShown ? "▾" : "▸")} {label}", Style = S("Text12"), Foreground = B("textBrush"), Tag = SubagentsTag,
+                Text = $"{(chat.SubagentsShown ? "▾" : "▸")} {label}{(chat.SubagentsShown && more > 0 ? $" (first {SidebarView.MaxSubagentRows})" : "")}", Style = S("Text12"), Foreground = B("textBrush"), Tag = SubagentsTag,
                 Background = B("surfaceBrush"), Padding = new Thickness(6, 1, 6, 1),
                 Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
                 ToolTip = $"{label}: click to {(chat.SubagentsShown ? "hide" : "show")}; right-click to delete the ended ones",

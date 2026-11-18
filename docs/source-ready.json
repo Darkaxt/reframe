@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "465180eeb2fdb0ac88a32611d1f83f7dd4eb36bd",
-  "scope": "Delete ended agents in one batch",
+  "sourceBase": "19318f11fd41202452a23c215e92cb85251e5e11",
+  "scope": "Cap subagent rows",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.74.md",
-      "sha256": "f77117d6d0b92e1cf48b1ddd4f4b9316841b7ab943a707b339e7c4223c87d4fc"
+      "file": "docs/releases/v0.11.0-claudegpt.75.md",
+      "sha256": "5e6eb28047783f5bcb4b09ae33545547995d340409ec7c8897d9d2c4be470371"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,15 @@
     },
     {
       "file": "package.json",
-      "sha256": "43273ae887b1b61aa86f6335912ff5e77cad1add09fe4bbf8cb33a38a2ec6275"
+      "sha256": "65a5189700c078640eceeb3138085bbaf89cc89879988bc58ffe4b5f8fefe31a"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.History.cs",
-      "sha256": "635495e2958bee27df194fa059bae64c330b8d67ae2778a017e52e7ffc1d3229"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "c1dcaf3f71b520aaa24fa70e4a1511e350138deecd692c83ac9481cb7648c6ab"
+      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
+      "sha256": "a42cc4f40845cd6daa4d8d69baa0ac993c8454c54afa4cb3a831536020f38fb1"
     },
     {
       "file": "wpf/Reframe.Shell/SessionSidebar.cs",
-      "sha256": "afea05fcb6517e69df8426412ef8878b236562eeaf219661938b525898ba37c2"
+      "sha256": "ca05b621fea2d35850c77e54f79649bd87dcb81374d580ff71fd85ce97815a5d"
     }
   ],
   "checksNotYetRun": [
