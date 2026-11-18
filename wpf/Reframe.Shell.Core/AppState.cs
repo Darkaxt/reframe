@@ -218,6 +218,9 @@ public sealed class Preferences : StateObject
     public ProviderDefaultsSet? ProviderDefaults { get; set; }
     /// <summary>Quitting leaves a Task Scheduler task that starts reframe when the next scheduled task is due.</summary>
     public bool WakeForTasks { get; set; }
+    /// <summary>The session id of the thread that manages the app (it maintains Reframe itself): it may delete any thread, not only
+    /// those it opened. Archiving or deleting one it did not open still asks the user once per batch.</summary>
+    public string? ManagerThread { get; set; }
     /// <summary>Hours after which a thread that ended is closed (its tile removed, the thread kept in the list); 0: never.</summary>
     public int CloseEndedAfterHours { get; set; }
 }

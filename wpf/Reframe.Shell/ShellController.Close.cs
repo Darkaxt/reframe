@@ -21,7 +21,7 @@ sealed partial class ShellController
 
     /// <summary>"end": each session ends in the host and leaves its window (as the tile's × does); the thread stays listed
     /// as ended. "archive" or "delete": then the window does as the list's Archive or Delete does, after the user confirms
-    /// there unless the asker opened the thread (then no popup at all); delete is refused for any other thread. Several names
+    /// there unless the asker opened the thread (then no popup at all); delete is refused for any other thread unless the asker is the manager thread (preferences.managerThread). Several names
     /// are one request: they are closed in turn, the owned ones retired together in one quiet batch, and the asker is told
     /// the outcome of all of them in one message.</summary>
     async Task CloseThreadAsync(JsonObject hook)
@@ -46,7 +46,7 @@ sealed partial class ShellController
             else if (matches.Count == 0) why = State.Sessions[askerId] is var own && string.Equals(StateValues.SessionLabel(own.Name, own.ClaudeName, own.Cwd).Trim(), name, StringComparison.OrdinalIgnoreCase)
                 ? "a thread cannot close the thread it runs in" : "no thread has that name";
             else if (matches.Count > 1) why = "more than one thread has that name";
-            else if (action == "delete" && matches[0].OpenedBy != askerId) why = "you did not open that thread; end or archive it instead";
+            else if (action == "delete" && matches[0].OpenedBy != askerId && State.Preferences.ManagerThread != askerId) why = "you did not open that thread; end or archive it instead";
             if (why is not null)
             {
                 problems.Add($"\"{name}\": {why}");

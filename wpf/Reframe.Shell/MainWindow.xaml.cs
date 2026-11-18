@@ -494,7 +494,8 @@ public partial class MainWindow : Window
         var wsl = item.Kind == ListItemKind.Found && !string.IsNullOrEmpty(item.Distro) || record is not null && InWsl(record.Cwd);
         var inactive = ended && !wsl && item.Kind != ListItemKind.Running
             && !shell.HistoryBusy.Contains(record?.ClaudeSessionId ?? item.ClaudeSessionId ?? "");
-        return new ChatMenuContext(item.Kind, record, key, ShellActions.IsPinned(state, key), ended, wsl, inactive, shell.ChatBatchRunning);
+        return new ChatMenuContext(item.Kind, record, key, ShellActions.IsPinned(state, key), ended, wsl, inactive, shell.ChatBatchRunning,
+            record is not null && state.Preferences.ManagerThread == record.Id);
     }
 
     List<MenuSpec> ListMenuOf(ChatRow chat) =>
@@ -510,7 +511,7 @@ public partial class MainWindow : Window
 
     /// <summary>The actions the shell does so far; the others (a new window's group: windows) show disabled.</summary>
     bool Supported(string action) =>
-        action is "open" or "properties" || (Writable && (action is "takeOver" or "rename" or "pin" or "hide" or "newGroup" or "removeFromGroup" or "group"
+        action is "open" or "properties" || (Writable && (action is "takeOver" or "rename" or "pin" or "manager" or "hide" or "newGroup" or "removeFromGroup" or "group"
             or "changeModel" or "archive" or "delete"
             || action.StartsWith("addToGroup:", StringComparison.Ordinal) || action.StartsWith("provider:", StringComparison.Ordinal)
             || action.StartsWith("permission:", StringComparison.Ordinal)));
@@ -556,6 +557,10 @@ public partial class MainWindow : Window
                     Saved();
                     shell.SyncNames();
                 }
+                break;
+            case "manager" when sessionId is not null && state.Sessions.ContainsKey(sessionId):
+                state.Preferences.ManagerThread = state.Preferences.ManagerThread == sessionId ? null : sessionId;
+                Saved();
                 break;
             case "pin" when key != "":
                 if (ShellActions.TogglePin(state, key)) Saved();

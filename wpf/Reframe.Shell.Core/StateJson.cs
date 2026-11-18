@@ -174,6 +174,7 @@ public static class StateJson
             Opt(o, "defaultEffort", p.DefaultEffort);
             Opt(o, "defaultPermissionMode", p.DefaultPermissionMode);
             if (p.WakeForTasks) o["wakeForTasks"] = true;
+            Opt(o, "managerThread", p.ManagerThread);
             if (p.CloseEndedAfterHours > 0) o["closeEndedAfterHours"] = p.CloseEndedAfterHours;
             if (p.ProviderDefaults is { } set)
             {
