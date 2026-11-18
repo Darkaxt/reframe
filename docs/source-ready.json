@@ -1,52 +1,24 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "152ec1c8f29102366d7dc7f794c6fd80d5074b92",
-  "scope": "subagent tree",
+  "sourceBase": "3d2291da130425a4533b2801b4f401617d299d0c",
+  "scope": "Retire the Electron app and its CI",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.69.md",
-      "sha256": "d621807eefbdaa15140fb6ff4ed6df676ef9a697fb4aa8b2681ba91b3f37eb4e"
+      "file": "docs/releases/v0.11.0-claudegpt.70.md",
+      "sha256": "14addcbf3469beaae1cb969ce0b1f7092b65fc1a62fc8cc487aa90a716006c93"
     },
     {
       "file": "docs/wpf-cutover.md",
       "sha256": "981946325780f61184baa82cd7a6c24393935b066c0abc6f44ad1010a694d6d7"
     },
     {
-      "file": "package-lock.json",
-      "sha256": "76d50ec9059aba7aa98f32fdf8cbf0823a18eede13f933e7044fcef053a959d7"
-    },
-    {
       "file": "package.json",
-      "sha256": "3334f5514fa4cff8452421e346d09f6497aa4741307794719da6f29679583e18"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/SessionListBuilder.cs",
-      "sha256": "dec7419b0d913e1fbbad01f363bc1957d2c1b30f0fada9e50e1a9dba34b32347"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Sidebar.cs",
-      "sha256": "743c82bdb37de3ddadaea0998941fd0e9244acf6f7799e3cd86e890b9d4addf4"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
-      "sha256": "8aab4830ffc4e3056cf34279e1418c19d2d3b7eb285dceedd8322f8ed49ac05f"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/SubagentTreeTests.cs",
-      "sha256": "1740dbf7ea1efde374511b0a708d1a162c062de6191e1b641ad2d0f96dc86412"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "86e762e70367b23a0385f4d3a6bc7c97910c70ead256b02a92710d5520dd349e"
-    },
-    {
-      "file": "wpf/Reframe.Shell/SessionSidebar.cs",
-      "sha256": "4549729babd9959ffb7c3e772b87dcdd2d7b76eb2335cdc66086452b0ec93ea4"
+      "sha256": "bbdffda8c2b8f7c791b2719c37f6f1c3c18e482d03cc12ea9f0b4b7b9b1b7a00"
     }
   ],
   "checksNotYetRun": [
