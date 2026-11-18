@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "cab04e14ec9c0cd213bb6c570bcf5f1c4ab97c1a",
+  "sourceBase": "e6f6dc16ce5c67f40cc3a53fe6ce628e9e638eef",
   "scope": "close_thread tool",
   "inputHashes": [
     {
@@ -54,7 +54,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Close.cs",
-      "sha256": "7e86642b43e1b7212baea2dc85310833800485a3c54d05950fe5653f15f9e55f"
+      "sha256": "c0a077c6e1f41b4e1790506a9005b677888597d7eae62a1fa2fd09b7ac4ef059"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
