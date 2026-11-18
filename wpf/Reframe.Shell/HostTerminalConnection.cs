@@ -11,22 +11,36 @@ namespace Reframe.Shell;
 sealed class HostTerminalConnection : ITerminalConnection
 {
     readonly HostView view;
+    /// <summary>Set by <see cref="Close"/>: the tile is going, and its native terminal may already be destroyed.</summary>
+    volatile bool closed;
 
     public HostTerminalConnection(HostView view, TerminalControl control)
     {
         this.view = view;
+        // A snapshot or output queued on the dispatcher can run after the tile was disposed (many threads opening and
+        // closing at once): calling into a destroyed native terminal is an access violation that ends the process, so a
+        // closed or unloaded control is left alone.
+        bool Gone() => closed || !control.IsLoaded || System.Windows.PresentationSource.FromVisual(control) is null;
         view.Snapshot += (data, cols, rows) => control.Dispatcher.InvokeAsync(async () =>
         {
+            if (Gone()) return;
             // As reframe's renderer does: a terminal of the snapshot's size, reset, then the repaint.
             await control.ResizeAsync((uint)rows, (uint)cols, CancellationToken.None);
+            if (Gone()) return;
             Output("\u001bc" + data);
             Unpin(control);
             // Back to the control's own size; that resize goes to the host. A hidden one (a single window's other
             // threads) keeps the snapshot's size: its stale size would shrink the session; it is fitted when shown.
             if (control.IsVisible) control.TriggerResize(control.RenderSize);
         });
-        view.Data += data => control.Dispatcher.InvokeAsync(() => Output(data));
-        view.Exit += code => control.Dispatcher.InvokeAsync(() => Output($"\r\n[the session ended with {code}]\r\n"));
+        view.Data += data => control.Dispatcher.InvokeAsync(() =>
+        {
+            if (!Gone()) Output(data);
+        });
+        view.Exit += code => control.Dispatcher.InvokeAsync(() =>
+        {
+            if (!Gone()) Output($"\r\n[the session ended with {code}]\r\n");
+        });
     }
 
     public TerminalModes Modes { get; } = new();
@@ -78,5 +92,9 @@ sealed class HostTerminalConnection : ITerminalConnection
         _ = view.ResizeAsync((int)columns, (int)rows);
     }
 
-    public void Close() => view.Close();
+    public void Close()
+    {
+        closed = true;
+        view.Close();
+    }
 }
