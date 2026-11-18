@@ -455,17 +455,23 @@ sealed class SessionSidebar : Border
             Grid.SetColumn(stamp, 2);
             titleLine.Children.Add(stamp);
         }
-        if (chat.Subagents > 0)
+        if (chat.Subagents + chat.SubagentsEnded > 0)
         {
+            var label = (chat.Subagents, chat.SubagentsEnded) switch
+            {
+                (0, var e) => $"{e} ended",
+                (var n, 0) => $"{n} agent{(n == 1 ? "" : "s")}",
+                (var n, var e) => $"{n} agent{(n == 1 ? "" : "s")} · {e} ended",
+            };
             // "▾ 3": the subagents this thread opened, shown under it (click to hide) or hidden (click to show).
             var subagents = new TextBlock
             {
-                Text = $"{(chat.SubagentsShown ? "▾" : "▸")} {chat.Subagents} agent{(chat.Subagents == 1 ? "" : "s")}", Style = S("Text12"), Foreground = B("textBrush"), Tag = SubagentsTag,
+                Text = $"{(chat.SubagentsShown ? "▾" : "▸")} {label}", Style = S("Text12"), Foreground = B("textBrush"), Tag = SubagentsTag,
                 Background = B("surfaceBrush"), Padding = new Thickness(6, 1, 6, 1),
                 Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
-                ToolTip = $"{chat.Subagents} subagent{(chat.Subagents == 1 ? "" : "s")}: click to {(chat.SubagentsShown ? "hide" : "show")}",
+                ToolTip = $"{label}: click to {(chat.SubagentsShown ? "hide" : "show")}",
             };
-            AutomationProperties.SetName(subagents, $"{chat.Subagents} subagents, {(chat.SubagentsShown ? "shown" : "hidden")}");
+            AutomationProperties.SetName(subagents, $"{label}, {(chat.SubagentsShown ? "shown" : "hidden")}");
             Grid.SetColumn(subagents, 3);
             titleLine.Children.Add(subagents);
         }
