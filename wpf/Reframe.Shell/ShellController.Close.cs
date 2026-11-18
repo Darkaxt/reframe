@@ -48,7 +48,7 @@ sealed partial class ShellController
         if (action == "delete" && !owned)
         {
             TaskLog($"close: {askerId} may not delete {target.Id}: it did not open it");
-            if (Runs(askerId)) await TypeIntoAsync(askerId, $"[Reframe: could not delete "{name}": you did not open that thread; end or archive it instead]");
+            if (Runs(askerId)) await TypeIntoAsync(askerId, $"[Reframe: could not delete \"{name}\": you did not open that thread; end or archive it instead]");
             return;
         }
         if (Runs(target.Id) || LayoutActions.WindowHasSession(window, target.Id)) EndSession(window.Id, target.Id);
