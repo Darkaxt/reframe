@@ -13,6 +13,15 @@ sealed partial class ShellController
     List<SessionRecord> ThreadsNamed(string askerId, string name)
     {
         var others = State.Sessions.Values.Where(r => r.Id != askerId).ToList();
+        // "name [0e0e25]": the id suffix the thread list shows picks one of several threads of the same name.
+        var suffix = System.Text.RegularExpressions.Regex.Match(name, @"^(.*\S)\s*\[([0-9a-fA-F]{4,})\]$");
+        if (suffix.Success)
+        {
+            var prefix = suffix.Groups[2].Value;
+            var named = ThreadsNamed(askerId, suffix.Groups[1].Value).Where(r => r.Id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                || r.ClaudeSessionId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (named.Count > 0) return named;
+        }
         var matches = others.Where(r => string.Equals((string.IsNullOrWhiteSpace(r.Name) ? r.ClaudeName : r.Name)?.Trim(), name, StringComparison.OrdinalIgnoreCase)).ToList();
         if (matches.Count == 0)
             matches = others.Where(r => string.Equals(StateValues.SessionLabel(r.Name, r.ClaudeName, r.Cwd).Trim(), name, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -45,20 +54,25 @@ sealed partial class ShellController
             if (!Writable) why = "Reframe is watching read-only";
             else if (matches.Count == 0) why = State.Sessions[askerId] is var own && string.Equals(StateValues.SessionLabel(own.Name, own.ClaudeName, own.Cwd).Trim(), name, StringComparison.OrdinalIgnoreCase)
                 ? "a thread cannot close the thread it runs in" : "no thread has that name";
-            else if (matches.Count > 1) why = "more than one thread has that name";
-            else if (action == "delete" && matches[0].OpenedBy != askerId && State.Preferences.ManagerThread != askerId) why = "you did not open that thread; end or archive it instead";
+            // Threads of the same name are all acted on when every one of them is the asker's own (a worker opened twice under one
+            // name); otherwise the name must say which, with the id suffix in brackets that the list shows.
+            else if (matches.Count > 1 && !matches.All(r => r.OpenedBy == askerId))
+                why = "more than one thread has that name; name the one you mean with its id in brackets: " + string.Join(", ", matches.Select(r => $"[{r.Id[..6]}] ({r.Lifecycle})"));
+            else if (action == "delete" && State.Preferences.ManagerThread != askerId && matches.Any(r => r.OpenedBy != askerId)) why = "you did not open that thread; end or archive it instead";
             if (why is not null)
             {
                 problems.Add($"\"{name}\": {why}");
                 continue;
             }
-            var target = matches[0];
-            var window = State.Windows.FirstOrDefault(w => LayoutActions.WindowHasSession(w, target.Id)) ?? State.Windows.FirstOrDefault();
-            if (window is null) { problems.Add($"\"{name}\": no window"); continue; }
-            if (Runs(target.Id) || LayoutActions.WindowHasSession(window, target.Id)) EndSession(window.Id, target.Id);
-            TaskLog($"close: {askerId} {action}: {target.Id}{(target.OpenedBy == askerId ? " (its own)" : "")}");
+            foreach (var target in matches)
+            {
+                var window = State.Windows.FirstOrDefault(w => LayoutActions.WindowHasSession(w, target.Id)) ?? State.Windows.FirstOrDefault();
+                if (window is null) { problems.Add($"\"{name}\": no window"); continue; }
+                if (Runs(target.Id) || LayoutActions.WindowHasSession(window, target.Id)) EndSession(window.Id, target.Id);
+                TaskLog($"close: {askerId} {action}: {target.Id}{(target.OpenedBy == askerId ? " (its own)" : "")}");
+                if (action is "archive" or "delete") (target.OpenedBy == askerId ? owned : asking).Add(target.Id);
+            }
             done.Add(name);
-            if (action is "archive" or "delete") (target.OpenedBy == askerId ? owned : asking).Add(target.Id);
         }
         if (action is "archive" or "delete" && State.Windows.FirstOrDefault() is { } home && windows.GetValueOrDefault(home.Id) is { } shown)
         {
