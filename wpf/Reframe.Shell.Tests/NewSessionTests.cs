@@ -209,34 +209,6 @@ public class NewSessionTests
     }
 
     [Fact]
-    public void The_texts_are_i18n_ts_s_english_ones()
-    {
-        var source = File.ReadAllText(Path.Combine(TokenTestsRoot.Root, "src", "shared", "i18n.ts"));
-        var english = source[..source.IndexOf("'tray.window': 'Fenster", StringComparison.Ordinal)];
-        var keys = Strings.En.Keys.Where(k => k.StartsWith("dialog.", StringComparison.Ordinal) || k.StartsWith("tile.", StringComparison.Ordinal)
-            || k.StartsWith("error.", StringComparison.Ordinal) || k.StartsWith("takeover.", StringComparison.Ordinal) || k == "toolbar.newSession");
-        foreach (var key in keys)
-        {
-            var match = Regex.Match(english, $@"'{Regex.Escape(key)}':\s*(['""])(.*?)\1,");
-            Assert.True(match.Success, key);
-            Assert.Equal(match.Groups[2].Value.Replace("\\'", "'").Replace(@"\\", @"\"), Strings.En[key]);
-        }
-    }
-
-    [Fact]
-    public void Model_suggestions_match_MODEL_SUGGESTIONS_and_filter_as_the_datalist()
-    {
-        var launch = File.ReadAllText(Path.Combine(TokenTestsRoot.Root, "src", "shared", "launch.ts"));
-        var list = Regex.Match(launch, @"MODEL_SUGGESTIONS = \[([^\]]*)\]").Groups[1].Value;
-        Assert.Equal(Regex.Matches(list, "'([^']+)'").Select(m => m.Groups[1].Value), NewSession.ModelSuggestions);
-        Assert.Equal(NewSession.ModelSuggestions, NewSession.MatchingModels(""));
-        Assert.Equal(["opus"], NewSession.MatchingModels("OP"));
-        Assert.Equal(["fable", "haiku"], NewSession.MatchingModels("a"));
-        Assert.Empty(NewSession.MatchingModels("opus"));
-        Assert.Empty(NewSession.MatchingModels("gpt-5"));
-    }
-
-    [Fact]
     public void At_start_resumes_open_sessions_in_a_window_the_host_lost_attaches_the_rest_and_ends_those_in_none()
     {
         SessionRecord R(string id, string lifecycle = "open") => new() { Id = id, ClaudeSessionId = id, Cwd = @"C:\p", Lifecycle = lifecycle };

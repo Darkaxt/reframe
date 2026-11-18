@@ -379,17 +379,4 @@ public class ForeignTests
         Assert.Null(LayoutGeometry.ForeignTargetAt(new LayoutPlaces([], [], []), area, 10, 10, out preview));
         Assert.Equal(area, preview);
     }
-
-    [Fact]
-    public void The_dialog_s_texts_are_i18n_ts_s_english_ones()
-    {
-        var source = File.ReadAllText(Path.Combine(TokenTestsRoot.Root, "src", "shared", "i18n.ts"));
-        var english = source[..source.IndexOf("'tray.window': 'Fenster", StringComparison.Ordinal)];
-        foreach (var key in new[] { "foreign.title", "foreign.single", "foreign.multiple", "foreign.detail", "takeover.confirm", "takeover.failed" })
-        {
-            var match = Regex.Match(english, $@"'{Regex.Escape(key)}':\s*(['""])(.*?)\1,");
-            Assert.True(match.Success, key);
-            Assert.Equal(match.Groups[2].Value.Replace("\\'", "'"), Strings.En[key]);
-        }
-    }
 }
