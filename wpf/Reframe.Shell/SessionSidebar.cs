@@ -458,15 +458,15 @@ sealed class SessionSidebar : Border
         if (chat.Subagents > 0)
         {
             // "▾ 3": the subagents this thread opened, shown under it (click to hide) or hidden (click to show).
-            var count = new TextBlock
+            var subagents = new TextBlock
             {
                 Text = $"{(chat.SubagentsShown ? "▾" : "▸")} {chat.Subagents}", Style = S("Text11"), Foreground = B("mutedBrush"), Tag = SubagentsTag,
                 Margin = new Thickness(8, 2, 0, 0), VerticalAlignment = VerticalAlignment.Top, Cursor = Cursors.Hand,
                 ToolTip = $"{chat.Subagents} subagent{(chat.Subagents == 1 ? "" : "s")}: click to {(chat.SubagentsShown ? "hide" : "show")}",
             };
-            AutomationProperties.SetName(count, $"{chat.Subagents} subagents, {(chat.SubagentsShown ? "shown" : "hidden")}");
-            Grid.SetColumn(count, 3);
-            titleLine.Children.Add(count);
+            AutomationProperties.SetName(subagents, $"{chat.Subagents} subagents, {(chat.SubagentsShown ? "shown" : "hidden")}");
+            Grid.SetColumn(subagents, 3);
+            titleLine.Children.Add(subagents);
         }
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(titleLine);
