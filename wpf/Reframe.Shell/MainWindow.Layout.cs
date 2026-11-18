@@ -433,7 +433,7 @@ public partial class MainWindow
             {
                 if (chat is null)
                 {
-                    chat = new ChatView(transcriptId, text => shell.SendChatMessageAsync(sessionId, text),
+                    chat = new ChatView(transcriptId, text => shell.SendChatMessageAsync(sessionId, text, terminal),
                         () => state.Sessions.GetValueOrDefault(sessionId)?.Launch.PermissionMode ?? "Default",
                         target => { if (state.Sessions.GetValueOrDefault(sessionId) is { } own) ShowMenu([.. ContextMenus.PermissionMenu(own, true).Submenu!], target, null, sessionId); })
                     { Visibility = Visibility.Collapsed };

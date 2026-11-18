@@ -179,7 +179,9 @@ sealed partial class ShellController
             System.Diagnostics.Trace.WriteLine($"pty host {older.Welcome.Kind} {older.Welcome.Version} (pid {older.Welcome.Pid}) keeps its {older.Welcome.Sessions.Count} sessions");
             foreach (var session in older.Welcome.Sessions) olderHosts[session.SessionId] = older;
             older.Closed += _ => Ui.InvokeAsync(() => OlderHostClosed(older));
-            await FollowHostAsync(older, new HostServices(older));
+            var olderServices = new HostServices(older);
+            olderHostServices[older] = olderServices;
+            await FollowHostAsync(older, olderServices);
         }
         if (Fixture is not null) return;
         try
