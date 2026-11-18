@@ -1,5 +1,4 @@
-# Checks every push and pull request on Windows: types, lint, format, unit tests, the
-# packaged app, and the end-to-end tests against the packaged app. This fork ships for Windows only.
+# Checks every push and pull request on Windows: the Rust PTY host, the WPF shell and its package, and visual captures.
 name: CI
 
 on:
@@ -22,12 +21,12 @@ jobs:
       - run: cargo build --release --locked -p reframe-host
       # The conformance tests' stand-in for LLM Coordinator (never the real one).
       - run: cargo build --release --locked -p reframe-services --example fake-coordinator
-      # The host as the package ships it (electron-builder.yml, resources/reframe-host): reframe-host.exe (static CRT,
+      # The host as the package ships it (maintenance/package-shell.ps1): reframe-host.exe (static CRT,
       # rust/.cargo/config.toml) with node-pty's bundled ConPTY (conpty.dll, OpenConsole.exe) beside it.
       - name: Stage the host with its ConPTY
         shell: bash
         run: |
-          version=$(node -p "require('../package-lock.json').packages['node_modules/node-pty'].version")
+          version=1.1.0
           mkdir -p dist-host ../.node-pty
           npm pack "node-pty@$version" --pack-destination ../.node-pty
           tar -xzf "../.node-pty/node-pty-$version.tgz" -C ../.node-pty
@@ -93,21 +92,12 @@ jobs:
           path: ${{ runner.temp }}/package/*.zip
           if-no-files-found: error
 
-  # Visual parity with the Electron UI (tools/visual/report.mjs): Electron's reference set, the WPF shell's captures
-  # (--diag-capture, against the Rust host with two cmd.exe sessions) and the side-by-side report, on one runner.
+  # The WPF shell's captures (--diag-capture, against the Rust host with two cmd.exe sessions), kept as an artifact.
   visual:
     needs: [rust, wpf]
     runs-on: windows-latest
-    env:
-      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      REFRAME_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-node@v7.1.0
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
       - uses: actions/download-artifact@v7.0.0
         with:
           name: reframe-host
@@ -116,111 +106,12 @@ jobs:
         with:
           name: reframe-shell
           path: wpf-shell
-      - name: Package (unpacked app)
-        run: npm run dist:dir
-      # The runner's screen is 1024x768: Electron's window (sized to 1280x800 by the spec) must fit on it.
-      - name: Display at 1920x1080
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          Set-DisplayResolution -Width 1920 -Height 1080 -Force
-          Add-Type -AssemblyName System.Windows.Forms
-          [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-      - name: Electron reference set
-        shell: bash
-        run: >-
-          REFRAME_E2E_APP="$PWD/dist/win-unpacked/reframe.exe" REFRAME_VISUAL_OUT="$PWD/visual/electron"
-          npx playwright test -c playwright.visual.config.ts
       - name: WPF captures
-        if: success() || failure()
         shell: pwsh
         run: ./tools/visual/Capture-Wpf.ps1 -Shell wpf-shell/Reframe.Shell.exe -HostBin rust/dist -Out visual/wpf -Scratch "$env:RUNNER_TEMP/wpf-visual"
-      - name: Side-by-side report
-        if: success() || failure()
-        run: node tools/visual/report.mjs --electron visual/electron --wpf visual/wpf --out visual/report
-      - uses: actions/upload-artifact@v7.0.2
-        if: success() || failure()
-        with:
-          name: visual-reference
-          path: visual/electron/
-          if-no-files-found: warn
       - uses: actions/upload-artifact@v7.0.2
         if: success() || failure()
         with:
           name: wpf-capture
           path: visual/wpf/
           if-no-files-found: warn
-      - uses: actions/upload-artifact@v7.0.2
-        if: success() || failure()
-        with:
-          name: visual-report
-          path: visual/report/
-          if-no-files-found: warn
-
-  check:
-    needs: rust
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest]
-    runs-on: ${{ matrix.os }}
-    env:
-      # No code signing in CI.
-      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-    steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-node@v7.1.0
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npx prettier --check .
-      - run: npm test
-      - uses: actions/download-artifact@v7.0.0
-        with:
-          name: reframe-host
-          path: rust/dist
-      - uses: actions/download-artifact@v7.0.0
-        with:
-          name: fake-coordinator
-          path: rust/fake
-      - name: Package (unpacked app)
-        run: npm run dist:dir
-      - name: PTY host conformance (Node and Rust hosts)
-        shell: bash
-        run: >-
-          REFRAME_RUST_HOST_EXE="$PWD/rust/dist/reframe-host.exe"
-          REFRAME_FAKE_COORDINATOR_EXE="$PWD/rust/fake/fake-coordinator.exe" npm run test:conformance
-      - name: Packaged Rust PTY host
-        shell: bash
-        run: |
-          for f in reframe-host.exe conpty.dll OpenConsole.exe; do test -f "dist/win-unpacked/resources/reframe-host/$f"; done
-          cmp rust/dist/reframe-host.exe dist/win-unpacked/resources/reframe-host/reframe-host.exe
-
-      - name: End-to-end tests (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: REFRAME_E2E_APP="$PWD/dist/win-unpacked/reframe.exe" npx playwright test
-      - name: Portable ZIP (Windows)
-        if: runner.os == 'Windows'
-        run: node scripts/portable.mjs
-      - name: End-to-end tests (macOS, informational)
-        if: runner.os == 'macOS'
-        continue-on-error: true
-        run: REFRAME_E2E_APP="$(ls -d "$PWD"/dist/mac*/reframe.app)/Contents/MacOS/reframe" npx playwright test
-      - name: End-to-end tests (Linux, informational)
-        if: runner.os == 'Linux'
-        continue-on-error: true
-        run: |
-          # Keep the runner's sandbox policy. Unsupported runner/Electron combinations remain informational.
-          REFRAME_E2E_APP="$PWD/dist/linux-unpacked/reframe" xvfb-run -a npx playwright test
-
-      - name: Keep screenshots of failed end-to-end tests
-        if: failure() || cancelled() || runner.os != 'Windows'
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          name: test-results-${{ matrix.os }}
-          path: test-results/
-          if-no-files-found: ignore

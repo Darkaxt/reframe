@@ -119,49 +119,21 @@ Claude Code, which reframe starts for you, talks to Anthropic the way you have s
 
 ## Development
 
-Requirements: Node.js 24, and on Linux the tools to build [node-pty](https://github.com/microsoft/node-pty) (`python3`, `make`, a C++ compiler).
+reframe is a native Windows app: a WPF shell (`wpf/`, .NET) and a Rust PTY host (`rust/`) that runs every `claude` in a pseudo terminal and mirrors its screen. CI builds both on Windows; locally use the .NET SDK and a Rust toolchain.
 
 ```sh
-npm install        # install scripts are only allowed for node-pty and koffi (allowScripts in package.json)
-npm run dev        # start with hot reload
-npm test           # unit tests
-npm run test:e2e   # builds, then runs the end-to-end tests against a fake claude
-npm run typecheck && npm run lint
-npm run dist       # installers for this system, into dist/ (npm run dist:dir: just the unpacked app)
-npm run screenshots  # the pictures in this README, taken from the real app with demo sessions
+cd rust && cargo test --workspace                 # the host and its libraries
+cd wpf && dotnet test Reframe.Shell.sln -c Release   # the shell and its tests
 ```
 
-`npm install` does not download Electron itself: it fetches its program the first time it runs (`npm run dev` or the tests), so that start needs a network connection. `npx install-electron` fetches it ahead of time.
-
-A smoke test against the real CLI is opt-in (it starts real sessions; the hooks test sends one short prompt):
-
-```sh
-REFRAME_E2E_REAL=1 REFRAME_E2E_FOLDER=/path/to/a/trusted/folder npx playwright test real
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute and [docs/RELEASING.md](docs/RELEASING.md) for releases.
-
-### Environment variables
-
-| Variable                        | Purpose                                                                                   |
-| ------------------------------- | ----------------------------------------------------------------------------------------- |
-| `REFRAME_USER_DATA`             | Use another profile directory (state, hook settings, log)                                 |
-| `REFRAME_CLAUDE_BIN`            | Path to the `claude` executable, or a `.js` stand-in (one chosen in Settings comes first) |
-| `REFRAME_NODE`                  | Node binary that runs a `.js` stand-in (needed on Windows)                                |
-| `REFRAME_CLAUDE_HOME`           | Claude Code's config directory (default: `CLAUDE_CONFIG_DIR` or `~/.claude`)              |
-| `REFRAME_LOCALE`                | Force `en` or `de`                                                                        |
-| `REFRAME_DISABLE_NOTIFICATIONS` | Suppress OS notifications (tests)                                                         |
-| `REFRAME_E2E`                   | Exposes test hooks to the end-to-end tests (set by the tests)                             |
-| `REFRAME_E2E_APP`               | Run the end-to-end tests against a packaged app (e.g. `dist/win-unpacked/…`)              |
-
-The app log is in the profile directory, under `logs/main.log`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute and [docs/RELEASING.md](docs/RELEASING.md) for releases. The app log is in the profile directory, under `logs/main.log`.
 
 ## How it works
 
-- The **main process** owns the state (`state.json` in the profile, written atomically with a backup) and applies the layout changes the windows ask for.
-- A **PTY host** (`utilityProcess`) runs each `claude` in a pseudo terminal ([node-pty](https://github.com/microsoft/node-pty)) and mirrors its screen in a headless [xterm.js](https://xtermjs.org/), so any window can attach at any time and get the current screen. That is how tiles move between windows without restarting anything.
+- The **shell** (WPF) owns the windows and the state (`state.json` in the profile, written atomically with a backup).
+- The **PTY host** (Rust) runs each `claude` in a pseudo terminal (ConPTY) and keeps its screen, so any window can attach at any time and get the current screen. That is how tiles move between windows without restarting anything.
 - **Status** comes from Claude Code's HTTP hooks (passed per session with `--settings`, merged with your own hooks; your settings files are never changed) and from Claude Code's session registry.
-- **Taking over** a session that runs elsewhere ends it there the way you would (Ctrl+C), then resumes it in reframe under the same session id. On Windows, reframe follows window drags and new terminal windows (window events through [koffi](https://koffi.dev/)) and maps consoles to their terminal windows. A claude in WSL shows in the console of its terminal's `wsl.exe`, which reframe finds by running its own executable (as node) through the interop socket of claude's WSL session (`WSL_INTEROP`): Windows programs started that way are children of that `wsl.exe`.
+- **Taking over** a session that runs elsewhere ends it there the way you would (Ctrl+C), then resumes it in reframe under the same session id.
 
 Design notes and findings (German): [docs/PLAN.md](docs/PLAN.md), [docs/PHASE0-FINDINGS.md](docs/PHASE0-FINDINGS.md).
 
