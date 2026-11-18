@@ -66,6 +66,8 @@ public partial class MainWindow : Window
     Dictionary<string, HostSession> hostSessions => shell.HostSessions;
     VisualFixture? fixture { get => shell.Fixture; set => shell.Fixture = value; }
     readonly string home = ClaudeRegistry.Home();
+    /// <summary>Parents whose subagents the user showed or hid (by chat key); others show them while any is not ended.</summary>
+    readonly Dictionary<string, bool> subagentsShown = [];
     string query = "";
     HashSet<string>? expanded;
     readonly HashSet<string> openedWhileRunning = [];
@@ -194,6 +196,11 @@ public partial class MainWindow : Window
         shell.StatusChanged += ShowStatus;
         shell.QuotaChanged += ShowQuota;
         shell.ProxyChanged += ShowProxy;
+        sidebar.SubagentsToggled += chat =>
+        {
+            subagentsShown[chat.Key] = !chat.SubagentsShown;
+            Render();
+        };
         sidebar.Proxy.Act = ProxyAction;
         if (App.CaptureDir is null)
         {
@@ -393,7 +400,7 @@ public partial class MainWindow : Window
         expanded ??= [];
         foreach (var id in SidebarView.RunningProjects(list))
             if (openedWhileRunning.Add(id)) expanded.Add(id);
-        sidebar.Show(SidebarView.Build(list with { ExpandedProjects = [.. expanded] }, Now));
+        sidebar.Show(SidebarView.Build(list with { ExpandedProjects = [.. expanded] }, Now, subagentsShown: subagentsShown));
     }
 
     string ChatKeyOf(string sessionId) =>
