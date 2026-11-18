@@ -424,7 +424,7 @@ public partial class MainWindow
             ChatView? chat = null;
             var chatToggle = new Button
             {
-                Style = S("IconButton"), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Show the conversation as a chat (read only)",
+                Style = S("IconButton"), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Show the conversation as a chat",
                 Content = new TextBlock { Text = "Chat", Style = S("Text12") },
             };
             AutomationProperties.SetName(chatToggle, "Chat view");
@@ -432,14 +432,14 @@ public partial class MainWindow
             {
                 if (chat is null)
                 {
-                    chat = new ChatView(transcriptId) { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 0, 0, 0) };
+                    chat = new ChatView(transcriptId, text => shell.SendChatMessageAsync(sessionId, text)) { Visibility = Visibility.Collapsed };
                     content.Children.Add(chat);
                 }
                 var showChat = chat.Visibility != Visibility.Visible;
                 chat.Visibility = showChat ? Visibility.Visible : Visibility.Collapsed;
                 terminalHost.Visibility = showChat ? Visibility.Collapsed : Visibility.Visible;
                 ((TextBlock)chatToggle.Content).Text = showChat ? "Terminal" : "Chat";
-                chatToggle.ToolTip = showChat ? "Back to the terminal" : "Show the conversation as a chat (read only)";
+                chatToggle.ToolTip = showChat ? "Back to the terminal" : "Show the conversation as a chat";
                 if (!showChat && FindHost(control) is { } host) FocusTerminal(host);
             };
             Right(chatToggle);

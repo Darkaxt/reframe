@@ -27,11 +27,48 @@ sealed class ChatView : Border
     string? path;
     long offset;
 
-    public ChatView(string claudeSessionId)
+    public ChatView(string claudeSessionId, Func<string, Task<bool>> send)
     {
         this.claudeSessionId = claudeSessionId;
         Background = B("terminalBrush");
-        Child = scroll;
+        // The composer: Enter sends the text into the running session (as the terminal would receive it), Shift+Enter breaks the line.
+        var input = new TextBox
+        {
+            AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 120, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Background = B("surfaceBrush"), Foreground = B("textBrush"), BorderBrush = B("borderBrush"), CaretBrush = B("textBrush"),
+            Padding = new Thickness(8, 6, 8, 6), FontSize = 13,
+        };
+        var status = new TextBlock { Style = S("Text12"), Foreground = B("mutedBrush"), Margin = new Thickness(10, 2, 10, 4), Text = "Enter sends to the terminal · Shift+Enter new line" };
+        async Task Send()
+        {
+            var text = input.Text.Trim();
+            if (text.Length == 0) return;
+            input.IsEnabled = false;
+            var sent = await send(text);
+            input.IsEnabled = true;
+            if (sent)
+            {
+                input.Clear();
+                status.Text = "Sent";
+                Refresh();
+            }
+            else status.Text = "Not sent: the session is not running (open it in the terminal first)";
+            input.Focus();
+        }
+        input.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Enter || Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) return;
+            e.Handled = true;
+            _ = Send();
+        };
+        var composer = new StackPanel { Margin = new Thickness(8, 0, 8, 0) };
+        composer.Children.Add(input);
+        composer.Children.Add(status);
+        var layout = new DockPanel();
+        DockPanel.SetDock(composer, Dock.Bottom);
+        layout.Children.Add(composer);
+        layout.Children.Add(scroll);
+        Child = layout;
         scroll.Content = rows;
         timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Refresh(), Dispatcher);
         IsVisibleChanged += (_, _) =>
