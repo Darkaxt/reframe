@@ -308,14 +308,14 @@ public partial class MainWindow
 
     /// <summary>runChatBatch: each distinct chat checked, then archived/deleted together or its route changed; the
     /// report shows progress and the outcome of each.</summary>
-    async Task RunChatBatchAsync(IReadOnlyList<ListItemRef> items, string operation, string? provider = null, string? model = null, bool preConfirmed = false)
+    async Task RunChatBatchAsync(IReadOnlyList<ListItemRef> items, string operation, string? provider = null, string? model = null, bool preConfirmed = false, bool quiet = false)
     {
         if (shell.ChatBatchRunning || shell.Quitting) throw new HistoryError("Another batch or shutdown is already running.");
         shell.ChatBatchRunning = true;
         var results = new List<ChatBatchEntry>();
         // Archive and delete are followed in a popup; the other batches in the result strip.
-        var dialog = operation is "archive" or "delete" ? OpenRetireDialog(operation, items.Count) : null;
-        if (dialog is null) ShowBatch(results, running: true);
+        var dialog = !quiet && operation is "archive" or "delete" ? OpenRetireDialog(operation, items.Count) : null;
+        if (dialog is null && !quiet) ShowBatch(results, running: true);
         var seen = new HashSet<string>();
         var targets = new List<(ListItemRef Item, ChatTarget Target)>();
         try
@@ -364,6 +364,11 @@ public partial class MainWindow
         {
             shell.ChatBatchRunning = false;
             if (dialog is { Visible: true }) dialog.Done(results);
+            else if (quiet)
+            {
+                foreach (var entry in results.Where(r => r.Status != "completed"))
+                    System.Diagnostics.Trace.WriteLine($"tasks: close {operation}: {entry.Label}: {entry.Status}: {entry.Detail}");
+            }
             else ShowBatch(results, running: false);
             shell.ListChanged();
         }
@@ -460,7 +465,23 @@ public partial class MainWindow
     /// <summary>Another thread asked for this one to be archived or deleted (its close_thread tool): as the list does it. The
     /// user confirms first unless the asker opened this thread (it owns it).</summary>
     public void RetireThread(string sessionId, string operation, bool confirmed) =>
-        _ = Report(RunChatBatchAsync([new ListItemRef(ListItemKind.App, sessionId)], operation, preConfirmed: confirmed));
+        _ = confirmed ? RetireQuietlyAsync(sessionId, operation) : Report(RunChatBatchAsync([new ListItemRef(ListItemKind.App, sessionId)], operation));
+
+    /// <summary>A thread retires a thread it opened itself: no popup, whatever the outcome (the user did not ask for it, and
+    /// a thread that closes many at once must not stack dialogs). It waits its turn behind a running batch and logs a
+    /// failure instead.</summary>
+    async Task RetireQuietlyAsync(string sessionId, string operation)
+    {
+        try
+        {
+            for (var waited = 0; shell.ChatBatchRunning && waited < 600; waited++) await Task.Delay(500);
+            await RunChatBatchAsync([new ListItemRef(ListItemKind.App, sessionId)], operation, preConfirmed: true, quiet: true);
+        }
+        catch (Exception e) when (e is HistoryError or HostServiceException)
+        {
+            System.Diagnostics.Trace.WriteLine($"tasks: close {operation} of {sessionId} failed: {e.Message}");
+        }
+    }
 
     async Task Report(Task work)
     {

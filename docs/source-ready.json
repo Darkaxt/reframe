@@ -1,24 +1,28 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "ae39be144bb7ae3642c119c779bf5f341a8c37a6",
-  "scope": "Retire the Electron app and its CI",
+  "sourceBase": "c3157e1eecfc3dea5d76b4ac976372aea19b5e4e",
+  "scope": "Quiet remote thread disposal; Electron retired",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.70.md",
-      "sha256": "14addcbf3469beaae1cb969ce0b1f7092b65fc1a62fc8cc487aa90a716006c93"
+      "file": "docs/releases/v0.11.0-claudegpt.71.md",
+      "sha256": "124de0c5b826834e0436a06f0a0ca066c1c028a52087b267dc65c914ef7d93fb"
     },
     {
       "file": "docs/wpf-cutover.md",
       "sha256": "981946325780f61184baa82cd7a6c24393935b066c0abc6f44ad1010a694d6d7"
     },
     {
+      "file": "maintenance/write-update-metadata.mjs",
+      "sha256": "d761e803c5ef30eb29be12d2045191ae9d00d3c0ebf959f4e62e0934f06674bf"
+    },
+    {
       "file": "package.json",
-      "sha256": "bbdffda8c2b8f7c791b2719c37f6f1c3c18e482d03cc12ea9f0b4b7b9b1b7a00"
+      "sha256": "05b1e0b00ce9c117746a67a045f6b8bf7cf75cb0f69736ac03464466b2c82e01"
     },
     {
       "file": "wpf/Reframe.Shell.Tests/ForeignTests.cs",
@@ -35,6 +39,10 @@
     {
       "file": "wpf/Reframe.Shell.Tests/SidebarTests.cs",
       "sha256": "08476f3af3ab4bf3b889582b1c5792a0d7527cce09a11c9c7dc14462991ae26f"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.History.cs",
+      "sha256": "89bb030cd92d8fce53bda4969bd8dbd186fcd8af4adaa8dfa0404eee76083fdc"
     }
   ],
   "checksNotYetRun": [
