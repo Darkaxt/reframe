@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "75f8cf94f2b073e256ae28d21b9b518732e11cbd",
-  "scope": "chat send",
+  "sourceBase": "9ae7fff6d3ebba60cb897a4240543dc2e08a896a",
+  "scope": "chat send, header",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.83.md",
-      "sha256": "2594e30b8ec1722c661547858bba378830287855d1c0450bf2af66575b06b062"
+      "sha256": "2610611810e6ece895b4cc42a4935af543d5e6b2555dde718d7fa29f5c5b40cb"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -22,7 +22,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "493e4e5d4835724c69bb796dc805c8f23ba8c0ba1da25c9941bd5bbf5735ae04"
+      "sha256": "ba848b9da278db43db4446a8a8b37089c33551f83542f5ec31fa45a226b0d598"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
