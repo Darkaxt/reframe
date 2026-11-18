@@ -441,7 +441,8 @@ public partial class MainWindow
                 }
                 var showChat = chat.Visibility != Visibility.Visible;
                 chat.Visibility = showChat ? Visibility.Visible : Visibility.Collapsed;
-                terminalHost.Visibility = showChat ? Visibility.Collapsed : Visibility.Visible;
+                // Hidden, not Collapsed: the terminal keeps its size (a collapsed one was resized to nothing under the session).
+                terminalHost.Visibility = showChat ? Visibility.Hidden : Visibility.Visible;
                 ((TextBlock)chatToggle.Content).Text = showChat ? "Terminal" : "Chat";
                 chatToggle.ToolTip = showChat ? "Back to the terminal" : "Show the conversation as a chat";
                 if (!showChat && FindHost(control) is { } host) FocusTerminal(host);

@@ -346,7 +346,13 @@ sealed partial class ShellController
     }
 
     /// <summary>A message the user wrote in the chat view: typed into the running thread as Reframe's own messages are.</summary>
-    public Task<bool> SendChatMessageAsync(string sessionId, string text) => Runs(sessionId) ? TypeIntoAsync(sessionId, text) : Task.FromResult(false);
+    public async Task<bool> SendChatMessageAsync(string sessionId, string text)
+    {
+        var running = Runs(sessionId);
+        var sent = running && await TypeIntoAsync(sessionId, text);
+        TaskLog($"chat: {text.Length} characters to {sessionId}: {(sent ? "typed" : running ? "typing failed" : "not running")}");
+        return sent;
+    }
 
     /// <summary>Types the text into the thread (a bracketed paste, then Enter a moment later), through a view of its own.</summary>
     async Task<bool> TypeIntoAsync(string sessionId, string text, bool interrupt = false)
@@ -371,6 +377,7 @@ sealed partial class ShellController
         catch (Exception e)
         {
             Trace.WriteLine($"typing into {sessionId} failed: {e.Message}");
+            TaskLog($"typing into {sessionId} failed: {e.Message}");
             return false;
         }
         finally
