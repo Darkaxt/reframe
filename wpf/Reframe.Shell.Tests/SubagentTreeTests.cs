@@ -13,7 +13,7 @@ public class SubagentTreeTests
     };
 
     static List<(string Label, int Depth, int Subagents, bool Shown)> Nested(IReadOnlyDictionary<string, bool>? shown, params ListItem[] items) =>
-        [.. SidebarView.Nest(SidebarChats.Build(new SessionList { App = [.. items] }), shown).Select(n => (n.Chat.Label, n.Depth, n.Subagents, n.Shown))];
+        [.. SidebarView.Nest(SidebarChats.Build(new SessionList { App = [.. items] }), shown).Select(n => (n.Chat.Label, n.Depth, n.Subagents + n.Ended, n.Shown))];
 
     [Fact]
     public void Subagents_follow_their_parent_even_when_they_were_used_later()
@@ -51,5 +51,16 @@ public class SubagentTreeTests
         Assert.Equal(["lead", "w1"], main.Chats.Select(c => c.Label));
         Assert.Equal([0, 1], main.Chats.Select(c => c.Depth));
         Assert.Empty(sections.Projects.Single(p => p.Cwd == @"D:\Workers").Chats);
+    }
+
+    [Fact]
+    public void The_count_leaves_out_ended_subagents_and_the_page_limit_counts_parents_only()
+    {
+        var items = new List<ListItem> { Thread("lead", "idle", 100), Thread("live", "busy", 50, "lead") };
+        for (var n = 0; n < 30; n++) items.Add(Thread($"done{n}", "ended", n, "lead"));
+        var rows = SidebarView.Nest(SidebarChats.Build(new SessionList { App = items }), null, limit: 20);
+        var lead = rows.Single(r => r.Depth == 0);
+        Assert.Equal((1, 30, true), (lead.Subagents, lead.Ended, lead.Shown));
+        Assert.Equal(32, rows.Count);
     }
 }
