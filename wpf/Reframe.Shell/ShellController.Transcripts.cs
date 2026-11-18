@@ -16,13 +16,13 @@ sealed partial class ShellController
         services.TranscriptsChanged += () => Ui.InvokeAsync(() =>
         {
             // A burst of file changes (an archive or delete removes many) lists once.
-            transcriptsTimer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(700), DispatcherPriority.Background, (_, _) =>
+            transcriptsTimer ??= new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Background, (_, _) =>
             {
                 transcriptsTimer?.Stop();
                 ListChanged();
             }, Ui);
-            transcriptsTimer.Stop();
-            transcriptsTimer.Start();
+            // Running threads write all the time: a list at most every two seconds, not one that waits for quiet.
+            if (!transcriptsTimer.IsEnabled) transcriptsTimer.Start();
         });
         try
         {
