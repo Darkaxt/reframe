@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "098c5fd046ce781ac950291d30460cdbf4630420",
-  "scope": "resize crash",
+  "sourceBase": "b0ef3b3d988d5aca900a31d28cc8d8cdba1c7279",
+  "scope": "chat button",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.79.md",
-      "sha256": "f011c83038396e9353f60c2340f691e77802ed32abf74f8142bbaf3e714957f3"
+      "sha256": "006e9b47ae09c21714200a8f5ed56fcfd798c6ec9907d35bddaf6fd7893af43b"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -23,6 +23,10 @@
     {
       "file": "wpf/Reframe.Shell/HostTerminalConnection.cs",
       "sha256": "75dbba27a11cc8f670985124f4b45203ca43ab0b57249dda8362b773eed7446e"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "0a73d5e26c0b6207b52015f22d6f1e940b2a57981ae2dec968b4862dc4414506"
     }
   ],
   "checksNotYetRun": [
