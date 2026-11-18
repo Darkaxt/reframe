@@ -19,41 +19,57 @@ sealed partial class ShellController
         return matches;
     }
 
-    /// <summary>"end": the session ends in the host and leaves its window (as the tile's × does); the thread stays listed
+    /// <summary>"end": each session ends in the host and leaves its window (as the tile's × does); the thread stays listed
     /// as ended. "archive" or "delete": then the window does as the list's Archive or Delete does, after the user confirms
-    /// there unless the asker opened the thread; delete is refused for any other thread. An unknown or ambiguous name, or the asker itself, is told to the asker.</summary>
+    /// there unless the asker opened the thread (then no popup at all); delete is refused for any other thread. Several names
+    /// are one request: they are closed in turn, the owned ones retired together in one quiet batch, and the asker is told
+    /// the outcome of all of them in one message.</summary>
     async Task CloseThreadAsync(JsonObject hook)
     {
         var askerId = (string?)hook["sessionId"];
         string? Text(string key) => hook["payload"] is JsonObject o && o[key] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim() is { Length: > 0 } t ? t : null;
-        if (askerId is null || !State.Sessions.ContainsKey(askerId) || Text("close") is not { } name) return;
+        List<string> names = hook["payload"] is JsonObject body && body["close"] is { } asked
+            ? (asked is JsonArray list ? list.Select(n => (string?)n?.GetValue<string>()) : new string?[] { asked.GetValue<string>() })
+                .Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+            : [];
+        if (askerId is null || !State.Sessions.ContainsKey(askerId) || names.Count == 0) return;
         var action = Text("action") ?? "end";
-        var matches = ThreadsNamed(askerId, name);
-        string? why = null;
-        if (!Writable) why = "Reframe is watching read-only";
-        else if (matches.Count == 0) why = State.Sessions[askerId] is var own && string.Equals(StateValues.SessionLabel(own.Name, own.ClaudeName, own.Cwd).Trim(), name, StringComparison.OrdinalIgnoreCase)
-            ? "a thread cannot close the thread it runs in" : $"no thread is named \"{name}\"";
-        else if (matches.Count > 1) why = $"more than one thread is named \"{name}\"";
-        if (why is not null)
+        var problems = new List<string>();
+        var done = new List<string>();
+        var owned = new List<string>();
+        var asking = new List<string>();
+        foreach (var name in names)
         {
-            TaskLog($"close: {askerId}: {why}");
-            if (Runs(askerId)) await TypeIntoAsync(askerId, $"[Reframe: could not close: {why}]");
-            return;
+            var matches = ThreadsNamed(askerId, name);
+            string? why = null;
+            if (!Writable) why = "Reframe is watching read-only";
+            else if (matches.Count == 0) why = State.Sessions[askerId] is var own && string.Equals(StateValues.SessionLabel(own.Name, own.ClaudeName, own.Cwd).Trim(), name, StringComparison.OrdinalIgnoreCase)
+                ? "a thread cannot close the thread it runs in" : "no thread has that name";
+            else if (matches.Count > 1) why = "more than one thread has that name";
+            else if (action == "delete" && matches[0].OpenedBy != askerId) why = "you did not open that thread; end or archive it instead";
+            if (why is not null)
+            {
+                problems.Add($"\"{name}\": {why}");
+                continue;
+            }
+            var target = matches[0];
+            var window = State.Windows.FirstOrDefault(w => LayoutActions.WindowHasSession(w, target.Id)) ?? State.Windows.FirstOrDefault();
+            if (window is null) { problems.Add($"\"{name}\": no window"); continue; }
+            if (Runs(target.Id) || LayoutActions.WindowHasSession(window, target.Id)) EndSession(window.Id, target.Id);
+            TaskLog($"close: {askerId} {action}: {target.Id}{(target.OpenedBy == askerId ? " (its own)" : "")}");
+            done.Add(name);
+            if (action is "archive" or "delete") (target.OpenedBy == askerId ? owned : asking).Add(target.Id);
         }
-        var target = matches[0];
-        var window = State.Windows.FirstOrDefault(w => LayoutActions.WindowHasSession(w, target.Id)) ?? State.Windows.FirstOrDefault();
-        if (window is null) return;
-        // Deleting is only for the threads the asker opened itself; archiving asks the user first for any other.
-        var owned = target.OpenedBy == askerId;
-        if (action == "delete" && !owned)
+        if (action is "archive" or "delete" && State.Windows.FirstOrDefault() is { } home && windows.GetValueOrDefault(home.Id) is { } shown)
         {
-            TaskLog($"close: {askerId} may not delete {target.Id}: it did not open it");
-            if (Runs(askerId)) await TypeIntoAsync(askerId, $"[Reframe: could not delete \"{name}\": you did not open that thread; end or archive it instead]");
-            return;
+            // One batch for the threads it opened (no popup), one for the rest (the user confirms once).
+            if (owned.Count > 0) shown.RetireThreads(owned, action, confirmed: true);
+            if (asking.Count > 0) shown.RetireThreads(asking, action, confirmed: false);
         }
-        if (Runs(target.Id) || LayoutActions.WindowHasSession(window, target.Id)) EndSession(window.Id, target.Id);
-        TaskLog($"close: {askerId} {action}: {target.Id}{(owned ? " (its own)" : "")}");
-        if (action is "archive" or "delete" && windows.GetValueOrDefault(window.Id) is { } shown) shown.RetireThread(target.Id, action, owned);
-        else if (Runs(askerId)) await TypeIntoAsync(askerId, $"[Reframe: ended the thread \"{name}\"]");
+        var verb = action switch { "archive" => "archiving", "delete" => "deleting", _ => "ended" };
+        var message = done.Count == 0 ? "" : action == "end" ? $"ended {done.Count} thread(s)" : $"ended {done.Count} thread(s); {verb} them now";
+        if (problems.Count > 0) message += (message.Length > 0 ? "; " : "") + "could not close " + string.Join(", ", problems);
+        TaskLog($"close: {askerId}: {message}");
+        if (message.Length > 0 && Runs(askerId)) await TypeIntoAsync(askerId, $"[Reframe: {message}]");
     }
 }

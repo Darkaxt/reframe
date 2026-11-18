@@ -464,22 +464,25 @@ public partial class MainWindow
 
     /// <summary>Another thread asked for this one to be archived or deleted (its close_thread tool): as the list does it. The
     /// user confirms first unless the asker opened this thread (it owns it).</summary>
-    public void RetireThread(string sessionId, string operation, bool confirmed) =>
-        _ = confirmed ? RetireQuietlyAsync(sessionId, operation) : Report(RunChatBatchAsync([new ListItemRef(ListItemKind.App, sessionId)], operation));
+    public void RetireThreads(IReadOnlyList<string> sessionIds, string operation, bool confirmed)
+    {
+        var items = sessionIds.Select(id => new ListItemRef(ListItemKind.App, id)).ToList();
+        _ = confirmed ? RetireQuietlyAsync(items, operation) : Report(RunChatBatchAsync(items, operation));
+    }
 
     /// <summary>A thread retires a thread it opened itself: no popup, whatever the outcome (the user did not ask for it, and
     /// a thread that closes many at once must not stack dialogs). It waits its turn behind a running batch and logs a
     /// failure instead.</summary>
-    async Task RetireQuietlyAsync(string sessionId, string operation)
+    async Task RetireQuietlyAsync(IReadOnlyList<ListItemRef> items, string operation)
     {
         try
         {
             for (var waited = 0; shell.ChatBatchRunning && waited < 600; waited++) await Task.Delay(500);
-            await RunChatBatchAsync([new ListItemRef(ListItemKind.App, sessionId)], operation, preConfirmed: true, quiet: true);
+            await RunChatBatchAsync(items, operation, preConfirmed: true, quiet: true);
         }
         catch (Exception e) when (e is HistoryError or HostServiceException)
         {
-            System.Diagnostics.Trace.WriteLine($"tasks: close {operation} of {sessionId} failed: {e.Message}");
+            System.Diagnostics.Trace.WriteLine($"tasks: close {operation} of {items.Count} thread(s) failed: {e.Message}");
         }
     }
 
