@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "76378bd23cf63eb0729e45c048b6472d792f5e49",
+  "sourceBase": "12a39267bf9997ac5d7494aeac3dc8f85185def3",
   "scope": "meters, chat send",
   "inputHashes": [
     {
@@ -30,7 +30,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
-      "sha256": "643284c3aecfefebce0f930b781d12f871058a3366906477530148da3f8c3e95"
+      "sha256": "2c383c55f3791e60cf6148d87d8d4e4bb52498b46ea34f757f9b0f3dc77c9e13"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.cs",
