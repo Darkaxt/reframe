@@ -498,6 +498,23 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>The subagents of a parent that have ended: one entry deletes them all in one batch, confirmed once.</summary>
+    void ShowEndedAgentsMenu(ChatRow parent, FrameworkElement target)
+    {
+        if (list is null) return;
+        var ended = SidebarChats.Build(list).Where(c => c.ParentKey == parent.Key && c.Status == "ended").Select(c => c.Ref).ToList();
+        var items = new List<MenuSpec>
+        {
+            new("normal", ended.Count == 0 ? "No ended agents" : $"Delete {ended.Count} ended agent{(ended.Count == 1 ? "" : "s")}…",
+                Enabled: ended.Count > 0 && Writable && !shell.ChatBatchRunning, Action: "deleteEnded"),
+        };
+        var menu = ShellMenus.Build(items, action => action == "deleteEnded" && ended.Count > 0 && Writable && !shell.ChatBatchRunning,
+            action => _ = Report(RunChatBatchAsync(ended, "delete")));
+        menu.PlacementTarget = target;
+        menu.Placement = PlacementMode.MousePoint;
+        menu.IsOpen = true;
+    }
+
     /// <summary>The selected chats' menu (listMenu with batchChatActions).</summary>
     void ShowSelectionMenu(IReadOnlyList<ChatRow> chats, FrameworkElement target)
     {
