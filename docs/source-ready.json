@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "b0ef3b3d988d5aca900a31d28cc8d8cdba1c7279",
-  "scope": "chat button",
+  "sourceBase": "2623430eca649fe539568ca9fd493de5b14e96bb",
+  "scope": "chat button width",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.79.md",
-      "sha256": "006e9b47ae09c21714200a8f5ed56fcfd798c6ec9907d35bddaf6fd7893af43b"
+      "file": "docs/releases/v0.11.0-claudegpt.80.md",
+      "sha256": "ea7316a1f5ee2eb2e8be826d06b69dff883836344abd7244b6527a575363a170"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,11 +18,7 @@
     },
     {
       "file": "package.json",
-      "sha256": "bfaf47fa8e3da1dd99ffef7040958b0436737b9e2acd9a85ae64f524c180d23a"
-    },
-    {
-      "file": "wpf/Reframe.Shell/HostTerminalConnection.cs",
-      "sha256": "75dbba27a11cc8f670985124f4b45203ca43ab0b57249dda8362b773eed7446e"
+      "sha256": "e8643a7a0c81f37d63315d96d50a92d463911483c026401cf51420ded2bae1c8"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
