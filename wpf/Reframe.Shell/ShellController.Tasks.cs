@@ -355,7 +355,7 @@ sealed partial class ShellController
             // Through the tile's own terminal connection, as the keys the user types go (a paste, then Enter).
             own.Paste(text);
             await System.Threading.Tasks.Task.Delay(TimeSpan.FromMilliseconds(300));
-            own.WriteInput("");
+            own.WriteInput("\r");
             sent = true;
         }
         else if (running) sent = await TypeIntoAsync(sessionId, text);
