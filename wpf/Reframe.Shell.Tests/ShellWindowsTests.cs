@@ -175,23 +175,4 @@ public class ShellWindowsTests
         Assert.Equal(("Close window", "End sessions", "Keep in the tray", "Cancel", "Don't ask again (Settings can change it)"),
             (one.Title, one.End, one.Keep, one.Cancel, one.Remember));
     }
-
-    [Fact]
-    public void The_new_texts_are_i18n_ts_s_english_ones()
-    {
-        var source = File.ReadAllText(Path.Combine(TokenTestsRoot.Root, "src", "shared", "i18n.ts"));
-        // The English block comes first; its entries are 'key': 'text' or "text", possibly on the next line.
-        var english = source[..source.IndexOf("'tray.window': 'Fenster", StringComparison.Ordinal)];
-        foreach (var key in new[]
-        {
-            "dialog.cancel", "tray.tooltip", "title.waitingOne", "title.waiting", "tray.window", "tray.newSession", "tray.newWindow",
-            "tray.terminateAll", "tray.quit", "tray.about", "fullscreen.hint", "fullscreen.exit", "closeWindow.title",
-            "closeWindow.messageOne", "closeWindow.message", "closeWindow.detail", "closeWindow.end", "closeWindow.keep", "closeWindow.remember",
-        })
-        {
-            var match = Regex.Match(english, $@"'{Regex.Escape(key)}':\s*(['""])(.*?)\1,");
-            Assert.True(match.Success, key);
-            Assert.Equal(match.Groups[2].Value.Replace("\\'", "'"), Strings.En[key]);
-        }
-    }
 }

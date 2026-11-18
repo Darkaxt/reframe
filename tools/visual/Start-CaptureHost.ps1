@@ -37,16 +37,14 @@ $envMap = [ordered]@{}
 foreach ($e in [Environment]::GetEnvironmentVariables().GetEnumerator() | Sort-Object Name) { $envMap[$e.Name] = [string]$e.Value }
 New-Item -ItemType Directory -Force $ClaudeHome | Out-Null
 $envMap['REFRAME_CLAUDE_HOME'] = (Resolve-Path $ClaudeHome).Path
-$node = (Get-Command node).Source
-$demo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\screenshots\demo-claude.mjs')).Path
 $instance = 0
 foreach ($entry in $Sessions) {
     $id, $name, $project = $entry -split '='
     $cwd = Join-Path $env:USERPROFILE "projects\$project"
     New-Item -ItemType Directory -Force $cwd | Out-Null
     $instance++
-    $spawn = [ordered]@{ type = 'spawn'; sessionId = $id; instance = $instance; file = $node
-        args = "`"$demo`" --name $name"; cwd = $cwd; env = $envMap; cols = 120; rows = 36 }
+    $spawn = [ordered]@{ type = 'spawn'; sessionId = $id; instance = $instance; file = (Join-Path $env:SystemRoot 'System32/cmd.exe')
+        args = "/k echo $name"; cwd = $cwd; env = $envMap; cols = 120; rows = 36 }
     $w.WriteLine(($spawn | ConvertTo-Json -Compress -Depth 4))
     $spawned = $false
     $deadline = (Get-Date).AddSeconds(15)

@@ -265,15 +265,11 @@ public class SidebarTests
     // ---------- icons ----------
 
     [Fact]
-    public void IconPathsAreTheElectronUisAndParseInWpf()
+    public void IconPathsParseInWpf()
     {
-        var sources = string.Concat(
-            File.ReadAllText(Path.Combine(TokenTestsRoot.Root, "src", "renderer", "components", "icons.tsx")),
-            File.ReadAllText(Path.Combine(TokenTestsRoot.Root, "src", "renderer", "components", "ProviderIcon.tsx")));
         foreach (var icon in Icons.All)
             foreach (var part in icon.Parts.OfType<IconPath>())
             {
-                Assert.Contains(part.D, sources);
                 Assert.False(Geometry.Parse(SvgPath.ToWpf(part.D)).IsEmpty(), icon.Name);
             }
         Assert.Equal("a 1 1 0 0 0 -1 0", SvgPath.ToWpf("a1 1 0 00-1 0"));
@@ -288,7 +284,7 @@ static class TokenTestsRoot
     static string Find()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-            if (File.Exists(Path.Combine(dir.FullName, "src", "renderer", "styles.css"))) return dir.FullName;
+            if (File.Exists(Path.Combine(dir.FullName, "package.json"))) return dir.FullName;
         throw new InvalidOperationException("repository root not found");
     }
 }
