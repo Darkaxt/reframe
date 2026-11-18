@@ -40,10 +40,18 @@ public sealed class HostServices
                 var status = SessionStatus.From(data);
                 if (Accept(status, fromList: false)) StatusChanged?.Invoke(status);
             }
+            else if (service == "transcripts" && name == "changed") TranscriptsChanged?.Invoke();
             else if (service == "monitor" && name == "warning" && MonitorWarning.From(data) is { } warning) WarningRaised?.Invoke(warning);
             else if (service == "monitor" && name == "cleared" && (string?)data?["id"] is { } cleared) WarningCleared?.Invoke(cleared);
         };
     }
+
+    /// <summary>A transcript was added, changed or removed in a watched Claude Code folder (<c>transcripts.changed</c>).</summary>
+    public event Action? TranscriptsChanged;
+
+    /// <summary><c>transcripts.watch { home }</c>: the host lists the folder again when its files change, and tells us.</summary>
+    public async Task TranscriptsWatchAsync(string home) =>
+        await connection.CallAsync("transcripts", "watch", new JsonObject { ["home"] = home });
 
     /// <summary>The <c>monitor</c> service's warning events (version 2), on the connection's reading thread.</summary>
     public event Action<MonitorWarning>? WarningRaised;
