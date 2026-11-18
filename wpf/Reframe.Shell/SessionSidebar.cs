@@ -460,8 +460,9 @@ sealed class SessionSidebar : Border
             // "▾ 3": the subagents this thread opened, shown under it (click to hide) or hidden (click to show).
             var subagents = new TextBlock
             {
-                Text = $"{(chat.SubagentsShown ? "▾" : "▸")} {chat.Subagents}", Style = S("Text11"), Foreground = B("mutedBrush"), Tag = SubagentsTag,
-                Margin = new Thickness(8, 2, 0, 0), VerticalAlignment = VerticalAlignment.Top, Cursor = Cursors.Hand,
+                Text = $"{(chat.SubagentsShown ? "▾" : "▸")} {chat.Subagents} agent{(chat.Subagents == 1 ? "" : "s")}", Style = S("Text12"), Foreground = B("textBrush"), Tag = SubagentsTag,
+                Background = B("surfaceBrush"), Padding = new Thickness(6, 1, 6, 1),
+                Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
                 ToolTip = $"{chat.Subagents} subagent{(chat.Subagents == 1 ? "" : "s")}: click to {(chat.SubagentsShown ? "hide" : "show")}",
             };
             AutomationProperties.SetName(subagents, $"{chat.Subagents} subagents, {(chat.SubagentsShown ? "shown" : "hidden")}");

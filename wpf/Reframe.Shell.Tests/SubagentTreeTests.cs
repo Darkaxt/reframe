@@ -38,4 +38,18 @@ public class SubagentTreeTests
     {
         Assert.Equal([("w1", 0, 0, false)], Nested(null, Thread("w1", "idle", 5, "gone")));
     }
+
+    [Fact]
+    public void A_subagent_in_another_folder_is_listed_under_its_opener_in_the_openers_project()
+    {
+        var lead = Thread("lead", "idle", 10);
+        var worker = Thread("w1", "busy", 30, "lead") with { Cwd = @"D:\Workers" };
+        FolderWorkspace Project(string cwd) => new() { Id = Workspaces.WorkspaceKey(cwd), Cwd = cwd, Name = cwd };
+        var list = new SessionList { App = [lead, worker], FolderWorkspaces = [Project(@"D:\P"), Project(@"D:\Workers")] };
+        var sections = SidebarView.Build(list, 100);
+        var main = sections.Projects.Single(p => p.Cwd == @"D:\P");
+        Assert.Equal(["lead", "w1"], main.Chats.Select(c => c.Label));
+        Assert.Equal([0, 1], main.Chats.Select(c => c.Depth));
+        Assert.Empty(sections.Projects.Single(p => p.Cwd == @"D:\Workers").Chats);
+    }
 }

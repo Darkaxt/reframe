@@ -220,14 +220,16 @@ fn close_tool() -> Value {
             ended, and wake_thread or the user's Resume brings it back. action \"archive\" ends it and then archives its \
             conversation to a verified ZIP, and action \"delete\" ends it and deletes it for good; both ask the user to confirm in \
             Reframe's window first, unless you opened the thread yourself with open_thread (then they just happen), and delete \
-            is refused for any thread you did not open. Not for the thread you run in. If no thread has that name, Reframe tells you in a message.",
+            is refused for any thread you did not open. Not for the thread you run in. Give several threads in names to close them all in one request: they are \
+            closed one after the other and Reframe sends you one message with the outcome of all, so never send one request per thread. \
+            Reframe shows the user no popup for threads you opened yourself.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "name": { "type": "string", "description": "The name of the thread to close, as Reframe shows it." },
+                "names": { "type": "array", "items": { "type": "string" }, "description": "Several threads to close in one request (instead of name)." },
                 "action": { "type": "string", "enum": ["end", "archive", "delete"], "description": "end (default), archive or delete (only a thread you opened)." },
             },
-            "required": ["name"],
         },
     })
 }
@@ -240,23 +242,37 @@ fn close(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
             .map(str::trim)
             .filter(|s| !s.is_empty())
     };
-    let Some(name) = text("name") else {
-        return text_result(true, "Give the name of the thread to close.");
-    };
+    let mut names: Vec<String> = arguments
+        .get("names")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
+    if let Some(name) = text("name") {
+        names.insert(0, name.to_string());
+    }
+    names.dedup();
+    if names.is_empty() {
+        return text_result(true, "Give the name (or names) of the thread to close.");
+    }
     let action = match text("action") {
         None | Some("end") => "end",
         Some("archive") => "archive",
         Some("delete") => "delete",
         Some(_) => return text_result(true, "action is end, archive or delete."),
     };
-    if !post(json!({ "close": name, "action": action }).to_string().as_bytes()) {
+    let named = names.iter().map(|n| format!("\"{n}\"")).collect::<Vec<_>>().join(", ");
+    if !post(json!({ "close": names, "action": action }).to_string().as_bytes()) {
         return text_result(true, "Reframe's host did not take the request (is Reframe running?).");
     }
     text_result(
         false,
-        &format!(
-            "Reframe was asked to {action} the thread \"{name}\". If no thread has that name, or it is the thread you run in, a message tells you."
-        ),
+        &format!("Reframe was asked to {action}: {named}. One message tells you the outcome of all of them."),
     )
 }
 
@@ -324,6 +340,7 @@ mod tests {
         for arguments in [
             json!({ "name": " Docs " }),
             json!({ "name": "Docs", "action": "archive" }),
+            json!({ "names": ["A", " B ", ""], "action": "delete" }),
         ] {
             let call = rpc("tools/call", json!({ "name": "close_thread", "arguments": arguments }));
             let result = answer(&call, None, &mut |body| {
@@ -336,8 +353,9 @@ mod tests {
         assert_eq!(
             posted,
             [
-                json!({ "close": "Docs", "action": "end" }),
-                json!({ "close": "Docs", "action": "archive" })
+                json!({ "close": ["Docs"], "action": "end" }),
+                json!({ "close": ["Docs"], "action": "archive" }),
+                json!({ "close": ["A", "B"], "action": "delete" })
             ]
         );
         let bad = rpc(

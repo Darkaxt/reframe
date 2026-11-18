@@ -1,48 +1,60 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "c3157e1eecfc3dea5d76b4ac976372aea19b5e4e",
-  "scope": "Quiet remote thread disposal; Electron retired",
+  "sourceBase": "e03f06186bde63bb17a76d83533121e7fdcb296d",
+  "scope": "Batch close_thread; subagents nest in projects",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.71.md",
-      "sha256": "124de0c5b826834e0436a06f0a0ca066c1c028a52087b267dc65c914ef7d93fb"
+      "file": "docs/releases/v0.11.0-claudegpt.72.md",
+      "sha256": "00b2c099b587c984d2aad9197f681845b6593b30496519afaa885fbf306290da"
     },
     {
       "file": "docs/wpf-cutover.md",
       "sha256": "981946325780f61184baa82cd7a6c24393935b066c0abc6f44ad1010a694d6d7"
     },
     {
-      "file": "maintenance/write-update-metadata.mjs",
-      "sha256": "d761e803c5ef30eb29be12d2045191ae9d00d3c0ebf959f4e62e0934f06674bf"
-    },
-    {
       "file": "package.json",
-      "sha256": "05b1e0b00ce9c117746a67a045f6b8bf7cf75cb0f69736ac03464466b2c82e01"
+      "sha256": "d15dcceb1f3b303eb670fc19b9020bc2f12d76beb4f2f4885306591f4975a3d3"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/ForeignTests.cs",
-      "sha256": "6a71e575db6cae6bad97695e5d923f1c61b46b309c828edf7046d08631f260bd"
+      "file": "rust/reframe-host/src/threads.rs",
+      "sha256": "b46d2c3e804c62ad061a67a082b0e83a32a158d097d3c58a4d6924a22f2a8a06"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
-      "sha256": "6d136dac45911c5ed6db755c2031d4d53a872acfc40542ea250add52abae8ed2"
+      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
+      "sha256": "30ab63467f80a2e5a2173e0991a10cb3b0b580e60c20e40821191799d4edaa8d"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/ShellWindowsTests.cs",
-      "sha256": "09a930d60004e8d5fbbe9377c3e64b6c68bd7035dfb1ed98c6ae4f13cff0a425"
+      "file": "wpf/Reframe.Shell.Core/TranscriptModel.cs",
+      "sha256": "192c100b51f7a98a5f628da667dc702a6ea5a9be5e51ff524f4217bf75da43e5"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/SidebarTests.cs",
-      "sha256": "08476f3af3ab4bf3b889582b1c5792a0d7527cce09a11c9c7dc14462991ae26f"
+      "file": "wpf/Reframe.Shell.Core/TranscriptReader.cs",
+      "sha256": "abd2fab3a20a45150ec4f926555dc8cb5623568df5f248474f6c9e7637d672f1"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/SubagentTreeTests.cs",
+      "sha256": "e5ee31adf83c9c9fd147c2cb08b2de1d67c9b9c5b1749937d48f34b7542f5b71"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/TranscriptTests.cs",
+      "sha256": "8a3d28fc0e4cf9ef6bd194b57b6a21dfba7d7403168ebcadba94582873a076b5"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.History.cs",
-      "sha256": "89bb030cd92d8fce53bda4969bd8dbd186fcd8af4adaa8dfa0404eee76083fdc"
+      "sha256": "636c50cd75feab7a91ca27a1c757511295384630b6e870f67861f7d6e17c6d96"
+    },
+    {
+      "file": "wpf/Reframe.Shell/SessionSidebar.cs",
+      "sha256": "789158ff7d4776ceb3639000a4decf00a5cc145b7ebbedb0db815e3fda69a6b0"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Close.cs",
+      "sha256": "925344619ef0279a179c81c6356e2bc728292cf4204ce5fecb0d43f907ed26d6"
     }
   ],
   "checksNotYetRun": [
