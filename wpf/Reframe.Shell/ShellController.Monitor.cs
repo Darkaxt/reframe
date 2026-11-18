@@ -11,6 +11,8 @@ sealed partial class ShellController
     DispatcherTimer? monitorTimer;
     bool sampling;
     bool monitorFailed;
+    /// <summary>The services of each older host still keeping sessions: their sessions are sampled too.</summary>
+    readonly Dictionary<HostConnection, HostServices> olderHostServices = [];
 
     void StartMonitor()
     {
@@ -28,6 +30,16 @@ sealed partial class ShellController
         try
         {
             var usage = await services.MonitorSampleAsync();
+            // A thread kept by an older host (after a restart of reframe) is sampled by that host.
+            foreach (var (host, older) in olderHostServices.ToList())
+            {
+                if (!host.IsOpen) continue;
+                try
+                {
+                    foreach (var (id, use) in await older.MonitorSampleAsync()) usage[id] = use;
+                }
+                catch (Exception e) when (e is HostServiceException or InvalidOperationException or System.IO.IOException) { }
+            }
             monitorFailed = false;
             foreach (var window in windows.Values) window.ShowUsage(usage);
         }

@@ -346,10 +346,19 @@ sealed partial class ShellController
     }
 
     /// <summary>A message the user wrote in the chat view: typed into the running thread as Reframe's own messages are.</summary>
-    public async Task<bool> SendChatMessageAsync(string sessionId, string text)
+    public async Task<bool> SendChatMessageAsync(string sessionId, string text, HostTerminalConnection? own)
     {
         var running = Runs(sessionId);
-        var sent = running && await TypeIntoAsync(sessionId, text);
+        var sent = false;
+        if (running && own is not null)
+        {
+            // Through the tile's own terminal connection, as the keys the user types go (a paste, then Enter).
+            own.Paste(text);
+            await System.Threading.Tasks.Task.Delay(TimeSpan.FromMilliseconds(300));
+            own.WriteInput("\r");
+            sent = true;
+        }
+        else if (running) sent = await TypeIntoAsync(sessionId, text);
         TaskLog($"chat: {text.Length} characters to {sessionId}: {(sent ? "typed" : running ? "typing failed" : "not running")}");
         return sent;
     }
