@@ -212,7 +212,7 @@ sealed class SettingsDialog
             [("", T("inline.defaultEffortCli")), .. StateValues.EffortLevels.Select(l => (l, l))],
             p.DefaultEffort ?? "", v => Set(new PreferencesPatch { DefaultEffort = v }))));
         Add(Row(T("settings.defaultPermissionMode"), Select(T("settings.defaultPermissionMode"),
-            [("", T("dialog.default")), .. StateValues.PermissionModes.Select(m => (m, m))],
+            [("", T("dialog.default")), .. StateValues.PermissionModes.Select(m => (m, StateValues.PermissionLabel(m)))],
             p.DefaultPermissionMode ?? "", v => Set(new PreferencesPatch { DefaultPermissionMode = v }))));
         AddHint(T("settings.launchHint"));
 

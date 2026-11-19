@@ -21,6 +21,19 @@ public static class StateValues
     public const int StateVersion = 1;
     public static readonly IReadOnlyList<string> Providers = ["chatgpt", "anthropic"];
     public static readonly IReadOnlyList<string> EffortLevels = ["low", "medium", "high", "xhigh", "max"];
+    /// <summary>What a permission mode is called where it is shown (the stored values are Claude Code's own words).</summary>
+    public static string PermissionLabel(string? mode) => mode switch
+    {
+        null or "" or "Default" => "Default permissions",
+        "acceptEdits" => "Accept edits",
+        "auto" => "Auto",
+        "bypassPermissions" => "Full access",
+        "manual" => "Ask for everything",
+        "dontAsk" => "Don't ask",
+        "plan" => "Plan mode",
+        _ => mode,
+    };
+
     public static readonly IReadOnlyList<string> PermissionModes = ["acceptEdits", "auto", "bypassPermissions", "manual", "dontAsk", "plan"];
     public static readonly IReadOnlyList<string> Sides = ["left", "right", "top", "bottom"];
     public static readonly IReadOnlyList<string> SplitDirections = ["row", "col"];

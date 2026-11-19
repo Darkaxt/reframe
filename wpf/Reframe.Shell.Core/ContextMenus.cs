@@ -72,8 +72,8 @@ public static class ContextMenus
     public static MenuSpec PermissionMenu(SessionRecord record, bool inactive) =>
         new("submenu", inactive ? "Permission mode" : "Permission mode (next start)", Submenu:
         [
-            new("radio", "Default", Checked: record.Launch.PermissionMode is null, Action: "permission:"),
-            .. StateValues.PermissionModes.Select(m => new MenuSpec("radio", m, Checked: record.Launch.PermissionMode == m, Action: "permission:" + m)),
+            new("radio", StateValues.PermissionLabel(null), Checked: record.Launch.PermissionMode is null, Action: "permission:"),
+            .. StateValues.PermissionModes.Select(m => new MenuSpec("radio", StateValues.PermissionLabel(m), Checked: record.Launch.PermissionMode == m, Action: "permission:" + m)),
         ]);
 
     /// <summary>batchChatActions: the selection's provider (no radio: they may differ), model, archive and delete.</summary>

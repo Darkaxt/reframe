@@ -115,7 +115,7 @@ sealed class ChatView : Border
             input.CaretIndex = input.SelectionStart + input.SelectionLength;
             input.Focus();
         };
-        var mode = Chip(permission(), "Permission mode (applies when the session starts next)");
+        var mode = Chip(StateValues.PermissionLabel(permission()), "Permission mode (applies when the session starts next)");
         mode.Click += (_, _) => permissionMenu(mode);
         var modelChip = Chip(model(), "Model of this session: types /model into it");
         modelChip.Click += (_, _) =>
@@ -254,7 +254,7 @@ sealed class ChatView : Border
         {
             if (IsVisible)
             {
-                ((TextBlock)mode.Content).Text = permission();
+                ((TextBlock)mode.Content).Text = StateValues.PermissionLabel(permission());
                 titleText.Text = title();
                 side.Visibility = sideOpen ? Visibility.Visible : Visibility.Collapsed;
                 Refresh(false);
