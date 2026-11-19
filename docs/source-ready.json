@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "d5e11c0c45b0d43e607b0fcf6df34f861b115407",
+  "sourceBase": "5a326675f8bb513ca677b530588ca023a9c762ff",
   "scope": "labels and model names",
   "inputHashes": [
     {
@@ -35,6 +35,10 @@
     {
       "file": "wpf/Reframe.Shell.Tests/ModelNamesTests.cs",
       "sha256": "9c909fc05593589589def4e8bd6ff38e505959949b0142b7f90bfbba87acf985"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/StateWriteTests.cs",
+      "sha256": "c3e4fdf15c36c3f995d8676956119ebff30010f655c33761c0486208be7e0423"
     },
     {
       "file": "wpf/Reframe.Shell/ChatView.cs",
