@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "7571e244c3c7f1fb797a219121c8a466d859c8df",
-  "scope": "floating side card",
+  "sourceBase": "2a082d7f80905c38c71edb0184cdc8ac06d4670e",
+  "scope": "chat view remembered",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.97.md",
-      "sha256": "ea034db1c9e160b6df024e17a81a44775896a9935740c20170059453858783b9"
+      "file": "docs/releases/v0.11.0-claudegpt.98.md",
+      "sha256": "7b50acc2e86e6a719a94dc986a64c32e67978ae85824a1c9843c66c3425766b4"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,11 +18,11 @@
     },
     {
       "file": "package.json",
-      "sha256": "35a86b62b02a3e35a5d6702ecaa29bf88e4f3fea2ae6ad887511dfb8594ab22b"
+      "sha256": "095f0ac7017dd84aa00338844ecee43d1bca2eb97d622e90745e50128df57632"
     },
     {
-      "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "01c998f017c834d772d105fea33a6103969a494ef93df826985bc31c8f7993a5"
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "6694d1efe4f949d0494d40dc800437f7aab73fe983dd72009f77bf822b766226"
     }
   ],
   "checksNotYetRun": [
