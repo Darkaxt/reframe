@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "d1ca63d52a4e105d7479a8c4f7b567b921eb9924",
-  "scope": "chat composer controls",
+  "sourceBase": "26c52a5c79ff0bf8e0e5bd2f0333c7df4ef91083",
+  "scope": "opened thread failure report",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.91.md",
-      "sha256": "cdfc74c635b3d411142c06ef15a517f6c1fc057dfd3ada2ed88391439248f1bb"
+      "file": "docs/releases/v0.11.0-claudegpt.92.md",
+      "sha256": "aab9c0c0c032ee46c86b52591b67185aa53448697ae6de05bc827cb42d57fbfe"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,15 +18,27 @@
     },
     {
       "file": "package.json",
-      "sha256": "0d6509c92f96137f7d27cc8efa36ae2f1f5fa930c8cd1fd1d1da1dbb00745f09"
+      "sha256": "c025dbfc9b6573fa01d5a3b7835adf0559ab18afedd3af05e05da9fd76a4448d"
     },
     {
-      "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "8220d0209acf3a14e614a4903b83ba2013afc1c331170e5064eb04691e5a7abd"
+      "file": "rust/reframe-host/src/threads.rs",
+      "sha256": "aadba704925271377a8ab7ad95fad0ec8fd75b06ef34a97f8022843c9b185be5"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "230789e36072c63e56a00e67a51dde9b6faa22dccbdcc886a9b6c667f90a7257"
+      "file": "wpf/Reframe.Shell.Core/OpenedThreadCheck.cs",
+      "sha256": "128e2a6a89428bdfe6cb08cfae0d3bfa745e4dc9641ab2e1b6aceec7b3a1fa82"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/OpenedThreadCheckTests.cs",
+      "sha256": "4cf5fd029cc6228e1887a482b888a93c6aaf7c07ad302b2b2a5743e2cc06d113"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.OpenedThreads.cs",
+      "sha256": "f858973c098d4d2e20fa02d1992cb7dd98222afe4651a200f750b1ceda132562"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
+      "sha256": "0d27b38d17d993052d1b9365ed9ca76ae6e02246d4f351e2bbfc12d5ef0a2b98"
     }
   ],
   "checksNotYetRun": [
