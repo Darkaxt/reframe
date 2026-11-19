@@ -17,6 +17,8 @@ public sealed class UserMessageItem : ChatItem
 {
     public override TranscriptItemKind Kind => TranscriptItemKind.UserMessage;
     public string Text { get; init; } = "";
+    /// <summary>Pasted images: base64 data of each (the transcript holds them inline).</summary>
+    public IReadOnlyList<string> Images { get; init; } = [];
 }
 
 public sealed class AssistantTextItem : ChatItem
@@ -41,6 +43,8 @@ public sealed class SystemNoticeItem : ChatItem
 {
     public override TranscriptItemKind Kind => TranscriptItemKind.SystemNotice;
     public string Text { get; init; } = "";
+    /// <summary>The line had no content of its own (stop_hook_summary, turn_duration): Text is only its subtype name.</summary>
+    public bool Bare { get; init; }
 }
 
 /// <summary>A shape the model does not know: a generic row showing the raw type name.</summary>
@@ -148,7 +152,7 @@ public sealed class TranscriptModel
                 if (Str(root, "subtype") == "compact_boundary")
                     produced.Add(new CompactionItem { Uuid = uuid, Timestamp = ts, Text = Str(root, "content") });
                 else
-                    produced.Add(new SystemNoticeItem { Uuid = uuid, Timestamp = ts, Text = Str(root, "content") ?? Str(root, "subtype") ?? "system" });
+                    produced.Add(new SystemNoticeItem { Uuid = uuid, Timestamp = ts, Text = Str(root, "content") ?? Str(root, "subtype") ?? "system", Bare = Str(root, "content") is null });
                 break;
             case "user":
                 if (Bool(root, "isCompactSummary"))
@@ -207,6 +211,7 @@ public sealed class TranscriptModel
         }
 
         var text = new StringBuilder();
+        var images = new List<string>();
         foreach (var block in content.EnumerateArray())
         {
             if (block.ValueKind != JsonValueKind.Object) continue;
@@ -226,10 +231,11 @@ public sealed class TranscriptModel
                 case "image":
                     if (text.Length > 0) text.Append('\n');
                     text.Append("[image]");
+                    if (block.TryGetProperty("source", out var source) && Str(source, "data") is { Length: > 0 } data) images.Add(data);
                     break;
             }
         }
-        if (text.Length > 0) produced.Add(new UserMessageItem { Uuid = uuid, Timestamp = ts, Text = text.ToString() });
+        if (text.Length > 0) produced.Add(new UserMessageItem { Uuid = uuid, Timestamp = ts, Text = text.ToString(), Images = images });
     }
 
     void ParseAssistant(JsonElement root, string? uuid, string? ts, List<ChatItem> produced)

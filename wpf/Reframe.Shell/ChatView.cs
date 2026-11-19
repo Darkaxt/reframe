@@ -149,7 +149,8 @@ sealed class ChatView : Border
         model.Append(read.Lines);
         var atEnd = toEnd || scroll.VerticalOffset >= scroll.ScrollableHeight - 24;
         rows.Children.Clear();
-        List<ChatItem> items = [.. model.Items];
+        // The transcript also holds bookkeeping lines (file-history-snapshot, api-request, turn_duration ...): not rows.
+        List<ChatItem> items = [.. model.Items.Where(i => i is not UnknownItem && i is not SystemNoticeItem { Bare: true })];
         if (items.Count > MaxItems) items = items.GetRange(items.Count - MaxItems, MaxItems);
         if (items.Count == 0) rows.Children.Add(Note("The transcript is empty."));
         var turns = new List<List<ChatItem>>();
@@ -214,7 +215,8 @@ sealed class ChatView : Border
     {
         UserMessageItem u => Bubble(u),
         AssistantTextItem a => new Border { Margin = new Thickness(0, 6, 16, 6), Child = Markdown(a.Text) },
-        ThinkingItem t => Fold("thinking:" + t.Uuid, "Thinking", () => Text(t.Text, "mutedBrush"), step: true),
+        ThinkingItem t => Fold("thinking:" + t.Uuid + t.Text.Length, "Thinking: " + Preview(t.Text), () => new Border { Margin = new Thickness(14, 2, 0, 6), Child = Text(t.Text, "mutedBrush") }, step: true),
+        ToolGroupItem { Calls.Count: 1 } g => Call(g.Calls[0]),
         ToolGroupItem g => Fold("group:" + g.Uuid + g.Label, g.Label, () =>
         {
             var inner = new StackPanel { Margin = new Thickness(14, 0, 0, 0) };
@@ -224,15 +226,50 @@ sealed class ChatView : Border
         ToolCallItem c => Call(c),
         CompactionItem => Note("Conversation compacted"),
         SystemNoticeItem s => Note(s.Text),
-        UnknownItem x => Note($"({x.RawKind})"),
-        _ => Note(""),
+        _ => new Border(),
     };
 
-    static UIElement Bubble(UserMessageItem user) => new Border
+    static string Preview(string text)
     {
-        Background = B("surfaceBrush"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(60, 10, 16, 10),
-        HorizontalAlignment = HorizontalAlignment.Right, Child = Text(user.Text, "textBrush"),
-    };
+        var line = text.Trim().Split('\n')[0].Trim();
+        return line.Length > 90 ? line[..90] + "…" : line;
+    }
+
+    static UIElement Bubble(UserMessageItem user)
+    {
+        var inner = new StackPanel();
+        foreach (var data in user.Images.Take(6))
+        {
+            var image = Picture(data);
+            if (image is not null) inner.Children.Add(image);
+        }
+        var text = user.Images.Count > 0 ? string.Join("\n", user.Text.Split('\n').Where(l => l != "[image]")).Trim() : user.Text;
+        if (text.Length > 0) inner.Children.Add(Text(text, "textBrush"));
+        return new Border
+        {
+            Background = B("surfaceBrush"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(60, 10, 16, 10),
+            HorizontalAlignment = HorizontalAlignment.Right, Child = inner,
+        };
+    }
+
+    /// <summary>A pasted image from its base64 data, at most 260 pixels high; null when it cannot be decoded.</summary>
+    static Image? Picture(string base64)
+    {
+        try
+        {
+            var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bitmap.StreamSource = new MemoryStream(Convert.FromBase64String(base64));
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return new Image { Source = bitmap, MaxHeight = 260, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 6) };
+        }
+        catch (Exception error) when (error is FormatException or NotSupportedException or IOException)
+        {
+            return null;
+        }
+    }
 
     UIElement Call(ToolCallItem call)
     {
@@ -301,7 +338,7 @@ sealed class ChatView : Border
         var panel = new StackPanel { Margin = new Thickness(0, 2, 0, 2) };
         var label = new TextBlock
         {
-            Style = S("Text12"), Foreground = B("mutedBrush"), Cursor = Cursors.Hand, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = header,
+            Style = S("Text12"), Foreground = B("mutedBrush"), Cursor = Cursors.Hand, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = header, Background = Brushes.Transparent,
             Margin = step ? new Thickness(0, 3, 0, 3) : new Thickness(0, 6, 0, 6),
         };
         var content = new ContentPresenter();
