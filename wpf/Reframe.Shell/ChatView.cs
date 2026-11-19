@@ -33,7 +33,6 @@ sealed class ChatView : Border
     readonly Action<string, bool> fork;
     readonly List<string> history = [];
     int historyAt = -1;
-    static readonly string[] Models = ["default", "opus", "sonnet", "haiku"];
     readonly Border side = new() { Width = 300, Visibility = Visibility.Collapsed, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Margin = new Thickness(0, 6, 18, 14), VerticalAlignment = VerticalAlignment.Top };
     readonly StackPanel sideRows = new() { Margin = new Thickness(16, 8, 16, 14) };
     readonly HashSet<string> sideAll = [];
@@ -43,7 +42,7 @@ sealed class ChatView : Border
     long offset;
 
     public ChatView(string claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu,
-        Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt, Action<string, bool> fork, Func<string> title)
+        Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt, Action<string, bool> fork, Func<string> title, Func<string?> provider)
     {
         this.claudeSessionId = claudeSessionId;
         this.fork = fork;
@@ -117,13 +116,13 @@ sealed class ChatView : Border
         };
         var mode = Chip(StateValues.PermissionLabel(permission()), "Permission mode (applies when the session starts next)");
         mode.Click += (_, _) => permissionMenu(mode);
-        var modelChip = Chip(model(), "Model of this session: types /model into it");
+        var modelChip = Chip(ModelNames.Label(model()), "Model of this session: types /model into it");
         modelChip.Click += (_, _) =>
         {
-            var menu = ShellMenus.Build(Models.Select(m => new MenuSpec("normal", m, Action: "model:" + m)), _ => true, action =>
+            var menu = ShellMenus.Build(ModelNames.Choices(provider()).Select(m => new MenuSpec("normal", ModelNames.Label(m), Action: "model:" + m)), _ => true, action =>
             {
                 var chosen = action["model:".Length..];
-                ((TextBlock)modelChip.Content).Text = chosen;
+                ((TextBlock)modelChip.Content).Text = ModelNames.Label(chosen);
                 _ = send("/model " + chosen);
             });
             menu.PlacementTarget = modelChip;
@@ -256,6 +255,7 @@ sealed class ChatView : Border
             {
                 ((TextBlock)mode.Content).Text = StateValues.PermissionLabel(permission());
                 titleText.Text = title();
+                ((TextBlock)modelChip.Content).Text = ModelNames.Label(model());
                 side.Visibility = sideOpen ? Visibility.Visible : Visibility.Collapsed;
                 Refresh(false);
                 RefreshSide();
