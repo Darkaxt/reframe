@@ -34,7 +34,7 @@ sealed class ChatView : Border
     readonly List<string> history = [];
     int historyAt = -1;
     static readonly string[] Models = ["default", "opus", "sonnet", "haiku"];
-    readonly Border side = new() { Width = 300, Visibility = Visibility.Collapsed, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Margin = new Thickness(0, 4, 12, 14), VerticalAlignment = VerticalAlignment.Top };
+    readonly Border side = new() { Width = 300, Visibility = Visibility.Collapsed, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Margin = new Thickness(0, 6, 18, 14), VerticalAlignment = VerticalAlignment.Top };
     readonly StackPanel sideRows = new() { Margin = new Thickness(16, 8, 16, 14) };
     readonly HashSet<string> sideAll = [];
     static bool sideOpen;
@@ -158,8 +158,8 @@ sealed class ChatView : Border
         side.BorderBrush = B("borderBrush");
         side.Background = B("surfaceBrush");
         side.Child = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = sideRows };
-        DockPanel.SetDock(side, Dock.Right);
-        layout.Children.Add(side);
+        side.HorizontalAlignment = HorizontalAlignment.Right;
+        side.Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 4, Opacity = 0.45, Color = Colors.Black };
         var more = new Button
         {
             Style = S("IconButton"), Width = 28, Height = 28, ToolTip = "More",
@@ -206,7 +206,12 @@ sealed class ChatView : Border
         header.Children.Add(titleText);
         DockPanel.SetDock(header, Dock.Top);
         layout.Children.Add(header);
-        layout.Children.Add(scroll);
+        // The card floats over the conversation (the conversation keeps its width and its scroll bar).
+        var stage = new Grid();
+        stage.Children.Add(scroll);
+        stage.Children.Add(side);
+        stage.SizeChanged += (_, e) => side.MaxHeight = Math.Max(120, e.NewSize.Height - 20);
+        layout.Children.Add(stage);
         Child = layout;
         timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) =>
         {
