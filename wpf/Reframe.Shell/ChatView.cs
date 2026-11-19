@@ -383,7 +383,12 @@ sealed class ChatView : Border
         sideRows.Children.Clear();
         SideSection("scheduled", "Scheduled", tasks.Select(t => (t.Name + " · " + t.Detail, t.Detail)).ToList(), "");
         SideSection("changes", "Changes", changed.Select(f => (System.IO.Path.GetFileName(f), f)).ToList(), "");
-        SideSection("outputs", "Outputs", written.Select(f => (System.IO.Path.GetFileName(f), f)).ToList(), "");
+        if (written.Count == 0)
+        {
+            sideRows.Children.Add(new TextBlock { Text = "Outputs", Style = S("Text12"), Foreground = B("mutedBrush"), Margin = new Thickness(0, 14, 0, 6) });
+            sideRows.Children.Add(new TextBlock { Text = "Files the session writes show here", Style = S("Text12"), Foreground = B("mutedBrush"), Opacity = 0.7, Margin = new Thickness(0, 2, 0, 2) });
+        }
+        else SideSection("outputs", "Outputs", written.Select(f => (System.IO.Path.GetFileName(f), f)).ToList(), "");
         var done = agents.Count(a => !a.IsPending);
         SideSection("agents", "Subagents", agents.Select(a => ((a.IsPending ? "… " : a.IsError ? "✕ " : "✓ ") + a.Summary, a.Summary)).ToList(), done > 0 ? $"{done} done" : "");
         SideSection("sources", "Sources", sources.Select(s => (System.IO.Path.GetFileName(s).Length > 0 && !s.StartsWith("search: ") && !s.Contains("://") ? System.IO.Path.GetFileName(s) : s, s)).ToList(), "");
@@ -462,9 +467,15 @@ sealed class ChatView : Border
         }
         if (finalText is not null) rows.Children.Add(new Border { Margin = new Thickness(0, 8, 16, 8), Child = new StackPanel { Children = { Markdown(finalText.Text), MetaRow(null, finalText.Text, HorizontalAlignment.Left) } }, ContextMenu = ForkMenu(finalText.Uuid, false) });
         var edited = new List<string>();
+        var counts = new Dictionary<string, (int Added, int Removed)>();
         foreach (var call in CallsOf(rest))
-            if (call.Name is "Edit" or "Write" or "MultiEdit" or "NotebookEdit" && !edited.Contains(call.Summary)) edited.Add(call.Summary);
-        if (edited.Count > 0 && finalText is not null) rows.Children.Add(FilesCard(edited, "turnfiles:" + turnKey));
+            if (call.Name is "Edit" or "Write" or "MultiEdit" or "NotebookEdit")
+            {
+                if (!edited.Contains(call.Summary)) edited.Add(call.Summary);
+                var (added, removed) = counts.GetValueOrDefault(call.Summary);
+                counts[call.Summary] = (added + call.Diff.Count(l => l.StartsWith('+')), removed + call.Diff.Count(l => l.StartsWith('-')));
+            }
+        if (edited.Count > 0 && finalText is not null) rows.Children.Add(FilesCard(edited, "turnfiles:" + turnKey, counts));
     }
 
     static IEnumerable<ToolCallItem> CallsOf(IEnumerable<ChatItem> items)
@@ -534,7 +545,30 @@ sealed class ChatView : Border
             if (image is not null) inner.Children.Add(image);
         }
         var text = string.Join("\n", user.Text.Split('\n').Where(l => l != "[image]" && !System.Text.RegularExpressions.Regex.IsMatch(l.Trim(), @"^\[Image #\d+\]$"))).Trim();
-        if (text.Length > 0) inner.Children.Add(Plain(text, "textBrush"));
+        if (text.Length > 0)
+        {
+            var body = Plain(text, "textBrush");
+            inner.Children.Add(body);
+            // Long messages are shown in part, like Codex's "Show more".
+            if (text.Length > 420 || text.Count(c => c == '\n') > 5)
+            {
+                var key = "more:" + (user.Uuid ?? text.GetHashCode().ToString());
+                var link = new TextBlock { Style = S("Text12"), Foreground = B("mutedBrush"), Cursor = Cursors.Hand, Margin = new Thickness(0, 6, 0, 0), Background = Brushes.Transparent };
+                void Apply(bool full)
+                {
+                    ((FrameworkElement)body).MaxHeight = full ? double.PositiveInfinity : 96;
+                    ((FrameworkElement)body).ClipToBounds = !full;
+                    link.Text = full ? "Show less ⌃" : "Show more ⌄";
+                }
+                link.MouseLeftButtonUp += (_, _) =>
+                {
+                    open[key] = !(open.TryGetValue(key, out var was) && was);
+                    Apply(open[key]);
+                };
+                Apply(open.TryGetValue(key, out var shown) && shown);
+                inner.Children.Add(link);
+            }
+        }
         var bubble = new Border
         {
             Background = B("surfaceBrush"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 9, 14, 9),
@@ -679,20 +713,26 @@ sealed class ChatView : Border
     }
 
     /// <summary>"Edited 3 files" and the files, as Codex's card of a turn's changes (without counts: the transcript does not hold them).</summary>
-    UIElement FilesCard(List<string> files, string key)
+    UIElement FilesCard(List<string> files, string key, Dictionary<string, (int Added, int Removed)> counts)
     {
         var card = new StackPanel();
-        card.Children.Add(new TextBlock
+        var head = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
+        var totalAdded = counts.Values.Sum(c => c.Added);
+        var totalRemoved = counts.Values.Sum(c => c.Removed);
+        var total = Counts(totalAdded, totalRemoved, 13);
+        DockPanel.SetDock(total, Dock.Right);
+        head.Children.Add(total);
+        head.Children.Add(new TextBlock
         {
-            Text = files.Count == 1 ? "Edited 1 file" : $"Edited {files.Count} files", Style = S("Text13"), Foreground = B("textBrush"),
-            FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4),
+            Text = files.Count == 1 ? "Edited 1 file" : $"Edited {files.Count} files", Style = S("Text13"), Foreground = B("textBrush"), FontWeight = FontWeights.SemiBold,
         });
-        foreach (var file in files.Take(3)) card.Children.Add(FileLine(file));
+        card.Children.Add(head);
+        foreach (var file in files.Take(3)) card.Children.Add(FileLine(file, counts.GetValueOrDefault(file)));
         if (files.Count > 3)
             card.Children.Add(Fold(key, $"Show {files.Count - 3} more files", () =>
             {
                 var more = new StackPanel();
-                foreach (var file in files.Skip(3)) more.Children.Add(FileLine(file));
+                foreach (var file in files.Skip(3)) more.Children.Add(FileLine(file, counts.GetValueOrDefault(file)));
                 return more;
             }));
         return new Border
@@ -702,10 +742,25 @@ sealed class ChatView : Border
         };
     }
 
-    static TextBlock FileLine(string file) => new()
+    static UIElement FileLine(string file, (int Added, int Removed) count)
     {
-        Text = file, Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = file, Margin = new Thickness(0, 2, 0, 2),
-    };
+        var row = new DockPanel { Margin = new Thickness(0, 3, 0, 3) };
+        var numbers = Counts(count.Added, count.Removed, 12);
+        DockPanel.SetDock(numbers, Dock.Right);
+        row.Children.Add(numbers);
+        row.Children.Add(new TextBlock { Text = file, Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = file });
+        return row;
+    }
+
+    /// <summary>"+12 -3" with the added count green and the removed one red; nothing when both are zero.</summary>
+    static TextBlock Counts(int added, int removed, double size)
+    {
+        var block = new TextBlock { FontSize = size, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+        if (added > 0) block.Inlines.Add(new Run("+" + added) { Foreground = new SolidColorBrush(Color.FromRgb(0x3F, 0xB9, 0x50)) });
+        if (added > 0 && removed > 0) block.Inlines.Add(new Run(" "));
+        if (removed > 0) block.Inlines.Add(new Run("-" + removed) { Foreground = new SolidColorBrush(Color.FromRgb(0xF8, 0x51, 0x49)) });
+        return block;
+    }
 
     /// <summary>A row folded until its header is clicked. The body is made when opened; the choice is kept across rebuilds.</summary>
     UIElement Fold(string key, string header, Func<UIElement> body, bool step = false, bool defaultOpen = false, string? glyph = null, Brush? tint = null)
