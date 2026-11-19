@@ -385,11 +385,7 @@ public sealed class TranscriptModel
         void Add(char sign, string? text)
         {
             if (string.IsNullOrEmpty(text)) return;
-            foreach (var l in text.Replace("
-", "
-").TrimEnd('
-').Split('
-'))
+            foreach (var l in text.Replace("\r\n", "\n").TrimEnd('\n').Split('\n'))
                 if (lines.Count < MaxDiffLines) lines.Add(sign + l);
         }
         if (input.ValueKind != JsonValueKind.Object) return lines;
