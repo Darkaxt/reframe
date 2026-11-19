@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "72177c0c5e9eb058e1471858f30c3b7ad5f3f3d5",
-  "scope": "chat image zoom viewer",
+  "sourceBase": "8ce4a623d58f4f67627fa07ba163feadeb691143",
+  "scope": "chat side column",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.88.md",
-      "sha256": "1da33ec0e99df5a8997d10a791ede440ab907aeeaf9783e7dce74fc12149c0e6"
+      "file": "docs/releases/v0.11.0-claudegpt.89.md",
+      "sha256": "0d5a3b10bbcbc9b83a78fa9d0d15a8e0848d0ff4c6aba3f5420a28fcec359479"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,15 +18,15 @@
     },
     {
       "file": "package.json",
-      "sha256": "aa38b8e564a765300e56af1045d6cadcb71ace727c5a65dc84ebacda3dcec0bb"
+      "sha256": "562f6b741d3323315ced5629ab349e893e2ea47b77b9ce28f420c7f954ac87f3"
     },
     {
       "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "e8a63e3604eb9302731b5ef2aad373cb1bbaffb82969b2ed082cbc9f0bb938e2"
+      "sha256": "65d581d534d899d185d1f696da690eea7ae89343b8d2b78694ead5e4a22ee260"
     },
     {
-      "file": "wpf/Reframe.Shell/ImageViewer.cs",
-      "sha256": "fbfdbcd81fb46409a8661e77c1a747d555855cb7c432bd135938c9b7a8647a48"
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "685fe6df0d3c67630575a29d0fe2a55eded3a7e8fe733f35a943727ce01c3b40"
     }
   ],
   "checksNotYetRun": [
