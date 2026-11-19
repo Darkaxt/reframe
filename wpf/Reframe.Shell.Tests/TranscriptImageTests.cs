@@ -24,3 +24,15 @@ public class TranscriptImageTests
         Assert.False(Assert.IsType<SystemNoticeItem>(m.Items[1]).Bare);
     }
 }
+
+public class TranscriptDiffTests
+{
+    [Fact]
+    public void An_edit_keeps_its_removed_and_added_lines()
+    {
+        var m = new TranscriptModel();
+        m.Append(["""{"type":"assistant","uuid":"a","message":{"content":[{"type":"tool_use","id":"t","name":"Edit","input":{"file_path":"x.cs","old_string":"a\nb","new_string":"c"}}]}}"""]);
+        var call = Assert.Single(Assert.IsType<ToolGroupItem>(Assert.Single(m.Items)).Calls);
+        Assert.Equal(["-a", "-b", "+c"], call.Diff);
+    }
+}
