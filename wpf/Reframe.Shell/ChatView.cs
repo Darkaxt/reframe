@@ -215,7 +215,7 @@ sealed class ChatView : Border
     {
         UserMessageItem u => Bubble(u),
         AssistantTextItem a => new Border { Margin = new Thickness(0, 6, 16, 6), Child = Markdown(a.Text) },
-        ThinkingItem t => Fold("thinking:" + t.Uuid + t.Text.Length, "Thinking: " + Preview(t.Text), () => new Border { Margin = new Thickness(14, 2, 0, 6), Child = Text(t.Text, "mutedBrush") }, step: true),
+        ThinkingItem t => new Border { Margin = new Thickness(0, 6, 16, 6), Child = Markdown(t.Text, "mutedBrush") },
         ToolGroupItem { Calls.Count: 1 } g => Call(g.Calls[0]),
         ToolGroupItem g => Fold("group:" + g.Uuid + g.Label, g.Label, () =>
         {
@@ -228,12 +228,6 @@ sealed class ChatView : Border
         SystemNoticeItem s => Note(s.Text),
         _ => new Border(),
     };
-
-    static string Preview(string text)
-    {
-        var line = text.Trim().Split('\n')[0].Trim();
-        return line.Length > 90 ? line[..90] + "…" : line;
-    }
 
     static UIElement Bubble(UserMessageItem user)
     {
@@ -360,7 +354,7 @@ sealed class ChatView : Border
     }
 
     /// <summary>The Markdown the answers use (MarkdownLite): headings, lists, fenced code, bold and inline code.</summary>
-    static UIElement Markdown(string text)
+    static UIElement Markdown(string text, string brush = "textBrush")
     {
         var stack = new StackPanel();
         foreach (var block in MarkdownLite.Parse(text))
@@ -371,7 +365,7 @@ sealed class ChatView : Border
                     stack.Children.Add(new Border
                     {
                         Background = B("surfaceBrush"), CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 4, 0, 4),
-                        Child = Text(block.Raw, "textBrush", mono: true),
+                        Child = Text(block.Raw, brush, mono: true),
                     });
                     break;
                 case MdBlockKind.Bullet:
@@ -379,16 +373,16 @@ sealed class ChatView : Border
                     var marker = new TextBlock { Text = block.Marker, Style = S("Text13"), Foreground = B("mutedBrush"), Width = 22 };
                     DockPanel.SetDock(marker, Dock.Left);
                     line.Children.Add(marker);
-                    line.Children.Add(Inline(block.Spans, 13, FontWeights.Normal));
+                    line.Children.Add(Inline(block.Spans, 13, FontWeights.Normal, brush));
                     stack.Children.Add(line);
                     break;
                 case MdBlockKind.Heading:
-                    var heading = Inline(block.Spans, block.Level == 1 ? 17 : block.Level == 2 ? 15 : 14, FontWeights.SemiBold);
+                    var heading = Inline(block.Spans, block.Level == 1 ? 17 : block.Level == 2 ? 15 : 14, FontWeights.SemiBold, brush);
                     heading.Margin = new Thickness(0, 8, 0, 4);
                     stack.Children.Add(heading);
                     break;
                 default:
-                    var paragraph = Inline(block.Spans, 13, FontWeights.Normal);
+                    var paragraph = Inline(block.Spans, 13, FontWeights.Normal, brush);
                     paragraph.Margin = new Thickness(0, 3, 0, 3);
                     stack.Children.Add(paragraph);
                     break;
@@ -397,9 +391,9 @@ sealed class ChatView : Border
         return stack;
     }
 
-    static TextBlock Inline(IReadOnlyList<MdSpan> spans, double size, FontWeight weight)
+    static TextBlock Inline(IReadOnlyList<MdSpan> spans, double size, FontWeight weight, string brush = "textBrush")
     {
-        var block = new TextBlock { Style = S("Text13"), Foreground = B("textBrush"), TextWrapping = TextWrapping.Wrap, FontSize = size, FontWeight = weight };
+        var block = new TextBlock { Style = S("Text13"), Foreground = B(brush), TextWrapping = TextWrapping.Wrap, FontSize = size, FontWeight = weight };
         foreach (var span in spans)
         {
             var run = new Run(span.Text);

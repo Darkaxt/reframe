@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "c04c0cae9cd6b5d4c3d4cef6ea23ecb0156a35ec",
-  "scope": "chat view noise and images",
+  "sourceBase": "07a6eddc2ca9c73be946f969d84b16d0db312b8f",
+  "scope": "reasoning as muted messages",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.86.md",
-      "sha256": "b19097ae22456b2fccf5ecd818fc209ecba3560a4a3ecd0a31f4c227aa2ec264"
+      "file": "docs/releases/v0.11.0-claudegpt.87.md",
+      "sha256": "1aca8675608acd73056cfe72dcb151d39ebe5661306931e26324a985109d3082"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,11 @@
     },
     {
       "file": "package.json",
-      "sha256": "c51aa7ac079f9e282b84746878e79201097f5d1f9d2d2fb15a41afad633d2fc1"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/TranscriptModel.cs",
-      "sha256": "0285acffc484c086f7ea0b825b58d81950a282dc11b6ca7fe7e50e4f062b5b10"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/TranscriptImageTests.cs",
-      "sha256": "85e7dfbb3ad89cc657cdb94047ffc66be8442b5e200a6a13e389523bba3f29d5"
+      "sha256": "45ce2ab0a51a049af1f5d0501ae5e0a2919774aabfd3a59b110febb28b27d03b"
     },
     {
       "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "8a178fda32424ea1d1e2f69efa5f112f856dd832aa41f0d837670712ab563b0a"
+      "sha256": "8d7035e52c3d071c62a601b6bf0766f1dfe9ca6b123f20c484b04dc8e278aba1"
     }
   ],
   "checksNotYetRun": [
