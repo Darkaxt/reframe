@@ -28,12 +28,20 @@ sealed class ChatView : Border
     readonly ScrollViewer scroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     readonly DispatcherTimer timer;
     readonly Dictionary<string, bool> open = [];
+    readonly Func<IReadOnlyList<(string Name, string Detail)>> scheduled;
+    readonly Border side = new() { Width = 290, Visibility = Visibility.Collapsed, BorderThickness = new Thickness(1, 0, 0, 0) };
+    readonly StackPanel sideRows = new() { Margin = new Thickness(14, 40, 14, 14) };
+    readonly HashSet<string> sideAll = [];
+    static bool sideOpen;
+    string sideSignature = "";
     string? path;
     long offset;
 
-    public ChatView(string claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu)
+    public ChatView(string claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu,
+        Func<IReadOnlyList<(string Name, string Detail)>> scheduled)
     {
         this.claudeSessionId = claudeSessionId;
+        this.scheduled = scheduled;
         Background = B("terminalBrush");
         var input = new TextBox
         {
@@ -93,15 +101,39 @@ sealed class ChatView : Border
         DockPanel.SetDock(composer, Dock.Bottom);
         layout.Children.Add(composer);
         scroll.Content = rows;
-        layout.Children.Add(scroll);
+        side.BorderBrush = B("borderBrush");
+        side.Child = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = sideRows };
+        DockPanel.SetDock(side, Dock.Right);
+        layout.Children.Add(side);
+        var toggle = new Button
+        {
+            Style = S("IconButton"), Width = 28, Height = 28, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 8, 14, 0), ToolTip = "Scheduled tasks, changes, subagents and sources",
+            Content = new TextBlock { Text = "\uE8A0", FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 13, Foreground = B("mutedBrush") },
+        };
+        System.Windows.Automation.AutomationProperties.SetName(toggle, "Side column");
+        toggle.Click += (_, _) =>
+        {
+            sideOpen = !sideOpen;
+            side.Visibility = sideOpen ? Visibility.Visible : Visibility.Collapsed;
+            sideSignature = "";
+            RefreshSide();
+        };
+        layout.Children.Add(new Grid { Children = { scroll, toggle } });
         Child = layout;
-        timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Refresh(false), Dispatcher);
+        timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) =>
+        {
+            Refresh(false);
+            RefreshSide();
+        }, Dispatcher);
         IsVisibleChanged += (_, _) =>
         {
             if (IsVisible)
             {
                 ((TextBlock)mode.Content).Text = permission();
+                side.Visibility = sideOpen ? Visibility.Visible : Visibility.Collapsed;
                 Refresh(false);
+                RefreshSide();
                 timer.Start();
             }
             else timer.Stop();
@@ -161,6 +193,68 @@ sealed class ChatView : Border
         }
         for (var n = 0; n < turns.Count; n++) AddTurn(turns[n], n == turns.Count - 1);
         if (atEnd) scroll.ScrollToEnd();
+    }
+
+    // ---------- the side column ----------
+
+    static readonly string[] EditTools = ["Edit", "MultiEdit", "NotebookEdit"];
+
+    /// <summary>The column at the right (as Codex's): this thread's scheduled tasks, the files it changed and wrote, its
+    /// subagents and the links and files it looked at. Built from the transcript's tool calls; rebuilt only when they changed.</summary>
+    void RefreshSide()
+    {
+        if (!sideOpen) return;
+        var calls = CallsOf(model.Items).ToList();
+        var tasks = scheduled();
+        var changed = calls.Where(c => EditTools.Contains(c.Name)).Select(c => c.Summary).Where(s => s.Length > 0).Distinct().ToList();
+        var written = calls.Where(c => c.Name == "Write").Select(c => c.Summary).Where(s => s.Length > 0).Distinct().ToList();
+        var agents = calls.Where(c => c.Name is "Task" or "Agent").ToList();
+        var sources = calls.Where(c => c.Name is "WebFetch" or "WebSearch" or "Read").Select(c => (c.Name == "WebSearch" ? "search: " : "") + c.Summary)
+            .Where(s => s.Length > 0).Distinct().ToList();
+        var signature = string.Join('\u0001', tasks.Select(t => t.Name + t.Detail)) + '\u0002' + string.Join('\u0001', changed) + '\u0002' + string.Join('\u0001', written)
+            + '\u0002' + string.Join('\u0001', agents.Select(a => a.Summary + (a.IsPending ? "…" : a.IsError ? "!" : "✓"))) + '\u0002' + string.Join('\u0001', sources) + '\u0002' + string.Join(',', sideAll);
+        if (signature == sideSignature) return;
+        sideSignature = signature;
+        sideRows.Children.Clear();
+        SideSection("scheduled", "Scheduled", tasks.Select(t => (t.Name + " · " + t.Detail, t.Detail)).ToList(), "");
+        SideSection("changes", "Changes", changed.Select(f => (System.IO.Path.GetFileName(f), f)).ToList(), "");
+        SideSection("outputs", "Outputs", written.Select(f => (System.IO.Path.GetFileName(f), f)).ToList(), "");
+        var done = agents.Count(a => !a.IsPending);
+        SideSection("agents", "Subagents", agents.Select(a => ((a.IsPending ? "… " : a.IsError ? "✕ " : "✓ ") + a.Summary, a.Summary)).ToList(), done > 0 ? $"{done} done" : "");
+        SideSection("sources", "Sources", sources.Select(s => (System.IO.Path.GetFileName(s).Length > 0 && !s.StartsWith("search: ") && !s.Contains("://") ? System.IO.Path.GetFileName(s) : s, s)).ToList(), "");
+        if (sideRows.Children.Count == 0) sideRows.Children.Add(Note("Nothing yet."));
+    }
+
+    void SideSection(string key, string title, List<(string Name, string Detail)> items, string count)
+    {
+        if (items.Count == 0) return;
+        var head = new DockPanel { Margin = new Thickness(0, 12, 0, 4) };
+        var right = new TextBlock { Text = count.Length > 0 ? count : items.Count.ToString(), Style = S("Text12"), Foreground = B("mutedBrush") };
+        DockPanel.SetDock(right, Dock.Right);
+        head.Children.Add(right);
+        head.Children.Add(new TextBlock { Text = title, Style = S("Text13"), Foreground = B("textBrush"), FontWeight = FontWeights.SemiBold });
+        sideRows.Children.Add(head);
+        var all = sideAll.Contains(key);
+        foreach (var (name, detail) in items.Take(all ? 200 : 5))
+            sideRows.Children.Add(new TextBlock
+            {
+                Text = name, ToolTip = detail, Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 2, 0, 2),
+            });
+        if (items.Count > 5)
+        {
+            var more = new TextBlock
+            {
+                Text = all ? "Show less" : $"View all ({items.Count})", Style = S("Text12"), Foreground = B("textBrush"), Cursor = Cursors.Hand,
+                Margin = new Thickness(0, 4, 0, 2), Background = Brushes.Transparent,
+            };
+            more.MouseLeftButtonUp += (_, _) =>
+            {
+                if (!sideAll.Remove(key)) sideAll.Add(key);
+                sideSignature = "";
+                RefreshSide();
+            };
+            sideRows.Children.Add(more);
+        }
     }
 
     void AddTurn(List<ChatItem> turn, bool last)
