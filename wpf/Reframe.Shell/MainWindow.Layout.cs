@@ -45,6 +45,9 @@ sealed record HeaderDrag(string Key, bool Group, Point Start, UIElement Source)
 
 public partial class MainWindow
 {
+    /// <summary>Sessions whose tile was left in the Chat view (the choice outlives the tile, which is built anew when you return).</summary>
+    static readonly HashSet<string> ChatShown = [];
+
     /// <summary>The layout area (.layout: 6px padding) and the canvas its tiles, group frames and separators are placed on.</summary>
     readonly Canvas surface = new() { ClipToBounds = false };
     readonly StackPanel dockItems = new();
@@ -448,6 +451,8 @@ public partial class MainWindow
                     content.Children.Add(chat);
                 }
                 var showChat = chat.Visibility != Visibility.Visible;
+                if (showChat) ChatShown.Add(sessionId);
+                else ChatShown.Remove(sessionId);
                 chat.Visibility = showChat ? Visibility.Visible : Visibility.Collapsed;
                 // Hidden, not Collapsed: the terminal keeps its size (a collapsed one was resized to nothing under the session).
                 terminalHost.Visibility = showChat ? Visibility.Hidden : Visibility.Visible;
@@ -456,6 +461,8 @@ public partial class MainWindow
                 if (!showChat && FindHost(control) is { } host) FocusTerminal(host);
             };
             Right(chatToggle);
+            // The tile is built anew when you come back to the thread: the view you left it in comes back.
+            if (ChatShown.Contains(sessionId)) chatToggle.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             // The header's last child fills what is left (the folder text); the button must stay before it.
             header.Children.Remove(chatToggle);
             header.Children.Insert(header.Children.IndexOf(cwdText), chatToggle);
