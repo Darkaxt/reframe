@@ -224,6 +224,9 @@ sealed class SettingsDialog
             p.CloseEndedAfterHours.ToString(), v => Set(new PreferencesPatch { CloseEndedAfterHours = int.Parse(v) }))));
         AddHint(T("settings.closeEndedHint"));
 
+        Add(Check(T("settings.autoUpdate"), p.CheckForUpdates, v => Set(new PreferencesPatch { CheckForUpdates = v })));
+        AddHint(T("settings.autoUpdateHint"));
+
         Add(Check(T("settings.wakeForTasks"), p.WakeForTasks, v => Set(new PreferencesPatch { WakeForTasks = v })));
         AddHint(T("settings.wakeForTasksHint"));
 

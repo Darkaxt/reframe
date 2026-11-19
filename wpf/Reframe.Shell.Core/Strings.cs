@@ -55,6 +55,8 @@ public static class Strings
         ["settings.closeEndedNever"] = "Never",
         ["settings.closeEndedHours"] = "{hours} h",
         ["settings.closeEndedHint"] = "A thread that ended (its Claude stopped, with its tile still open) is closed this long afterwards: the tile goes, the thread stays in the list and can be resumed. Running threads are never closed.",
+        ["settings.autoUpdate"] = "Restart into new releases automatically",
+        ["settings.autoUpdateHint"] = "When an update is installed, Reframe restarts into it once you are not in a Reframe window. Your sessions keep running. Off: a notification tells you and you restart yourself.",
         ["settings.wakeForTasks"] = "Wake Reframe for scheduled tasks",
         ["settings.wakeForTasksHint"] = "When you quit Reframe, a Windows scheduled task starts it again in the tray when the next scheduled task is due. Without it, runs missed while Reframe is closed run once when it opens.",
         ["settings.updates"] = "Check for updates",
