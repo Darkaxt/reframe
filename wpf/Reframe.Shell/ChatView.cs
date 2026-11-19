@@ -490,16 +490,16 @@ sealed class ChatView : Border
     {
         UserMessageItem u => Bubble(u),
         AssistantTextItem a => new Border { Margin = new Thickness(0, 6, 16, 6), Child = Markdown(a.Text) },
-        ThinkingItem t => new Border { Margin = new Thickness(0, 6, 16, 6), Child = Markdown(t.Text, "mutedBrush") },
+        ThinkingItem t => new Border { Margin = new Thickness(0, 6, 16, 6), BorderBrush = AgentTint, BorderThickness = new Thickness(2, 0, 0, 0), Padding = new Thickness(10, 0, 0, 0), Child = Markdown(t.Text, "textBrush") },
         ToolGroupItem { Calls.Count: 1 } g => Call(g.Calls[0]),
         ToolGroupItem g => Fold("group:" + g.Uuid + g.Label, g.Label, () =>
         {
             var inner = new StackPanel { Margin = new Thickness(14, 0, 0, 0) };
             foreach (var call in g.Calls) inner.Children.Add(Call(call));
             return inner;
-        }, step: true),
+        }, step: true, glyph: KindOf(g.Calls[0].Name).Glyph, tint: B("mutedBrush")),
         ToolCallItem c => Call(c),
-        CompactionItem => Note("Conversation compacted"),
+        CompactionItem => IconLine("\uE895", "Context automatically compacted"),
         SystemNoticeItem s => Note(s.Text),
         _ => new Border(),
     };
@@ -591,8 +591,37 @@ sealed class ChatView : Border
         }
     }
 
+    // One tint and one icon per kind of event: commands green, reading and searching blue, edits amber, agents purple, errors red.
+    static UIElement IconLine(string glyph, string text)
+    {
+        var row = new DockPanel { Margin = new Thickness(0, 6, 0, 6) };
+        var icon = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 13, Foreground = B("mutedBrush"), Width = 24, VerticalAlignment = VerticalAlignment.Center };
+        DockPanel.SetDock(icon, Dock.Left);
+        row.Children.Add(icon);
+        row.Children.Add(new TextBlock { Text = text, Style = S("Text12"), Foreground = B("mutedBrush"), VerticalAlignment = VerticalAlignment.Center });
+        return row;
+    }
+
+    static readonly Brush CommandTint = new SolidColorBrush(Color.FromRgb(0x7E, 0xC6, 0x99));
+    static readonly Brush ReadTint = new SolidColorBrush(Color.FromRgb(0x6C, 0xB6, 0xFF));
+    static readonly Brush EditTint = new SolidColorBrush(Color.FromRgb(0xE3, 0xB3, 0x41));
+    static readonly Brush AgentTint = new SolidColorBrush(Color.FromRgb(0xB3, 0x92, 0xF0));
+    static readonly Brush ErrorTint = new SolidColorBrush(Color.FromRgb(0xF8, 0x51, 0x49));
+
+    static (string Glyph, Brush Tint) KindOf(string name) => name switch
+    {
+        "Bash" => ("\uE756", CommandTint),
+        "Edit" or "MultiEdit" or "NotebookEdit" => ("\uE70F", EditTint),
+        "Write" => ("\uE74E", EditTint),
+        "Read" => ("\uE8A5", ReadTint),
+        "Grep" or "Glob" or "WebSearch" or "WebFetch" => ("\uE721", ReadTint),
+        "Task" or "Agent" => ("\uE77B", AgentTint),
+        _ => ("\uE713", CommandTint),
+    };
+
     UIElement Call(ToolCallItem call)
     {
+        var (glyph, tint) = KindOf(call.Name);
         var verb = call.Name switch
         {
             "Bash" => "Ran",
@@ -626,7 +655,7 @@ sealed class ChatView : Border
                 foreach (var child in call.Children.Take(60)) inner.Children.Add(Row(child));
             }
             return inner;
-        }, step: true);
+        }, step: true, glyph: glyph, tint: call.IsError ? ErrorTint : tint);
     }
 
     /// <summary>An edit's lines: removed ones on red, added ones on green, the file's name above.</summary>
@@ -679,28 +708,36 @@ sealed class ChatView : Border
     };
 
     /// <summary>A row folded until its header is clicked. The body is made when opened; the choice is kept across rebuilds.</summary>
-    UIElement Fold(string key, string header, Func<UIElement> body, bool step = false, bool defaultOpen = false)
+    UIElement Fold(string key, string header, Func<UIElement> body, bool step = false, bool defaultOpen = false, string? glyph = null, Brush? tint = null)
     {
         var panel = new StackPanel { Margin = new Thickness(0, 2, 0, 2) };
         var label = new TextBlock
         {
-            Style = S("Text12"), Foreground = B("mutedBrush"), Cursor = Cursors.Hand, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = header, Background = Brushes.Transparent,
-            Margin = step ? new Thickness(0, 3, 0, 3) : new Thickness(0, 6, 0, 6),
+            Style = S("Text12"), Foreground = glyph is null ? B("mutedBrush") : tint ?? B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = header,
+            VerticalAlignment = VerticalAlignment.Center,
         };
+        var headRow = new DockPanel { Background = Brushes.Transparent, Cursor = Cursors.Hand, Margin = step ? new Thickness(0, 3, 0, 3) : new Thickness(0, 6, 0, 6) };
+        if (glyph is not null)
+        {
+            var icon = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 13, Foreground = tint ?? B("mutedBrush"), Width = 24, VerticalAlignment = VerticalAlignment.Center };
+            DockPanel.SetDock(icon, Dock.Left);
+            headRow.Children.Add(icon);
+        }
+        headRow.Children.Add(label);
         var content = new ContentPresenter();
         void Show(bool isOpen)
         {
             label.Text = header + (isOpen ? " ⌄" : " ›");
             content.Content = isOpen ? body() : null;
         }
-        label.MouseLeftButtonUp += (_, _) =>
+        headRow.MouseLeftButtonUp += (_, _) =>
         {
             var now = !(open.TryGetValue(key, out var was) ? was : defaultOpen);
             open[key] = now;
             Show(now);
         };
         Show(open.TryGetValue(key, out var current) ? current : defaultOpen);
-        panel.Children.Add(label);
+        panel.Children.Add(headRow);
         panel.Children.Add(content);
         return panel;
     }
