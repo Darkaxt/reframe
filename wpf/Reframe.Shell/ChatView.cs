@@ -257,7 +257,13 @@ sealed class ChatView : Border
             bitmap.StreamSource = new MemoryStream(Convert.FromBase64String(base64));
             bitmap.EndInit();
             bitmap.Freeze();
-            return new Image { Source = bitmap, MaxHeight = 260, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 6) };
+            var image = new Image
+            {
+                Source = bitmap, MaxHeight = 260, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 6),
+                Cursor = Cursors.Hand, ToolTip = "Click to enlarge",
+            };
+            image.MouseLeftButtonUp += (_, _) => ImageViewer.Open(image, bitmap);
+            return image;
         }
         catch (Exception error) when (error is FormatException or NotSupportedException or IOException)
         {
