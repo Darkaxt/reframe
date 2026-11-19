@@ -435,7 +435,12 @@ public partial class MainWindow
                 {
                     chat = new ChatView(transcriptId, text => shell.SendChatMessageAsync(sessionId, text, terminal),
                         () => state.Sessions.GetValueOrDefault(sessionId)?.Launch.PermissionMode ?? "Default",
-                        target => { if (state.Sessions.GetValueOrDefault(sessionId) is { } own) ShowMenu([.. ContextMenus.PermissionMenu(own, true).Submenu!], target, null, sessionId); })
+                        target => { if (state.Sessions.GetValueOrDefault(sessionId) is { } own) ShowMenu([.. ContextMenus.PermissionMenu(own, true).Submenu!], target, null, sessionId); },
+                        () => shell.ScheduledTasksList.Where(t => t.TargetThreadId == sessionId).Select(t =>
+                        {
+                            var next = t.Active ? ScheduledTasks.NextDue(t, ScheduledTasks.ReadRuns(ShellController.TasksDir, t.Id)) : null;
+                            return (t.Name, $"{ScheduledTasks.Describe(t.RRule)} · {(!t.Active ? "paused" : next is { } n ? $"next {n.LocalDateTime:ddd d MMM HH:mm}" : "no more runs")}");
+                        }).ToList())
                     { Visibility = Visibility.Collapsed };
                     content.Children.Add(chat);
                 }
