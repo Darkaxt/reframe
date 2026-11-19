@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "a151d981e85b17d6b9d3c0903a90349eec80863d",
-  "scope": "chat diff cards",
+  "sourceBase": "805b1cd0d8ec42d9f76bdb98f6593eaaa9cf505a",
+  "scope": "unknown-model recovery",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.93.md",
-      "sha256": "d6fb33b0e9baf6adb25d334040bfe80847cf8a9d9afae767bc66a291655f95aa"
+      "file": "docs/releases/v0.11.0-claudegpt.94.md",
+      "sha256": "d35e91f8bc91fa9ebbb0326287fa7883943de0d45164249a2c1ad2bedf7a843d"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,19 @@
     },
     {
       "file": "package.json",
-      "sha256": "e813cebde1eabbcacf06e292e714198201cbdab91f7acf5f6cb5bc85373372e8"
+      "sha256": "69a9bac413ed147f5f07ceb82cfde7adf611ec2850a7eeebcc8ff979f44b7fae"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/TranscriptModel.cs",
-      "sha256": "57fcfafcf4f0df86c22c636827ed60cf661bac9c8e8bfd4929ffde9b6dbf1443"
+      "file": "wpf/Reframe.Shell.Core/OpenedThreadCheck.cs",
+      "sha256": "7b0ddf8cc5d9c234ddddec67771aa35aa1a519a00e818256eb263115629910a8"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/TranscriptImageTests.cs",
-      "sha256": "c929e438f59b558bd54329c671470ed51cdc7393ffe4ce43385866cfa797992f"
+      "file": "wpf/Reframe.Shell.Tests/OpenedThreadCheckTests.cs",
+      "sha256": "fd154e0ec3015eb2ca2c075806be519d795e129989933149869da9c344bb87b0"
     },
     {
-      "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "8ad058760ec411449eacad3d241956151742adf5b004863d52085a2b06b2c023"
+      "file": "wpf/Reframe.Shell/ShellController.OpenedThreads.cs",
+      "sha256": "6d0606eaead65df05f194c69d5885bd0e96f981bba65643b9b5e4f764f812382"
     }
   ],
   "checksNotYetRun": [

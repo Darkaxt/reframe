@@ -44,6 +44,49 @@ public static class OpenedThreadCheck
         return (OpenedThreadState.Waiting, null);
     }
 
+    /// <summary>The model to use instead of an unknown one: the proxy's error lists what it supports; the closest is the shortest
+    /// listed id that starts with "&lt;bad&gt;-" (gpt-6.1 gives gpt-6.1-sol). Null when the error is not that or nothing is close.</summary>
+    public static string? Substitute(string error, string? bad)
+    {
+        if (string.IsNullOrEmpty(bad) || !error.Contains("Unknown model", StringComparison.OrdinalIgnoreCase)) return null;
+        var at = error.IndexOf("Supported:", StringComparison.OrdinalIgnoreCase);
+        if (at < 0) return null;
+        return System.Text.RegularExpressions.Regex.Matches(error[(at + "Supported:".Length)..], @"[A-Za-z0-9][A-Za-z0-9._/\-]*")
+            .Select(m => m.Value)
+            .Where(v => v.StartsWith(bad + "-", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(v => v.Length).ThenBy(v => v, StringComparer.Ordinal)
+            .FirstOrDefault();
+    }
+
+    /// <summary>The text of the first message of the thread (the task the opener gave it), or null.</summary>
+    public static string? FirstPrompt(IEnumerable<string> transcriptLines)
+    {
+        foreach (var line in transcriptLines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            try
+            {
+                using var doc = JsonDocument.Parse(line);
+                var root = doc.RootElement;
+                if (root.ValueKind != JsonValueKind.Object || Str(root, "type") != "user") continue;
+                if (!root.TryGetProperty("message", out var message) || !message.TryGetProperty("content", out var content)) continue;
+                if (content.ValueKind == JsonValueKind.String) return content.GetString();
+                if (content.ValueKind == JsonValueKind.Array)
+                    foreach (var block in content.EnumerateArray())
+                        if (Str(block, "type") == "text") return Str(block, "text");
+            }
+            catch (JsonException)
+            {
+                // a line still being written
+            }
+        }
+        return null;
+    }
+
+    /// <summary>What the opener is told after the thread was moved to another model.</summary>
+    public static string Recovered(string threadName, string bad, string used) =>
+        $"[Reframe] The thread \"{threadName}\" you opened failed because the model \"{bad}\" is unknown to the proxy. Reframe switched it to \"{used}\" and sent it your task again; it is running now. Next time pass `model` explicitly.";
+
     /// <summary>What the opener is told: the thread, the error and what to change.</summary>
     public static string Report(string threadName, string? model, string error)
     {
