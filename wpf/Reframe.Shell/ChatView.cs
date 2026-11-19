@@ -477,7 +477,9 @@ sealed class ChatView : Border
     UIElement Injected(UserMessageItem user, InjectedMessage message) => new Border
     {
         BorderBrush = B("borderBrush"), BorderThickness = new Thickness(2, 0, 0, 0), Margin = new Thickness(0, 10, 60, 10), Padding = new Thickness(12, 2, 0, 2),
-        Child = Fold("injected:" + user.Uuid, "↩ " + message.Title, () => new Border { Margin = new Thickness(0, 2, 0, 6), Child = Markdown(message.Body, "mutedBrush") }),
+        Child = message.Body.Length == 0
+            ? new TextBlock { Text = "↩ " + message.Title, Style = S("Text12"), Foreground = B("mutedBrush"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 4) }
+            : Fold("injected:" + user.Uuid, "↩ " + message.Title, () => new Border { Margin = new Thickness(0, 2, 0, 6), Child = Markdown(message.Body, "mutedBrush") }),
     };
 
     /// <summary>Right-click menu to continue the conversation as a new thread from this message (before it) or this answer (after it).</summary>

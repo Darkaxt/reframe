@@ -23,5 +23,21 @@ public class InjectedMessageTests
     }
 
     [Fact]
+    public void A_task_notification_is_a_line_with_its_summary()
+    {
+        var message = InjectedMessage.Parse("""
+            <task-notification>
+            <task-id>b1</task-id>
+            <output-file>D:/t/b1.output</output-file>
+            <status>completed</status>
+            <summary>Background command "Build" completed (exit code 0)</summary>
+            </task-notification>
+            """);
+        Assert.NotNull(message);
+        Assert.Equal("Background command \"Build\" completed (exit code 0)", message!.Title);
+        Assert.Equal("", message.Body);
+    }
+
+    [Fact]
     public void Your_own_message_is_not_injected() => Assert.Null(InjectedMessage.Parse("hello there"));
 }

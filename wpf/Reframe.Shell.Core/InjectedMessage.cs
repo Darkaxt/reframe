@@ -28,7 +28,24 @@ public sealed record InjectedMessage(string Title, string Body)
             if (paren > 0 && title.EndsWith(')')) title = title[..paren];
             return new InjectedMessage($"Scheduled task: {title}", trimmed[(close + 2)..].Trim());
         }
+        if (trimmed.StartsWith("<task-notification>", StringComparison.Ordinal))
+        {
+            var summary = Tag(trimmed, "summary");
+            var status = Tag(trimmed, "status");
+            var title = summary ?? (status is { Length: > 0 } ? $"Background task {status}" : "Background task");
+            return new InjectedMessage(title, "");
+        }
         return null;
+    }
+
+    /// <summary>The text between &lt;name&gt; and &lt;/name&gt;, trimmed, or null.</summary>
+    static string? Tag(string text, string name)
+    {
+        var open = text.IndexOf("<" + name + ">", StringComparison.Ordinal);
+        if (open < 0) return null;
+        var from = open + name.Length + 2;
+        var close = text.IndexOf("</" + name + ">", from, StringComparison.Ordinal);
+        return close < 0 ? null : text[from..close].Trim();
     }
 
     static string? Attribute(string tag, string name)
