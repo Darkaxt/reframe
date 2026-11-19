@@ -34,8 +34,8 @@ sealed class ChatView : Border
     readonly List<string> history = [];
     int historyAt = -1;
     static readonly string[] Models = ["default", "opus", "sonnet", "haiku"];
-    readonly Border side = new() { Width = 290, Visibility = Visibility.Collapsed, BorderThickness = new Thickness(1, 0, 0, 0) };
-    readonly StackPanel sideRows = new() { Margin = new Thickness(14, 40, 14, 14) };
+    readonly Border side = new() { Width = 300, Visibility = Visibility.Collapsed, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Margin = new Thickness(0, 4, 12, 14), VerticalAlignment = VerticalAlignment.Top };
+    readonly StackPanel sideRows = new() { Margin = new Thickness(16, 8, 16, 14) };
     readonly HashSet<string> sideAll = [];
     static bool sideOpen;
     string sideSignature = "";
@@ -43,7 +43,7 @@ sealed class ChatView : Border
     long offset;
 
     public ChatView(string claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu,
-        Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt, Action<string, bool> fork)
+        Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt, Action<string, bool> fork, Func<string> title)
     {
         this.claudeSessionId = claudeSessionId;
         this.fork = fork;
@@ -51,10 +51,12 @@ sealed class ChatView : Border
         Background = B("terminalBrush");
         var input = new TextBox
         {
-            AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 140, MinHeight = 28, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 140, MinHeight = 44, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             Background = Brushes.Transparent, Foreground = B("textBrush"), BorderThickness = new Thickness(0), CaretBrush = B("textBrush"),
-            Padding = new Thickness(4, 4, 4, 4), FontSize = 13,
+            Padding = new Thickness(4, 6, 4, 4), FontSize = 14,
         };
+        var placeholder = new TextBlock { Text = "Message this session", Foreground = B("mutedBrush"), FontSize = 14, IsHitTestVisible = false, Margin = new Thickness(8, 8, 0, 0) };
+        input.TextChanged += (_, _) => placeholder.Visibility = input.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         var status = new TextBlock { Style = S("Text12"), Foreground = B("mutedBrush"), VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         async Task Send()
         {
@@ -134,7 +136,7 @@ sealed class ChatView : Border
         var bar = new DockPanel { Margin = new Thickness(0, 2, 0, 0) };
         DockPanel.SetDock(plus, Dock.Left);
         DockPanel.SetDock(mode, Dock.Left);
-        DockPanel.SetDock(modelChip, Dock.Left);
+        DockPanel.SetDock(modelChip, Dock.Right);
         DockPanel.SetDock(stopButton, Dock.Right);
         bar.Children.Add(plus);
         bar.Children.Add(mode);
@@ -142,25 +144,50 @@ sealed class ChatView : Border
         bar.Children.Add(stopButton);
         bar.Children.Add(status);
         var stack = new StackPanel();
-        stack.Children.Add(input);
+        stack.Children.Add(new Grid { Children = { input, placeholder } });
         stack.Children.Add(bar);
         var composer = new Border
         {
             Background = B("surfaceBrush"), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(10, 6, 10, 6), Margin = new Thickness(16, 4, 16, 12), MaxWidth = 860, Child = stack,
+            Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(16, 4, 16, 14), MaxWidth = 860, Child = stack,
         };
         var layout = new DockPanel();
         DockPanel.SetDock(composer, Dock.Bottom);
         layout.Children.Add(composer);
         scroll.Content = rows;
         side.BorderBrush = B("borderBrush");
+        side.Background = B("surfaceBrush");
         side.Child = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = sideRows };
         DockPanel.SetDock(side, Dock.Right);
         layout.Children.Add(side);
+        var more = new Button
+        {
+            Style = S("IconButton"), Width = 28, Height = 28, ToolTip = "More",
+            Content = new TextBlock { Text = "\uE712", FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 13, Foreground = B("mutedBrush") },
+        };
+        more.Click += (_, _) =>
+        {
+            var menu = ShellMenus.Build([new MenuSpec("normal", "Copy conversation", Action: "copy"), new MenuSpec("normal", "Copy session id", Action: "id")], _ => true, action =>
+            {
+                try
+                {
+                    Clipboard.SetText(action == "id" ? claudeSessionId : string.Join("\n\n", this.model.Items.Select(i => i switch
+                    {
+                        UserMessageItem u => "You: " + u.Text,
+                        AssistantTextItem a => a.Text,
+                        _ => "",
+                    }).Where(t => t.Length > 0)));
+                }
+                catch (System.Runtime.InteropServices.COMException) { }
+            });
+            menu.PlacementTarget = more;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        };
+        var titleText = new TextBlock { Text = title(), Style = S("Text13"), Foreground = B("textBrush"), FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         var toggle = new Button
         {
-            Style = S("IconButton"), Width = 28, Height = 28, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 8, 14, 0), ToolTip = "Scheduled tasks, changes, subagents and sources",
+            Style = S("IconButton"), Width = 28, Height = 28, ToolTip = "Scheduled tasks, changes, subagents and sources",
             Content = new TextBlock { Text = "\uE8A0", FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 13, Foreground = B("mutedBrush") },
         };
         System.Windows.Automation.AutomationProperties.SetName(toggle, "Side column");
@@ -171,7 +198,15 @@ sealed class ChatView : Border
             sideSignature = "";
             RefreshSide();
         };
-        layout.Children.Add(new Grid { Children = { scroll, toggle } });
+        var header = new DockPanel { Margin = new Thickness(16, 6, 10, 2) };
+        DockPanel.SetDock(toggle, Dock.Right);
+        DockPanel.SetDock(more, Dock.Right);
+        header.Children.Add(toggle);
+        header.Children.Add(more);
+        header.Children.Add(titleText);
+        DockPanel.SetDock(header, Dock.Top);
+        layout.Children.Add(header);
+        layout.Children.Add(scroll);
         Child = layout;
         timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) =>
         {
@@ -184,6 +219,7 @@ sealed class ChatView : Border
             if (IsVisible)
             {
                 ((TextBlock)mode.Content).Text = permission();
+                titleText.Text = title();
                 side.Visibility = sideOpen ? Visibility.Visible : Visibility.Collapsed;
                 Refresh(false);
                 RefreshSide();
@@ -235,7 +271,8 @@ sealed class ChatView : Border
         var atEnd = toEnd || scroll.VerticalOffset >= scroll.ScrollableHeight - 24;
         rows.Children.Clear();
         // The transcript also holds bookkeeping lines (file-history-snapshot, api-request, turn_duration ...): not rows.
-        List<ChatItem> items = [.. model.Items.Where(i => i is not UnknownItem && i is not SystemNoticeItem { Bare: true })];
+        List<ChatItem> items = [.. model.Items.Where(i => i is not UnknownItem && i is not SystemNoticeItem { Bare: true }
+            && !(i is UserMessageItem { Text: var t } && t.StartsWith("[Image: source:", StringComparison.Ordinal)))];
         if (items.Count > MaxItems) items = items.GetRange(items.Count - MaxItems, MaxItems);
         if (items.Count == 0) rows.Children.Add(Note("The transcript is empty."));
         var turns = new List<List<ChatItem>>();
@@ -317,26 +354,42 @@ sealed class ChatView : Border
         if (sideRows.Children.Count == 0) sideRows.Children.Add(Note("Nothing yet."));
     }
 
+    static string GlyphOf(string key) => key switch
+    {
+        "scheduled" => "\uE121",
+        "changes" => "\uE70F",
+        "outputs" => "\uE8A5",
+        "agents" => "\uE77B",
+        _ => "\uE774",
+    };
+
     void SideSection(string key, string title, List<(string Name, string Detail)> items, string count)
     {
         if (items.Count == 0) return;
-        var head = new DockPanel { Margin = new Thickness(0, 12, 0, 4) };
-        var right = new TextBlock { Text = count.Length > 0 ? count : items.Count.ToString(), Style = S("Text12"), Foreground = B("mutedBrush") };
-        DockPanel.SetDock(right, Dock.Right);
-        head.Children.Add(right);
-        head.Children.Add(new TextBlock { Text = title, Style = S("Text13"), Foreground = B("textBrush"), FontWeight = FontWeights.SemiBold });
+        var head = new DockPanel { Margin = new Thickness(0, 14, 0, 6) };
+        if (count.Length > 0)
+        {
+            var right = new TextBlock { Text = count, Style = S("Text12"), Foreground = B("mutedBrush") };
+            DockPanel.SetDock(right, Dock.Right);
+            head.Children.Add(right);
+        }
+        head.Children.Add(new TextBlock { Text = title, Style = S("Text12"), Foreground = B("mutedBrush") });
         sideRows.Children.Add(head);
         var all = sideAll.Contains(key);
         foreach (var (name, detail) in items.Take(all ? 200 : 5))
-            sideRows.Children.Add(new TextBlock
-            {
-                Text = name, ToolTip = detail, Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 2, 0, 2),
-            });
+        {
+            var row = new DockPanel { Margin = new Thickness(0, 4, 0, 4), ToolTip = detail };
+            var glyph = new TextBlock { Text = GlyphOf(key), FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 13, Foreground = B("mutedBrush"), Width = 22, VerticalAlignment = VerticalAlignment.Center };
+            DockPanel.SetDock(glyph, Dock.Left);
+            row.Children.Add(glyph);
+            row.Children.Add(new TextBlock { Text = name, Style = S("Text13"), Foreground = B("textBrush"), TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center });
+            sideRows.Children.Add(row);
+        }
         if (items.Count > 5)
         {
             var more = new TextBlock
             {
-                Text = all ? "Show less" : $"View all ({items.Count})", Style = S("Text12"), Foreground = B("textBrush"), Cursor = Cursors.Hand,
+                Text = all ? "Show less" : "View all", Style = S("Text12"), Foreground = B("mutedBrush"), Cursor = Cursors.Hand,
                 Margin = new Thickness(0, 4, 0, 2), Background = Brushes.Transparent,
             };
             more.MouseLeftButtonUp += (_, _) =>
@@ -371,7 +424,7 @@ sealed class ChatView : Border
                 return inner;
             }, defaultOpen: last && finalText is null));
         }
-        if (finalText is not null) rows.Children.Add(new Border { Margin = new Thickness(0, 8, 16, 8), Child = Markdown(finalText.Text), ContextMenu = ForkMenu(finalText.Uuid, false) });
+        if (finalText is not null) rows.Children.Add(new Border { Margin = new Thickness(0, 8, 16, 8), Child = new StackPanel { Children = { Markdown(finalText.Text), MetaRow(null, finalText.Text, HorizontalAlignment.Left) } }, ContextMenu = ForkMenu(finalText.Uuid, false) });
         var edited = new List<string>();
         foreach (var call in CallsOf(rest))
             if (call.Name is "Edit" or "Write" or "MultiEdit" or "NotebookEdit" && !edited.Contains(call.Summary)) edited.Add(call.Summary);
@@ -442,13 +495,37 @@ sealed class ChatView : Border
             var image = Picture(data);
             if (image is not null) inner.Children.Add(image);
         }
-        var text = user.Images.Count > 0 ? string.Join("\n", user.Text.Split('\n').Where(l => l != "[image]")).Trim() : user.Text;
+        var text = string.Join("\n", user.Text.Split('\n').Where(l => l != "[image]" && !System.Text.RegularExpressions.Regex.IsMatch(l.Trim(), @"^\[Image #\d+\]$"))).Trim();
         if (text.Length > 0) inner.Children.Add(Text(text, "textBrush"));
-        return new Border
+        var bubble = new Border
         {
-            Background = B("surfaceBrush"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(60, 10, 16, 10),
+            Background = B("surfaceBrush"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 9, 14, 9),
             HorizontalAlignment = HorizontalAlignment.Right, Child = inner,
         };
+        var column = new StackPanel { Margin = new Thickness(60, 12, 16, 8) };
+        column.Children.Add(bubble);
+        column.Children.Add(MetaRow(user.Timestamp, text, HorizontalAlignment.Right));
+        return column;
+    }
+
+    /// <summary>The small row under a message: its time and a button that copies its text.</summary>
+    static UIElement MetaRow(string? timestamp, string copyText, HorizontalAlignment side)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = side, Margin = new Thickness(0, 4, 4, 0) };
+        if (side == HorizontalAlignment.Right && DateTimeOffset.TryParse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.None, out var at))
+            row.Children.Add(new TextBlock { Text = at.ToLocalTime().ToString("t", CultureInfo.CurrentCulture), Style = S("Text12"), Foreground = B("mutedBrush"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
+        var copy = new Button
+        {
+            Style = S("IconButton"), Width = 24, Height = 22, ToolTip = "Copy",
+            Content = new TextBlock { Text = "\uE8C8", FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 12, Foreground = B("mutedBrush") },
+        };
+        copy.Click += (_, _) =>
+        {
+            try { Clipboard.SetText(copyText); }
+            catch (System.Runtime.InteropServices.COMException) { }
+        };
+        row.Children.Add(copy);
+        return row;
     }
 
     /// <summary>A pasted image from its base64 data, at most 260 pixels high; null when it cannot be decoded.</summary>
@@ -610,7 +687,7 @@ sealed class ChatView : Border
                     var marker = new TextBlock { Text = block.Marker, Style = S("Text13"), Foreground = B("mutedBrush"), Width = 22 };
                     DockPanel.SetDock(marker, Dock.Left);
                     line.Children.Add(marker);
-                    line.Children.Add(Inline(block.Spans, 13, FontWeights.Normal, brush));
+                    line.Children.Add(Inline(block.Spans, 14, FontWeights.Normal, brush));
                     stack.Children.Add(line);
                     break;
                 case MdBlockKind.Heading:
@@ -619,8 +696,8 @@ sealed class ChatView : Border
                     stack.Children.Add(heading);
                     break;
                 default:
-                    var paragraph = Inline(block.Spans, 13, FontWeights.Normal, brush);
-                    paragraph.Margin = new Thickness(0, 3, 0, 3);
+                    var paragraph = Inline(block.Spans, 14, FontWeights.Normal, brush);
+                    paragraph.Margin = new Thickness(0, 5, 0, 5);
                     stack.Children.Add(paragraph);
                     break;
             }

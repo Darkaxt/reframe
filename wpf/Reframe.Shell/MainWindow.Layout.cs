@@ -442,7 +442,8 @@ public partial class MainWindow
                             return (t.Name, $"{ScheduledTasks.Describe(t.RRule)} · {(!t.Active ? "paused" : next is { } n ? $"next {n.LocalDateTime:ddd d MMM HH:mm}" : "no more runs")}");
                         }).ToList(),
                         () => state.Sessions.GetValueOrDefault(sessionId)?.Launch.Model ?? "default", () => terminal.WriteInput("\u001b"),
-                        (uuid, before) => _ = shell.ForkSessionAsync(WindowId, sessionId, uuid, before))
+                        (uuid, before) => _ = shell.ForkSessionAsync(WindowId, sessionId, uuid, before),
+                        () => state.Sessions.GetValueOrDefault(sessionId)?.Name ?? "Thread")
                     { Visibility = Visibility.Collapsed };
                     content.Children.Add(chat);
                 }
