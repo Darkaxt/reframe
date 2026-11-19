@@ -33,6 +33,21 @@ sealed partial class ShellController
             var (state, error) = OpenedThreadCheck.Check(lines);
             if (state == OpenedThreadState.Working) return;
             if (state != OpenedThreadState.Failed || error is null) continue;
+            if (OpenedThreadCheck.Substitute(error, record.Launch.Model) is { } better && OpenedThreadCheck.FirstPrompt(lines) is { Length: > 0 } task)
+            {
+                var bad = record.Launch.Model!;
+                System.Diagnostics.Trace.WriteLine($"threads: \"{name}\" had the unknown model {bad}; moving it to {better}");
+                record.Launch.Model = better;
+                var defaults = State.Preferences.ProviderDefaults;
+                foreach (var set in new[] { defaults?.Chatgpt, defaults?.Anthropic })
+                    if (set is not null && set.Model == bad) set.Model = better;
+                Saved();
+                await TypeIntoAsync(record.Id, "/model " + better);
+                await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(2));
+                await TypeIntoAsync(record.Id, task);
+                if (State.Sessions.ContainsKey(openerId)) await TypeIntoAsync(openerId, OpenedThreadCheck.Recovered(name, bad, better));
+                return;
+            }
             System.Diagnostics.Trace.WriteLine($"threads: \"{name}\" failed at its first request; telling {openerId}");
             toasts?.Show(record.Id, $"Thread failed: {name}", error.Length > 200 ? error[..200] + "…" : error);
             if (State.Sessions.ContainsKey(openerId)) await TypeIntoAsync(openerId, OpenedThreadCheck.Report(name, record.Launch.Model, error));
