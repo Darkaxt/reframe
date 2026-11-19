@@ -29,6 +29,10 @@ sealed class ChatView : Border
     readonly DispatcherTimer timer;
     readonly Dictionary<string, bool> open = [];
     readonly Func<IReadOnlyList<(string Name, string Detail)>> scheduled;
+    readonly Button stopButton;
+    readonly List<string> history = [];
+    int historyAt = -1;
+    static readonly string[] Models = ["default", "opus", "sonnet", "haiku"];
     readonly Border side = new() { Width = 290, Visibility = Visibility.Collapsed, BorderThickness = new Thickness(1, 0, 0, 0) };
     readonly StackPanel sideRows = new() { Margin = new Thickness(14, 40, 14, 14) };
     readonly HashSet<string> sideAll = [];
@@ -38,7 +42,7 @@ sealed class ChatView : Border
     long offset;
 
     public ChatView(string claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu,
-        Func<IReadOnlyList<(string Name, string Detail)>> scheduled)
+        Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt)
     {
         this.claudeSessionId = claudeSessionId;
         this.scheduled = scheduled;
@@ -59,6 +63,7 @@ sealed class ChatView : Border
             input.IsEnabled = true;
             if (sent)
             {
+                historyAt = -1;
                 input.Clear();
                 status.Text = "";
                 Refresh(true);
@@ -68,6 +73,31 @@ sealed class ChatView : Border
         }
         input.PreviewKeyDown += (_, e) =>
         {
+            if (e.Key == Key.V && Keyboard.Modifiers == ModifierKeys.Control && Clipboard.ContainsImage() && PasteImage() is { } pasted)
+            {
+                e.Handled = true;
+                input.SelectedText = (pasted.Contains(' ') ? "\"" + pasted + "\"" : pasted) + " ";
+                input.CaretIndex = input.SelectionStart + input.SelectionLength;
+                return;
+            }
+            // Up and Down walk the messages sent before (from the first line / the last line of the box).
+            if (e.Key == Key.Up && Keyboard.Modifiers == ModifierKeys.None && input.GetLineIndexFromCharacterIndex(input.CaretIndex) == 0 && history.Count > 0)
+            {
+                historyAt = Math.Min(historyAt + 1, history.Count - 1);
+                input.Text = history[history.Count - 1 - historyAt];
+                input.CaretIndex = input.Text.Length;
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.Down && Keyboard.Modifiers == ModifierKeys.None && historyAt >= 0
+                && input.GetLineIndexFromCharacterIndex(input.CaretIndex) == input.LineCount - 1)
+            {
+                historyAt--;
+                input.Text = historyAt < 0 ? "" : history[history.Count - 1 - historyAt];
+                input.CaretIndex = input.Text.Length;
+                e.Handled = true;
+                return;
+            }
             if (e.Key != Key.Enter || Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) return;
             e.Handled = true;
             _ = Send();
@@ -83,11 +113,31 @@ sealed class ChatView : Border
         };
         var mode = Chip(permission(), "Permission mode (applies when the session starts next)");
         mode.Click += (_, _) => permissionMenu(mode);
+        var modelChip = Chip(model(), "Model of this session: types /model into it");
+        modelChip.Click += (_, _) =>
+        {
+            var menu = ShellMenus.Build(Models.Select(m => new MenuSpec("normal", m, Action: "model:" + m)), _ => true, action =>
+            {
+                var chosen = action["model:".Length..];
+                ((TextBlock)modelChip.Content).Text = chosen;
+                _ = send("/model " + chosen);
+            });
+            menu.PlacementTarget = modelChip;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+            menu.IsOpen = true;
+        };
+        stopButton = Chip("■ Stop", "Interrupt the model (Esc in the terminal)");
+        stopButton.Visibility = Visibility.Collapsed;
+        stopButton.Click += (_, _) => interrupt();
         var bar = new DockPanel { Margin = new Thickness(0, 2, 0, 0) };
         DockPanel.SetDock(plus, Dock.Left);
         DockPanel.SetDock(mode, Dock.Left);
+        DockPanel.SetDock(modelChip, Dock.Left);
+        DockPanel.SetDock(stopButton, Dock.Right);
         bar.Children.Add(plus);
         bar.Children.Add(mode);
+        bar.Children.Add(modelChip);
+        bar.Children.Add(stopButton);
         bar.Children.Add(status);
         var stack = new StackPanel();
         stack.Children.Add(input);
@@ -125,6 +175,7 @@ sealed class ChatView : Border
         {
             Refresh(false);
             RefreshSide();
+            UpdateWorking();
         }, Dispatcher);
         IsVisibleChanged += (_, _) =>
         {
@@ -193,6 +244,45 @@ sealed class ChatView : Border
         }
         for (var n = 0; n < turns.Count; n++) AddTurn(turns[n], n == turns.Count - 1);
         if (atEnd) scroll.ScrollToEnd();
+    }
+
+    /// <summary>The clipboard's image saved as a file (the way a pasted image reaches the terminal), or null.</summary>
+    static string? PasteImage()
+    {
+        try
+        {
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(Clipboard.GetImage()));
+            using var buffer = new MemoryStream();
+            encoder.Save(buffer);
+            return Drops.Save("clipboard.png", buffer.ToArray());
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException or System.Runtime.InteropServices.COMException or ArgumentNullException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The model is working while the last thing in the transcript is your message, a thought or a call still waiting
+    /// for its result, and the file changed in the last ten minutes. Then the Stop button shows; it also keeps the sent
+    /// messages for the Up key.</summary>
+    void UpdateWorking()
+    {
+        var items = model.Items;
+        history.Clear();
+        foreach (var item in items)
+            if (item is UserMessageItem u && InjectedMessage.Parse(u.Text) is null && !u.Text.StartsWith("[Request interrupted", StringComparison.Ordinal) && u.Text != "[image]") history.Add(u.Text);
+        var working = items.Count > 0 && items[^1] switch
+        {
+            UserMessageItem u => InjectedMessage.Parse(u.Text) is not null || !u.Text.StartsWith("[Request interrupted", StringComparison.Ordinal),
+            ThinkingItem => true,
+            ToolGroupItem g => g.Calls.Any(c => c.IsPending),
+            _ => false,
+        };
+        if (working && path is not null)
+            try { working = DateTime.UtcNow - File.GetLastWriteTimeUtc(path) < TimeSpan.FromMinutes(10); }
+            catch (IOException) { working = false; }
+        stopButton.Visibility = working ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ---------- the side column ----------
