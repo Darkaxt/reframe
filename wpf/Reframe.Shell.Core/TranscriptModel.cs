@@ -62,6 +62,8 @@ public sealed class ToolCallItem : ChatItem
     public string Name { get; init; } = "";
     /// <summary>Short text for the collapsed row (command, file path, pattern ...).</summary>
     public string Summary { get; init; } = "";
+    /// <summary>For an edit or a write: the changed lines, each starting with "-" (removed) or "+" (added); empty for other calls.</summary>
+    public IReadOnlyList<string> Diff { get; init; } = [];
     public string? Result { get; internal set; }
     public bool IsError { get; internal set; }
     public bool IsPending => Result is null;
@@ -276,6 +278,7 @@ public sealed class TranscriptModel
                         Id = id,
                         Name = Str(block, "name") ?? "(tool)",
                         Summary = block.TryGetProperty("input", out var input) ? Summarize(input) : "",
+                        Diff = block.TryGetProperty("input", out var edited) ? BuildDiff(Str(block, "name"), edited) : [],
                     };
                     if (id.Length > 0)
                     {
@@ -371,6 +374,39 @@ public sealed class TranscriptModel
         }
         text = text.Replace("\r", " ").Replace("\n", " ");
         return text.Length > 200 ? text.Substring(0, 200) + "..." : text;
+    }
+
+    const int MaxDiffLines = 200;
+
+    /// <summary>The lines an Edit, MultiEdit or Write changed, as "-old" and "+new" lines (at most 200).</summary>
+    static List<string> BuildDiff(string? tool, JsonElement input)
+    {
+        var lines = new List<string>();
+        void Add(char sign, string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            foreach (var l in text.Replace("\r\n", "\n").TrimEnd('\n').Split('\n'))
+                if (lines.Count < MaxDiffLines) lines.Add(sign + l);
+        }
+        if (input.ValueKind != JsonValueKind.Object) return lines;
+        switch (tool)
+        {
+            case "Edit":
+                Add('-', Str(input, "old_string"));
+                Add('+', Str(input, "new_string"));
+                break;
+            case "MultiEdit" when input.TryGetProperty("edits", out var edits) && edits.ValueKind == JsonValueKind.Array:
+                foreach (var e in edits.EnumerateArray())
+                {
+                    Add('-', Str(e, "old_string"));
+                    Add('+', Str(e, "new_string"));
+                }
+                break;
+            case "Write":
+                Add('+', Str(input, "content"));
+                break;
+        }
+        return lines;
     }
 
     static bool IsSubagentTool(string name) => name is "Task" or "Agent";

@@ -481,11 +481,17 @@ sealed class ChatView : Border
             var inner = new StackPanel { Margin = new Thickness(14, 2, 0, 6) };
             var result = call.Result ?? "(no result yet)";
             var shown = result.Length > MaxResult ? result[..MaxResult] + "\n… " + (result.Length - MaxResult) + " more characters" : result;
-            inner.Children.Add(new Border
+            if (call.Diff.Count > 0)
             {
-                Background = B("surfaceBrush"), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(10, 8, 10, 8), Child = Text(call.Summary + "\n\n" + shown, call.IsError ? "textBrush" : "mutedBrush", mono: true),
-            });
+                inner.Children.Add(DiffCard(call));
+                if (call.IsError) inner.Children.Add(Text(shown, "textBrush", mono: true));
+            }
+            else
+                inner.Children.Add(new Border
+                {
+                    Background = B("surfaceBrush"), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(10, 8, 10, 8), Child = Text(call.Summary + "\n\n" + shown, call.IsError ? "textBrush" : "mutedBrush", mono: true),
+                });
             if (call.Children.Count > 0)
             {
                 inner.Children.Add(Note($"{call.Children.Count} subagent items"));
@@ -493,6 +499,26 @@ sealed class ChatView : Border
             }
             return inner;
         }, step: true);
+    }
+
+    /// <summary>An edit's lines: removed ones on red, added ones on green, the file's name above.</summary>
+    UIElement DiffCard(ToolCallItem call)
+    {
+        var removed = new SolidColorBrush(Color.FromArgb(0x30, 0xF8, 0x51, 0x49));
+        var added = new SolidColorBrush(Color.FromArgb(0x30, 0x3F, 0xB9, 0x50));
+        var lines = new StackPanel();
+        lines.Children.Add(new TextBlock { Text = call.Summary, Style = S("Text12"), Foreground = B("mutedBrush"), Margin = new Thickness(0, 0, 0, 4), TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = call.Summary });
+        foreach (var line in call.Diff)
+            lines.Children.Add(new TextBlock
+            {
+                Text = line, FontFamily = new FontFamily("Consolas"), FontSize = 12, Foreground = B("textBrush"), TextWrapping = TextWrapping.Wrap,
+                Background = line[0] == '-' ? removed : added, Padding = new Thickness(6, 0, 6, 0),
+            });
+        return new Border
+        {
+            Background = B("surfaceBrush"), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(10, 8, 10, 8), Child = lines,
+        };
     }
 
     /// <summary>"Edited 3 files" and the files, as Codex's card of a turn's changes (without counts: the transcript does not hold them).</summary>

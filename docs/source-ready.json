@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "26c52a5c79ff0bf8e0e5bd2f0333c7df4ef91083",
-  "scope": "opened thread failure report",
+  "sourceBase": "a151d981e85b17d6b9d3c0903a90349eec80863d",
+  "scope": "chat diff cards",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.92.md",
-      "sha256": "aab9c0c0c032ee46c86b52591b67185aa53448697ae6de05bc827cb42d57fbfe"
+      "file": "docs/releases/v0.11.0-claudegpt.93.md",
+      "sha256": "d6fb33b0e9baf6adb25d334040bfe80847cf8a9d9afae767bc66a291655f95aa"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,27 +18,19 @@
     },
     {
       "file": "package.json",
-      "sha256": "c025dbfc9b6573fa01d5a3b7835adf0559ab18afedd3af05e05da9fd76a4448d"
+      "sha256": "e813cebde1eabbcacf06e292e714198201cbdab91f7acf5f6cb5bc85373372e8"
     },
     {
-      "file": "rust/reframe-host/src/threads.rs",
-      "sha256": "aadba704925271377a8ab7ad95fad0ec8fd75b06ef34a97f8022843c9b185be5"
+      "file": "wpf/Reframe.Shell.Core/TranscriptModel.cs",
+      "sha256": "57fcfafcf4f0df86c22c636827ed60cf661bac9c8e8bfd4929ffde9b6dbf1443"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/OpenedThreadCheck.cs",
-      "sha256": "128e2a6a89428bdfe6cb08cfae0d3bfa745e4dc9641ab2e1b6aceec7b3a1fa82"
+      "file": "wpf/Reframe.Shell.Tests/TranscriptImageTests.cs",
+      "sha256": "c929e438f59b558bd54329c671470ed51cdc7393ffe4ce43385866cfa797992f"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/OpenedThreadCheckTests.cs",
-      "sha256": "4cf5fd029cc6228e1887a482b888a93c6aaf7c07ad302b2b2a5743e2cc06d113"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.OpenedThreads.cs",
-      "sha256": "f858973c098d4d2e20fa02d1992cb7dd98222afe4651a200f750b1ceda132562"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
-      "sha256": "0d27b38d17d993052d1b9365ed9ca76ae6e02246d4f351e2bbfc12d5ef0a2b98"
+      "file": "wpf/Reframe.Shell/ChatView.cs",
+      "sha256": "8ad058760ec411449eacad3d241956151742adf5b004863d52085a2b06b2c023"
     }
   ],
   "checksNotYetRun": [
