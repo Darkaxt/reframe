@@ -315,7 +315,7 @@ public class ContextMenuTests
     public void List_menu_of_an_ended_session_of_reframe_s()
     {
         var chat = ContextMenus.ChatActions(new ChatMenuContext(ListItemKind.App, Record(), "k", false, true, false, true));
-        Assert.Equal("Open|Rename|-|Pin chat|Hide from Reframe…|-|Model provider[ChatGPT*|Anthropic]|Change model…|Permission mode[Default*|acceptEdits|auto|bypassPermissions|manual|dontAsk|plan]|Archive chat…|Delete chat…|-|Manages Reframe (may delete any thread)|-|Open in a new group|Open in a new group in a new window|-|Properties…",
+        Assert.Equal("Open|Rename|-|Pin chat|Hide from Reframe…|-|Model provider[ChatGPT*|Anthropic]|Change model…|Permission mode[Default permissions*|Accept edits|Auto|Full access|Ask for everything|Don't ask|Plan mode]|Archive chat…|Delete chat…|-|Manages Reframe (may delete any thread)|-|Open in a new group|Open in a new group in a new window|-|Properties…",
             Shape(ContextMenus.ListMenu(1, true, chat)));
     }
 
@@ -323,7 +323,7 @@ public class ContextMenuTests
     public void A_running_session_must_be_ended_first()
     {
         var chat = ContextMenus.ChatActions(new ChatMenuContext(ListItemKind.App, Record("open", "anthropic"), "k", true, false, false, false));
-        Assert.Equal("Open|Rename|-|Unpin chat|Hide from Reframe (end chat first)(off)|-|Model provider (end chat first)[ChatGPT(off)|Anthropic(off)*]|Change model…(off)|Permission mode (next start)[Default*|acceptEdits|auto|bypassPermissions|manual|dontAsk|plan]|Archive chat (end chat first)(off)|Delete chat (end chat first)(off)|-|Manages Reframe (may delete any thread)|-|Open in a new group|Open in a new group in a new window|-|Properties…",
+        Assert.Equal("Open|Rename|-|Unpin chat|Hide from Reframe (end chat first)(off)|-|Model provider (end chat first)[ChatGPT(off)|Anthropic(off)*]|Change model…(off)|Permission mode (next start)[Default permissions*|Accept edits|Auto|Full access|Ask for everything|Don't ask|Plan mode]|Archive chat (end chat first)(off)|Delete chat (end chat first)(off)|-|Manages Reframe (may delete any thread)|-|Open in a new group|Open in a new group in a new window|-|Properties…",
             Shape(ContextMenus.ListMenu(1, true, chat)));
     }
 
