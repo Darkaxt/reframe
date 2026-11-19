@@ -446,7 +446,8 @@ public partial class MainWindow
                         }).ToList(),
                         () => state.Sessions.GetValueOrDefault(sessionId)?.Launch.Model ?? "default", () => terminal.WriteInput("\u001b"),
                         (uuid, before) => _ = shell.ForkSessionAsync(WindowId, sessionId, uuid, before),
-                        () => state.Sessions.GetValueOrDefault(sessionId)?.Name ?? "Thread")
+                        () => state.Sessions.GetValueOrDefault(sessionId)?.Name ?? "Thread",
+                        () => state.Sessions.GetValueOrDefault(sessionId)?.Launch.Provider)
                     { Visibility = Visibility.Collapsed };
                     content.Children.Add(chat);
                 }
