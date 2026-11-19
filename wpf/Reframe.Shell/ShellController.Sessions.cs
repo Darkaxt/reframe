@@ -150,6 +150,7 @@ sealed partial class ShellController
             System.Diagnostics.Trace.WriteLine(error is null
                 ? $"threads: opened \"{request.Name}\" ({request.Provider}) for {openerId}"
                 : $"threads: \"{request.Name}\" for {openerId} could not open: {error}");
+            if (error is null && request.Name is { Length: > 0 } watched) _ = WatchOpenedThreadAsync(openerId, watched);
         }
         catch (Exception e)
         {
