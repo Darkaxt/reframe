@@ -323,8 +323,16 @@ sealed class ChatView : Border
         _ => new Border(),
     };
 
-    static UIElement Bubble(UserMessageItem user)
+    /// <summary>What another session or a scheduled task put into the thread: a card on the left with its sender, folded to its title.</summary>
+    UIElement Injected(UserMessageItem user, InjectedMessage message) => new Border
     {
+        BorderBrush = B("borderBrush"), BorderThickness = new Thickness(2, 0, 0, 0), Margin = new Thickness(0, 10, 60, 10), Padding = new Thickness(12, 2, 0, 2),
+        Child = Fold("injected:" + user.Uuid, "↩ " + message.Title, () => new Border { Margin = new Thickness(0, 2, 0, 6), Child = Markdown(message.Body, "mutedBrush") }),
+    };
+
+    UIElement Bubble(UserMessageItem user)
+    {
+        if (InjectedMessage.Parse(user.Text) is { } injected) return Injected(user, injected);
         var inner = new StackPanel();
         foreach (var data in user.Images.Take(6))
         {
