@@ -440,7 +440,8 @@ public partial class MainWindow
                         {
                             var next = t.Active ? ScheduledTasks.NextDue(t, ScheduledTasks.ReadRuns(ShellController.TasksDir, t.Id)) : null;
                             return (t.Name, $"{ScheduledTasks.Describe(t.RRule)} · {(!t.Active ? "paused" : next is { } n ? $"next {n.LocalDateTime:ddd d MMM HH:mm}" : "no more runs")}");
-                        }).ToList())
+                        }).ToList(),
+                        () => state.Sessions.GetValueOrDefault(sessionId)?.Launch.Model ?? "default", () => terminal.WriteInput("\u001b"))
                     { Visibility = Visibility.Collapsed };
                     content.Children.Add(chat);
                 }

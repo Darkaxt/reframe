@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "2d767ed4f89d450ac27fc712fbb5b1fdb6f959d4",
-  "scope": "chat injected messages",
+  "sourceBase": "d1ca63d52a4e105d7479a8c4f7b567b921eb9924",
+  "scope": "chat composer controls",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.90.md",
-      "sha256": "fc23138e59124f208d0aa513db995cc021680f534bb078418c2df34ba7bba40e"
+      "file": "docs/releases/v0.11.0-claudegpt.91.md",
+      "sha256": "cdfc74c635b3d411142c06ef15a517f6c1fc057dfd3ada2ed88391439248f1bb"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,15 @@
     },
     {
       "file": "package.json",
-      "sha256": "bf117118322e6cb6823d1a1e422066a178e9c37f7a7053ca050366dbc12c60e3"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/InjectedMessage.cs",
-      "sha256": "222cd251061832f02b61a5591120df2aec95720298e00559921bbd9cc573ee0b"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/InjectedMessageTests.cs",
-      "sha256": "b2ef39615d963b723b2536fea3ca3b0184e2bd2526e3a71c4e34b890a527f7c7"
+      "sha256": "0d6509c92f96137f7d27cc8efa36ae2f1f5fa930c8cd1fd1d1da1dbb00745f09"
     },
     {
       "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "6184a6b4b4acd43845f44beb9cff2964c0a82bfa450cd85bef58fbddbcac8b59"
+      "sha256": "8220d0209acf3a14e614a4903b83ba2013afc1c331170e5064eb04691e5a7abd"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "230789e36072c63e56a00e67a51dde9b6faa22dccbdcc886a9b6c667f90a7257"
     }
   ],
   "checksNotYetRun": [
