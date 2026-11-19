@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "4c15248050972c7f3b9ad16ef63e66aea16c3c2a",
-  "scope": "permission labels",
+  "sourceBase": "d5e11c0c45b0d43e607b0fcf6df34f861b115407",
+  "scope": "labels and model names",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.102.md",
-      "sha256": "aa522c4dccc07a74be51dd48a0ccd75152e1d567dddc07d76997b852c66827af"
+      "sha256": "d16ca5756ff3eabcad6cb0f2ad6f11680da959fb22f3ab8656c43f46c7e2e6ca"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -29,8 +29,20 @@
       "sha256": "0636c6fd31f9d6a13908eac91af7b81867eae532ffcb4d695485ac6a5766782c"
     },
     {
+      "file": "wpf/Reframe.Shell.Core/ModelNames.cs",
+      "sha256": "1792dcaf8427c3a030b9bb470be5ad7105bf10cfe8d521d8a7cd23b07face76b"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/ModelNamesTests.cs",
+      "sha256": "9c909fc05593589589def4e8bd6ff38e505959949b0142b7f90bfbba87acf985"
+    },
+    {
       "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "06639b8d79cf0ec4b3ef43ad0999bc4968310efa4b83d320504e3ed830fc7a48"
+      "sha256": "6ca057daab626c73c44258e62a239c285643bca35d828d8e0d676687e4344ea6"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "6fca221b4a256523fdf9315bc582b211265a27f10acb936007bc8fd4304c7605"
     },
     {
       "file": "wpf/Reframe.Shell/NewSessionDialog.cs",
