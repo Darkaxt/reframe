@@ -155,6 +155,37 @@ sealed class ChatView : Border
         DockPanel.SetDock(composer, Dock.Bottom);
         layout.Children.Add(composer);
         scroll.Content = rows;
+        // A selection in a message gets an "Add to chat" button: the selected text goes into the message box as a quote.
+        var addButton = new Button { Style = S("IconButton"), Width = double.NaN, Content = new TextBlock { Text = "Add to chat", Style = S("Text12"), Margin = new Thickness(10, 0, 10, 0) } };
+        var addPopup = new System.Windows.Controls.Primitives.Popup
+        {
+            StaysOpen = false, AllowsTransparency = true, PlacementTarget = rows, Placement = System.Windows.Controls.Primitives.PlacementMode.Relative,
+            Child = new Border { Background = B("surfaceBrush"), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(2), Child = addButton },
+        };
+        var picked = "";
+        addButton.Click += (_, _) =>
+        {
+            addPopup.IsOpen = false;
+            var quote = string.Join("\n", picked.Trim().Split('\n').Select(l => "> " + l.TrimEnd('\r'))) + "\n";
+            input.Text = (input.Text.Length > 0 && !input.Text.EndsWith('\n') ? input.Text + "\n" : input.Text) + quote;
+            input.Focus();
+            input.CaretIndex = input.Text.Length;
+        };
+        rows.AddHandler(UIElement.MouseLeftButtonUpEvent, new MouseButtonEventHandler((_, e) =>
+        {
+            if (e.OriginalSource is not DependencyObject source) return;
+            for (DependencyObject? at = source; at is not null; at = at is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(at) : LogicalTreeHelper.GetParent(at))
+                if (at is RichTextBox box)
+                {
+                    picked = box.Selection.Text;
+                    if (picked.Trim().Length == 0) return;
+                    var where = e.GetPosition(rows);
+                    addPopup.HorizontalOffset = Math.Max(0, where.X - 40);
+                    addPopup.VerticalOffset = Math.Max(0, where.Y - 38);
+                    addPopup.IsOpen = true;
+                    return;
+                }
+        }), true);
         side.BorderBrush = B("borderBrush");
         side.Background = B("surfaceBrush");
         side.Child = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = sideRows };
@@ -503,7 +534,7 @@ sealed class ChatView : Border
             if (image is not null) inner.Children.Add(image);
         }
         var text = string.Join("\n", user.Text.Split('\n').Where(l => l != "[image]" && !System.Text.RegularExpressions.Regex.IsMatch(l.Trim(), @"^\[Image #\d+\]$"))).Trim();
-        if (text.Length > 0) inner.Children.Add(Text(text, "textBrush"));
+        if (text.Length > 0) inner.Children.Add(Plain(text, "textBrush"));
         var bubble = new Border
         {
             Background = B("surfaceBrush"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 9, 14, 9),
@@ -674,47 +705,43 @@ sealed class ChatView : Border
         return panel;
     }
 
-    /// <summary>The Markdown the answers use (MarkdownLite): headings, lists, fenced code, bold and inline code.</summary>
+    /// <summary>The Markdown the answers use (MarkdownLite): headings, lists, fenced code, bold and inline code. One read-only
+    /// document, so a selection can run across paragraphs (and be added to the message box).</summary>
     static UIElement Markdown(string text, string brush = "textBrush")
     {
-        var stack = new StackPanel();
+        var doc = NewDocument(brush, 14);
         foreach (var block in MarkdownLite.Parse(text))
         {
+            Paragraph paragraph;
             switch (block.Kind)
             {
                 case MdBlockKind.Code:
-                    stack.Children.Add(new Border
+                    paragraph = new Paragraph(new Run(block.Raw))
                     {
-                        Background = B("surfaceBrush"), CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 4, 0, 4),
-                        Child = Text(block.Raw, brush, mono: true),
-                    });
+                        FontFamily = new FontFamily("Consolas"), FontSize = 12, Background = B("surfaceBrush"), Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 4, 0, 4),
+                    };
                     break;
                 case MdBlockKind.Bullet:
-                    var line = new DockPanel { Margin = new Thickness(8, 2, 0, 2) };
-                    var marker = new TextBlock { Text = block.Marker, Style = S("Text13"), Foreground = B("mutedBrush"), Width = 22 };
-                    DockPanel.SetDock(marker, Dock.Left);
-                    line.Children.Add(marker);
-                    line.Children.Add(Inline(block.Spans, 14, FontWeights.Normal, brush));
-                    stack.Children.Add(line);
+                    paragraph = new Paragraph { Margin = new Thickness(30, 2, 0, 2), TextIndent = -22 };
+                    paragraph.Inlines.Add(new Run(block.Marker + " ") { Foreground = B("mutedBrush") });
+                    AddSpans(paragraph, block.Spans);
                     break;
                 case MdBlockKind.Heading:
-                    var heading = Inline(block.Spans, block.Level == 1 ? 17 : block.Level == 2 ? 15 : 14, FontWeights.SemiBold, brush);
-                    heading.Margin = new Thickness(0, 8, 0, 4);
-                    stack.Children.Add(heading);
+                    paragraph = new Paragraph { FontWeight = FontWeights.SemiBold, FontSize = block.Level == 1 ? 17 : block.Level == 2 ? 15 : 14, Margin = new Thickness(0, 8, 0, 4) };
+                    AddSpans(paragraph, block.Spans);
                     break;
                 default:
-                    var paragraph = Inline(block.Spans, 14, FontWeights.Normal, brush);
-                    paragraph.Margin = new Thickness(0, 5, 0, 5);
-                    stack.Children.Add(paragraph);
+                    paragraph = new Paragraph { Margin = new Thickness(0, 5, 0, 5) };
+                    AddSpans(paragraph, block.Spans);
                     break;
             }
+            doc.Blocks.Add(paragraph);
         }
-        return stack;
+        return Selectable(doc);
     }
 
-    static TextBlock Inline(IReadOnlyList<MdSpan> spans, double size, FontWeight weight, string brush = "textBrush")
+    static void AddSpans(Paragraph paragraph, IReadOnlyList<MdSpan> spans)
     {
-        var block = new TextBlock { Style = S("Text13"), Foreground = B(brush), TextWrapping = TextWrapping.Wrap, FontSize = size, FontWeight = weight };
         foreach (var span in spans)
         {
             var run = new Run(span.Text);
@@ -724,9 +751,39 @@ sealed class ChatView : Border
                 run.FontFamily = new FontFamily("Consolas");
                 run.Background = B("surfaceBrush");
             }
-            block.Inlines.Add(run);
+            paragraph.Inlines.Add(run);
         }
-        return block;
+    }
+
+    static FlowDocument NewDocument(string brush, double size) => new()
+    {
+        PagePadding = new Thickness(0), Foreground = B(brush), FontSize = size, FontFamily = new TextBlock { Style = S("Text13") }.FontFamily, Background = Brushes.Transparent,
+    };
+
+    /// <summary>A read-only box around the document: text can be selected and copied. Its mouse wheel goes to the chat's scroll.</summary>
+    static RichTextBox Selectable(FlowDocument doc)
+    {
+        var box = new RichTextBox
+        {
+            Document = doc, IsReadOnly = true, IsReadOnlyCaretVisible = false, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0),
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, IsInactiveSelectionHighlightEnabled = true,
+            FocusVisualStyle = null, Cursor = Cursors.IBeam,
+        };
+        box.PreviewMouseWheel += (_, e) =>
+        {
+            if (e.Handled || box.Parent is not UIElement parent) return;
+            e.Handled = true;
+            parent.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta) { RoutedEvent = UIElement.MouseWheelEvent, Source = box });
+        };
+        return box;
+    }
+
+    /// <summary>A message of plain text (no Markdown), selectable.</summary>
+    static UIElement Plain(string text, string brush)
+    {
+        var doc = NewDocument(brush, 14);
+        doc.Blocks.Add(new Paragraph(new Run(text)) { Margin = new Thickness(0) });
+        return Selectable(doc);
     }
 
     static TextBlock Text(string text, string brush, bool mono = false)
