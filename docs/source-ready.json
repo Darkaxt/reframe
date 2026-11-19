@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "805b1cd0d8ec42d9f76bdb98f6593eaaa9cf505a",
-  "scope": "unknown-model recovery",
+  "sourceBase": "b79dcd2e2c45b0ba01632e969f37f913e147f7a3",
+  "scope": "thread fork",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.94.md",
-      "sha256": "d35e91f8bc91fa9ebbb0326287fa7883943de0d45164249a2c1ad2bedf7a843d"
+      "file": "docs/releases/v0.11.0-claudegpt.95.md",
+      "sha256": "967c6c467c6113d32b87c55636c220452083a1169a1e3fcb648648af76b68203"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,27 @@
     },
     {
       "file": "package.json",
-      "sha256": "69a9bac413ed147f5f07ceb82cfde7adf611ec2850a7eeebcc8ff979f44b7fae"
+      "sha256": "58ee42e9160a7b1cdb651414c11466efc4c50a280574f0b04b0e91d732d97136"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/OpenedThreadCheck.cs",
-      "sha256": "7b0ddf8cc5d9c234ddddec67771aa35aa1a519a00e818256eb263115629910a8"
+      "file": "wpf/Reframe.Shell.Core/TranscriptFork.cs",
+      "sha256": "08c30ccdf0b96f7224365c1ed0f02424b51da96f1642aa159c81c0f9aa113075"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/OpenedThreadCheckTests.cs",
-      "sha256": "fd154e0ec3015eb2ca2c075806be519d795e129989933149869da9c344bb87b0"
+      "file": "wpf/Reframe.Shell.Tests/TranscriptForkTests.cs",
+      "sha256": "30d595d499ff8491d1064d0f5b30db4f1e609c3cca4b3cd56ab46e11c1e5f73d"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.OpenedThreads.cs",
-      "sha256": "6d0606eaead65df05f194c69d5885bd0e96f981bba65643b9b5e4f764f812382"
+      "file": "wpf/Reframe.Shell/ChatView.cs",
+      "sha256": "a28ac03371c820fdf2d63be150d4050c50a1e26b4c2f6dd7beac5eec2f726340"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "90232e5cf6d045eb1657e32576484f3a28451d3d34bbfb3a668f99dfb37aab3a"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Fork.cs",
+      "sha256": "6a705648e98c53e325f21e3833d41482a0a176c0b40dab02d2cf86e9a95874af"
     }
   ],
   "checksNotYetRun": [

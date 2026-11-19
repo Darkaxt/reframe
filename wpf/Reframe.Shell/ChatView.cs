@@ -30,6 +30,7 @@ sealed class ChatView : Border
     readonly Dictionary<string, bool> open = [];
     readonly Func<IReadOnlyList<(string Name, string Detail)>> scheduled;
     readonly Button stopButton;
+    readonly Action<string, bool> fork;
     readonly List<string> history = [];
     int historyAt = -1;
     static readonly string[] Models = ["default", "opus", "sonnet", "haiku"];
@@ -42,9 +43,10 @@ sealed class ChatView : Border
     long offset;
 
     public ChatView(string claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu,
-        Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt)
+        Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt, Action<string, bool> fork)
     {
         this.claudeSessionId = claudeSessionId;
+        this.fork = fork;
         this.scheduled = scheduled;
         Background = B("terminalBrush");
         var input = new TextBox
@@ -369,7 +371,7 @@ sealed class ChatView : Border
                 return inner;
             }, defaultOpen: last && finalText is null));
         }
-        if (finalText is not null) rows.Children.Add(new Border { Margin = new Thickness(0, 8, 16, 8), Child = Markdown(finalText.Text) });
+        if (finalText is not null) rows.Children.Add(new Border { Margin = new Thickness(0, 8, 16, 8), Child = Markdown(finalText.Text), ContextMenu = ForkMenu(finalText.Uuid, false) });
         var edited = new List<string>();
         foreach (var call in CallsOf(rest))
             if (call.Name is "Edit" or "Write" or "MultiEdit" or "NotebookEdit" && !edited.Contains(call.Summary)) edited.Add(call.Summary);
@@ -420,10 +422,21 @@ sealed class ChatView : Border
         Child = Fold("injected:" + user.Uuid, "↩ " + message.Title, () => new Border { Margin = new Thickness(0, 2, 0, 6), Child = Markdown(message.Body, "mutedBrush") }),
     };
 
+    /// <summary>Right-click menu to continue the conversation as a new thread from this message (before it) or this answer (after it).</summary>
+    ContextMenu? ForkMenu(string? uuid, bool before)
+    {
+        if (uuid is null) return null;
+        var item = new MenuItem { Header = before ? "Fork a new thread from before this message" : "Fork a new thread from here" };
+        item.Click += (_, _) => fork(uuid, before);
+        var menu = new ContextMenu();
+        menu.Items.Add(item);
+        return menu;
+    }
+
     UIElement Bubble(UserMessageItem user)
     {
         if (InjectedMessage.Parse(user.Text) is { } injected) return Injected(user, injected);
-        var inner = new StackPanel();
+        var inner = new StackPanel { ContextMenu = ForkMenu(user.Uuid, true) };
         foreach (var data in user.Images.Take(6))
         {
             var image = Picture(data);
