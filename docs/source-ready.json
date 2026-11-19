@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "bb1ab51b9065f3599ce625ae734c063c76eeda27",
+  "sourceBase": "eb0ea0545c036cbd429d0dc9efcf878d8eaf89fb",
   "scope": "chat diff cards",
   "inputHashes": [
     {
@@ -27,6 +27,10 @@
     {
       "file": "wpf/Reframe.Shell.Tests/TranscriptImageTests.cs",
       "sha256": "c929e438f59b558bd54329c671470ed51cdc7393ffe4ce43385866cfa797992f"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ChatView.cs",
+      "sha256": "8ad058760ec411449eacad3d241956151742adf5b004863d52085a2b06b2c023"
     }
   ],
   "checksNotYetRun": [
