@@ -72,7 +72,7 @@ sealed class ChatView : Border
                 historyAt = -1;
                 input.Clear();
                 status.Text = "";
-                pending.Add((text, model.Items.Count(i => i is UserMessageItem u && u.Text.Trim() == text), DateTime.UtcNow));
+                pending.Add((text, this.model.Items.Count(i => i is UserMessageItem u && u.Text.Trim() == text), DateTime.UtcNow));
                 Refresh(true);
                 ShowPending(true);
             }
