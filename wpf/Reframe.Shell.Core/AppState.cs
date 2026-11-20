@@ -204,6 +204,25 @@ public sealed class ProviderDefaults : StateObject
     public List<string>? AddDirs { get; set; }
 }
 
+/// <summary>A named launch preset of one provider's Claude (Settings › Profiles): what New session starts with when it is picked.</summary>
+public sealed class LaunchProfile : StateObject
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Provider { get; set; } = "anthropic";
+    public string? Model { get; set; }
+    public string? Effort { get; set; }
+    public string? PermissionMode { get; set; }
+    public List<string>? AddDirs { get; set; }
+
+    public LaunchProfile Clone()
+    {
+        var copy = new LaunchProfile { Id = Id, Name = Name, Provider = Provider, Model = Model, Effort = Effort, PermissionMode = PermissionMode, AddDirs = AddDirs?.ToList() };
+        foreach (var (key, value) in Extra) copy.Extra[key] = value?.DeepClone();
+        return copy;
+    }
+}
+
 public sealed class ProviderDefaultsSet : StateObject
 {
     public ProviderDefaults? Chatgpt { get; set; }
@@ -229,6 +248,8 @@ public sealed class Preferences : StateObject
     public string? DefaultEffort { get; set; }
     public string? DefaultPermissionMode { get; set; }
     public ProviderDefaultsSet? ProviderDefaults { get; set; }
+    /// <summary>The named launch profiles (Settings › Profiles), all providers; null when there are none.</summary>
+    public List<LaunchProfile>? Profiles { get; set; }
     /// <summary>Quitting leaves a Task Scheduler task that starts reframe when the next scheduled task is due.</summary>
     public bool WakeForTasks { get; set; }
     /// <summary>The session id of the thread that manages the app (it maintains Reframe itself): it may delete any thread, not only

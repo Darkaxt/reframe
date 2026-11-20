@@ -54,6 +54,10 @@ public static partial class NewSession
         return new(provider == "chatgpt" ? preferences.DefaultModel : null, preferences.DefaultEffort, preferences.DefaultPermissionMode, []);
     }
 
+    /// <summary>The launch profiles of <paramref name="provider"/>, in the order they were made.</summary>
+    public static List<LaunchProfile> ProfilesFor(Preferences preferences, string provider) =>
+        (preferences.Profiles ?? []).Where(p => p.Provider == provider).ToList();
+
     /// <summary>parseAddDirs: one folder per line, trimmed, empty lines and repeats dropped.</summary>
     public static List<string> ParseAddDirs(string text) =>
         Regex.Split(text, "\r?\n").Select(l => l.Trim()).Distinct().Where(l => l != "").ToList();

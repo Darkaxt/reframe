@@ -155,6 +155,16 @@ public static class StateJson
             return Done(o, d);
         }
 
+        JsonNode Profile(LaunchProfile l)
+        {
+            var o = new JsonObject { ["id"] = l.Id, ["name"] = l.Name, ["provider"] = l.Provider };
+            Opt(o, "model", l.Model);
+            Opt(o, "effort", l.Effort);
+            Opt(o, "permissionMode", l.PermissionMode);
+            Opt(o, "addDirs", l.AddDirs);
+            return Done(o, l);
+        }
+
         public JsonNode Preferences(Preferences p)
         {
             var o = new JsonObject();
@@ -176,6 +186,7 @@ public static class StateJson
             if (p.WakeForTasks) o["wakeForTasks"] = true;
             Opt(o, "managerThread", p.ManagerThread);
             if (p.CloseEndedAfterHours > 0) o["closeEndedAfterHours"] = p.CloseEndedAfterHours;
+            if (p.Profiles is { Count: > 0 } profiles) o["profiles"] = new JsonArray(profiles.Select(Profile).ToArray());
             if (p.ProviderDefaults is { } set)
             {
                 var d = new JsonObject();

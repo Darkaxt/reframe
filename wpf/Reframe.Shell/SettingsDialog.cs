@@ -41,7 +41,15 @@ sealed class SettingsDialog
 
     readonly SettingsContext context;
     readonly StackPanel content = new();
+    readonly StackPanel nav = new() { Width = 140, Margin = new Thickness(0, 0, 22, 0) };
     readonly ScrollViewer scroll;
+    string tab = "general";
+    string? editing;
+    static readonly (string Key, string Label)[] TabList =
+    [
+        ("general", "inline.tab.general"), ("claude", "inline.tab.claude"), ("profiles", "inline.tab.profiles"),
+        ("advanced", "inline.tab.advanced"), ("threads", "inline.tab.threads"),
+    ];
     public Border Frame { get; }
     public Button CloseButton { get; private set; } = null!;
     public FrameworkElement HiddenSection { get; private set; } = null!;
@@ -52,12 +60,43 @@ sealed class SettingsDialog
     {
         this.context = context;
         model = context.State().Preferences.DefaultModel ?? "";
-        (Frame, scroll) = ModalHost.Frame(460, content);
+        var layout = new Grid();
+        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        layout.ColumnDefinitions.Add(new ColumnDefinition());
+        Grid.SetColumn(content, 1);
+        layout.Children.Add(nav);
+        layout.Children.Add(content);
+        (Frame, scroll) = ModalHost.Frame(740, layout);
         AutomationProperties.SetName(Frame, T("settings.title"));
         Build();
     }
 
     public ScrollViewer Scroll => scroll;
+    public IReadOnlyList<string> Tabs => [.. TabList.Select(t => t.Key)];
+
+    public void ShowTab(string key)
+    {
+        tab = key;
+        editing = null;
+        Build();
+        scroll.ScrollToVerticalOffset(0);
+    }
+
+    Button NavItem(string key, string label)
+    {
+        var selected = tab == key;
+        var button = new Button { Cursor = Cursors.Hand, FocusVisualStyle = null, HorizontalContentAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 0, 2) };
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
+        border.SetValue(Border.PaddingProperty, new Thickness(10, 6, 10, 6));
+        border.SetValue(Border.BackgroundProperty, selected ? B("selectedBrush") : Brushes.Transparent);
+        border.AppendChild(new FrameworkElementFactory(typeof(ContentPresenter)));
+        button.Template = new ControlTemplate(typeof(Button)) { VisualTree = border };
+        button.Content = new TextBlock { Text = label, Style = S("Text13"), Foreground = B(selected ? "textBrush" : "mutedBrush") };
+        AutomationProperties.SetName(button, label);
+        button.Click += (_, _) => ShowTab(key);
+        return button;
+    }
 
     /// <summary>Renders again (after a change, or when the state changed elsewhere), keeping the scroll position.</summary>
     public void Refresh()
@@ -152,11 +191,32 @@ sealed class SettingsDialog
     void Build()
     {
         content.Children.Clear();
+        nav.Children.Clear();
         var state = context.State();
         var p = state.Preferences;
 
-        Add(new TextBlock { Text = T("settings.title"), FontSize = 15, FontWeight = FontWeights.Bold, LineHeight = 21, LineStackingStrategy = LineStackingStrategy.BlockLineHeight });
+        nav.Children.Add(new TextBlock { Text = T("settings.title"), FontSize = 15, FontWeight = FontWeights.Bold, Margin = new Thickness(10, 0, 0, 12) });
+        foreach (var (key, label) in TabList) nav.Children.Add(NavItem(key, T(label)));
+        Add(new TextBlock { Text = T(TabList.First(t => t.Key == tab).Label), FontSize = 15, FontWeight = FontWeights.Bold, LineHeight = 21, LineStackingStrategy = LineStackingStrategy.BlockLineHeight });
 
+        switch (tab)
+        {
+            case "claude": BuildClaude(p); break;
+            case "profiles": BuildProfiles(p); break;
+            case "advanced": BuildAdvanced(p); break;
+            case "threads": BuildThreads(state); break;
+            default: BuildGeneral(p); break;
+        }
+
+        CloseButton = new Button { Style = S("PrimaryButton"), Content = new TextBlock { Text = T("settings.close"), Style = S("Text13") }, HorizontalAlignment = HorizontalAlignment.Right };
+        AutomationProperties.SetName(CloseButton, T("settings.close"));
+        CloseButton.Click += (_, _) => CloseRequested?.Invoke();
+        Add(CloseButton, 20);
+        if (!context.Capture) Application.Current.Dispatcher.BeginInvoke(() => Keyboard.Focus(CloseButton), System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    void BuildGeneral(Preferences p)
+    {
         Add(Row(T("inline.archives"), Button(T("inline.archivesChoose"), ChooseArchiveRoot)));
         var archives = Hint($"{(string.IsNullOrEmpty(p.ArchiveRoot) ? T("inline.archivesDefault") : p.ArchiveRoot)} · {T("inline.archivesHint")}");
         archives.ToolTip = p.ArchiveRoot;
@@ -171,21 +231,15 @@ sealed class SettingsDialog
         Add(Row(T("settings.textSize"), Stepper(p.FontSize)));
         AddHint(T("settings.textSizeHint", ("bigger", "Ctrl+="), ("smaller", "Ctrl+-"), ("normal", "Ctrl+0"), ("ctrl", T("keys.ctrl"))));
 
-        Add(Check(T("settings.snap"), p.SnapToGrid, v => Set(new PreferencesPatch { SnapToGrid = v })));
-        AddHint(T("settings.snapHint"));
-
         Add(Row(T("settings.closeWindow"), Select(T("settings.closeWindow"),
             [("ask", T("settings.closeWindowAsk")), ("end", T("settings.closeWindowEnd")), ("keep", T("settings.closeWindowKeep"))],
             p.CloseWindow, v => Set(new PreferencesPatch { CloseWindow = v }))));
         AddHint(T("settings.closeWindowHint"));
 
-        Add(Check(T("settings.gpu"), p.GpuAcceleration, v => Set(new PreferencesPatch { GpuAcceleration = v })));
-        AddHint(p.GpuAcceleration == context.GpuAccelerated ? T("settings.gpuHint") : T("settings.gpuRestart"));
-
-        Add(Row(T("settings.ptyHost"), Select(T("settings.ptyHost"),
-            [("node", T("settings.ptyHostNode")), ("rust", T("settings.ptyHostRust"))],
-            p.PtyHost, v => Set(new PreferencesPatch { PtyHost = v }))));
-        AddHint(T("settings.ptyHostHint"));
+        Add(Row(T("settings.closeEnded"), Select(T("settings.closeEnded"),
+            [.. PreferencesPatch.CloseEndedChoices.Select(h => (h.ToString(), h == 0 ? T("settings.closeEndedNever") : T("settings.closeEndedHours", ("hours", h.ToString()))))],
+            p.CloseEndedAfterHours.ToString(), v => Set(new PreferencesPatch { CloseEndedAfterHours = int.Parse(v) }))));
+        AddHint(T("settings.closeEndedHint"));
 
         var autostart = context.Autostart;
         Add(Check(T("settings.autostart"), autostart?.Enabled ?? false, v =>
@@ -195,6 +249,15 @@ sealed class SettingsDialog
         }));
         AddHint(T("settings.autostartHint"));
 
+        Add(Check(T("settings.autoUpdate"), p.CheckForUpdates, v => Set(new PreferencesPatch { CheckForUpdates = v })));
+        AddHint(T("settings.autoUpdateHint"));
+
+        Add(Check(T("settings.wakeForTasks"), p.WakeForTasks, v => Set(new PreferencesPatch { WakeForTasks = v })));
+        AddHint(T("settings.wakeForTasksHint"));
+    }
+
+    void BuildClaude(Preferences p)
+    {
         var claudeButtons = new StackPanel { Orientation = Orientation.Horizontal };
         if (!string.IsNullOrEmpty(p.ClaudeBin))
         {
@@ -218,27 +281,197 @@ sealed class SettingsDialog
 
         Add(Check(T("settings.lookInWsl"), p.LookInWsl, v => Set(new PreferencesPatch { LookInWsl = v })));
         AddHint(T("settings.lookInWslHint"));
+    }
 
-        Add(Row(T("settings.closeEnded"), Select(T("settings.closeEnded"),
-            [.. PreferencesPatch.CloseEndedChoices.Select(h => (h.ToString(), h == 0 ? T("settings.closeEndedNever") : T("settings.closeEndedHours", ("hours", h.ToString()))))],
-            p.CloseEndedAfterHours.ToString(), v => Set(new PreferencesPatch { CloseEndedAfterHours = int.Parse(v) }))));
-        AddHint(T("settings.closeEndedHint"));
+    void BuildAdvanced(Preferences p)
+    {
+        Add(Check(T("settings.snap"), p.SnapToGrid, v => Set(new PreferencesPatch { SnapToGrid = v })));
+        AddHint(T("settings.snapHint"));
 
-        Add(Check(T("settings.autoUpdate"), p.CheckForUpdates, v => Set(new PreferencesPatch { CheckForUpdates = v })));
-        AddHint(T("settings.autoUpdateHint"));
+        Add(Check(T("settings.gpu"), p.GpuAcceleration, v => Set(new PreferencesPatch { GpuAcceleration = v })));
+        AddHint(p.GpuAcceleration == context.GpuAccelerated ? T("settings.gpuHint") : T("settings.gpuRestart"));
 
-        Add(Check(T("settings.wakeForTasks"), p.WakeForTasks, v => Set(new PreferencesPatch { WakeForTasks = v })));
-        AddHint(T("settings.wakeForTasksHint"));
+        Add(Row(T("settings.ptyHost"), Select(T("settings.ptyHost"),
+            [("node", T("settings.ptyHostNode")), ("rust", T("settings.ptyHostRust"))],
+            p.PtyHost, v => Set(new PreferencesPatch { PtyHost = v }))));
+        AddHint(T("settings.ptyHostHint"));
+    }
 
+    void BuildThreads(AppState state)
+    {
         HiddenSection = Hidden(state.HiddenThreads);
         Add(HiddenSection);
-        Add(Excluded(state.TakeoverExclusions ?? []));
+        Add(Excluded(state.TakeoverExclusions ?? []), 20);
+    }
 
-        CloseButton = new Button { Style = S("PrimaryButton"), Content = new TextBlock { Text = T("settings.close"), Style = S("Text13") }, HorizontalAlignment = HorizontalAlignment.Right };
-        AutomationProperties.SetName(CloseButton, T("settings.close"));
-        CloseButton.Click += (_, _) => CloseRequested?.Invoke();
-        Add(CloseButton);
-        if (!context.Capture) Application.Current.Dispatcher.BeginInvoke(() => Keyboard.Focus(CloseButton), System.Windows.Threading.DispatcherPriority.Input);
+    // ---------- profiles ----------
+
+    void BuildProfiles(Preferences p)
+    {
+        Add(Hint(T("inline.profiles.hint")), 6);
+        foreach (var provider in new[] { "anthropic", "chatgpt" })
+        {
+            var head = Row(NewSession.ProviderName(provider), Button(T("inline.profiles.new"), () => AddProfile(provider)));
+            ((TextBlock)head.Children[0]).FontWeight = FontWeights.SemiBold;
+            Add(head, 20);
+            var profiles = NewSession.ProfilesFor(p, provider);
+            if (profiles.Count == 0) Add(Hint(T("inline.profiles.none")), 6);
+            foreach (var profile in profiles) Add(ProfileCard(p, profile), 8);
+        }
+    }
+
+    List<LaunchProfile> CurrentProfiles() => (context.State().Preferences.Profiles ?? []).Select(x => x.Clone()).ToList();
+
+    void Update(string id, Action<LaunchProfile> change)
+    {
+        var list = CurrentProfiles();
+        if (list.FirstOrDefault(x => x.Id == id) is not { } target) return;
+        change(target);
+        Set(new PreferencesPatch { Profiles = list });
+    }
+
+    void AddProfile(string provider)
+    {
+        var defaults = NewSession.DefaultsFor(context.State().Preferences, provider);
+        var profile = new LaunchProfile
+        {
+            Id = Guid.NewGuid().ToString("N")[..12], Name = T("inline.profiles.newName"), Provider = provider,
+            Model = defaults.Model, Effort = defaults.Effort, PermissionMode = defaults.PermissionMode, AddDirs = defaults.AddDirs.Count > 0 ? [.. defaults.AddDirs] : null,
+        };
+        var list = CurrentProfiles();
+        list.Add(profile);
+        editing = profile.Id;
+        Set(new PreferencesPatch { Profiles = list });
+    }
+
+    void Duplicate(LaunchProfile profile)
+    {
+        var copy = profile.Clone();
+        copy.Id = Guid.NewGuid().ToString("N")[..12];
+        copy.Name = T("inline.profiles.copy", ("name", profile.Name));
+        var list = CurrentProfiles();
+        list.Insert(list.FindIndex(x => x.Id == profile.Id) + 1, copy);
+        Set(new PreferencesPatch { Profiles = list });
+    }
+
+    void Delete(LaunchProfile profile)
+    {
+        var list = CurrentProfiles();
+        list.RemoveAll(x => x.Id == profile.Id);
+        if (editing == profile.Id) editing = null;
+        // An emptied list is sent as one the cleaner turns into "none".
+        Set(new PreferencesPatch { Profiles = list });
+        if (list.Count == 0) Application.Current.Dispatcher.BeginInvoke(Refresh);
+    }
+
+    static string Summary(LaunchProfile profile)
+    {
+        var parts = new List<string>
+        {
+            profile.Model is { Length: > 0 } m ? ModelNames.Label(m) : T("dialog.default"),
+            profile.Effort ?? T("dialog.effortDefault"),
+            profile.PermissionMode is { } mode ? StateValues.PermissionLabel(mode) : T("dialog.default"),
+        };
+        if (profile.AddDirs is { Count: > 0 } dirs) parts.Add($"+{dirs.Count} folder{(dirs.Count == 1 ? "" : "s")}");
+        return string.Join(" · ", parts);
+    }
+
+    FrameworkElement ProfileCard(Preferences p, LaunchProfile profile)
+    {
+        var d = NewSession.DefaultsFor(p, profile.Provider);
+        var isDefault = d.Model == profile.Model && d.Effort == profile.Effort && d.PermissionMode == profile.PermissionMode
+            && string.Join(';', d.AddDirs) == string.Join(';', profile.AddDirs ?? []);
+        var card = new StackPanel();
+        var title = new StackPanel { Orientation = Orientation.Horizontal };
+        title.Children.Add(new TextBlock { Text = profile.Name, Style = S("Text13"), FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
+        if (isDefault)
+            title.Children.Add(new Border
+            {
+                Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(6, 0, 6, 0), CornerRadius = new CornerRadius(999), BorderThickness = new Thickness(1), BorderBrush = B("accentBrush"),
+                VerticalAlignment = VerticalAlignment.Center, Child = new TextBlock { Text = T("inline.profiles.default"), Style = S("Text12"), Foreground = B("accentBrush") },
+            });
+        card.Children.Add(title);
+        var summary = Hint(Summary(profile));
+        summary.Margin = new Thickness(0, 2, 0, 8);
+        card.Children.Add(summary);
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+        void AddButton(string text, Action click, bool enabled = true)
+        {
+            var button = Button(text, click, enabled, $"{text}: {profile.Name}");
+            button.Margin = new Thickness(0, 0, 6, 0);
+            buttons.Children.Add(button);
+        }
+        var open = editing == profile.Id;
+        AddButton(open ? T("inline.profiles.done") : T("inline.profiles.edit"), () =>
+        {
+            editing = open ? null : profile.Id;
+            Refresh();
+        });
+        AddButton(T("inline.profiles.makeDefault"), () => Set(new PreferencesPatch { MakeDefaultProfile = profile.Id }), !isDefault);
+        AddButton(T("inline.profiles.duplicate"), () => Duplicate(profile));
+        AddButton(T("inline.profiles.delete"), () => Delete(profile));
+        card.Children.Add(buttons);
+
+        if (open) card.Children.Add(ProfileEditor(profile));
+        return new Border
+        {
+            Background = B("bgBrush"), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8), Padding = new Thickness(12, 10, 12, 10), Child = card,
+        };
+    }
+
+    FrameworkElement ProfileEditor(LaunchProfile profile)
+    {
+        var editor = new StackPanel { Margin = new Thickness(0, 12, 0, 0) };
+        TextBox Field(string label, string text, Action<string> commit, bool area = false)
+        {
+            var caption = Hint(label);
+            caption.Margin = new Thickness(0, editor.Children.Count > 0 ? 10 : 0, 0, 4);
+            editor.Children.Add(caption);
+            var box = new TextBox { Style = S("FormInput"), Text = text };
+            if (area)
+            {
+                box.AcceptsReturn = true;
+                box.TextWrapping = TextWrapping.Wrap;
+                box.Height = 2 * 17 + 14;
+                box.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+            }
+            SpellCheck.SetIsEnabled(box, false);
+            AutomationProperties.SetName(box, label);
+            var shown = text;
+            box.LostKeyboardFocus += (_, _) =>
+            {
+                if (box.Text != shown) commit(box.Text);
+            };
+            if (!area)
+                box.KeyDown += (_, e) =>
+                {
+                    if (e.Key != Key.Enter) return;
+                    e.Handled = true;
+                    Keyboard.Focus(CloseButton);
+                };
+            editor.Children.Add(box);
+            return box;
+        }
+        Field(T("inline.profiles.name"), profile.Name, v =>
+        {
+            if (v.Trim().Length > 0) Update(profile.Id, x => x.Name = v);
+        });
+        var model = Field(T("settings.defaultModel"), profile.Model ?? "", v => Update(profile.Id, x => x.Model = v.Trim().Length > 0 ? v.Trim() : null));
+        Suggestions.Attach(model);
+        var effort = Row(T("inline.defaultEffort"), Select(T("inline.defaultEffort"),
+            [("", T("inline.defaultEffortCli")), .. StateValues.EffortLevels.Select(l => (l, l))],
+            profile.Effort ?? "", v => Update(profile.Id, x => x.Effort = v.Length > 0 ? v : null)));
+        effort.Margin = new Thickness(0, 10, 0, 0);
+        editor.Children.Add(effort);
+        var permission = Row(T("settings.defaultPermissionMode"), Select(T("settings.defaultPermissionMode"),
+            [("", T("dialog.default")), .. StateValues.PermissionModes.Select(m => (m, StateValues.PermissionLabel(m)))],
+            profile.PermissionMode ?? "", v => Update(profile.Id, x => x.PermissionMode = v.Length > 0 ? v : null)));
+        permission.Margin = new Thickness(0, 10, 0, 0);
+        editor.Children.Add(permission);
+        Field(T("inline.profiles.addDirs"), string.Join("\n", profile.AddDirs ?? []),
+            v => Update(profile.Id, x => x.AddDirs = NewSession.ParseAddDirs(v)), area: true);
+        return editor;
     }
 
     /// <summary>.setting-stepper: −, the size, +, Normal (6 apart; the buttons at least 30 wide).</summary>
