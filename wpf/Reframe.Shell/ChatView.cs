@@ -54,7 +54,7 @@ sealed class ChatView : Border
             Background = Brushes.Transparent, Foreground = B("textBrush"), BorderThickness = new Thickness(0), CaretBrush = B("textBrush"),
             Padding = new Thickness(4, 6, 4, 4), FontSize = 14,
         };
-        var placeholder = new TextBlock { Text = "Message this session", Foreground = B("mutedBrush"), FontSize = 14, IsHitTestVisible = false, Margin = new Thickness(8, 8, 0, 0) };
+        var placeholder = new TextBlock { Text = "Message this session  ·  Enter sends, Shift+Enter adds a line", Foreground = B("mutedBrush"), FontSize = 14, IsHitTestVisible = false, Margin = new Thickness(8, 8, 0, 0) };
         input.TextChanged += (_, _) => placeholder.Visibility = input.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         var status = new TextBlock { Style = S("Text12"), Foreground = B("mutedBrush"), VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         async Task Send()
@@ -105,7 +105,7 @@ sealed class ChatView : Border
             e.Handled = true;
             _ = Send();
         };
-        var plus = Chip("+", "Add files: their paths are put in the message");
+        var plus = IconChip("\uE710", "Add files: their paths are put in the message");
         plus.Click += (_, _) =>
         {
             var dialog = new Microsoft.Win32.OpenFileDialog { Multiselect = true, Title = "Add files to the message" };
@@ -114,32 +114,40 @@ sealed class ChatView : Border
             input.CaretIndex = input.SelectionStart + input.SelectionLength;
             input.Focus();
         };
-        var mode = Chip(StateValues.PermissionLabel(permission()), "Permission mode (applies when the session starts next)");
+        var mode = Chip(StateValues.PermissionLabel(permission()) + " " + Chevron, "Permission mode (applies when the session starts next)");
         mode.Click += (_, _) => permissionMenu(mode);
-        var modelChip = Chip(ModelNames.Label(model()), "Model of this session: types /model into it");
+        var modelChip = Chip(ModelNames.Label(model()) + " " + Chevron, "Model of this session: types /model into it");
         modelChip.Click += (_, _) =>
         {
             var menu = ShellMenus.Build(ModelNames.Choices(provider()).Select(m => new MenuSpec("normal", ModelNames.Label(m), Action: "model:" + m)), _ => true, action =>
             {
                 var chosen = action["model:".Length..];
-                ((TextBlock)modelChip.Content).Text = ModelNames.Label(chosen);
+                ((TextBlock)modelChip.Content).Text = ModelNames.Label(chosen) + " " + Chevron;
                 _ = send("/model " + chosen);
             });
             menu.PlacementTarget = modelChip;
             menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
             menu.IsOpen = true;
         };
-        stopButton = Chip("■ Stop", "Interrupt the model (Esc in the terminal)");
+        stopButton = Round("\uE71A", "Interrupt the model (Esc in the terminal)", false);
         stopButton.Visibility = Visibility.Collapsed;
         stopButton.Click += (_, _) => interrupt();
-        var bar = new DockPanel { Margin = new Thickness(0, 2, 0, 0) };
+        var sendButton = Round("\uE74A", "Send (Enter)", true);
+        sendButton.Click += (_, _) => _ = Send();
+        stopButton.IsVisibleChanged += (_, _) => sendButton.Visibility = stopButton.IsVisible ? Visibility.Collapsed : Visibility.Visible;
+        void Armed() => sendButton.Opacity = input.Text.Trim().Length > 0 ? 1 : 0.35;
+        input.TextChanged += (_, _) => Armed();
+        Armed();
+        var bar = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
         DockPanel.SetDock(plus, Dock.Left);
         DockPanel.SetDock(mode, Dock.Left);
         DockPanel.SetDock(modelChip, Dock.Right);
         DockPanel.SetDock(stopButton, Dock.Right);
+        DockPanel.SetDock(sendButton, Dock.Right);
         bar.Children.Add(plus);
         bar.Children.Add(mode);
         bar.Children.Add(modelChip);
+        bar.Children.Add(sendButton);
         bar.Children.Add(stopButton);
         bar.Children.Add(status);
         var stack = new StackPanel();
@@ -148,7 +156,13 @@ sealed class ChatView : Border
         var composer = new Border
         {
             Background = B("surfaceBrush"), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(16, 4, 16, 14), MaxWidth = 860, Child = stack,
+            Padding = new Thickness(14, 8, 10, 8), Margin = new Thickness(16, 4, 28, 14), MaxWidth = 860, Child = stack,
+        };
+        input.GotKeyboardFocus += (_, _) => composer.BorderBrush = B("border-strongBrush");
+        input.LostKeyboardFocus += (_, _) => composer.BorderBrush = B("borderBrush");
+        composer.MouseLeftButtonDown += (_, e) =>
+        {
+            if (e.OriginalSource is not TextBox && !input.IsKeyboardFocused) input.Focus();
         };
         var layout = new DockPanel();
         DockPanel.SetDock(composer, Dock.Bottom);
@@ -253,9 +267,9 @@ sealed class ChatView : Border
         {
             if (IsVisible)
             {
-                ((TextBlock)mode.Content).Text = StateValues.PermissionLabel(permission());
+                ((TextBlock)mode.Content).Text = StateValues.PermissionLabel(permission()) + " " + Chevron;
                 titleText.Text = title();
-                ((TextBlock)modelChip.Content).Text = ModelNames.Label(model());
+                ((TextBlock)modelChip.Content).Text = ModelNames.Label(model()) + " " + Chevron;
                 side.Visibility = sideOpen ? Visibility.Visible : Visibility.Collapsed;
                 Refresh(false);
                 RefreshSide();
@@ -264,6 +278,30 @@ sealed class ChatView : Border
             else timer.Stop();
         };
     }
+
+    const string Chevron = "\u2304";
+
+    /// <summary>A button with only an icon (the "+").</summary>
+    static Button IconChip(string glyph, string tip) => new()
+    {
+        Style = S("IconButton"), Width = 30, Height = 30, ToolTip = tip, Margin = new Thickness(0, 0, 4, 0),
+        Content = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 14, Foreground = B("mutedBrush") },
+    };
+
+    /// <summary>The round send button (accent) and stop button (outlined), as in Codex.</summary>
+    static Button Round(string glyph, string tip, bool accent) => new()
+    {
+        Style = S("IconButton"), Width = 32, Height = 32, ToolTip = tip, Margin = new Thickness(6, 0, 0, 0),
+        Content = new Border
+        {
+            Width = 28, Height = 28, CornerRadius = new CornerRadius(14), Background = accent ? B("accentBrush") : B("surface-2Brush"),
+            Child = new TextBlock
+            {
+                Text = glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 13, Foreground = accent ? B("accent-textBrush") : B("textBrush"),
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            },
+        },
+    };
 
     static Button Chip(string text, string tip) => new()
     {
