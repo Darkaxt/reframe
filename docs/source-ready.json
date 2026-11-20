@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "b6e57291c07bfb7514dbc2b306a54cad3c279535",
-  "scope": "Chat input",
+  "sourceBase": "c7d149c9f443df762bc174560fb5a3663ac8b977",
+  "scope": "Chat pending message",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.104.md",
-      "sha256": "7f4905702de8052f6d4e7e1b185e668302181b99b5d89a4cc324524876b6984e"
+      "file": "docs/releases/v0.11.0-claudegpt.105.md",
+      "sha256": "20206cde2431d402b44f6bfa72a9dc8360af1087d5ae77aa99378895d3dd92d9"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,11 +18,11 @@
     },
     {
       "file": "package.json",
-      "sha256": "77d60236bb2c8585318c0468fe0b062da92683b45945aa4561102d19bd408a22"
+      "sha256": "1430c820d53b1310f04e2c7deefd407121bdc8454645135d1a4d5dfe535544de"
     },
     {
       "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "1e1e5646e6320fb85a4d0ba667f6812b0c6e3a4d076af71efe87c26c5da63b0a"
+      "sha256": "3c1b03a0cf650b3012c5d33b6ef9dfba664bcf90e191ad07ff80f0fbd96ceedf"
     }
   ],
   "checksNotYetRun": [
