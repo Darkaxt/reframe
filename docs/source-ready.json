@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "550ffbc1e492a52154ec249ff38a3c5ad6e3e461",
+  "sourceBase": "c7d149c9f443df762bc174560fb5a3663ac8b977",
   "scope": "Chat pending message",
   "inputHashes": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "42a3bc4bd722ba9a5abf158944d2f57ecbbe2d021e59cb68f71d1529456a59c0"
+      "sha256": "3c1b03a0cf650b3012c5d33b6ef9dfba664bcf90e191ad07ff80f0fbd96ceedf"
     }
   ],
   "checksNotYetRun": [
