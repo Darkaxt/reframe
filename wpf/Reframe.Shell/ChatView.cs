@@ -38,6 +38,9 @@ sealed class ChatView : Border
     readonly HashSet<string> sideAll = [];
     static bool sideOpen;
     string sideSignature = "";
+    // Messages sent from the box that the transcript has not shown yet: drawn dimmed at the end, "Waiting for the session…", until it does.
+    readonly List<(string Text, int Baseline, DateTime At)> pending = [];
+    UIElement? pendingView;
     string? path;
     long offset;
 
@@ -69,7 +72,9 @@ sealed class ChatView : Border
                 historyAt = -1;
                 input.Clear();
                 status.Text = "";
+                pending.Add((text, model.Items.Count(i => i is UserMessageItem u && u.Text.Trim() == text), DateTime.UtcNow));
                 Refresh(true);
+                ShowPending(true);
             }
             else status.Text = "Not sent: the session is not running";
             input.Focus();
@@ -356,7 +361,36 @@ sealed class ChatView : Border
             turns[^1].Add(item);
         }
         for (var n = 0; n < turns.Count; n++) AddTurn(turns[n], n == turns.Count - 1);
+        pendingView = null;
+        ShowPending(false);
         if (atEnd) scroll.ScrollToEnd();
+    }
+
+    void ShowPending(bool toEnd)
+    {
+        if (pendingView is not null) rows.Children.Remove(pendingView);
+        pendingView = null;
+        pending.RemoveAll(m => DateTime.UtcNow - m.At > TimeSpan.FromMinutes(2)
+            || model.Items.Count(i => i is UserMessageItem u && u.Text.Trim() == m.Text) > m.Baseline);
+        if (pending.Count == 0) return;
+        var view = new StackPanel();
+        foreach (var message in pending)
+        {
+            var column = new StackPanel { Margin = new Thickness(60, 12, 16, 8), Opacity = 0.6 };
+            column.Children.Add(new Border
+            {
+                Background = B("surfaceBrush"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 9, 14, 9), HorizontalAlignment = HorizontalAlignment.Right,
+                Child = Plain(message.Text, "textBrush"),
+            });
+            column.Children.Add(new TextBlock
+            {
+                Text = "Waiting for the session…", Style = S("Text12"), Foreground = B("mutedBrush"), HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 4, 0),
+            });
+            view.Children.Add(column);
+        }
+        pendingView = view;
+        rows.Children.Add(view);
+        if (toEnd) scroll.ScrollToEnd();
     }
 
     /// <summary>The clipboard's image saved as a file (the way a pasted image reaches the terminal), or null.</summary>
