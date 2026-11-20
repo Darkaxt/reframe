@@ -32,7 +32,8 @@ sealed class NewSessionDialog
     /// <summary>Creates the session; the task's result is the error (and the WSL distribution without claude), or none.</summary>
     public Func<NewSessionRequest, Task<(string? Error, string? Distro)>>? Create { get; set; }
 
-    readonly ComboBox providerBox, effortBox, permissionBox;
+    readonly ComboBox providerBox, effortBox, permissionBox, profileBox;
+    readonly FrameworkElement profileField;
     readonly TextBox nameBox, promptBox, worktreeNameBox, modelBox, addDirsBox;
     readonly CheckBox worktreeBox;
     readonly FrameworkElement worktreeField, advancedBody;
@@ -122,6 +123,10 @@ sealed class NewSessionDialog
         note.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
         note.Margin = new Thickness(0, 0, 0, 14);
         Add(note);
+
+        profileBox = Select([("", T("inline.profiles.lastUsed"))]);
+        profileField = Field(T("inline.profiles.pick"), profileBox);
+        Add(profileField);
 
         effortBox = Select(new[] { ("", T("dialog.effortDefault")) }.Concat(NewSession.EffortLevels.Select(l => (l, l))));
         effortBox.SelectionChanged += (_, _) =>
@@ -227,6 +232,7 @@ sealed class NewSessionDialog
 
         providerBox.SelectionChanged += (_, _) => PickProvider(Selected(providerBox));
         ApplyDefaults();
+        ShowProfiles();
         ShowNote();
         ShowRecent();
 
@@ -252,6 +258,37 @@ sealed class NewSessionDialog
         addDirsBox.Text = string.Join("\n", remembered.AddDirs);
     }
 
+    /// <summary>The provider's profiles in the select (hidden when it has none); "Last used" is what ApplyDefaults gives.</summary>
+    void ShowProfiles()
+    {
+        var profiles = NewSession.ProfilesFor(preferences, provider);
+        profileBox.SelectionChanged -= OnProfileChanged;
+        profileBox.Items.Clear();
+        profileBox.Items.Add(new ComboBoxItem { Content = T("inline.profiles.lastUsed"), Tag = "" });
+        foreach (var profile in profiles) profileBox.Items.Add(new ComboBoxItem { Content = profile.Name, Tag = profile.Id });
+        profileBox.SelectedIndex = 0;
+        profileBox.SelectionChanged += OnProfileChanged;
+        profileField.Visibility = profiles.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    void OnProfileChanged(object sender, SelectionChangedEventArgs e) => ApplyProfile();
+
+    /// <summary>A picked profile fills model, effort, permission mode and folders; "Last used" restores the remembered ones.</summary>
+    void ApplyProfile()
+    {
+        if (NewSession.ProfilesFor(preferences, provider).FirstOrDefault(x => x.Id == Selected(profileBox)) is not { } profile)
+        {
+            ApplyDefaults();
+            return;
+        }
+        modelBox.Text = profile.Model ?? "";
+        settingEffort = true;
+        Pick(effortBox, profile.Effort);
+        settingEffort = false;
+        Pick(permissionBox, profile.PermissionMode);
+        addDirsBox.Text = string.Join("\n", profile.AddDirs ?? []);
+    }
+
     void PickProvider(string next)
     {
         if (next == provider || next == "") return;
@@ -262,6 +299,7 @@ sealed class NewSessionDialog
         Folder.Text = location is { Length: > 0 } ? location
             : Workspaces.RebaseFolder(Folder.Text, roots.GetValueOrDefault(previous) ?? "", roots.GetValueOrDefault(next) ?? "");
         ApplyDefaults();
+        ShowProfiles();
         ShowNote();
         ShowRecent();
     }

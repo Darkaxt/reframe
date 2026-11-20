@@ -340,6 +340,23 @@ public static class StateParser
         return d;
     }
 
+    static LaunchProfile ReadProfile(JsonElement element, string path)
+    {
+        var o = new Obj(element, path);
+        var profile = new LaunchProfile
+        {
+            Id = o.Str("id"),
+            Name = o.Str("name"),
+            Provider = o.Enum("provider", StateValues.Providers),
+            Model = o.OptStr("model"),
+            Effort = o.OptEnum("effort", StateValues.EffortLevels),
+            PermissionMode = o.OptEnum("permissionMode", StateValues.PermissionModes),
+            AddDirs = o.OptStrings("addDirs"),
+        };
+        o.KeepExtra(profile);
+        return profile;
+    }
+
     static Preferences ReadPreferences(JsonElement element, string path)
     {
         var o = new Obj(element, path);
@@ -371,6 +388,7 @@ public static class StateParser
         p.DefaultModel = o.OptStr("defaultModel");
         p.DefaultEffort = o.OptEnum("defaultEffort", StateValues.EffortLevels);
         p.DefaultPermissionMode = o.OptEnum("defaultPermissionMode", StateValues.PermissionModes);
+        p.Profiles = o.OptArray("profiles", ReadProfile);
         if (o.Get("providerDefaults") is { } pd)
         {
             var po = new Obj(pd, o.At("providerDefaults"));

@@ -26,6 +26,10 @@ public sealed record PreferencesPatch
     public string? DefaultModel { get; init; }
     public string? DefaultEffort { get; init; }
     public string? DefaultPermissionMode { get; init; }
+    /// <summary>The whole list of launch profiles (replaces the stored one; invalid entries are dropped).</summary>
+    public IReadOnlyList<LaunchProfile>? Profiles { get; init; }
+    /// <summary>The id of a profile whose choices become its provider's defaults.</summary>
+    public string? MakeDefaultProfile { get; init; }
 }
 
 /// <summary>
@@ -90,12 +94,50 @@ public static class Settings
         else if (patch.DefaultEffort is { } effort && StateValues.EffortLevels.Contains(effort)) p.DefaultEffort = effort;
         if (patch.DefaultPermissionMode == "") p.DefaultPermissionMode = null;
         else if (patch.DefaultPermissionMode is { } mode && StateValues.PermissionModes.Contains(mode)) p.DefaultPermissionMode = mode;
+        if (patch.Profiles is { } profiles) p.Profiles = CleanProfiles(profiles);
+        if (patch.MakeDefaultProfile is { } defaultId && p.Profiles?.FirstOrDefault(x => x.Id == defaultId) is { } chosen)
+        {
+            var set = p.ProviderDefaults ??= new ProviderDefaultsSet();
+            var defaults = new ProviderDefaults { Model = chosen.Model, Effort = chosen.Effort, PermissionMode = chosen.PermissionMode, AddDirs = chosen.AddDirs?.ToList() };
+            if (chosen.Provider == "anthropic") set.Anthropic = defaults;
+            else set.Chatgpt = defaults;
+        }
         return Snapshot(p) != before;
     }
 
+    public const int MaxProfiles = 40;
+
+    /// <summary>The profiles that pass: a known provider, a name (at most 60 characters), valid effort and permission mode, a fresh id when
+    /// one is missing or repeated; null when none is left.</summary>
+    public static List<LaunchProfile>? CleanProfiles(IEnumerable<LaunchProfile> profiles)
+    {
+        var result = new List<LaunchProfile>();
+        foreach (var raw in profiles)
+        {
+            if (result.Count >= MaxProfiles) break;
+            var name = Clip(raw.Name.Trim(), 60);
+            if (name.Length == 0 || !StateValues.Providers.Contains(raw.Provider)) continue;
+            var profile = raw.Clone();
+            profile.Name = name;
+            profile.Id = profile.Id.Length > 0 && result.All(x => x.Id != profile.Id) ? profile.Id : Guid.NewGuid().ToString("N")[..12];
+            profile.Model = profile.Model is { } m && Clip(m.Trim(), 100) is { Length: > 0 } model ? model : null;
+            profile.Effort = profile.Effort is { } e && StateValues.EffortLevels.Contains(e) ? e : null;
+            profile.PermissionMode = profile.PermissionMode is { } pm && StateValues.PermissionModes.Contains(pm) ? pm : null;
+            profile.AddDirs = NewSession.CleanAddDirs(profile.AddDirs);
+            result.Add(profile);
+        }
+        return result.Count > 0 ? result : null;
+    }
+
+    static string ProfilesText(Preferences p) => string.Join('\u0002', (p.Profiles ?? []).Select(x =>
+        string.Join('\u0001', x.Id, x.Name, x.Provider, x.Model, x.Effort, x.PermissionMode, string.Join(';', x.AddDirs ?? []))));
+
+    static string DefaultsText(ProviderDefaults? d) => d is null ? "" : string.Join('\u0001', d.Model, d.Effort, d.PermissionMode, string.Join(';', d.AddDirs ?? []));
+
     static string Snapshot(Preferences p) => string.Join('\u0001', p.ArchiveRoot, p.NameFromFolder, p.Language, p.FontSize, p.SidebarWidth,
         p.SnapToGrid, p.CheckForUpdates, p.LookInWsl, p.GpuAcceleration, p.PtyHost, p.CloseWindow, p.ClaudeBin, p.DefaultModel,
-        p.DefaultEffort, p.DefaultPermissionMode, p.WakeForTasks, p.CloseEndedAfterHours);
+        p.DefaultEffort, p.DefaultPermissionMode, p.WakeForTasks, p.CloseEndedAfterHours, ProfilesText(p),
+        DefaultsText(p.ProviderDefaults?.Anthropic), DefaultsText(p.ProviderDefaults?.Chatgpt));
 
     /// <summary>The claude sessions would run, as Settings shows it (findClaude's source, resolve.ts): the chosen one
     /// while it is there (null when it is not any more), else the first <c>claude</c> with a PATHEXT extension on the PATH.</summary>

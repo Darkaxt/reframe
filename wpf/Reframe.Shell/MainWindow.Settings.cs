@@ -201,12 +201,17 @@ public partial class MainWindow
         if (settingsDialog is { } dialog)
         {
             var scroll = dialog.Scroll;
-            var pages = Math.Max(1, (int)Math.Ceiling(scroll.ExtentHeight / Math.Max(1, scroll.ViewportHeight)));
-            for (var i = 0; i < pages; i++)
+            foreach (var tab in dialog.Tabs)
             {
-                scroll.ScrollToVerticalOffset(Math.Min(i * scroll.ViewportHeight, scroll.ScrollableHeight));
+                dialog.ShowTab(tab);
                 await DiagCapture.SettleAsync(Dispatcher, 300);
-                DiagCapture.Save(popup, root, dir, $"settings-{i + 1}", modal?.Overlay);
+                var pages = Math.Max(1, (int)Math.Ceiling(scroll.ExtentHeight / Math.Max(1, scroll.ViewportHeight)));
+                for (var i = 0; i < pages; i++)
+                {
+                    scroll.ScrollToVerticalOffset(Math.Min(i * scroll.ViewportHeight, scroll.ScrollableHeight));
+                    await DiagCapture.SettleAsync(Dispatcher, 300);
+                    DiagCapture.Save(popup, root, dir, tab == "general" ? $"settings-{i + 1}" : $"settings-{tab}-{i + 1}", modal?.Overlay);
+                }
             }
         }
         CloseModal();
@@ -218,6 +223,7 @@ public partial class MainWindow
         OpenSettings();
         await DiagCapture.SettleAsync(Dispatcher, 500);
         if (settingsDialog is not { } dialog) return;
+        dialog.ShowTab("threads");
         dialog.Scroll.ScrollToEnd();
         await DiagCapture.SettleAsync(Dispatcher, 300);
         DiagCapture.Save(popup, root, dir, "hidden-threads", modal?.Overlay);
