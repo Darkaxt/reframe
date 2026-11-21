@@ -36,6 +36,43 @@ public static class TranscriptReader
         }
     }
 
+    /// <summary>The complete lines between <paramref name="from"/> and <paramref name="to"/> (an offset a read returned): a line
+    /// cut by <paramref name="from"/> is left out. For the Chat view's earlier part, loaded when asked for.</summary>
+    public static IReadOnlyList<string> ReadRange(string path, long from, long to)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        from = Math.Max(0, from);
+        to = Math.Min(to, stream.Length);
+        if (to <= from) return [];
+        // From the byte before: a line that starts exactly at from is whole.
+        var lead = from > 0 ? 1 : 0;
+        stream.Seek(from - lead, SeekOrigin.Begin);
+        var buffer = new byte[to - from + lead];
+        var total = 0;
+        while (total < buffer.Length)
+        {
+            var n = stream.Read(buffer, total, buffer.Length - total);
+            if (n <= 0) break;
+            total += n;
+        }
+        var start = lead == 0 || buffer[0] == (byte)'\n' ? lead : Array.IndexOf(buffer, (byte)'\n', 0, total) + 1;
+        if (start <= 0 && lead > 0) return [];
+        var lines = new List<string>();
+        for (int i = start; i < total; i++)
+        {
+            if (buffer[i] != (byte)'\n') continue;
+            int end = i;
+            if (end > start && buffer[end - 1] == (byte)'\r') end--;
+            if (end > start)
+            {
+                var text = Encoding.UTF8.GetString(buffer, start, end - start);
+                if (!string.IsNullOrWhiteSpace(text)) lines.Add(text);
+            }
+            start = i + 1;
+        }
+        return lines;
+    }
+
     /// <summary>Reads from a seekable stream.</summary>
     public static TranscriptRead Read(Stream stream, long offset)
     {
