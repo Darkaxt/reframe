@@ -11,7 +11,7 @@ using Reframe.Shell.Core;
 namespace Reframe.Shell;
 
 /// <summary>The chat view of a thread, laid out as Codex lays out a thread: your messages as bubbles on the right, each turn's
-/// work folded under "Worked for …" with the final answer open, steps as muted one-line rows that open to the command and its
+/// work folded under "Worked for …" (the newest turn's left open) with the final answer open, steps as muted one-line rows that open to the command and its
 /// output, markdown in the answers, a card of the files edited, and a rounded message box with a + button and the permission
 /// mode. It reads the transcript file the CLI writes; the message box types into the running session. Rebuilt when the
 /// transcript grew, at most once a second while shown.</summary>
@@ -723,7 +723,12 @@ sealed class ChatView : Border
         var finalText = rest.OfType<AssistantTextItem>().LastOrDefault();
         List<ChatItem> work = [.. rest.Where(i => !ReferenceEquals(i, finalText))];
         var turnKey = turn[0].Uuid ?? turn[0].Timestamp ?? "";
-        if (work.Count > 0)
+        // The newest turn shows its steps as they are; older turns fold them under "Worked for …".
+        if (work.Count > 0 && last)
+        {
+            foreach (var item in work) target.Children.Add(Row(item));
+        }
+        else if (work.Count > 0)
         {
             List<ChatItem> timed = [.. work];
             if (finalText is not null) timed.Add(finalText);
@@ -732,7 +737,7 @@ sealed class ChatView : Border
                 var inner = new StackPanel();
                 foreach (var item in work) inner.Children.Add(Row(item));
                 return inner;
-            }, defaultOpen: last && finalText is null));
+            }));
         }
         if (finalText is not null) target.Children.Add(new Border { Margin = new Thickness(0, 8, 16, 8), Child = new StackPanel { Children = { Markdown(finalText.Text), MetaRow(null, finalText.Text, HorizontalAlignment.Left) } }, ContextMenu = ForkMenu(finalText.Uuid, false) });
         var edited = new List<string>();
