@@ -4,7 +4,8 @@ namespace Reframe.Shell.Core;
 /// the model its transcript last used and keeps it in the thread's record, where the next start takes it from.</summary>
 public static class ModelSync
 {
-    static readonly string[] Families = ["opus", "sonnet", "haiku"];
+    // Gemini's families stand for agy's ids with an effort (gemini-4-neon for gemini-4-neon-high).
+    static readonly string[] Families = ["opus", "sonnet", "haiku", .. ModelNames.Gemini];
 
     /// <summary>The model to store when a session ran <paramref name="seen"/> while its record says <paramref name="stored"/>; null
     /// when they are the same model (an alias such as "opus" stands for any version of it, and a "[1m]" suffix is ignored) or

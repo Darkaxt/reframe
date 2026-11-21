@@ -471,7 +471,8 @@ public partial class MainWindow
                         {
                             setChat?.Invoke(false);
                             if (FindHost(control) is { } host) FocusTerminal(host);
-                        })
+                        },
+                        () => state.Sessions.GetValueOrDefault(sessionId)?.Launch.Effort)
                     { Visibility = Visibility.Collapsed };
                     content.Children.Add(chat);
                 }

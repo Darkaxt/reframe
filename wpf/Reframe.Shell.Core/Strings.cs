@@ -147,7 +147,7 @@ public static class Strings
         ["tile.error.olderHost"] = "This session still runs in the terminal host of an earlier Reframe version. Take it over to continue it here.",
         ["error.claudeOnlyInWsl"] = @"Installed it only in WSL? Choose a folder in WSL (\\wsl.localhost\…), and it runs there.",
         ["error.claudeNotFoundInWsl"] = "Claude Code was not found in {distro} (WSL). Install it there: claude.com/claude-code",
-        ["dialog.title"] = "New Claude Code session",
+        ["dialog.title"] = "New session",
         ["dialog.provider"] = "Model provider",
         ["dialog.providerNote.anthropic"] = "Uses your Claude subscription. Sign in with /login in this chat if asked.",
         ["dialog.providerNote.chatgpt"] = "Uses your existing ClaudeGPT proxy, model and effort.",

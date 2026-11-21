@@ -14,7 +14,7 @@ sealed record NewSessionPreset(string Cwd, string Provider, IReadOnlyList<Folder
 
 /// <summary>
 /// NewSessionDialog.tsx: provider (with its note), effort, folder (Browse…, the recent folders as chips), name, first
-/// message, worktree and, folded under Advanced, model, permission mode and additional folders. Each provider starts
+/// message, worktree and, folded under Advanced, permission mode and additional folders; the model is picked beside the effort. Each provider starts
 /// with what was used for it last (defaultsFor); an effort picked here stays across providers. Start (or Ctrl+Enter in
 /// the first message) asks <see cref="Create"/>; its error is shown above the buttons. Shown in a
 /// <see cref="ModalHost"/> (.modal, 520 px).
@@ -32,9 +32,9 @@ sealed class NewSessionDialog
     /// <summary>Creates the session; the task's result is the error (and the WSL distribution without claude), or none.</summary>
     public Func<NewSessionRequest, Task<(string? Error, string? Distro)>>? Create { get; set; }
 
-    readonly ComboBox providerBox, effortBox, permissionBox, profileBox;
+    readonly ComboBox providerBox, modelBox, effortBox, permissionBox, profileBox;
     readonly FrameworkElement profileField;
-    readonly TextBox nameBox, promptBox, worktreeNameBox, modelBox, addDirsBox;
+    readonly TextBox nameBox, promptBox, worktreeNameBox, addDirsBox;
     readonly CheckBox worktreeBox;
     readonly FrameworkElement worktreeField, advancedBody;
     readonly TextBlock note, error;
@@ -128,12 +128,24 @@ sealed class NewSessionDialog
         profileField = Field(T("inline.profiles.pick"), profileBox);
         Add(profileField);
 
+        // Model and effort side by side: the provider's models by name (a model set elsewhere is listed too).
+        modelBox = Select([("", T("dialog.modelPlaceholder"))]);
         effortBox = Select(new[] { ("", T("dialog.effortDefault")) }.Concat(NewSession.EffortLevels.Select(l => (l, l))));
         effortBox.SelectionChanged += (_, _) =>
         {
             if (!settingEffort) effortPicked = true;
         };
-        Add(Field(T("dialog.effort"), effortBox));
+        var pair = new Grid();
+        pair.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star) });
+        pair.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        pair.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
+        var modelField = Field(T("dialog.model"), modelBox);
+        var effortField = Field(T("dialog.effort"), effortBox);
+        Grid.SetColumn(effortField, 2);
+        pair.Children.Add(modelField);
+        pair.Children.Add(effortField);
+        AutomationProperties.SetName(modelBox, T("dialog.model"));
+        Add(pair);
 
         Folder = Input(T("dialog.folderPlaceholder"));
         Folder.Text = preset?.Cwd ?? "";
@@ -183,15 +195,10 @@ sealed class NewSessionDialog
         worktreeBox.Unchecked += (_, _) => worktreeField.Visibility = Visibility.Collapsed;
 
         // details.advanced: the summary (12 px, muted, the disclosure triangle), folded.
-        modelBox = Input(T("dialog.modelPlaceholder"));
-        Suggestions.Attach(modelBox);
         permissionBox = Select(new[] { ("", T("dialog.default")) }.Concat(NewSession.PermissionModes.Select(m => (m, StateValues.PermissionLabel(m)))));
         addDirsBox = Area(T("dialog.addDirsPlaceholder"), 2);
         var body = new StackPanel { Margin = new Thickness(0, 10, 0, 0), Visibility = Visibility.Collapsed };
-        body.Children.Add(Field(T("dialog.model"), modelBox));
-        var permission = Field(T("dialog.permissionMode"), permissionBox);
-        permission.Margin = new Thickness(0, 10, 0, 0);
-        body.Children.Add(permission);
+        body.Children.Add(Field(T("dialog.permissionMode"), permissionBox));
         var dirs = Field(T("dialog.addDirs"), addDirsBox);
         dirs.Margin = new Thickness(0, 10, 0, 0);
         body.Children.Add(dirs);
@@ -247,7 +254,7 @@ sealed class NewSessionDialog
     void ApplyDefaults()
     {
         var remembered = NewSession.DefaultsFor(preferences, provider);
-        modelBox.Text = remembered.Model ?? "";
+        ShowModels(remembered.Model);
         if (!effortPicked)
         {
             settingEffort = true;
@@ -256,6 +263,19 @@ sealed class NewSessionDialog
         }
         Pick(permissionBox, remembered.PermissionMode);
         addDirsBox.Text = string.Join("\n", remembered.AddDirs);
+    }
+
+    /// <summary>The provider's models in the model select, <paramref name="model"/> picked (listed by its name when it is not
+    /// one of them; a Gemini model by its family, the effort picking agy's variant).</summary>
+    void ShowModels(string? model)
+    {
+        if (provider == "gemini" && model is not null) model = ModelNames.GeminiFamily(model);
+        modelBox.Items.Clear();
+        var choices = ModelNames.Choices(provider).Select(m => m == "default" ? "" : m).ToList();
+        if (!choices.Contains("")) choices.Insert(0, "");
+        if (model is { Length: > 0 } && model != "default" && !choices.Contains(model)) choices.Add(model);
+        foreach (var id in choices) modelBox.Items.Add(new ComboBoxItem { Content = id == "" ? T("dialog.modelPlaceholder") : ModelNames.Label(id), Tag = id });
+        Pick(modelBox, model == "default" ? "" : model);
     }
 
     /// <summary>The provider's profiles in the select (hidden when it has none); "Default settings" is what ApplyDefaults gives.</summary>
@@ -281,7 +301,7 @@ sealed class NewSessionDialog
             ApplyDefaults();
             return;
         }
-        modelBox.Text = profile.Model ?? "";
+        ShowModels(profile.Model);
         settingEffort = true;
         Pick(effortBox, profile.Effort);
         settingEffort = false;
@@ -342,7 +362,7 @@ sealed class NewSessionDialog
     /// defaults (with no other profile picked) follow them.</summary>
     public NewSessionRequest Request()
     {
-        var model = modelBox.Text.Trim() is { Length: > 0 } m ? m : null;
+        var model = Selected(modelBox) is { Length: > 0 } m ? m : null;
         // null: nothing chosen yet (Settings' default); "": the CLI's own.
         var effort = Selected(effortBox);
         var mode = Selected(permissionBox) is { Length: > 0 } p ? p : null;

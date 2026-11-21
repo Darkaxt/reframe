@@ -67,7 +67,7 @@ sealed class ChatView : Border
 
     public ChatView(Func<string> claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu,
         Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt, Action<string, bool> fork, Func<string> title, Func<string?> provider,
-        Func<string> sessionStatus, Action showTerminal)
+        Func<string> sessionStatus, Action showTerminal, Func<string?>? effort = null)
     {
         conversation = claudeSessionId;
         providerOf = provider;
@@ -152,7 +152,8 @@ sealed class ChatView : Border
             {
                 var chosen = action["model:".Length..];
                 ((TextBlock)modelChip.Content).Text = ModelNames.Label(chosen) + " " + Chevron;
-                _ = send("/model " + chosen);
+                // agy (a Gemini thread) takes its id with the effort: the family with the thread's effort.
+                _ = send("/model " + (provider() == "gemini" ? ModelNames.AgyModel(chosen, effort?.Invoke()) : chosen));
             });
             menu.PlacementTarget = modelChip;
             menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;

@@ -7,9 +7,23 @@ namespace Reframe.Shell.Core;
 public static class ModelNames
 {
     public static readonly IReadOnlyList<string> Claude = ["default", "opus", "sonnet", "haiku"];
-    /// <summary>Gemini's models, as Google's Antigravity CLI (agy) names them: the id carries the effort.</summary>
-    public static readonly IReadOnlyList<string> Gemini =
-        ["gemini-4-neon-xhigh", "gemini-4-neon-high", "gemini-4-hydrogen-xhigh", "gemini-4-argon-high", "gemini-3.8-flash-high"];
+    /// <summary>Gemini's models (Google's Antigravity CLI, agy), by family: the thread's effort picks agy's variant
+    /// (gemini-4-neon with effort high runs gemini-4-neon-high; spawn_plan's agy_model, AgyModel here).</summary>
+    public static readonly IReadOnlyList<string> Gemini = ["gemini-4-neon", "gemini-4-hydrogen", "gemini-4-argon", "gemini-3.8-flash"];
+    static readonly string[] AgyLevels = ["low", "medium", "high", "xhigh"];
+
+    /// <summary>A Gemini model without the effort agy's id carries (gemini-4-neon-xhigh is gemini-4-neon).</summary>
+    public static string GeminiFamily(string id) =>
+        Gemini.FirstOrDefault(f => AgyLevels.Any(l => id.Equals(f + "-" + l, StringComparison.OrdinalIgnoreCase))) ?? id;
+
+    /// <summary>agy's id for a Gemini family and an effort (as spawn_plan's agy_model): Neon and Hydrogen go up to xhigh,
+    /// the others to high; no effort is high. Any other id is returned as it is.</summary>
+    public static string AgyModel(string model, string? effort)
+    {
+        if (!Gemini.Contains(model)) return model;
+        var top = model is "gemini-4-neon" or "gemini-4-hydrogen" ? "xhigh" : "high";
+        return model + "-" + (effort switch { "low" => "low", "medium" => "medium", "xhigh" or "max" => top, _ => "high" });
+    }
     public static readonly IReadOnlyList<string> OpenAi = ["default", "gpt-6.1-sol", "gpt-6.1-sol-fast", "gpt-6.1-terra", "gpt-6.1-terra-fast", "gpt-6.2-astra"];
 
     /// <summary>The models the chat view offers for a provider ("anthropic", "chatgpt" or "gemini").</summary>

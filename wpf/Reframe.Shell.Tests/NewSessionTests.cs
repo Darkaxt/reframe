@@ -207,9 +207,14 @@ public class NewSessionTests
     public void A_gemini_thread_runs_agy_with_a_gemini_model()
     {
         var preferences = new Preferences { DefaultModel = "gpt-6.1-sol" };
-        Assert.Equal("gemini-4-neon-xhigh", NewSession.DefaultsFor(preferences, "gemini").Model);
+        Assert.Equal("gemini-4-neon", NewSession.DefaultsFor(preferences, "gemini").Model);
         Settings.Apply(preferences, new PreferencesPatch { DefaultsProvider = "gemini", DefaultModel = "gemini-4-hydrogen-xhigh" });
-        Assert.Equal("gemini-4-hydrogen-xhigh", NewSession.DefaultsFor(preferences, "gemini").Model);
+        // A default from before the effort picked the variant: its family.
+        Assert.Equal("gemini-4-hydrogen", NewSession.DefaultsFor(preferences, "gemini").Model);
+        Assert.Equal(("gemini-4-neon-xhigh", "gemini-4-argon-high", "gemini-3.8-flash-high", "gpt-6.1-sol"),
+            (ModelNames.AgyModel("gemini-4-neon", "max"), ModelNames.AgyModel("gemini-4-argon", "xhigh"), ModelNames.AgyModel("gemini-3.8-flash", null), ModelNames.AgyModel("gpt-6.1-sol", "low")));
+        Assert.Null(ModelSync.Changed("gemini-4-neon", "gemini-4-neon-high"));
+        Assert.Equal("gemini-4-argon-low", ModelSync.Changed("gemini-4-neon", "gemini-4-argon-low"));
         Assert.Equal("gpt-6.1-sol", NewSession.DefaultsFor(preferences, "chatgpt").Model);
         Assert.Equal("gemini", Takeover.ProviderOfModel("gemini-4-neon-xhigh"));
         Assert.Equal(("chatgpt", "anthropic"), (StateValues.ClientOf("gemini"), StateValues.ClientOf("anthropic")));
@@ -218,7 +223,7 @@ public class NewSessionTests
         Assert.Equal("gemini", launch.Provider);
         var opener = new SessionRecord { Id = "s1", Cwd = @"D:\p", Name = "Lead", Launch = new LaunchOptions { Provider = "gemini" } };
         var request = NewSession.OpenedBy(JsonNode.Parse("""{ "name": "G", "prompt": "x", "provider": "gemini" }"""), opener, preferences)!;
-        Assert.Equal(("gemini", "gemini-4-hydrogen-xhigh"), (request.Provider, request.Model));
+        Assert.Equal(("gemini", "gemini-4-hydrogen"), (request.Provider, request.Model));
         Assert.StartsWith("[opened by the Reframe thread \"Lead\" on Gemini (Google);", request.InitialPrompt);
     }
 
