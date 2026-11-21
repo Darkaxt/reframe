@@ -118,7 +118,7 @@ sealed partial class ShellController
             SetStatus(Status + $" (new session: {e.Message})");
             return ("claudeNotFound", wsl?.Distro);
         }
-        if (!plan.Ok) return (plan.Error == "folderMissing" ? "folderMissing" : "claudeNotFound", plan.Error == "claudeNotFound" ? wsl?.Distro : null);
+        if (!plan.Ok) return (plan.Error is "folderMissing" or "agyNotFound" ? plan.Error : "claudeNotFound", plan.Error == "claudeNotFound" ? wsl?.Distro : null);
         NewSession.Remember(State, record);
         // A thread another thread or a task opens is placed without taking the selection or the focus from the user.
         if (windows.TryGetValue(windowId, out var window))
@@ -476,6 +476,11 @@ sealed partial class ShellController
         {
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
             await File.WriteAllTextAsync(file, content);
+        }
+        foreach (var (path, text) in plan.Files)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await File.WriteAllTextAsync(path, text);
         }
         var instance = ++instances;
         startErrors.Remove(record.Id);

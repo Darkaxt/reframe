@@ -20,8 +20,8 @@ public static class StateValues
 {
     public const int StateVersion = 1;
     public static readonly IReadOnlyList<string> Providers = ["chatgpt", "anthropic", "gemini"];
-    /// <summary>The Claude Code install a provider's threads run on, as the pty host knows providers: Gemini's go through
-    /// the ClaudeGPT proxy (its Antigravity sign-in) as ChatGPT's do, only with Gemini models.</summary>
+    /// <summary>The Claude Code install whose sessions a provider's threads take over (Gemini's run agy, not Claude Code:
+    /// a Claude Code session with a Gemini model is the ChatGPT install's).</summary>
     public static string ClientOf(string? provider) => provider == "anthropic" ? "anthropic" : "chatgpt";
     public static string ProviderLabel(string? provider) => provider switch
     {

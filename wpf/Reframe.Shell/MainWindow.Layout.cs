@@ -453,7 +453,7 @@ public partial class MainWindow
                 if (chat is null && !showChat) return;
                 if (chat is null)
                 {
-                    chat = new ChatView(transcriptId, text => shell.SendChatMessageAsync(sessionId, text, terminal),
+                    chat = new ChatView(() => state.Sessions.GetValueOrDefault(sessionId)?.ClaudeSessionId ?? transcriptId, text => shell.SendChatMessageAsync(sessionId, text, terminal),
                         () => state.Sessions.GetValueOrDefault(sessionId)?.Launch.PermissionMode ?? "Default",
                         target => { if (state.Sessions.GetValueOrDefault(sessionId) is { } own) ShowMenu([.. ContextMenus.PermissionMenu(own, true).Submenu!], target, null, sessionId); },
                         () => shell.ScheduledTasksList.Where(t => t.TargetThreadId == sessionId).Select(t =>

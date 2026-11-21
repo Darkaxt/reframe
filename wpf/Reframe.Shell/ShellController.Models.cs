@@ -37,7 +37,8 @@ sealed partial class ShellController
             {
                 try
                 {
-                    var path = known ?? ClaudeRegistry.TranscriptFile(ClaudeRegistry.Home(), claudeId);
+                    var path = known ?? (record.Launch.Provider == "gemini" ? Antigravity.TranscriptFile(claudeId)
+                        : ClaudeRegistry.TranscriptFile(ClaudeRegistry.Home(), claudeId));
                     return (path, path is null ? null : ClaudeRegistry.LastModelIn(path));
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)

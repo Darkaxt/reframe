@@ -225,6 +225,14 @@ sealed partial class ShellController
         services.StatusChanged += changed => Ui.InvokeAsync(() =>
         {
             HostStatus[changed.SessionId] = changed;
+            // agy names its own conversation (its SessionStart hook): the thread resumes and reads that one from now on.
+            if (State.Sessions.TryGetValue(changed.SessionId, out var record) && record.Launch.Provider == "gemini"
+                && changed.ClaudeSessionId is { Length: > 0 } conversation && conversation != record.ClaudeSessionId && Writable)
+            {
+                record.ClaudeSessionId = conversation;
+                if (HostSessions.TryGetValue(changed.SessionId, out var hosted)) HostSessions[changed.SessionId] = hosted with { ClaudeSessionId = conversation };
+                Save();
+            }
             TaskActivityChanged(changed.SessionId);
             foreach (var window in windows.Values) window.HostStatusChanged(changed.SessionId);
             if (changed.Notify is "done" or "waiting") Notify(changed.SessionId, changed.Notify);

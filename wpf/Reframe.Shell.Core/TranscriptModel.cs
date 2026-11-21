@@ -109,6 +109,7 @@ public sealed class TranscriptModel
         calls.Clear();
         orphanResults.Clear();
         owners.Clear();
+        agyPending.Clear();
         MalformedLines = 0;
     }
 
@@ -135,6 +136,15 @@ public sealed class TranscriptModel
         if (root.ValueKind != JsonValueKind.Object)
         {
             MalformedLines++;
+            return;
+        }
+
+        // Google's Antigravity CLI (a Gemini thread): numbered steps.
+        if (root.TryGetProperty("step_index", out _))
+        {
+            var steps = new List<ChatItem>();
+            ParseAgy(root, steps);
+            top.AddRange(steps);
             return;
         }
 
@@ -296,6 +306,109 @@ public sealed class TranscriptModel
                     break;
             }
         }
+    }
+
+    // ---- Antigravity CLI (agy) ----
+
+    // The calls of a step waiting for their results (each GENERIC step after it answers the next one).
+    readonly Queue<ToolCallItem> agyPending = new();
+
+    static readonly Dictionary<string, string> AgyTools = new()
+    {
+        ["run_command"] = "Bash", ["read_file"] = "Read", ["view_file"] = "Read", ["write_file"] = "Write",
+        ["write_to_file"] = "Write", ["replace_file_content"] = "Edit", ["multi_replace_file_content"] = "Edit",
+        ["grep_search"] = "Grep", ["find_by_name"] = "Glob", ["list_dir"] = "Glob", ["read_url_content"] = "WebFetch",
+        ["search_web"] = "WebSearch", ["invoke_subagent"] = "Agent",
+    };
+
+    static readonly string[] AgySummaryKeys = { "CommandLine", "Path", "AbsolutePath", "TargetFile", "Query", "SearchPath", "DirectoryPath", "Url", "Prompt", "Description" };
+
+    void ParseAgy(JsonElement root, List<ChatItem> produced)
+    {
+        var step = root.TryGetProperty("step_index", out var n) && n.ValueKind == JsonValueKind.Number ? n.GetRawText() : "";
+        var uuid = "agy-" + step;
+        var ts = Str(root, "created_at");
+        var content = Str(root, "content");
+        switch (Str(root, "type"))
+        {
+            case "USER_INPUT":
+                var text = content ?? "";
+                var open = text.IndexOf("<USER_REQUEST>", StringComparison.Ordinal);
+                var close = text.IndexOf("</USER_REQUEST>", StringComparison.Ordinal);
+                if (open >= 0 && close > open) text = text[(open + "<USER_REQUEST>".Length)..close];
+                text = text.Trim();
+                if (text.Length > 0) produced.Add(new UserMessageItem { Uuid = uuid, Timestamp = ts, Text = text });
+                break;
+            case "PLANNER_RESPONSE":
+                if (!string.IsNullOrWhiteSpace(content)) produced.Add(new AssistantTextItem { Uuid = uuid, Timestamp = ts, Text = content });
+                if (root.TryGetProperty("tool_calls", out var tools) && tools.ValueKind == JsonValueKind.Array)
+                {
+                    var i = 0;
+                    foreach (var tool in tools.EnumerateArray())
+                    {
+                        var name = Str(tool, "name") ?? "(tool)";
+                        var args = tool.TryGetProperty("args", out var a) ? a : default;
+                        var call = new ToolCallItem
+                        {
+                            Uuid = uuid, Timestamp = ts, Id = $"agy-{step}-{i++}", Name = AgyTools.GetValueOrDefault(name, name),
+                            Summary = AgySummary(args), Diff = AgyDiff(name, args),
+                        };
+                        agyPending.Enqueue(call);
+                        produced.Add(call);
+                    }
+                }
+                break;
+            case "GENERIC":
+                if (!agyPending.TryDequeue(out var pending)) break;
+                var result = string.Join('\n', (content ?? "").Replace("\r\n", "\n").Split('\n')
+                    .SkipWhile(l => l.StartsWith("Created At:", StringComparison.Ordinal) || l.StartsWith("Completed At:", StringComparison.Ordinal)));
+                var error = Str(root, "status") == "ERROR";
+                if (error && Str(root, "error") is { Length: > 0 } why) result = result.Length > 0 ? why + "\n" + result : why;
+                pending.Result = result;
+                pending.IsError = error;
+                break;
+        }
+    }
+
+    static string AgySummary(JsonElement args)
+    {
+        if (args.ValueKind != JsonValueKind.Object) return "";
+        foreach (var key in AgySummaryKeys)
+            if (Str(args, key) is { Length: > 0 } s)
+            {
+                s = s.Replace("\r", " ").Replace("\n", " ");
+                return s.Length > 200 ? s[..200] + "..." : s;
+            }
+        return Summarize(args);
+    }
+
+    static List<string> AgyDiff(string tool, JsonElement args)
+    {
+        var lines = new List<string>();
+        void Add(char sign, string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            foreach (var l in text.Replace("\r\n", "\n").TrimEnd('\n').Split('\n'))
+                if (lines.Count < MaxDiffLines) lines.Add(sign + l);
+        }
+        void Replaced(JsonElement chunk)
+        {
+            Add('-', Str(chunk, "TargetContent"));
+            Add('+', Str(chunk, "ReplacementContent"));
+        }
+        if (args.ValueKind != JsonValueKind.Object) return lines;
+        switch (tool)
+        {
+            case "write_file" or "write_to_file":
+                Add('+', Str(args, "Content") ?? Str(args, "CodeContent"));
+                break;
+            case "replace_file_content" or "multi_replace_file_content":
+                Replaced(args);
+                if (args.TryGetProperty("ReplacementChunks", out var chunks) && chunks.ValueKind == JsonValueKind.Array)
+                    foreach (var chunk in chunks.EnumerateArray()) Replaced(chunk);
+                break;
+        }
+        return lines;
     }
 
     void AttachResult(JsonElement block)

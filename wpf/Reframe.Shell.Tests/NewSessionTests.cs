@@ -198,12 +198,13 @@ public class NewSessionTests
         Assert.Equal([@"C:\Users\ann\Documents\ChatGPT\shop", @"D:\work"], NewSession.ProviderRecent(recent, roots, "chatgpt"));
         Assert.Equal([@"C:\Users\ann\Documents\Anthropic\shop", @"D:\work"], NewSession.ProviderRecent(recent, roots, "anthropic"));
         Assert.Equal("shop", NewSession.FolderName(@"C:\x\shop\ "));
-        // Gemini shares the ChatGPT install's workspace.
-        Assert.Equal([@"C:\Users\ann\Documents\ChatGPT\shop", @"D:\work"], NewSession.ProviderRecent(recent, roots, "gemini"));
+        // Gemini threads have a workspace of their own.
+        Assert.Equal([@"D:\work"], NewSession.ProviderRecent(recent, roots, "gemini"));
+        Assert.Equal(@"C:\Users\ann\Documents\Gemini", roots["gemini"]);
     }
 
     [Fact]
-    public void A_gemini_thread_runs_on_the_chatgpt_route_with_a_gemini_model()
+    public void A_gemini_thread_runs_agy_with_a_gemini_model()
     {
         var preferences = new Preferences { DefaultModel = "gpt-6.1-sol" };
         Assert.Equal("gemini-4-neon-xhigh", NewSession.DefaultsFor(preferences, "gemini").Model);

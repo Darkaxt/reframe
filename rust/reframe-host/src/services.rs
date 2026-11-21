@@ -135,7 +135,9 @@ impl Services {
                 }
                 Box::new(move || {
                     // An adoption record given instead of its answer is read here, as clients.adopted reads it.
-                    if input.is_object() && input.get("adopted").is_none_or(Value::is_null) {
+                    // A Gemini thread runs agy, which has no adopted client.
+                    let gemini = input["session"]["launch"]["provider"].as_str() == Some("gemini");
+                    if input.is_object() && !gemini && input.get("adopted").is_none_or(Value::is_null) {
                         if let Some(record) = input.get("adoption").and_then(Value::as_str).filter(|r| !r.is_empty()) {
                             let provider = input["session"]["launch"]["provider"]
                                 .as_str()

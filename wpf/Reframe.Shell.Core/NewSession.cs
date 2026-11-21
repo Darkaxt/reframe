@@ -53,7 +53,7 @@ public static partial class NewSession
     public static DialogDefaults DefaultsFor(Preferences preferences, string provider)
     {
         if (Remembered(preferences, provider) is { } r) return new(r.Model, r.Effort, r.PermissionMode, r.AddDirs ?? []);
-        // Gemini always names its model: the proxy's default one is the ChatGPT route's.
+        // Gemini always names its model (agy's ids carry the effort).
         var model = provider switch { "chatgpt" => preferences.DefaultModel, "gemini" => ModelNames.Gemini[0], _ => null };
         return new(model, preferences.DefaultEffort, preferences.DefaultPermissionMode, []);
     }
@@ -114,8 +114,7 @@ public static partial class NewSession
     {
         ["chatgpt"] = Path.Combine(documents, "ChatGPT"),
         ["anthropic"] = Path.Combine(documents, "Anthropic"),
-        // Gemini threads run on the ClaudeGPT install, as ChatGPT's: they share its workspace.
-        ["gemini"] = Path.Combine(documents, "ChatGPT"),
+        ["gemini"] = Path.Combine(documents, "Gemini"),
     };
 
     /// <summary>createSession's record for a request (the folder and claude already checked).</summary>
@@ -308,9 +307,11 @@ public static class SpawnPlans
 {
     public sealed record Hooks(int Port, string Token);
 
-    /// <summary>A spawnPlan answer: ok with the spawn, or the error the tile shows.</summary>
+    /// <summary>A spawnPlan answer: ok with the spawn, or the error the tile shows. Files: what the session needs written
+    /// before it starts besides the settings file (a Gemini thread's hooks and thread tools).</summary>
     public sealed record Plan(bool Ok, string? Error, string Mode, string File, JsonNode? Args, string Cwd, JsonObject Env,
-        string? SettingsFile, string? SettingsContent, JsonObject Meta, IReadOnlyList<string> Warnings);
+        string? SettingsFile, string? SettingsContent, JsonObject Meta, IReadOnlyList<string> Warnings,
+        IReadOnlyList<(string File, string Content)> Files);
 
     public static JsonObject Input(SessionRecord record, string mode, string? freshClaudeSessionId, IReadOnlyDictionary<string, string> env,
         string claudeHome, string settingsDir, Hooks hooks, string? claudeBin, string? adoption, bool captureStatusLine, JsonObject? wsl, bool? browser = null, string? fallbackModel = null)
@@ -320,8 +321,8 @@ public static class SpawnPlans
         {
             if (value is not null) launch[key] = value;
         }
-        // The host knows the install, not the provider: a Gemini thread is the ChatGPT route's with a Gemini model.
-        Put("provider", record.Launch.Provider is { } provider ? StateValues.ClientOf(provider) : null);
+        // gemini: the host plans Google's Antigravity CLI (agy) instead of Claude Code.
+        Put("provider", record.Launch.Provider);
         // A thread without a stored model starts with its provider's saved default (else the spawn plan's own fallback).
         Put("model", record.Launch.Model is { Length: > 0 } stored ? stored : fallbackModel);
         Put("effort", record.Launch.Effort);
@@ -359,10 +360,12 @@ public static class SpawnPlans
         var o = answer as JsonObject ?? throw new FormatException("spawnPlan answered no object");
         var warnings = (o["warnings"] as JsonArray ?? []).Select(w => (string?)w ?? "").ToList();
         if ((bool?)o["ok"] != true)
-            return new Plan(false, (string?)o["error"] ?? "spawnFailed", "", "", null, "", [], null, null, [], warnings);
+            return new Plan(false, (string?)o["error"] ?? "spawnFailed", "", "", null, "", [], null, null, [], warnings, []);
+        var files = (o["files"] as JsonArray ?? []).OfType<JsonObject>()
+            .Select(f => ((string?)f["file"] ?? "", (string?)f["content"] ?? "")).Where(f => f.Item1 != "").ToList();
         return new Plan(true, null, (string?)o["mode"] ?? "new", (string?)o["file"] ?? "", o["args"]?.DeepClone(), (string?)o["cwd"] ?? "",
             o["env"]?.DeepClone() as JsonObject ?? [], (string?)o["settings"]?["file"], (string?)o["settings"]?["content"],
-            o["meta"]?.DeepClone() as JsonObject ?? [], warnings);
+            o["meta"]?.DeepClone() as JsonObject ?? [], warnings, files);
     }
 
     /// <summary>The host's <c>spawn</c> request for a plan (120×32, as SessionManager starts them).</summary>

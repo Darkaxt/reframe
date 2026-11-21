@@ -3,6 +3,8 @@
 //! (args.ts), folder, environment (env.ts, providers.ts), the hook settings file to write (settings.ts) and the
 //! spawn's meta, for a Windows folder or one in WSL. Nothing is started, written or asked: the caller writes the
 //! settings file and spawns. The shared fixtures in test/spawn-plan-fixtures hold both to the same results.
+//! A Gemini thread runs Google's Antigravity CLI (agy) instead: its plan has the files of the session's hooks and
+//! thread tools (`files`, a `.agents` folder agy reads through `--add-dir`) in place of the settings file.
 
 use std::fs;
 use std::path::Path;
@@ -533,13 +535,18 @@ fn message_tag_hook(relay: &str, provider: Option<&str>) -> Value {
 /// claude that runs through cmd.exe (whose command line would have to carry the JSON's quotes).
 /// With `tasks_dir` (the profile's scheduled tasks), the server also has the task tools.
 fn thread_tools_config(relay: &str, port: u64, token: &str, session_id: &str, tasks_dir: Option<&str>) -> String {
+    let args = thread_tools_args(port, token, session_id, tasks_dir);
+    json!({ "mcpServers": { "reframe": { "type": "stdio", "command": relay, "args": args } } }).to_string()
+}
+
+fn thread_tools_args(port: u64, token: &str, session_id: &str, tasks_dir: Option<&str>) -> Vec<String> {
     let url = format!(
         "http://127.0.0.1:{port}/hook/{}/OpenThread",
         encode_uri_component(session_id)
     );
     let mut args = vec![THREAD_TOOLS_ARG.to_owned(), url, token.to_owned()];
     args.extend(tasks_dir.map(str::to_owned));
-    json!({ "mcpServers": { "reframe": { "type": "stdio", "command": relay, "args": args } } }).to_string()
+    args
 }
 
 /// The host executable's argument that makes it the thread tools' MCP server (reframe-host's threads.rs).
@@ -661,24 +668,7 @@ fn resolve(env: &Env, override_: Option<&str>, node_runner: Option<(String, Env)
         }
         return Some(wrap(over, fs, &|| None));
     }
-    let path_key = env
-        .keys()
-        .find(|k| k.to_uppercase() == "PATH")
-        .cloned()
-        .unwrap_or("PATH".into());
-    let path = env.get(&path_key).and_then(Value::as_str).unwrap_or("");
-    let dirs: Vec<String> = path
-        .split(';')
-        .map(|d| {
-            let d = d.trim();
-            if d.len() >= 2 && d.starts_with('"') && d.ends_with('"') {
-                d[1..d.len() - 1].to_owned()
-            } else {
-                d.to_owned()
-            }
-        })
-        .filter(|d| !d.is_empty())
-        .collect();
+    let dirs = path_dirs(env);
     let exts: Vec<String> = match env.get("PATHEXT").and_then(Value::as_str) {
         Some(p) => p.split(';').filter(|e| !e.is_empty()).map(str::to_lowercase).collect(),
         None => vec![".com".into(), ".exe".into(), ".bat".into(), ".cmd".into()],
@@ -697,6 +687,135 @@ fn resolve(env: &Env, override_: Option<&str>, node_runner: Option<(String, Env)
     let claude = on_path("claude", &exts)?;
     let node_exe = [".exe".to_owned()];
     Some(wrap(&claude, fs, &|| on_path("node", &node_exe)))
+}
+
+/// The folders of the environment's PATH (any case), quotes taken off.
+fn path_dirs(env: &Env) -> Vec<String> {
+    let path = env
+        .iter()
+        .find(|(k, _)| k.to_uppercase() == "PATH")
+        .and_then(|(_, v)| v.as_str())
+        .unwrap_or("");
+    path.split(';')
+        .map(|d| {
+            let d = d.trim();
+            if d.len() >= 2 && d.starts_with('"') && d.ends_with('"') {
+                d[1..d.len() - 1].to_owned()
+            } else {
+                d.to_owned()
+            }
+        })
+        .filter(|d| !d.is_empty())
+        .collect()
+}
+
+/// An environment variable (any case), unless empty.
+fn env_value<'a>(env: &'a Env, key: &str) -> Option<&'a str> {
+    env.iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case(key))
+        .and_then(|(_, v)| v.as_str())
+        .filter(|s| !s.is_empty())
+}
+
+// ----- Antigravity CLI (agy): Gemini threads -----
+
+/// The host executable's argument that makes it the relay of agy's hooks (reframe-host's agyhook.rs).
+pub const AGY_HOOK_ARG: &str = "--agy-hook";
+
+/// Where agy keeps its conversations: `<USERPROFILE>\.gemini\antigravity-cli`, unless the input names it (`agyHome`).
+fn agy_home(input: &Value, env: &Env) -> Option<String> {
+    if let Some(home) = nonempty(input, "agyHome") {
+        return Some(home.to_owned());
+    }
+    Some(win32_join(&[
+        env_value(env, "USERPROFILE")?,
+        ".gemini",
+        "antigravity-cli",
+    ]))
+}
+
+/// The transcript agy writes for a conversation (the Chat view reads the same file).
+pub fn agy_transcript(home: &str, conversation_id: &str) -> String {
+    win32_join(&[
+        home,
+        "brain",
+        conversation_id,
+        ".system_generated",
+        "logs",
+        "transcript_full.jsonl",
+    ])
+}
+
+/// agy: `agyBin` or REFRAME_AGY_BIN when given (and there), else agy.exe on PATH, else in winget's Links folder
+/// (where `winget install Google.AntigravityCLI` puts it).
+fn find_agy(input: &Value, env: &Env, fs: &dyn PlanFs) -> Option<String> {
+    if let Some(over) = nonempty(input, "agyBin").or_else(|| env_value(env, "REFRAME_AGY_BIN")) {
+        return fs.is_file(over).then(|| over.to_owned());
+    }
+    path_dirs(env)
+        .iter()
+        .map(|dir| win32_join(&[dir, "agy.exe"]))
+        .chain(env_value(env, "LOCALAPPDATA").map(|l| win32_join(&[l, "Microsoft", "WinGet", "Links", "agy.exe"])))
+        .find(|file| fs.is_file(file))
+}
+
+/// agy's arguments: the conversation resumed, the model (its id carries the effort: gemini-4-neon-high), the permission
+/// mode, the folders (the hooks' own first) and a new thread's first prompt (`-i`: the session stays open after it).
+fn agy_args(session: &Value, mode: &str, root: Option<&str>) -> Vec<String> {
+    let launch = session.get("launch").cloned().unwrap_or(Value::Null);
+    let mut args: Vec<String> = Vec::new();
+    if mode == "resume" {
+        args.extend([
+            "--conversation".into(),
+            str_of(session, "claudeSessionId").unwrap_or("").to_owned(),
+        ]);
+    }
+    if let Some(model) = nonempty(&launch, "model") {
+        args.extend(["--model".into(), model.into()]);
+    }
+    match nonempty(&launch, "permissionMode") {
+        Some("bypassPermissions") => args.push("--dangerously-skip-permissions".into()),
+        Some("acceptEdits") => args.extend(["--mode".into(), "accept-edits".into()]),
+        Some(mode @ ("plan" | "auto")) => args.extend(["--mode".into(), mode.into()]),
+        _ => {}
+    }
+    let dirs = launch
+        .get("addDirs")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str);
+    for dir in root.into_iter().chain(dirs) {
+        args.extend(["--add-dir".into(), dir.into()]);
+    }
+    if let Some(text) = nonempty(&launch, "initialPrompt") {
+        if mode == "new" && !truthy(session.get("used")) {
+            args.extend(["-i".into(), text.into()]);
+        }
+    }
+    args
+}
+
+/// The session's `.agents/hooks.json`: the hooks its status follows, run through the host's relay (agy runs a hook's
+/// command through cmd.exe in that folder, with the session's environment).
+fn agy_hooks_json(relay: &str, port: u64, token: &str, session_id: &str) -> String {
+    let base = format!("http://127.0.0.1:{port}/hook/{}/", encode_uri_component(session_id));
+    let handler = |event: &str| json!([{ "command": format!("\"{relay}\" {AGY_HOOK_ARG} {base} {token} {event}"), "timeout": 10 }]);
+    let hooks = json!({ "reframe": {
+        "SessionStart": handler("SessionStart"),
+        "PreInvocation": handler("PreInvocation"),
+        "Stop": handler("Stop"),
+    } });
+    serde_json::to_string_pretty(&hooks).unwrap_or_default()
+}
+
+/// The session's `.agents/mcp_config.json`: the host's thread tools, as `--mcp-config` gives them to claude.
+fn agy_mcp_config(relay: &str, port: u64, token: &str, session_id: &str, tasks_dir: Option<&str>) -> String {
+    let config = json!({ "mcpServers": { "reframe": {
+        "command": relay,
+        "args": thread_tools_args(port, token, session_id, tasks_dir),
+    } } });
+    serde_json::to_string_pretty(&config).unwrap_or_default()
 }
 
 fn env_of(value: Option<&Value>) -> Env {
@@ -828,6 +947,52 @@ pub fn spawn_plan(input: &Value, fs: &dyn PlanFs) -> Result<Value, String> {
 
     let wsl = input.get("wsl").filter(|w| w.is_object());
     let share = wsl.and_then(|w| str_of(w, "share")).unwrap_or("");
+
+    // A Gemini thread: agy, in a Windows folder.
+    if provider == Some("gemini") {
+        if wsl.is_some() && parse_wsl_path(&cwd, share).is_some() {
+            warnings.push("Gemini threads (Antigravity CLI) run in Windows folders only".into());
+            return fail("agyNotFound", warnings);
+        }
+        if !fs.exists(&cwd) {
+            return fail("folderMissing", warnings);
+        }
+        let home = agy_home(input, &env).unwrap_or_default();
+        let Some(mode) = launch_mode(requested != "resume" || fs.is_file(&agy_transcript(&home, &claude_session_id)))
+        else {
+            return fail("transcriptMissing", warnings);
+        };
+        let Some(agy) = find_agy(input, &env, fs) else {
+            return fail("agyNotFound", warnings);
+        };
+        if mode != requested {
+            warnings.push(FRESH_NOTE.into());
+        }
+        // The hooks and thread tools: in a folder of the session's own, beside the hook settings of claude's sessions.
+        let relay = nonempty(input, "statusLineRelay");
+        let root = relay.map(|_| win32_join(&[settings_dir, &format!("{id}-agy")]));
+        let mut files = Vec::new();
+        if let (Some(relay), Some(root)) = (relay, root.as_deref()) {
+            files.push(json!({ "file": win32_join(&[root, ".agents", "hooks.json"]), "content": agy_hooks_json(relay, port, token, &id) }));
+            let tools = agy_mcp_config(relay, port, token, &id, nonempty(input, "tasksDir"));
+            files.push(json!({ "file": win32_join(&[root, ".agents", "mcp_config.json"]), "content": tools }));
+        }
+        let mut extra = Env::new();
+        extra.insert("REFRAME_SESSION".into(), json!(id));
+        let mut plan = Map::new();
+        plan.insert("ok".into(), json!(true));
+        plan.insert("mode".into(), json!(mode));
+        plan.insert("file".into(), json!(agy));
+        plan.insert("args".into(), json!(agy_args(&session, mode, root.as_deref())));
+        plan.insert("cwd".into(), json!(cwd));
+        plan.insert("env".into(), Value::Object(claude_env(&env, &extra)));
+        plan.insert("files".into(), Value::Array(files));
+        plan.insert(
+            "meta".into(),
+            json!({ "agy": { "home": home, "conversationId": claude_session_id } }),
+        );
+        return finish(plan, patch, warnings);
+    }
     if let (Some(wsl), Some((distro, linux_path))) = (wsl, wsl.and_then(|_| parse_wsl_path(&cwd, share))) {
         let info = wsl.get("info").filter(|i| i.is_object());
         let Some((info, info_claude)) = info.and_then(|i| nonempty(i, "claude").map(|c| (i, c))) else {
@@ -1097,6 +1262,97 @@ mod tests {
             failed.is_empty(),
             "differs from the TypeScript plans:\n{}",
             failed.join("\n")
+        );
+    }
+
+    #[test]
+    fn a_gemini_thread_runs_agy_with_its_hooks_and_thread_tools() {
+        let agy = "C:\\u\\AppData\\Local\\Microsoft\\WinGet\\Links\\agy.exe";
+        let home = "C:\\u\\.gemini\\antigravity-cli";
+        let input = |mode: &str, launch: Value, used: bool| {
+            json!({
+                "session": { "id": "s1", "claudeSessionId": "c1", "cwd": "D:\\p", "launch": launch, "used": used },
+                "mode": mode, "env": { "USERPROFILE": "C:\\u", "LOCALAPPDATA": "C:\\u\\AppData\\Local", "Path": "C:\\w" },
+                "claudeHome": "C:\\u\\.claude", "settingsDir": "D:\\r\\hooks", "hooks": { "port": 4100, "token": "tok" },
+                "statusLineRelay": "C:\\h\\reframe-host.exe", "tasksDir": "D:\\r\\tasks",
+            })
+        };
+        let transcript = agy_transcript(home, "c1");
+        let fs = FixtureFs(json!({ "files": { agy: "", transcript.clone(): "" }, "dirs": ["D:\\p"] }));
+        let launch = json!({ "provider": "gemini", "model": "gemini-4-neon-high", "permissionMode": "bypassPermissions",
+            "initialPrompt": "hi", "addDirs": ["D:\\x"] });
+        let plan = spawn_plan(&input("new", launch.clone(), false), &fs).unwrap();
+        assert_eq!(plan["ok"], json!(true));
+        assert_eq!(plan["file"], json!(agy));
+        assert_eq!(
+            plan["args"],
+            json!([
+                "--model",
+                "gemini-4-neon-high",
+                "--dangerously-skip-permissions",
+                "--add-dir",
+                "D:\\r\\hooks\\s1-agy",
+                "--add-dir",
+                "D:\\x",
+                "-i",
+                "hi"
+            ])
+        );
+        assert_eq!(plan["env"]["REFRAME_SESSION"], json!("s1"));
+        assert_eq!(plan["meta"], json!({ "agy": { "home": home, "conversationId": "c1" } }));
+        assert!(plan.get("settings").is_none());
+        let files = plan["files"].as_array().unwrap();
+        assert_eq!(files[0]["file"], json!("D:\\r\\hooks\\s1-agy\\.agents\\hooks.json"));
+        let hooks: Value = serde_json::from_str(files[0]["content"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            hooks["reframe"]["Stop"][0]["command"],
+            json!("\"C:\\h\\reframe-host.exe\" --agy-hook http://127.0.0.1:4100/hook/s1/ tok Stop")
+        );
+        assert!(hooks["reframe"].get("PreToolUse").is_none());
+        let tools: Value = serde_json::from_str(files[1]["content"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            tools["mcpServers"]["reframe"]["args"],
+            json!([
+                "--thread-tools",
+                "http://127.0.0.1:4100/hook/s1/OpenThread",
+                "tok",
+                "D:\\r\\tasks"
+            ])
+        );
+        // Resumed: its conversation, no first prompt again.
+        let resumed = spawn_plan(&input("resume", launch.clone(), true), &fs).unwrap();
+        assert_eq!(resumed["mode"], json!("resume"));
+        assert_eq!(
+            &resumed["args"].as_array().unwrap()[..2],
+            &[json!("--conversation"), json!("c1")]
+        );
+        assert!(!resumed["args"].as_array().unwrap().contains(&json!("-i")));
+        // Without agy, or a used conversation agy has no transcript of: the tile says why.
+        let no_agy = FixtureFs(json!({ "dirs": ["D:\\p"] }));
+        assert_eq!(
+            spawn_plan(&input("new", launch.clone(), false), &no_agy).unwrap()["error"],
+            json!("agyNotFound")
+        );
+        let gone = FixtureFs(json!({ "files": { agy: "" }, "dirs": ["D:\\p"] }));
+        assert_eq!(
+            spawn_plan(&input("resume", launch, true), &gone).unwrap()["error"],
+            json!("transcriptMissing")
+        );
+        // agy on PATH comes first; the other permission modes.
+        let on_path = FixtureFs(json!({ "files": { "C:\\w\\agy.exe": "", agy: "" }, "dirs": ["D:\\p"] }));
+        let plan = spawn_plan(
+            &input(
+                "new",
+                json!({ "provider": "gemini", "permissionMode": "acceptEdits" }),
+                false,
+            ),
+            &on_path,
+        )
+        .unwrap();
+        assert_eq!(plan["file"], json!("C:\\w\\agy.exe"));
+        assert_eq!(
+            &plan["args"].as_array().unwrap()[..2],
+            &[json!("--mode"), json!("accept-edits")]
         );
     }
 
