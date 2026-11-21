@@ -67,6 +67,8 @@ sealed partial class ShellController
             && launcher.EndsWith(".vbs", StringComparison.OrdinalIgnoreCase) && File.Exists(launcher))
         {
             System.Diagnostics.Trace.WriteLine($"update: reload through {launcher}");
+            // The launcher checks the release and the clients before the shell is back (up to about 20 s): say so, or it looks like a crash.
+            toasts?.Show("", "Reframe is reloading", "It comes back in a few seconds. Your sessions keep running.");
             Restart(new InstalledUpdate(AboutDialog.Version, exe), [App.RelaunchArgument, launcher]);
             return;
         }
