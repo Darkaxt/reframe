@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "ed72bce4ed7bdc30cff00086146ae6694e023b1b",
-  "scope": "Model persistence, saved-default fallback, selected thread, quiet subthreads",
+  "sourceBase": "2d7511a28afcf372c057acba9cc810d8dcae524e",
+  "scope": "tray reload, tray labels, model sync",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.108.md",
-      "sha256": "1859795044b85b3e9b2ad527491efd907adb1dcbc0935c7c73ab3c70c78fb52e"
+      "file": "docs/releases/v0.11.0-claudegpt.109.md",
+      "sha256": "7f365c87a4951d95e2a575d9b14474d53acf7fd927b8a74e8962ea8fd0e7ccef"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,75 +18,43 @@
     },
     {
       "file": "package.json",
-      "sha256": "2d5089bc04f712c661ba7b9422cafa447802319ec9e500cc781843e640debb76"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/AppState.cs",
-      "sha256": "245e8fce8f72137bc20d1157ed15ea1349c6ab4ef8842a36d20cc174221f280b"
+      "sha256": "b91ee342a32a276f81eef99a557bb399b5f1003edf609cc5e8d7d6a7b34cb1aa"
     },
     {
       "file": "wpf/Reframe.Shell.Core/ClaudeRegistry.cs",
-      "sha256": "52dd5b18d75e4e89747208bba82d9a164e5dc9f80daf844b54c5c92e10a88549"
+      "sha256": "a1a99ee03dc992638e1a6da81bbdb5c657ac6f0d4faf08f685b99fb29d476d8f"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/LayoutActions.cs",
-      "sha256": "a4fbeb60a54c4eecbdbabe49fbfe544f2d13f054be905388ae47639d5215d3fc"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/ModelSync.cs",
-      "sha256": "819d68f0d4ddb010e664f1f3f6d7731789ef25a7f06be0e1b07bfd3540650e42"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/NewSession.cs",
-      "sha256": "67c060a8ae4d989bb8a683d3a476a7121b4f13462b6fdd9a7234f522de9c9ab6"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Notifications.cs",
-      "sha256": "6985f885827f41df4f5c94ad98f18104b6206c6d803a2aef9fe0b836752068e3"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Settings.cs",
-      "sha256": "40bd62647cfe670e1f46272e3c9b0ba8dd2fe04c0795c347993c1b7874e308c7"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/StateJson.cs",
-      "sha256": "e57043272bc5e9951bac577c9f58e13baeeb945bd35a1c0f2d16b283b86499d1"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/StateParser.cs",
-      "sha256": "df756fb6bbf603f25ce646a34e1092d88d73993fd4d8262cc85b39eb2742ce9f"
+      "file": "wpf/Reframe.Shell.Core/ShellWindows.cs",
+      "sha256": "08122956ce39db75dafc92792349207b3f6cab5abcdf45bd1008d368772d8219"
     },
     {
       "file": "wpf/Reframe.Shell.Core/Strings.cs",
-      "sha256": "b60c6501d43d34df7c853b7de4449f7ca71776189a3d0dba00e1a9faacc6bae4"
+      "sha256": "8b5acbfbb4cb23f9e99b3674a04c4ed45bee1d9527e0df2d2eae2251f46d1544"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/ModelSyncTests.cs",
-      "sha256": "70c5d65d8b88d0425293cde22ecbfff11bce5d2436edd723dd53e5c3829ab813"
+      "file": "wpf/Reframe.Shell.Tests/ShellWindowsTests.cs",
+      "sha256": "9c540d3bf958977d0ab4a77252ca8b4e007548654329437b02a8dc8a35ca3988"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/SubthreadNotificationTests.cs",
-      "sha256": "866ea24c9668971ddfe7f14d638c40ce4cd8db331c794b23b8346ecfa72dcb58"
+      "file": "wpf/Reframe.Shell/App.xaml.cs",
+      "sha256": "703c57b8c06e41021ad47803886866330caba7f52e82558905328705e8dd9a6e"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "008547abcf812365f4ab81be3d92a609f61981d3f3d8c06eb6a26cb392298048"
-    },
-    {
-      "file": "wpf/Reframe.Shell/SettingsDialog.cs",
-      "sha256": "19dd2772909433c78598598bffee32a4edecca9e00eaf2ca51a87d5a2e9f3e29"
+      "sha256": "b4c658bda7fc23f2ac3367447188b4da07f095056d479cd3df91d5aeae62fd78"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Models.cs",
-      "sha256": "cb4cef467cf0b2b5a7043c323e432f21d89f7aaa17d2c59933f2a6ce9745b228"
+      "sha256": "81e1be63b72c7bc38caf0d3566e127ec070ca5ec6adf1509e5c23df82080c8cd"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
-      "sha256": "9e038e5f18e6c9f59a8c76b03f2b17cc5c720f6110cc65181b1903602fb9e99e"
+      "file": "wpf/Reframe.Shell/ShellController.Update.cs",
+      "sha256": "39b27979cae1e0dd1aa6eb158359debc363999637528c3d40ee47d8b76492664"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "f186fb38e240ddfccaaa0d22d1491f761ce3c27249192be5c160633e897c7fdb"
+      "sha256": "055090ce1fb3c64d1578cdb0fbd4d3d3d8de3254b4cc9ff00ea24206020343cb"
     }
   ],
   "checksNotYetRun": [
