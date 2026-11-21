@@ -151,9 +151,9 @@ public partial class MainWindow : Window
         workspace.Children.Add(sidebar);
         var resizer = new Thumb { Width = 6, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, -3, 0), Cursor = Cursors.SizeWE };
         resizer.Template = ResizerTemplate();
-        resizer.DragDelta += (_, e) => sidebar.Width = Math.Clamp(sidebar.Width + e.HorizontalChange, 180, 600);
-        // The width the user dragged to is kept (all windows start with it).
-        if (state.Preferences.SidebarWidth is { } savedWidth) sidebar.Width = Math.Clamp(savedWidth, 180, 600);
+        resizer.DragDelta += (_, e) => sidebar.Width = Math.Clamp(sidebar.Width + e.HorizontalChange, StateValues.SidebarWidthMin, StateValues.SidebarWidthMax);
+        // The width the user dragged to is kept (preferences.sidebarWidth, clamped when used); all windows start with it.
+        sidebar.Width = StateValues.ClampSidebarWidth(state.Preferences.SidebarWidth);
         resizer.DragCompleted += (_, _) =>
         {
             if (state.Preferences.SidebarWidth == sidebar.Width) return;
