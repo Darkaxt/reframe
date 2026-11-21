@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "aa9d39122631a3ca27b5f3f50eb3044de68685e3",
+  "sourceBase": "a2c4bad930168b8c758d697569143960a1554772",
   "scope": "gemini provider",
   "inputHashes": [
     {
@@ -26,7 +26,7 @@
     },
     {
       "file": "rust/reframe-host/src/threads.rs",
-      "sha256": "b9e979c98b544b4996b0d86d013e958f6d55473da7827a29406a8bf46982c717"
+      "sha256": "cd09b114499945736dac70de8a954c41065686ace9b2d458a4fa21f81101c752"
     },
     {
       "file": "wpf/Reframe.Shell.Core/AppState.cs",
