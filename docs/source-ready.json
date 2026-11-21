@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "4928a187538146998dda5dee1ffad55380727dd7",
+  "sourceBase": "aa9d39122631a3ca27b5f3f50eb3044de68685e3",
   "scope": "gemini provider",
   "inputHashes": [
     {
@@ -9,16 +9,20 @@
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
+      "file": "docs/releases/v0.11.0-claudegpt.119.md",
+      "sha256": "a5fe40c4332d376adec07316d471c19ac1e2ddb46a96a1c11cfc0d541400057b"
+    },
+    {
       "file": "docs/wpf-cutover.md",
       "sha256": "981946325780f61184baa82cd7a6c24393935b066c0abc6f44ad1010a694d6d7"
     },
     {
       "file": "package.json",
-      "sha256": "6756282432e85b43097081d77cf2d1de5e3f93a4f26fa77fa4477a1be3acbd0d"
+      "sha256": "759f7604606c0731eb9daaf739f15a0fb3a2293a5b7cc971578eba5fbb8217e7"
     },
     {
       "file": "rust/reframe-host/src/msgtag.rs",
-      "sha256": "8a6ab16cb423aa327d05068984fdd5f21fa4ce45c29e0368ae0b2f1977d6488a"
+      "sha256": "7a56b9ba23736f32285ed2398e1b0d0a420e0f4c5bfcc2f630b2fa7dda2ff37b"
     },
     {
       "file": "rust/reframe-host/src/threads.rs",
