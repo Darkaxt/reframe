@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows.Threading;
 using Reframe.Shell.Core;
 
