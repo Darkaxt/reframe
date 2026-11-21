@@ -256,6 +256,9 @@ sealed class SettingsDialog
 
         Add(Check(T("settings.wakeForTasks"), p.WakeForTasks, v => Set(new PreferencesPatch { WakeForTasks = v })));
         AddHint(T("settings.wakeForTasksHint"));
+
+        Add(Check(T("inline.notifySubthreads"), p.NotifySubthreads, v => Set(new PreferencesPatch { NotifySubthreads = v })));
+        AddHint(T("inline.notifySubthreadsHint"));
     }
 
     void BuildClaude(Preferences p)

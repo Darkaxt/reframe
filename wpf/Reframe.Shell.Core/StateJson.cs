@@ -107,6 +107,7 @@ public static class StateJson
             Opt(o, "sidebarOpen", w.SidebarOpen);
             Opt(o, "activeProject", w.ActiveProject);
             Opt(o, "viewMode", w.ViewMode);
+            Opt(o, "selected", w.Selected);
             return Done(o, w);
         }
 
@@ -184,6 +185,7 @@ public static class StateJson
             Opt(o, "defaultEffort", p.DefaultEffort);
             Opt(o, "defaultPermissionMode", p.DefaultPermissionMode);
             if (p.WakeForTasks) o["wakeForTasks"] = true;
+            if (p.NotifySubthreads) o["notifySubthreads"] = true;
             if (p.BrowserAnthropic is { } browserAnthropic) o["browserAnthropic"] = browserAnthropic;
             if (p.BrowserChatgpt is { } browserChatgpt) o["browserChatgpt"] = browserChatgpt;
             Opt(o, "managerThread", p.ManagerThread);

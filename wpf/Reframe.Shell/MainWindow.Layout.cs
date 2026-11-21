@@ -151,7 +151,8 @@ public partial class MainWindow
     {
         FontSizeLoaded();
         gridKeys[Win.Id] = LayoutActions.GridKey(Win);
-        selected ??= Layout.Leaves(Win.Layout).FirstOrDefault();
+        var leavesAtLoad = Layout.Leaves(Win.Layout);
+        selected ??= Win.Selected is { } kept && leavesAtLoad.Contains(kept) ? kept : leavesAtLoad.FirstOrDefault();
         Relayout();
     }
 
@@ -186,7 +187,15 @@ public partial class MainWindow
         }
         if (selected is not null || !single) blank = false;
         var shown = single ? (selected is not null && leaves.Contains(selected) ? selected : blank ? null : leaves.FirstOrDefault()) : null;
+        var shownBefore = lastShown;
         lastShown = shown;
+        // The sidebar's highlight follows the thread a single window shows, and a restart shows that thread again.
+        if (single && shown is not null && shown != shownBefore) sidebar.Select(ChatKeyOf(shown));
+        if (Writable && selected is not null && win.Selected != selected)
+        {
+            win.Selected = selected;
+            Saved();
+        }
         if (zoom is { } z && (z.Layout != LayoutKey(win) || !leaves.Contains(z.SessionId))) zoom = null;
         var one = shown ?? zoom?.SessionId;
         var area = new Box(0, 0, surface.ActualWidth, surface.ActualHeight);

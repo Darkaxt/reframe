@@ -250,7 +250,7 @@ public static class SpawnPlans
         string? SettingsFile, string? SettingsContent, JsonObject Meta, IReadOnlyList<string> Warnings);
 
     public static JsonObject Input(SessionRecord record, string mode, string? freshClaudeSessionId, IReadOnlyDictionary<string, string> env,
-        string claudeHome, string settingsDir, Hooks hooks, string? claudeBin, string? adoption, bool captureStatusLine, JsonObject? wsl, bool? browser = null)
+        string claudeHome, string settingsDir, Hooks hooks, string? claudeBin, string? adoption, bool captureStatusLine, JsonObject? wsl, bool? browser = null, string? fallbackModel = null)
     {
         var launch = new JsonObject();
         void Put(string key, JsonNode? value)
@@ -258,7 +258,8 @@ public static class SpawnPlans
             if (value is not null) launch[key] = value;
         }
         Put("provider", record.Launch.Provider);
-        Put("model", record.Launch.Model);
+        // A thread without a stored model starts with its provider's saved default (else the spawn plan's own fallback).
+        Put("model", record.Launch.Model is { Length: > 0 } stored ? stored : fallbackModel);
         Put("effort", record.Launch.Effort);
         Put("permissionMode", record.Launch.PermissionMode);
         Put("worktree", record.Launch.Worktree);

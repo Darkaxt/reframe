@@ -144,6 +144,8 @@ public sealed class WindowState : StateObject
     public string? ActiveProject { get; set; }
     /// <summary>"single" or "tiled"; absent (older files) means tiled.</summary>
     public string? ViewMode { get; set; }
+    /// <summary>The thread a single window shows (kept so a restart shows it again).</summary>
+    public string? Selected { get; set; }
 
     public static WindowState Empty(string id) => new() { Id = id };
 }
@@ -252,6 +254,8 @@ public sealed class Preferences : StateObject
     public List<LaunchProfile>? Profiles { get; set; }
     /// <summary>Quitting leaves a Task Scheduler task that starts reframe when the next scheduled task is due.</summary>
     public bool WakeForTasks { get; set; }
+    /// <summary>Toasts and taskbar flashes for threads another thread opened (open_thread); off by default.</summary>
+    public bool NotifySubthreads { get; set; }
     /// <summary>Claude in Chrome for Anthropic sessions: true starts them with --chrome, false with --no-chrome, null leaves it to the CLI's own setting.</summary>
     public bool? BrowserAnthropic { get; set; }
     /// <summary>The same for ChatGPT (ClaudeGPT) sessions.</summary>

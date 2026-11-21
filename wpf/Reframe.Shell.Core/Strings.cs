@@ -174,6 +174,8 @@ public static class Strings
         ["inline.tab.profiles"] = "Profiles",
         ["inline.tab.advanced"] = "Advanced",
         ["inline.tab.threads"] = "Threads",
+        ["inline.notifySubthreads"] = "Notify for threads opened by other threads",
+        ["inline.notifySubthreadsHint"] = "Threads that another thread opened with open_thread report to it. Their finished and waiting notifications are off unless you turn this on.",
         ["inline.browser.title"] = "Claude in Chrome",
         ["inline.browser.anthropic"] = "Claude in Chrome: Anthropic",
         ["inline.browser.chatgpt"] = "Claude in Chrome: ClaudeGPT",

@@ -240,6 +240,7 @@ public static class StateParser
             SidebarOpen = o.OptBool("sidebarOpen"),
             ActiveProject = o.OptStr("activeProject"),
             ViewMode = o.OptEnum("viewMode", StateValues.ViewModes),
+            Selected = o.OptStr("selected"),
         };
         o.KeepExtra(w);
         return w;
@@ -380,6 +381,7 @@ public static class StateParser
         p.CloseWindow = o.OptEnum("closeWindow", StateValues.CloseWindow) ?? "ask";
         p.GpuAcceleration = o.OptBool("gpuAcceleration") ?? false;
         p.WakeForTasks = o.OptBool("wakeForTasks") ?? false;
+        p.NotifySubthreads = o.OptBool("notifySubthreads") ?? false;
         p.BrowserAnthropic = o.OptBool("browserAnthropic");
         p.BrowserChatgpt = o.OptBool("browserChatgpt");
         p.ManagerThread = o.OptStr("managerThread");
