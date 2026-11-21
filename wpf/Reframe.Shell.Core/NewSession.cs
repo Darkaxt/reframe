@@ -44,18 +44,18 @@ public static partial class NewSession
     [GeneratedRegex(@"[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]")]
     private static partial Regex Control();
 
-    public static string ProviderName(string? provider) =>
-        provider == "chatgpt" ? "ChatGPT" : provider == "anthropic" ? "Anthropic" : "Provider not selected";
+    public static string ProviderName(string? provider) => StateValues.ProviderLabel(provider);
 
-    static ProviderDefaults? Remembered(Preferences preferences, string provider) =>
-        provider == "anthropic" ? preferences.ProviderDefaults?.Anthropic : preferences.ProviderDefaults?.Chatgpt;
+    static ProviderDefaults? Remembered(Preferences preferences, string provider) => preferences.ProviderDefaults?.Of(provider);
 
     /// <summary>The provider's defaults (Settings' "New … threads", or a profile made the default); before any were set,
     /// the older shared Settings fields (the default model is the ChatGPT route's).</summary>
     public static DialogDefaults DefaultsFor(Preferences preferences, string provider)
     {
         if (Remembered(preferences, provider) is { } r) return new(r.Model, r.Effort, r.PermissionMode, r.AddDirs ?? []);
-        return new(provider == "chatgpt" ? preferences.DefaultModel : null, preferences.DefaultEffort, preferences.DefaultPermissionMode, []);
+        // Gemini always names its model: the proxy's default one is the ChatGPT route's.
+        var model = provider switch { "chatgpt" => preferences.DefaultModel, "gemini" => ModelNames.Gemini[0], _ => null };
+        return new(model, preferences.DefaultEffort, preferences.DefaultPermissionMode, []);
     }
 
     /// <summary>The launch profiles of <paramref name="provider"/>, in the order they were made.</summary>
@@ -100,12 +100,12 @@ public static partial class NewSession
     /// workspace root.</summary>
     public static List<string> ProviderRecent(IEnumerable<string> recent, IReadOnlyDictionary<string, string> roots, string provider)
     {
-        var other = roots.GetValueOrDefault(provider == "chatgpt" ? "anthropic" : "chatgpt") ?? "";
-        var otherKey = Workspaces.FolderKey(other);
+        var own = Workspaces.FolderKey(roots.GetValueOrDefault(provider) ?? "");
+        var others = roots.Where(r => r.Key != provider && r.Value != "").Select(r => Workspaces.FolderKey(r.Value)).Where(k => k != own).ToList();
         return recent.Where(folder =>
         {
             var key = Workspaces.FolderKey(folder);
-            return other == "" || (key != otherKey && !key.StartsWith(otherKey + "/", StringComparison.Ordinal));
+            return others.All(other => key != other && !key.StartsWith(other + "/", StringComparison.Ordinal));
         }).ToList();
     }
 
@@ -114,6 +114,8 @@ public static partial class NewSession
     {
         ["chatgpt"] = Path.Combine(documents, "ChatGPT"),
         ["anthropic"] = Path.Combine(documents, "Anthropic"),
+        // Gemini threads run on the ClaudeGPT install, as ChatGPT's: they share its workspace.
+        ["gemini"] = Path.Combine(documents, "ChatGPT"),
     };
 
     /// <summary>createSession's record for a request (the folder and claude already checked).</summary>
@@ -156,8 +158,7 @@ public static partial class NewSession
         // The provider's defaults are Settings' (a new session no longer replaces them with its own choices): a session
         // before any were set leaves them as they were then, so the next one starts the same.
         var set = state.Preferences.ProviderDefaults ??= new ProviderDefaultsSet();
-        if (record.Launch.Provider == "anthropic") set.Anthropic ??= RememberedDefaults(record.Launch);
-        else set.Chatgpt ??= RememberedDefaults(record.Launch);
+        if (set.Of(record.Launch.Provider) is null) set.Put(record.Launch.Provider, RememberedDefaults(record.Launch));
     }
 
     static string? Plain(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -221,10 +222,10 @@ public static partial class NewSession
             payload is JsonObject o && o[key] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim() is { Length: > 0 } t ? t : null;
         if (Text("name") is not { } name || Text("prompt") is not { } prompt) return null;
         // The asking thread always chooses the provider: nothing is assumed for it.
-        var provider = Text("provider") switch { "claude" => "anthropic", "openai" => "chatgpt", _ => null };
+        var provider = Text("provider") switch { "claude" => "anthropic", "openai" => "chatgpt", "gemini" => "gemini", _ => null };
         if (provider is null) return null;
         var defaults = DefaultsFor(preferences, provider);
-        var family = opener.Launch.Provider == "anthropic" ? "Claude (Anthropic)" : "OpenAI";
+        var family = StateValues.FamilyOf(opener.Launch.Provider);
         var openerName = (string.IsNullOrWhiteSpace(opener.Name) ? opener.ClaudeName : opener.Name)?.Trim();
         var by = string.IsNullOrEmpty(openerName)
             ? $"[opened by a Reframe thread on {family}; answer it with SendMessage]"
@@ -319,7 +320,8 @@ public static class SpawnPlans
         {
             if (value is not null) launch[key] = value;
         }
-        Put("provider", record.Launch.Provider);
+        // The host knows the install, not the provider: a Gemini thread is the ChatGPT route's with a Gemini model.
+        Put("provider", record.Launch.Provider is { } provider ? StateValues.ClientOf(provider) : null);
         // A thread without a stored model starts with its provider's saved default (else the spawn plan's own fallback).
         Put("model", record.Launch.Model is { Length: > 0 } stored ? stored : fallbackModel);
         Put("effort", record.Launch.Effort);

@@ -22,6 +22,7 @@
   <SolidColorBrush x:Key="selectedBorderBrush" Color="#73D97757" />
   <SolidColorBrush x:Key="providerChatgptBrush" Color="#d6e3df" />
   <SolidColorBrush x:Key="providerAnthropicBrush" Color="#dba68b" />
+  <SolidColorBrush x:Key="providerGeminiBrush" Color="#8ab4f8" />
   <SolidColorBrush x:Key="providerUnknownBrush" Color="#9a9ba5" />
   <SolidColorBrush x:Key="captionCloseHoverBrush" Color="#c42b1c" />
 

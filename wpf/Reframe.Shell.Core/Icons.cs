@@ -52,8 +52,12 @@ public static class Icons
     public static readonly IconDefinition Anthropic = Filled("anthropic", 24, new IconPath(
         "M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-7.258 0h3.767L16.906 20h-3.674l-1.343-3.461H5.017l-1.344 3.46H0L6.57 3.522zm4.132 9.959L8.453 7.687 6.205 13.48H10.7z"));
 
+    /// <summary>Gemini's four-pointed spark.</summary>
+    public static readonly IconDefinition Gemini = Filled("gemini", 24, new IconPath(
+        "M12 1C12.6 6.9 17.1 11.4 23 12C17.1 12.6 12.6 17.1 12 23C11.4 17.1 6.9 12.6 1 12C6.9 11.4 11.4 6.9 12 1Z"));
+
     public static readonly IReadOnlyList<IconDefinition> All =
-        [Folder, Collapse, Close, Window, Info, Gear, Plus, List, Zoom, Unzoom, ExitFullscreen, ChevronUp, ChevronDown, More, Grid, Grip, ChatGpt, Anthropic];
+        [Folder, Collapse, Close, Window, Info, Gear, Plus, List, Zoom, Unzoom, ExitFullscreen, ChevronUp, ChevronDown, More, Grid, Grip, ChatGpt, Anthropic, Gemini];
 
     /// <summary>The WPF shell's own icons (no Electron counterpart, so not in <see cref="All"/>): the per-thread
     /// meters' chip, graphics card and memory module, drawn as Windows' Taskbar Thermals widget draws them.</summary>

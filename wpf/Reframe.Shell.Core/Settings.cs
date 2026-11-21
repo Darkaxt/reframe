@@ -31,7 +31,7 @@ public sealed record PreferencesPatch
     public string? DefaultModel { get; init; }
     public string? DefaultEffort { get; init; }
     public string? DefaultPermissionMode { get; init; }
-    /// <summary>"anthropic" or "chatgpt": DefaultModel, DefaultEffort and DefaultPermissionMode set that provider's defaults
+    /// <summary>"anthropic", "chatgpt" or "gemini": DefaultModel, DefaultEffort and DefaultPermissionMode set that provider's defaults
     /// (Settings' "New … threads"); null: the older shared fields.</summary>
     public string? DefaultsProvider { get; init; }
     /// <summary>The whole list of launch profiles (replaces the stored one; invalid entries are dropped).</summary>
@@ -105,10 +105,9 @@ public static class Settings
             // The provider's own defaults, starting from what it has now.
             var set = p.ProviderDefaults ??= new ProviderDefaultsSet();
             var current = NewSession.DefaultsFor(p, provider);
-            var own = (provider == "anthropic" ? set.Anthropic : set.Chatgpt)
+            var own = set.Of(provider)
                 ?? new ProviderDefaults { Model = current.Model, Effort = current.Effort, PermissionMode = current.PermissionMode, AddDirs = current.AddDirs.Count > 0 ? [.. current.AddDirs] : null };
-            if (provider == "anthropic") set.Anthropic = own;
-            else set.Chatgpt = own;
+            set.Put(provider, own);
             if (patch.DefaultModel is { } model) own.Model = Clip(model.Trim(), 100) is { Length: > 0 } m ? m : null;
             if (patch.DefaultEffort == "") own.Effort = null;
             else if (patch.DefaultEffort is { } effort && StateValues.EffortLevels.Contains(effort)) own.Effort = effort;
@@ -128,8 +127,7 @@ public static class Settings
         {
             var set = p.ProviderDefaults ??= new ProviderDefaultsSet();
             var defaults = new ProviderDefaults { Model = chosen.Model, Effort = chosen.Effort, PermissionMode = chosen.PermissionMode, AddDirs = chosen.AddDirs?.ToList() };
-            if (chosen.Provider == "anthropic") set.Anthropic = defaults;
-            else set.Chatgpt = defaults;
+            set.Put(chosen.Provider, defaults);
         }
         return Snapshot(p) != before;
     }

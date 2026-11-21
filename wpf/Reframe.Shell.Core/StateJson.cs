@@ -198,6 +198,7 @@ public static class StateJson
                 var d = new JsonObject();
                 if (set.Chatgpt is { } c) d["chatgpt"] = ProviderDefaults(c);
                 if (set.Anthropic is { } a) d["anthropic"] = ProviderDefaults(a);
+                if (set.Gemini is { } g) d["gemini"] = ProviderDefaults(g);
                 o["providerDefaults"] = Done(d, set);
             }
             return Done(o, p);

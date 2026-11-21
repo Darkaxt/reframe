@@ -241,7 +241,7 @@ sealed class NewSessionDialog
         Frame = frame;
     }
 
-    void ShowNote() => note.Text = T(provider == "anthropic" ? "dialog.providerNote.anthropic" : "dialog.providerNote.chatgpt");
+    void ShowNote() => note.Text = T(provider switch { "anthropic" => "dialog.providerNote.anthropic", "gemini" => "dialog.providerNote.gemini", _ => "dialog.providerNote.chatgpt" });
 
     /// <summary>The provider's defaults (an effort picked here stays).</summary>
     void ApplyDefaults()

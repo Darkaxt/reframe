@@ -517,10 +517,11 @@ sealed class SessionSidebar : Border
         {
             "chatgpt" => new VectorIcon { Kind = "chatgpt", Size = 16, Foreground = B("providerChatgptBrush") },
             "anthropic" => new VectorIcon { Kind = "anthropic", Size = 16, Foreground = B("providerAnthropicBrush") },
+            "gemini" => new VectorIcon { Kind = "gemini", Size = 16, Foreground = B("providerGeminiBrush") },
             _ => new TextBlock { Text = "?", FontSize = 12, Foreground = B("providerUnknownBrush"), HorizontalAlignment = HorizontalAlignment.Center },
         };
         icon.VerticalAlignment = VerticalAlignment.Center;
-        AutomationProperties.SetName(icon, provider switch { "chatgpt" => "ChatGPT", "anthropic" => "Claude", _ => "Unknown provider" });
+        AutomationProperties.SetName(icon, provider switch { "chatgpt" => "ChatGPT", "anthropic" => "Claude", "gemini" => "Gemini", _ => "Unknown provider" });
         return icon;
     }
 

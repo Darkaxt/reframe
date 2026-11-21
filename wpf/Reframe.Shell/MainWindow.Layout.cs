@@ -371,8 +371,8 @@ public partial class MainWindow
         Left(dot);
         Left(new VectorIcon
         {
-            Kind = provider == "anthropic" ? "anthropic" : "chatgpt", Size = 16, VerticalAlignment = VerticalAlignment.Center,
-            Foreground = B(provider == "anthropic" ? "providerAnthropicBrush" : "providerChatgptBrush"),
+            Kind = provider is "anthropic" or "gemini" ? provider : "chatgpt", Size = 16, VerticalAlignment = VerticalAlignment.Center,
+            Foreground = B(provider switch { "anthropic" => "providerAnthropicBrush", "gemini" => "providerGeminiBrush", _ => "providerChatgptBrush" }),
         });
         var title = new TextBlock
         {

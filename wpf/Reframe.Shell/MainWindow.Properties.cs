@@ -28,7 +28,7 @@ public partial class MainWindow
         if (!string.IsNullOrEmpty(cwd)) rows.Add(("Folder", cwd));
         if (chat?.Ref.Distro is { Length: > 0 } distro) rows.Add(("WSL distribution", distro));
         var provider = record?.Launch.Provider ?? chat?.Provider;
-        rows.Add(("Model provider", provider switch { "anthropic" => "Anthropic", "chatgpt" => "ChatGPT", null => "ChatGPT (default)", _ => provider }));
+        rows.Add(("Model provider", provider switch { null => "ChatGPT (default)", "anthropic" or "chatgpt" or "gemini" => StateValues.ProviderLabel(provider), _ => provider }));
         if (record is not null)
         {
             var launch = record.Launch;

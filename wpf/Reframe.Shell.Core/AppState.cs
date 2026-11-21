@@ -19,7 +19,19 @@ public abstract class StateObject
 public static class StateValues
 {
     public const int StateVersion = 1;
-    public static readonly IReadOnlyList<string> Providers = ["chatgpt", "anthropic"];
+    public static readonly IReadOnlyList<string> Providers = ["chatgpt", "anthropic", "gemini"];
+    /// <summary>The Claude Code install a provider's threads run on, as the pty host knows providers: Gemini's go through
+    /// the ClaudeGPT proxy (its Antigravity sign-in) as ChatGPT's do, only with Gemini models.</summary>
+    public static string ClientOf(string? provider) => provider == "anthropic" ? "anthropic" : "chatgpt";
+    public static string ProviderLabel(string? provider) => provider switch
+    {
+        "chatgpt" => "ChatGPT", "anthropic" => "Anthropic", "gemini" => "Gemini", _ => "Provider not selected",
+    };
+    /// <summary>Who makes a provider's models, as messages between threads name it.</summary>
+    public static string FamilyOf(string? provider) => provider switch
+    {
+        "anthropic" => "Claude (Anthropic)", "gemini" => "Gemini (Google)", _ => "OpenAI",
+    };
     public static readonly IReadOnlyList<string> EffortLevels = ["low", "medium", "high", "xhigh", "max"];
     /// <summary>What a permission mode is called where it is shown (the stored values are Claude Code's own words).</summary>
     public static string PermissionLabel(string? mode) => mode switch
@@ -232,6 +244,16 @@ public sealed class ProviderDefaultsSet : StateObject
 {
     public ProviderDefaults? Chatgpt { get; set; }
     public ProviderDefaults? Anthropic { get; set; }
+    public ProviderDefaults? Gemini { get; set; }
+
+    public ProviderDefaults? Of(string? provider) => provider switch { "anthropic" => Anthropic, "gemini" => Gemini, _ => Chatgpt };
+
+    public void Put(string? provider, ProviderDefaults defaults)
+    {
+        if (provider == "anthropic") Anthropic = defaults;
+        else if (provider == "gemini") Gemini = defaults;
+        else Chatgpt = defaults;
+    }
 }
 
 public sealed class Preferences : StateObject

@@ -36,7 +36,7 @@ public sealed record ChatMenuContext(ListItemKind Kind, SessionRecord? Record, s
 /// <summary>The context menus of src/main/menus.ts and app.ts (English texts of src/shared/i18n.ts), as specs.</summary>
 public static class ContextMenus
 {
-    static string ProviderName(string p) => p == "chatgpt" ? "ChatGPT" : p == "anthropic" ? "Anthropic" : "Provider not selected";
+    static string ProviderName(string p) => StateValues.ProviderLabel(p);
 
     /// <summary>chatActions: pin, hide and, for an inactive chat on Windows, provider, model, archive and delete.</summary>
     public static List<MenuSpec> ChatActions(ChatMenuContext c)

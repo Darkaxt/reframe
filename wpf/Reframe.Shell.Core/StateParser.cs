@@ -402,6 +402,7 @@ public static class StateParser
             {
                 Chatgpt = po.Get("chatgpt") is { } c ? ReadProviderDefaults(c, po.At("chatgpt")) : null,
                 Anthropic = po.Get("anthropic") is { } a ? ReadProviderDefaults(a, po.At("anthropic")) : null,
+                Gemini = po.Get("gemini") is { } g ? ReadProviderDefaults(g, po.At("gemini")) : null,
             };
             po.KeepExtra(set);
             p.ProviderDefaults = set;

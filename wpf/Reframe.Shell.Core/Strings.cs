@@ -150,6 +150,7 @@ public static class Strings
         ["dialog.provider"] = "Model provider",
         ["dialog.providerNote.anthropic"] = "Uses your Claude subscription. Sign in with /login in this chat if asked.",
         ["dialog.providerNote.chatgpt"] = "Uses your existing ClaudeGPT proxy, model and effort.",
+        ["dialog.providerNote.gemini"] = "Uses Google's Gemini models through your ClaudeGPT proxy; it needs the proxy's Antigravity sign-in.",
         ["dialog.effort"] = "Effort",
         ["dialog.effortDefault"] = "Default (CLI settings)",
         ["dialog.prompt"] = "First message (optional)",

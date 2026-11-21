@@ -295,7 +295,7 @@ sealed class SettingsDialog
             Settings.BrowserChoice(p.BrowserChatgpt), v => Set(new PreferencesPatch { BrowserChatgpt = v }))));
         AddHint(T("inline.browser.hint"));
 
-        foreach (var provider in new[] { "anthropic", "chatgpt" })
+        foreach (var provider in new[] { "anthropic", "chatgpt", "gemini" })
         {
             var name = NewSession.ProviderName(provider);
             var d = NewSession.DefaultsFor(p, provider);
@@ -340,7 +340,7 @@ sealed class SettingsDialog
     void BuildProfiles(Preferences p)
     {
         Add(Hint(T("inline.profiles.hint")), 6);
-        foreach (var provider in new[] { "anthropic", "chatgpt" })
+        foreach (var provider in new[] { "anthropic", "chatgpt", "gemini" })
         {
             var head = Row(NewSession.ProviderName(provider), Button(T("inline.profiles.new"), () => AddProfile(provider)));
             ((TextBlock)head.Children[0]).FontWeight = FontWeights.SemiBold;

@@ -210,6 +210,7 @@ public static class Overview
         "claude" => "Claude Code",
         "anthropic" => "Anthropic",
         "chatgpt" => "ChatGPT",
+        "gemini" => "Gemini",
         _ => provider,
     };
 

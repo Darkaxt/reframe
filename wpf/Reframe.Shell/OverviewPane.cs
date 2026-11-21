@@ -275,7 +275,7 @@ public sealed class OverviewPane : Border
             folder.Children.Add(new TextBlock { Text = Overview.FolderName(thread.Folder), FontSize = 12, Foreground = B("mutedBrush"), Margin = new Thickness(5, 0, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis });
             content.Children.Add(folder);
             var meta = new StackPanel { Orientation = Orientation.Horizontal };
-            meta.Children.Add(new Ellipse { Width = 8, Height = 8, Fill = B(thread.Provider == "chatgpt" ? "providerChatgptBrush" : "providerAnthropicBrush"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
+            meta.Children.Add(new Ellipse { Width = 8, Height = 8, Fill = B(thread.Provider switch { "chatgpt" => "providerChatgptBrush", "gemini" => "providerGeminiBrush", _ => "providerAnthropicBrush" }), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
             meta.Children.Add(Muted(Overview.ThreadMeta(thread, now), 11));
             content.Children.Add(meta);
             var card = new Button
