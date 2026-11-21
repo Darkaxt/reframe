@@ -52,7 +52,9 @@ public static class Quota
         return Shortest(windows);
     }
 
-    static JsonNode? Usage(JsonNode? raw) => raw is JsonObject o && o.ContainsKey("usage") && o["usage"] is not null ? o["usage"] : raw;
+    // `usage quota` answers { ok, quota: { providers } }; the older snapshot { ok, usage: { providers | buckets } }.
+    static JsonNode? Usage(JsonNode? raw) => raw is JsonObject o && o["quota"] is JsonObject quota ? quota
+        : raw is JsonObject u && u.ContainsKey("usage") && u["usage"] is not null ? u["usage"] : raw;
 
     /// <summary>parseCoordinatorProviders: the quota per provider (codex, claude) of a <c>usage.snapshot</c> answer, each
     /// window from its last point.</summary>
@@ -64,16 +66,19 @@ public static class Quota
         {
             var source = provider["id"] is JsonValue idValue && idValue.GetValueKind() == JsonValueKind.String ? idValue.GetValue<string>() : null;
             if (source is not ("codex" or "claude") || provider["windows"] is not JsonArray list) continue;
-            var at = Finite(provider["observedAt"]);
+            // Times in milliseconds (`usage quota` gives seconds).
+            var at = Time(provider["observedAt"]);
             var windows = new List<QuotaWindow>();
             foreach (var window in list.OfType<JsonObject>())
             {
+                // A window not reported since it reset is unknown, not full: left out.
+                if (window["status"] is JsonValue s && s.GetValueKind() == JsonValueKind.String && s.GetValue<string>() != "current") continue;
                 var last = (window["points"] as JsonArray)?.LastOrDefault() as JsonObject;
-                if ((Finite(last?["remaining"]) ?? Finite(window["remaining"])) is not { } remaining) continue;
-                if (Finite(last?["t"]) is { } t && (at is null || t > at)) at = t;
+                if ((Finite(last?["remaining"]) ?? Finite(window["remaining"]) ?? Finite(window["remainingPercent"])) is not { } remaining) continue;
+                if (Time(last?["t"]) is { } t && (at is null || t > at)) at = t;
                 var minutes = Finite(window["windowMinutes"]);
                 var name = window["id"] is JsonValue w && w.GetValueKind() == JsonValueKind.String ? w.GetValue<string>() : "";
-                windows.Add(new QuotaWindow($"{source}:{(minutes is { } m ? Number(m) : name)}", minutes, ClampPercent(100 - remaining), Time(window["resetAt"])));
+                windows.Add(new QuotaWindow($"{source}:{(minutes is { } m ? Number(m) : name)}", minutes, ClampPercent(100 - remaining), Time(window["resetAt"] ?? window["resetsAt"])));
             }
             if (windows.Count > 0 && at is { } observed) quotas[source] = new ObservedQuota(Shortest(windows), observed);
         }

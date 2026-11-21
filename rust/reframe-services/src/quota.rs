@@ -1,8 +1,8 @@
-//! The quota counters' sources (src/main/quota.ts): LLM Coordinator's installed native client, asked once for its
-//! usage snapshot (read only), and whether the user's Claude Code settings set a status line.
+//! The quota counters' sources: LLM Coordinator's installed client, asked for its cached usage (`coordinator-client
+//! usage quota`, read only), and whether the user's Claude Code settings set a status line.
 
 use std::fs;
-use std::io::{ErrorKind, Read, Write};
+use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::mpsc;
@@ -17,32 +17,26 @@ pub const TIMEOUT: Duration = Duration::from_secs(20);
 /// The most of its output that is taken (execFile's maxBuffer); more fails the read.
 const MAX_OUTPUT: u64 = 64 * 1024 * 1024;
 
-/// The installed Coordinator's executable, from its active.json (`releases/<release>/LLMCoordinator.exe`).
+/// The installed Coordinator's client (`Tools/llm-coordinator/bin/coordinator-client.exe`), its supported interface.
 pub fn coordinator_executable(local_app_data: &str) -> Option<PathBuf> {
     if local_app_data.is_empty() {
         return None;
     }
-    let root = Path::new(local_app_data).join("Tools").join("llm-coordinator");
-    let active: Value = serde_json::from_slice(&fs::read(root.join("active.json")).ok()?).ok()?;
-    let release = active.get("release")?.as_str()?;
-    let valid = !release.is_empty()
-        && release
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b"_.-".contains(&b));
-    if !valid {
-        return None;
-    }
-    let exe = root.join("releases").join(release).join("LLMCoordinator.exe");
-    exe.exists().then_some(exe)
+    let exe = Path::new(local_app_data)
+        .join("Tools")
+        .join("llm-coordinator")
+        .join("bin")
+        .join("coordinator-client.exe");
+    exe.is_file().then_some(exe)
 }
 
-/// The Coordinator's answer to `usage.snapshot` (its JSON as it wrote it), or why there is none: it cannot be started,
-/// fails, writes more than 64 MiB or no JSON, or does not exit in `timeout` (then it is killed, as execFile kills it).
+/// The Coordinator client's answer to `usage quota` (its JSON as it wrote it), or why there is none: it cannot be
+/// started, fails, writes more than 64 MiB or no JSON, or does not exit in `timeout` (then it is killed).
 pub fn read_codex_usage(exe: &Path, timeout: Duration) -> Result<Value, String> {
     let mut command = Command::new(exe);
     command
-        .arg("--native-client-stdin-active")
-        .stdin(Stdio::piped())
+        .args(["usage", "quota"])
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     #[cfg(windows)]
@@ -55,9 +49,6 @@ pub fn read_codex_usage(exe: &Path, timeout: Duration) -> Result<Value, String> 
     let mut child = command
         .spawn()
         .map_err(|e| format!("cannot start the Coordinator: {e}"))?;
-    if let Some(mut stdin) = child.stdin.take() {
-        let _ = stdin.write_all(br#"{"method":"usage.snapshot","hours":24}"#);
-    }
     let deadline = started + timeout;
     // Its error output, kept short, to say why it failed.
     // (Received with a short wait: a child of its own that kept the pipe open must not hold the answer.)
@@ -153,16 +144,14 @@ mod tests {
     use crate::testdir::TestDir;
 
     #[test]
-    fn finds_the_active_release() {
+    fn finds_the_client() {
         let dir = TestDir::new();
         let local = dir.text("");
         assert_eq!(coordinator_executable(&local), None);
-        dir.write("Tools/llm-coordinator/active.json", r#"{"release":"1.2.3"}"#);
+        dir.write("Tools/llm-coordinator/releases/1.2.3/LLMCoordinator.exe", "");
         assert_eq!(coordinator_executable(&local), None);
-        let exe = dir.write("Tools/llm-coordinator/releases/1.2.3/LLMCoordinator.exe", "");
+        let exe = dir.write("Tools/llm-coordinator/bin/coordinator-client.exe", "");
         assert_eq!(coordinator_executable(&local), Some(exe));
-        dir.write("Tools/llm-coordinator/active.json", r#"{"release":"../1.2.3"}"#);
-        assert_eq!(coordinator_executable(&local), None);
         assert_eq!(coordinator_executable(""), None);
     }
 

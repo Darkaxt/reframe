@@ -49,6 +49,9 @@ sealed partial class ShellController
     }
 
     readonly Dictionary<string, TaskActivity> taskActive = [];
+    // A thread something was just typed into, until it is seen busy (or a minute passed): another run due at the same
+    // time waits for its turn instead of typing into the same prompt.
+    readonly Dictionary<string, DateTimeOffset> typedInto = [];
 
     /// <summary>Threads a task or a wake-up resumed, and when: while their start is awaited their tile does not take the
     /// keyboard focus when the terminal appears (the run must not pull the focus from what the user is typing in).</summary>
@@ -295,9 +298,17 @@ sealed partial class ShellController
             }
             if (Runs(record.Id))
             {
+                if (typedInto.TryGetValue(record.Id, out var typedAt))
+                {
+                    if (StatusOf(record.Id) == "idle" && DateTimeOffset.Now - typedAt < TimeSpan.FromMinutes(1)) return;
+                    typedInto.Remove(record.Id);
+                    if (StatusOf(record.Id) != "idle") return;
+                }
                 if (StatusOf(record.Id) == "idle")
                 {
+                    typedInto[record.Id] = DateTimeOffset.Now;
                     var typed = await TypeIntoAsync(record.Id, run.Wake ?? ScheduledTasks.RunText(task));
+                    if (!typed) typedInto.Remove(record.Id);
                     Finish(run, typed, typed ? "delivered" : "could not type into its thread");
                 }
                 else if (DateTimeOffset.Now - run.Since > TaskWaitLimit) Finish(run, false, "its thread stayed busy for 12 hours");
@@ -346,7 +357,12 @@ sealed partial class ShellController
             return;
         }
         var runs = ScheduledTasks.ReadRuns(TasksDir, task.Id);
-        ScheduledTasks.WriteRuns(TasksDir, task.Id, runs with { LastResult = result, LastResultAt = DateTimeOffset.Now.ToUnixTimeMilliseconds() });
+        // A run that was not delivered does not use up one of the task's runs (COUNT); its time stays taken, so it is not
+        // tried again at once.
+        ScheduledTasks.WriteRuns(TasksDir, task.Id, runs with
+        {
+            LastResult = result, LastResultAt = DateTimeOffset.Now.ToUnixTimeMilliseconds(), Runs = delivered ? runs.Runs : Math.Max(0, runs.Runs - 1),
+        });
         TaskLog($"{task.Id}: {result}");
         if (delivered && !task.NewChat) taskActive[task.TargetThreadId] = new TaskActivity(DateTimeOffset.Now);
         TasksChanged?.Invoke();
@@ -517,6 +533,9 @@ sealed partial class ShellController
             TaskLog("no wake-up task: nothing scheduled");
             return;
         }
+        // A run already due (one not delivered before the quit) does not start Reframe again right after you quit it.
+        var soonest = DateTimeOffset.Now.AddMinutes(15);
+        if (next < soonest) next = soonest;
         var file = Path.Combine(TasksDir, ".wake-up.xml");
         try
         {
