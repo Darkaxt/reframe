@@ -124,13 +124,13 @@ public static class MarkdownLite
             }
             else if ((i == 0 || !char.IsLetterOrDigit(text[i - 1])) && (string.CompareOrdinal(text, i, "https://", 0, 8) == 0 || string.CompareOrdinal(text, i, "http://", 0, 7) == 0))
             {
-                var end = i;
-                while (end < text.Length && !char.IsWhiteSpace(text[end]) && text[end] is not ('<' or '>' or '"' or '`')) end++;
+                var stop = i;
+                while (stop < text.Length && !char.IsWhiteSpace(text[stop]) && text[stop] is not ('<' or '>' or '"' or '`')) stop++;
                 // A sentence's full stop or a closing bracket after the address is not part of it.
-                while (end > i && (text[end - 1] is '.' or ',' or ';' or ':' or '!' or '?' || text[end - 1] == ')' && !text[i..end].Contains('('))) end--;
+                while (stop > i && (text[stop - 1] is '.' or ',' or ';' or ':' or '!' or '?' || text[stop - 1] == ')' && !text[i..stop].Contains('('))) stop--;
                 Plain();
-                spans.Add(new MdSpan(text[i..end], Link: text[i..end]));
-                i = end - 1;
+                spans.Add(new MdSpan(text[i..stop], Link: text[i..stop]));
+                i = stop - 1;
             }
             else plain.Append(text[i]);
         }
