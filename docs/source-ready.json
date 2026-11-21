@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "234d989cb78f6de2c1cc8afed32d1a2269557a11",
-  "scope": "quota and tasks",
+  "sourceBase": "7c5e4c44dc53c326fdf5f4df301d3f3943039b13",
+  "scope": "terminal resize crash",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.117.md",
-      "sha256": "867e51aa6f01f1d1fbff8068218f2c6a457b880dfdae3526e73e97ad07c63e4f"
+      "file": "docs/releases/v0.11.0-claudegpt.118.md",
+      "sha256": "f3039e829b537a0a95aac1c85346a1ef4e37d02a628bcb9f0b925309b5ad13cb"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,23 +18,23 @@
     },
     {
       "file": "package.json",
-      "sha256": "da6f929e8c9261b28fbd69c144898d1c6775c56ed02df7ed0e26defbbb17ec38"
+      "sha256": "6756282432e85b43097081d77cf2d1de5e3f93a4f26fa77fa4477a1be3acbd0d"
     },
     {
-      "file": "rust/reframe-services/src/quota.rs",
-      "sha256": "65bc270e59f6590b8beb9a745c976b336c2b597b2f5b75c99b070f5f9f45d709"
+      "file": "wpf/Get-TerminalPackage.ps1",
+      "sha256": "717ca29ee829d9a862b5a0569ee9f876b12108205e7f43c8f5216c0e07c9f8fe"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/Quota.cs",
-      "sha256": "77defb4ac5d1bed9d67710398ec4b39462f9d506742a7e3440c5ddf7ce78535a"
+      "file": "wpf/Reframe.Shell/HostTerminalConnection.cs",
+      "sha256": "49c0f9738c768bcdd169f071e5728ff9ddbb5e01c34a2039428c91fa9acb9bf2"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/SettingsTests.cs",
-      "sha256": "2c271d0d1aea51b6b594420ede0a13b3c72384f1abd9540b37b9aedf04c50c46"
+      "file": "wpf/Reframe.Shell/Reframe.Shell.csproj",
+      "sha256": "5b047b5a9ba5531faf611ea0749038aaa4fcb4306226897110c48a1d73221f7f"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
-      "sha256": "0d7b80ea0eefd02240e9a5a89c098e2dbad15beed1a3b29e8f5b16f38115d555"
+      "file": "wpf/terminal-patch/0003-resize-torn-down-terminal.patch",
+      "sha256": "7c357302855a6fb24804c80e6aa254b05d786c0942bb9b0a706de6f04314ab2d"
     }
   ],
   "checksNotYetRun": [
