@@ -111,7 +111,7 @@ fn tool() -> Value {
             "properties": {
                 "name": { "type": "string", "description": "The new thread's name, which SendMessage reaches it by." },
                 "prompt": { "type": "string", "description": "Its first prompt: the task, with what it needs to know." },
-                "provider": { "type": "string", "enum": ["openai", "claude", "gemini"], "description": "Which models the new thread runs on: openai, claude or gemini (Google's, through the user's proxy). Always chosen, never assumed." },
+                "provider": { "type": "string", "enum": ["openai", "claude", "gemini"], "description": "Which models the new thread runs on: openai, claude or gemini (Google's, through the Antigravity CLI). Always chosen, never assumed." },
                 "folder": { "type": "string", "description": "An absolute folder to work in; this thread's folder by default." },
                 "model": { "type": "string", "description": "A model. For openai name one explicitly (the user's saved default is used if left out and can be outdated: an unknown model makes the thread fail at its first request, and Reframe then tells you). The user's default for the provider if left out." },
                 "reasoning_effort": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"], "description": "The reasoning effort; the user's default for the provider if left out." },

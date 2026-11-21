@@ -12,7 +12,8 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::protocol::same_token;
 
 /// Events with a hook (HOOK_EVENTS in settings.ts) and the status line's own.
-pub const HOOK_EVENTS: [&str; 3] = ["UserPromptSubmit", "Stop", "Notification"];
+/// SessionStart: agy's (relayed by `reframe-host --agy-hook`, agyhook.rs), naming its conversation.
+pub const HOOK_EVENTS: [&str; 4] = ["UserPromptSubmit", "Stop", "Notification", "SessionStart"];
 pub const STATUS_LINE_EVENT: &str = "StatusLine";
 /// A session's thread tools asking reframe to open another thread (threads.rs).
 pub const OPEN_THREAD_EVENT: &str = "OpenThread";

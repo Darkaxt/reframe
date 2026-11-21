@@ -22,7 +22,11 @@ sealed class ChatView : Border
     static Brush B(string key) => (Brush)Application.Current.FindResource(key);
     static Style S(string key) => (Style)Application.Current.FindResource(key);
 
-    readonly string claudeSessionId;
+    // The conversation, as the session record has it now (a Gemini thread's changes once agy names its own).
+    readonly Func<string> conversation;
+    readonly Func<string?> providerOf;
+    string claudeSessionId => conversation();
+    string? pathFor;
     TranscriptModel model = new();
     // Lazy loading: the view starts with the transcript's last InitialTail bytes; scrolling to the top (or the button there)
     // loads EarlierChunk more, off the UI thread, up to MaxLoaded.
@@ -61,11 +65,12 @@ sealed class ChatView : Border
     string? path;
     long offset;
 
-    public ChatView(string claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu,
+    public ChatView(Func<string> claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu,
         Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt, Action<string, bool> fork, Func<string> title, Func<string?> provider,
         Func<string> sessionStatus, Action showTerminal)
     {
-        this.claudeSessionId = claudeSessionId;
+        conversation = claudeSessionId;
+        providerOf = provider;
         this.sessionStatus = sessionStatus;
         this.fork = fork;
         this.scheduled = scheduled;
@@ -271,7 +276,7 @@ sealed class ChatView : Border
             {
                 try
                 {
-                    Clipboard.SetText(action == "id" ? claudeSessionId : string.Join("\n\n", this.model.Items.Select(i => i switch
+                    Clipboard.SetText(action == "id" ? this.claudeSessionId : string.Join("\n\n", this.model.Items.Select(i => i switch
                     {
                         UserMessageItem u => "You: " + u.Text,
                         AssistantTextItem a => a.Text,
@@ -367,7 +372,20 @@ sealed class ChatView : Border
 
     string? Find()
     {
+        var id = claudeSessionId;
+        if (pathFor != id && path is not null)
+        {
+            // Another conversation: read it from its start.
+            path = null;
+            if (start >= 0)
+            {
+                start = -1;
+                ClearTurns();
+            }
+        }
         if (path is not null && File.Exists(path)) return path;
+        pathFor = id;
+        if (providerOf() == "gemini") return path = Antigravity.TranscriptFile(id);
         try
         {
             var projects = Path.Combine(ClaudeRegistry.Home(), "projects");

@@ -47,7 +47,7 @@ fn answer(hook: &Value, provider: &str, model: Option<&str>) -> Option<Value> {
 }
 
 fn tag(provider: &str, model: Option<&str>) -> String {
-    // Gemini threads run on the ChatGPT route: their model tells them apart.
+    // A Claude Code session with a Gemini model (a thread from before Gemini threads ran agy) is told apart by it.
     let family = if provider == "anthropic" {
         "Claude (Anthropic)"
     } else if model.is_some_and(|m| m.to_ascii_lowercase().starts_with("gemini")) {

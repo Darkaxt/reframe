@@ -101,6 +101,9 @@ pub enum Lookup {
         distro: String,
         claude_session_id: String,
     },
+    /// Antigravity CLI (agy, a Gemini thread): no registry; its hooks (relayed by reframe-host --agy-hook) tell its
+    /// status and its conversation id (the one it was started with until agy names its own).
+    Agy { conversation_id: String },
 }
 
 impl Lookup {
@@ -111,6 +114,7 @@ impl Lookup {
             Lookup::Launched { claude_session_id, .. } | Lookup::Wsl { claude_session_id, .. } => {
                 Some(claude_session_id)
             }
+            Lookup::Agy { conversation_id } => Some(conversation_id),
         }
     }
 
@@ -119,6 +123,11 @@ impl Lookup {
     pub fn from_meta(meta: Option<&Value>) -> Option<Self> {
         let meta = meta?;
         let text = |v: Option<&Value>| v.and_then(Value::as_str).filter(|s| !s.is_empty()).map(str::to_string);
+        if let Some(agy) = meta.get("agy") {
+            return Some(Lookup::Agy {
+                conversation_id: text(agy.get("conversationId"))?,
+            });
+        }
         if let Some(wsl) = meta.get("wsl") {
             return Some(Lookup::Wsl {
                 home: text(wsl.get("home"))?.into(),
@@ -187,6 +196,7 @@ impl Read {
                 let pid = found.as_ref().and_then(Entry::pid);
                 (found, pid)
             }
+            Lookup::Agy { .. } => (None, None),
         }
     }
 }
@@ -282,7 +292,7 @@ impl Tracker {
         match self.lookup {
             Lookup::Direct { .. } => Some(self.pid),
             Lookup::Launched { .. } => self.found,
-            Lookup::Wsl { .. } => None,
+            Lookup::Wsl { .. } | Lookup::Agy { .. } => None,
         }
     }
 
@@ -323,6 +333,8 @@ impl Tracker {
         }
         let update = match event {
             "UserPromptSubmit" => self.set(Status::Busy).then(|| self.update(None)),
+            // agy's conversation started (its first prompt, or a resume): ready, if nothing said otherwise yet.
+            "SessionStart" if self.status == Status::Starting => self.set(Status::Idle).then(|| self.update(None)),
             "Stop" => {
                 self.set(Status::Idle);
                 // Background work (a shell or a monitor left running) can start a turn of its own: not done yet.
@@ -352,6 +364,10 @@ impl Tracker {
     pub fn registry(&mut self, entry: Option<Entry>, found: Option<u32>) -> Option<Update> {
         if !self.running() {
             return None;
+        }
+        // agy has no registry: once it runs, it is idle until its hooks say otherwise.
+        if matches!(self.lookup, Lookup::Agy { .. }) {
+            return (self.status == Status::Starting && self.set(Status::Idle)).then(|| self.update(None));
         }
         if !matches!(self.lookup, Lookup::Direct { .. }) {
             self.found = found;
@@ -454,6 +470,33 @@ mod tests {
 
     fn direct() -> Tracker {
         Tracker::new(Lookup::Direct { home: "h".into() }, 7, 10_000.0, None)
+    }
+
+    #[test]
+    fn follows_an_agy_session_by_its_hooks() {
+        let meta = json!({ "agy": { "conversationId": "placeholder" } });
+        let lookup = Lookup::from_meta(Some(&meta)).unwrap();
+        assert_eq!(lookup.claude_session_id(), Some("placeholder"));
+        let mut t = Tracker::new(lookup, 7, 10_000.0, None);
+        assert_eq!(t.read().unwrap().run(|_| true, |_| None), (None, None));
+        // Running and no registry: idle.
+        assert_eq!(t.registry(None, None).unwrap().status, Status::Idle);
+        assert_eq!(t.registry(None, None), None);
+        // agy names its conversation at its first prompt.
+        let started = t.hook("SessionStart", &json!({ "session_id": "c1" })).unwrap();
+        assert_eq!(
+            (started.status, started.claude_session_id.as_deref()),
+            (Status::Idle, Some("c1"))
+        );
+        assert_eq!(
+            t.hook("UserPromptSubmit", &json!({ "session_id": "c1" }))
+                .unwrap()
+                .status,
+            Status::Busy
+        );
+        let done = t.hook("Stop", &json!({ "session_id": "c1" })).unwrap();
+        assert_eq!((done.status, done.notify), (Status::Idle, Some(Notify::Done)));
+        assert_eq!(t.claude_pid(), None);
     }
 
     #[test]

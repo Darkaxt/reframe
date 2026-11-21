@@ -12,6 +12,7 @@
 #[cfg(not(windows))]
 compile_error!("reframe-host runs on Windows (ConPTY); elsewhere reframe uses its Node host");
 
+mod agyhook;
 mod files;
 mod hooks;
 mod host;
@@ -51,6 +52,9 @@ fn main() {
     }
     if args.get(1).map(String::as_str) == Some(reframe_services::spawn_plan::THREAD_TOOLS_ARG) {
         std::process::exit(threads::run(&args[2..]));
+    }
+    if args.get(1).map(String::as_str) == Some(reframe_services::spawn_plan::AGY_HOOK_ARG) {
+        std::process::exit(agyhook::run(&args[2..]));
     }
     let Some(dir) = std::env::var_os("REFRAME_PTYHOST_DIR").map(PathBuf::from) else {
         std::process::exit(2);

@@ -130,10 +130,14 @@ public static class ClaudeRegistry
         for (var i = lines.Length - 1; i >= 0; i--)
         {
             var line = lines[i];
-            if (!line.Contains("\"assistant\"", StringComparison.Ordinal) || !line.Contains("\"model\"", StringComparison.Ordinal)) continue;
+            if (!line.Contains("\"model\"", StringComparison.Ordinal)) continue;
+            var agy = line.Contains("\"PLANNER_RESPONSE\"", StringComparison.Ordinal);
+            if (!agy && !line.Contains("\"assistant\"", StringComparison.Ordinal)) continue;
             try
             {
                 var entry = JsonNode.Parse(line);
+                // Antigravity CLI's transcript (a Gemini thread): the model is on the step itself.
+                if (agy && (string?)entry?["type"] == "PLANNER_RESPONSE" && (string?)entry["model"] is { Length: > 0 } stepModel) return stepModel;
                 if ((string?)entry?["type"] == "assistant" && entry["isSidechain"]?.GetValue<bool>() != true
                     && (string?)entry["message"]?["model"] is { Length: > 0 } model && !model.StartsWith('<'))
                     return model;
