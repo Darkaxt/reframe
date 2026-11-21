@@ -146,11 +146,11 @@ public class ShellWindowsTests
         foreach (var (id, name) in new[] { ("s1", "alpha"), ("s2", "beta"), ("s3", "gamma"), ("s4", "delta"), ("s5", "eps") })
             state.Sessions[id] = new SessionRecord { Id = id, ClaudeSessionId = id, Cwd = @"C:\x", Name = name };
 
-        var menu = ShellWindows.TrayMenu(ShellWindows.TrayWindows(state), anyRunning: false);
+        var menu = ShellWindows.TrayMenu(ShellWindows.TrayWindows(state, id => id is "s1" or "s3" or "s5"), anyRunning: false);
         var flat = menu.Select(m => m.Type == "separator" ? "---" : $"{m.Type} {m.Label}{(m.Enabled ? "" : " disabled")}{(m.Checked == true ? " checked" : "")}");
         Assert.Equal(new[]
         {
-            "checkbox Window 1 – alpha, delta, beta, … checked", "checkbox Window 2 – eps", "checkbox Window 3 checked", "---",
+            "checkbox Window 1 – 2 threads active checked", "checkbox Window 2 – 1 thread active", "checkbox Window 3 checked", "---",
             "normal New session", "normal New window", "---",
             "normal About Reframe", "normal Reload", "normal Terminate all sessions disabled", "normal Quit",
         }, flat);
@@ -159,12 +159,11 @@ public class ShellWindowsTests
     }
 
     [Fact]
-    public void Long_thread_names_keep_the_tray_entry_short()
+    public void A_tray_window_entry_counts_its_active_threads()
     {
-        var label = ShellWindows.TrayWindowLabel(0, ["Pathweft", "Navic - Player Improvements and more", "Aurral Last.fm Replacement QA", "Fourth"]);
-        Assert.Equal("Window 1 – Pathweft, Navic - Player Improvem…, Aurral Last.fm Replacem…", label);
-        Assert.True(label.Length <= "Window 1 – ".Length + 60);
-        Assert.Equal("Window 2 – a, b", ShellWindows.TrayWindowLabel(1, ["a", "b"]));
+        Assert.Equal("Window 1 – 12 threads active", ShellWindows.TrayWindowLabel(0, 12));
+        Assert.Equal("Window 2 – 1 thread active", ShellWindows.TrayWindowLabel(1, 1));
+        Assert.Equal("Window 3", ShellWindows.TrayWindowLabel(2, 0));
     }
 
     [Fact]
