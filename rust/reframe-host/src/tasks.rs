@@ -163,8 +163,8 @@ pub fn rule_problem(rule: &str) -> Option<String> {
                 freq = Some(value);
                 ["MINUTELY", "HOURLY", "DAILY", "WEEKLY", "MONTHLY"].contains(&value)
             }
-            "INTERVAL" => numbers(1, 1000),
-            "COUNT" => numbers(1, 100_000),
+            "INTERVAL" => !value.contains(',') && numbers(1, 1000),
+            "COUNT" => !value.contains(',') && numbers(1, 100_000),
             "BYHOUR" => numbers(0, 23),
             "BYMINUTE" | "BYSECOND" => numbers(0, 59),
             "BYMONTHDAY" => numbers(1, 31),
@@ -384,6 +384,11 @@ impl Tasks {
                 let Some(mut fields) = load(&dir) else {
                     return Err(format!("There is no task {id}."));
                 };
+                if fields.get("target_thread_id").and_then(Field::text) != Some(self.session_id.as_str()) {
+                    return Err(format!(
+                        "The task {id} belongs to another thread: only that thread changes or deletes it (the user can, under Tasks)."
+                    ));
+                }
                 if tool == "delete_task" {
                     std::fs::remove_dir_all(&dir).map_err(|e| e.to_string())?;
                     return Ok(format!("Deleted the task {id}."));
@@ -476,6 +481,8 @@ mod tests {
             "FREQ=MINUTELY",
             "FREQ=DAILY;BYSETPOS=1",
             "FREQ=WEEKLY;BYDAY=1MO",
+            "FREQ=HOURLY;INTERVAL=5,10",
+            "FREQ=DAILY;COUNT=2,3",
         ] {
             assert!(rule_problem(bad).is_some(), "{bad}");
         }
@@ -514,6 +521,17 @@ mod tests {
         assert_eq!(other.call("list_tasks", &json!({})).unwrap(), "No scheduled tasks.");
         let all: Value = serde_json::from_str(&other.call("list_tasks", &json!({ "all": true })).unwrap()).unwrap();
         assert_eq!(all.as_array().unwrap().len(), 2);
+        let refused = other
+            .call("delete_task", &json!({ "id": "check-mirror-weekly" }))
+            .unwrap_err();
+        assert!(refused.contains("another thread"), "{refused}");
+        assert!(other
+            .call(
+                "update_task",
+                &json!({ "id": "check-mirror-weekly", "status": "PAUSED" })
+            )
+            .is_err());
+        assert!(tasks.dir.join("check-mirror-weekly").exists());
         tasks
             .call(
                 "update_task",
