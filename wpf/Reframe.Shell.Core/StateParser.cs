@@ -220,6 +220,7 @@ public static class StateParser
             AddDirs = o.OptStrings("addDirs"),
             InitialPrompt = o.OptStr("initialPrompt"),
             WorktreeCreated = o.OptBool("worktreeCreated"),
+            FollowsDefaults = o.OptStrings("followsDefaults")?.Where(NewSession.FollowFields.Contains).Distinct().ToList() is { Count: > 0 } follows ? follows : null,
         };
         o.KeepExtra(l);
         return l;

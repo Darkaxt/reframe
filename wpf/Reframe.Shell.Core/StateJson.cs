@@ -87,6 +87,7 @@ public static class StateJson
             Opt(o, "addDirs", l.AddDirs);
             Opt(o, "initialPrompt", l.InitialPrompt);
             Opt(o, "worktreeCreated", l.WorktreeCreated);
+            Opt(o, "followsDefaults", l.FollowsDefaults);
             return Done(o, l);
         }
 

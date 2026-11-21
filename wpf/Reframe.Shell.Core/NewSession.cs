@@ -17,7 +17,9 @@ public sealed record NewSessionRequest(
     IReadOnlyList<string>? AddDirs = null,
     string? InitialPrompt = null,
     /// <summary>The id of the thread that opened it (open_thread), recorded as its owner.</summary>
-    string? OpenedBy = null);
+    string? OpenedBy = null,
+    /// <summary>The choices taken from the provider's defaults (<see cref="NewSession.FollowFields"/>): they follow the defaults.</summary>
+    IReadOnlyList<string>? Follows = null);
 
 /// <summary>The dialog's starting values for a provider (defaultsFor).</summary>
 public sealed record DialogDefaults(string? Model, string? Effort, string? PermissionMode, IReadOnlyList<string> AddDirs);
@@ -35,6 +37,8 @@ public static partial class NewSession
     public const int MaxAddDirs = 20;
     public const int MaxPrompt = 20_000;
     public const int MaxRecentFolders = 8;
+    /// <summary>The choices a thread can take from its provider's defaults and follow (<see cref="LaunchOptions.FollowsDefaults"/>).</summary>
+    public static readonly IReadOnlyList<string> FollowFields = ["model", "effort", "permissionMode"];
 
     // Control characters break a command line; tabs and newlines are fine in a prompt.
     [GeneratedRegex(@"[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]")]
@@ -46,8 +50,8 @@ public static partial class NewSession
     static ProviderDefaults? Remembered(Preferences preferences, string provider) =>
         provider == "anthropic" ? preferences.ProviderDefaults?.Anthropic : preferences.ProviderDefaults?.Chatgpt;
 
-    /// <summary>defaultsFor: what was used last for the provider, else Settings' defaults (the default model is the
-    /// ChatGPT route's).</summary>
+    /// <summary>The provider's defaults (Settings' "New … threads", or a profile made the default); before any were set,
+    /// the older shared Settings fields (the default model is the ChatGPT route's).</summary>
     public static DialogDefaults DefaultsFor(Preferences preferences, string provider)
     {
         if (Remembered(preferences, provider) is { } r) return new(r.Model, r.Effort, r.PermissionMode, r.AddDirs ?? []);
@@ -133,6 +137,7 @@ public static partial class NewSession
                 WorktreeName = request.Worktree && !string.IsNullOrWhiteSpace(request.WorktreeName) ? request.WorktreeName.Trim() : null,
                 AddDirs = CleanAddDirs(request.AddDirs),
                 InitialPrompt = CleanPrompt(request.InitialPrompt),
+                FollowsDefaults = request.Follows?.Where(FollowFields.Contains).Distinct().ToList() is { Count: > 0 } follows ? follows : null,
             },
             Lifecycle = "open",
             CreatedAt = now,
@@ -148,10 +153,62 @@ public static partial class NewSession
         var cwd = record.Cwd;
         state.RecentFolders = [cwd, .. state.RecentFolders.Where(f => !string.Equals(f, cwd, StringComparison.OrdinalIgnoreCase))];
         if (state.RecentFolders.Count > MaxRecentFolders) state.RecentFolders.RemoveRange(MaxRecentFolders, state.RecentFolders.Count - MaxRecentFolders);
+        // The provider's defaults are Settings' (a new session no longer replaces them with its own choices): a session
+        // before any were set leaves them as they were then, so the next one starts the same.
         var set = state.Preferences.ProviderDefaults ??= new ProviderDefaultsSet();
-        var remembered = RememberedDefaults(record.Launch);
-        if (record.Launch.Provider == "anthropic") set.Anthropic = remembered;
-        else set.Chatgpt = remembered;
+        if (record.Launch.Provider == "anthropic") set.Anthropic ??= RememberedDefaults(record.Launch);
+        else set.Chatgpt ??= RememberedDefaults(record.Launch);
+    }
+
+    static string? Plain(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>The choices of a new session that are the provider's defaults (an effort not chosen is the default one).</summary>
+    public static List<string>? Following(DialogDefaults defaults, string? model, string? effort, string? permissionMode)
+    {
+        var follows = new List<string>();
+        if (Plain(model) == Plain(defaults.Model)) follows.Add("model");
+        if (effort is null || Plain(effort) == Plain(defaults.Effort)) follows.Add("effort");
+        if (Plain(permissionMode) == Plain(defaults.PermissionMode)) follows.Add("permissionMode");
+        return follows.Count > 0 ? follows : null;
+    }
+
+    /// <summary>A choice changed for this thread alone: it no longer follows the defaults.</summary>
+    public static void StopFollowing(LaunchOptions launch, string field)
+    {
+        if (launch.FollowsDefaults is null) return;
+        launch.FollowsDefaults.Remove(field);
+        if (launch.FollowsDefaults.Count == 0) launch.FollowsDefaults = null;
+    }
+
+    /// <summary>The provider's defaults changed from <paramref name="before"/> to <paramref name="after"/>: the threads that
+    /// follow a changed choice take the new one (at their next start); the threads changed, with the model each had.</summary>
+    public static List<(SessionRecord Record, string? OldModel)> FollowDefaults(AppState state, string provider, DialogDefaults before, DialogDefaults after)
+    {
+        var changed = new List<(SessionRecord, string?)>();
+        foreach (var record in state.Sessions.Values)
+        {
+            var launch = record.Launch;
+            if ((launch.Provider ?? "chatgpt") != provider || launch.FollowsDefaults is not { } follows) continue;
+            var oldModel = launch.Model;
+            var any = false;
+            if (follows.Contains("model") && Plain(before.Model) != Plain(after.Model) && Plain(launch.Model) != Plain(after.Model))
+            {
+                launch.Model = Plain(after.Model);
+                any = true;
+            }
+            if (follows.Contains("effort") && Plain(before.Effort) != Plain(after.Effort) && launch.Effort != Plain(after.Effort))
+            {
+                launch.Effort = EffortLevels.FirstOrDefault(l => l == after.Effort);
+                any = true;
+            }
+            if (follows.Contains("permissionMode") && Plain(before.PermissionMode) != Plain(after.PermissionMode) && launch.PermissionMode != Plain(after.PermissionMode))
+            {
+                launch.PermissionMode = PermissionModes.FirstOrDefault(m => m == after.PermissionMode);
+                any = true;
+            }
+            if (any) changed.Add((record, oldModel));
+        }
+        return changed;
     }
 
     /// <summary>A thread another thread asked for (its thread tools' <c>open_thread</c>, which the host tells as that
@@ -172,9 +229,14 @@ public static partial class NewSession
         var by = string.IsNullOrEmpty(openerName)
             ? $"[opened by a Reframe thread on {family}; answer it with SendMessage]"
             : $"[opened by the Reframe thread \"{openerName}\" on {family}; answer it with SendMessage to \"{openerName}\"]";
+        var effort = (Text("reasoning_effort") ?? Text("effort")) is { } asked && EffortLevels.Contains(asked) ? asked : null;
+        // What the asking thread did not choose is the defaults', and follows them.
+        List<string> follows = ["permissionMode"];
+        if (Text("model") is null) follows.Add("model");
+        if (effort is null) follows.Add("effort");
         return new NewSessionRequest(Text("folder") ?? opener.Cwd, provider, name, Model: Text("model") ?? defaults.Model,
-            Effort: (Text("reasoning_effort") ?? Text("effort")) is { } effort && EffortLevels.Contains(effort) ? effort : defaults.Effort,
-            PermissionMode: defaults.PermissionMode, InitialPrompt: $"{by}\n{prompt}", OpenedBy: opener.Id);
+            Effort: effort ?? defaults.Effort, PermissionMode: defaults.PermissionMode, InitialPrompt: $"{by}\n{prompt}", OpenedBy: opener.Id,
+            Follows: follows);
     }
 
     /// <summary>restartSession: open again; a fresh start is a new, unused conversation, last used now.</summary>

@@ -21,7 +21,8 @@ public class NewSessionTests
         var request = NewSession.OpenedBy(JsonNode.Parse("""{ "name": " Docs ", "prompt": "Review the API", "provider": "openai" }"""), opener, preferences);
         Assert.Equal(new NewSessionRequest(@"D:\Projects\app", "chatgpt", "Docs", Model: "gpt-6.1-sol", PermissionMode: "auto",
             InitialPrompt: "[opened by the Reframe thread \"Lead\" on Claude (Anthropic); answer it with SendMessage to \"Lead\"]\nReview the API", OpenedBy: "s1"),
-            request);
+            request! with { Follows = null });
+        Assert.Equal(new[] { "permissionMode", "model", "effort" }, request.Follows!);
         var claude = NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B", "prompt": "x", "provider": "claude", "folder": "E:\\w", "model": "opus" }"""),
             new SessionRecord { Cwd = @"D:\a" }, preferences)!;
         Assert.Equal(("anthropic", @"E:\w", "opus", "high"), (claude.Provider, claude.Cwd, claude.Model, claude.Effort));
@@ -118,7 +119,7 @@ public class NewSessionTests
     }
 
     [Fact]
-    public void Creating_puts_the_folder_first_among_eight_recent_ones_and_remembers_the_provider_s_choices()
+    public void Creating_puts_the_folder_first_among_eight_recent_ones_and_keeps_the_provider_s_defaults()
     {
         var state = AppState.CreateDefault();
         state.RecentFolders = [@"d:\SHOP", .. Enumerable.Range(0, 9).Select(i => $@"D:\f{i}")];
@@ -129,6 +130,54 @@ public class NewSessionTests
         Assert.Equal([@"D:\shop", @"D:\f0"], state.RecentFolders.Take(2));
         Assert.Equal("sonnet", state.Preferences.ProviderDefaults!.Anthropic!.Model);
         Assert.Null(state.Preferences.ProviderDefaults.Chatgpt);
+        // Once there are defaults, a session with other choices leaves them alone.
+        NewSession.Remember(state, NewSession.CreateRecord(new NewSessionRequest(@"D:\shop", "anthropic", Model: "haiku"), state.Preferences, "s-2", "c-2", 0));
+        Assert.Equal("sonnet", state.Preferences.ProviderDefaults.Anthropic.Model);
+    }
+
+    [Fact]
+    public void The_choices_left_at_the_defaults_follow_a_change_of_them_the_others_stay()
+    {
+        var state = AppState.CreateDefault();
+        state.Preferences.ProviderDefaults = new ProviderDefaultsSet { Chatgpt = new ProviderDefaults { Model = "gpt-a", Effort = "low", PermissionMode = "bypassPermissions" } };
+        var defaults = NewSession.DefaultsFor(state.Preferences, "chatgpt");
+        Assert.Equal(new[] { "model", "effort", "permissionMode" }, NewSession.Following(defaults, "gpt-a", "low", "bypassPermissions")!);
+        Assert.Equal(new[] { "effort", "permissionMode" }, NewSession.Following(defaults, "gpt-b", null, "bypassPermissions")!);
+        var follower = NewSession.CreateRecord(new NewSessionRequest(@"D:/fa", "chatgpt", Model: "gpt-a", Effort: "low", PermissionMode: "bypassPermissions",
+            Follows: NewSession.Following(defaults, "gpt-a", "low", "bypassPermissions")), state.Preferences, "f", "cf", 0);
+        var own = NewSession.CreateRecord(new NewSessionRequest(@"D:/fb", "chatgpt", Model: "gpt-own", Effort: "high", PermissionMode: "bypassPermissions",
+            Follows: NewSession.Following(defaults, "gpt-own", "high", "bypassPermissions")), state.Preferences, "o", "co", 0);
+        state.Sessions["f"] = follower;
+        state.Sessions["o"] = own;
+
+        Assert.True(Settings.Apply(state.Preferences, new PreferencesPatch { DefaultsProvider = "chatgpt", DefaultModel = "gpt-new", DefaultPermissionMode = "plan" }));
+        var changed = NewSession.FollowDefaults(state, "chatgpt", defaults, NewSession.DefaultsFor(state.Preferences, "chatgpt"));
+        Assert.Equal(("gpt-new", "low", "plan"), (follower.Launch.Model, follower.Launch.Effort, follower.Launch.PermissionMode));
+        Assert.Equal(("gpt-own", "high", "plan"), (own.Launch.Model, own.Launch.Effort, own.Launch.PermissionMode));
+        Assert.Equal(new[] { "f", "o" }, changed.Select(c => c.Record.Id).OrderBy(x => x).ToArray());
+        Assert.Equal("gpt-a", changed.First(c => c.Record.Id == "f").OldModel);
+
+        // A manual change ends following for that choice only.
+        Assert.True(ShellActions.SetPermissionMode(state, "f", "auto"));
+        Assert.Equal(new[] { "model", "effort" }, follower.Launch.FollowsDefaults!);
+        var before = NewSession.DefaultsFor(state.Preferences, "chatgpt");
+        Settings.Apply(state.Preferences, new PreferencesPatch { DefaultsProvider = "chatgpt", DefaultPermissionMode = "acceptEdits", DefaultEffort = "xhigh" });
+        NewSession.FollowDefaults(state, "chatgpt", before, NewSession.DefaultsFor(state.Preferences, "chatgpt"));
+        Assert.Equal(("auto", "xhigh"), (follower.Launch.PermissionMode, follower.Launch.Effort));
+        // The other provider's threads are left alone, and the setting is kept with the thread.
+        Assert.Null(state.Preferences.ProviderDefaults.Anthropic);
+        var back = StateParser.Parse(StateJson.ToText(state)).State!.Sessions["f"].Launch.FollowsDefaults;
+        Assert.Equal(new[] { "model", "effort" }, back!);
+    }
+
+    [Fact]
+    public void Settings_for_one_provider_start_from_its_current_defaults()
+    {
+        var preferences = new Preferences { DefaultModel = "opus", DefaultEffort = "medium", DefaultPermissionMode = "plan" };
+        Assert.True(Settings.Apply(preferences, new PreferencesPatch { DefaultsProvider = "anthropic", DefaultEffort = "high" }));
+        Assert.Equal(new DialogDefaults(null, "high", "plan", []), NewSession.DefaultsFor(preferences, "anthropic") with { AddDirs = [] });
+        Assert.Equal("medium", preferences.DefaultEffort);
+        Assert.Equal("medium", NewSession.DefaultsFor(preferences, "chatgpt").Effort);
     }
 
     [Fact]

@@ -243,7 +243,7 @@ sealed class NewSessionDialog
 
     void ShowNote() => note.Text = T(provider == "anthropic" ? "dialog.providerNote.anthropic" : "dialog.providerNote.chatgpt");
 
-    /// <summary>The remembered choices of the provider (an effort picked here stays).</summary>
+    /// <summary>The provider's defaults (an effort picked here stays).</summary>
     void ApplyDefaults()
     {
         var remembered = NewSession.DefaultsFor(preferences, provider);
@@ -258,7 +258,7 @@ sealed class NewSessionDialog
         addDirsBox.Text = string.Join("\n", remembered.AddDirs);
     }
 
-    /// <summary>The provider's profiles in the select (hidden when it has none); "Last used" is what ApplyDefaults gives.</summary>
+    /// <summary>The provider's profiles in the select (hidden when it has none); "Default settings" is what ApplyDefaults gives.</summary>
     void ShowProfiles()
     {
         var profiles = NewSession.ProfilesFor(preferences, provider);
@@ -273,7 +273,7 @@ sealed class NewSessionDialog
 
     void OnProfileChanged(object sender, SelectionChangedEventArgs e) => ApplyProfile();
 
-    /// <summary>A picked profile fills model, effort, permission mode and folders; "Last used" restores the remembered ones.</summary>
+    /// <summary>A picked profile fills model, effort, permission mode and folders; "Default settings" restores the defaults.</summary>
     void ApplyProfile()
     {
         if (NewSession.ProfilesFor(preferences, provider).FirstOrDefault(x => x.Id == Selected(profileBox)) is not { } profile)
@@ -338,14 +338,20 @@ sealed class NewSessionDialog
         if (dialog.ShowDialog(Window.GetWindow(Frame)) == true) Folder.Text = dialog.FolderName;
     }
 
-    /// <summary>The request as createSession takes it (the fields trimmed there).</summary>
-    public NewSessionRequest Request() => new(
-        Folder.Text.Trim(), provider, nameBox.Text.Trim() is { Length: > 0 } name ? name : null, worktreeBox.IsChecked == true,
-        worktreeBox.IsChecked == true && worktreeNameBox.Text.Trim() is { Length: > 0 } w ? w : null,
-        modelBox.Text.Trim() is { Length: > 0 } model ? model : null,
+    /// <summary>The request as createSession takes it (the fields trimmed there). The choices left at the provider's
+    /// defaults (with no other profile picked) follow them.</summary>
+    public NewSessionRequest Request()
+    {
+        var model = modelBox.Text.Trim() is { Length: > 0 } m ? m : null;
         // null: nothing chosen yet (Settings' default); "": the CLI's own.
-        Selected(effortBox), Selected(permissionBox) is { Length: > 0 } mode ? mode : null,
-        NewSession.ParseAddDirs(addDirsBox.Text), promptBox.Text.Trim() is { Length: > 0 } prompt ? prompt : null);
+        var effort = Selected(effortBox);
+        var mode = Selected(permissionBox) is { Length: > 0 } p ? p : null;
+        var follows = Selected(profileBox) == "" ? NewSession.Following(NewSession.DefaultsFor(preferences, provider), model, effort, mode) : null;
+        return new(Folder.Text.Trim(), provider, nameBox.Text.Trim() is { Length: > 0 } name ? name : null, worktreeBox.IsChecked == true,
+            worktreeBox.IsChecked == true && worktreeNameBox.Text.Trim() is { Length: > 0 } w ? w : null,
+            model, effort, mode, NewSession.ParseAddDirs(addDirsBox.Text), promptBox.Text.Trim() is { Length: > 0 } prompt ? prompt : null,
+            Follows: follows);
+    }
 
     public async Task SubmitAsync()
     {

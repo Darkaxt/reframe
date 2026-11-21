@@ -80,7 +80,9 @@ public partial class MainWindow
     /// <summary>reframe:set-preferences: applied as app.ts checks it, saved when something changed.</summary>
     bool SetPreferences(PreferencesPatch patch)
     {
+        var before = StateValues.Providers.ToDictionary(p => p, p => NewSession.DefaultsFor(state.Preferences, p));
         if (!Writable || !Settings.Apply(state.Preferences, patch)) return false;
+        shell.FollowDefaults(before);
         Saved();
         // The terminals take the new text size at once (S6's path for a saved size).
         if (patch.FontSize is not null) FontSizeLoaded();

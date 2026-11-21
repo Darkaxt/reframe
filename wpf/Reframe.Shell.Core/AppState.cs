@@ -121,6 +121,9 @@ public sealed class LaunchOptions : StateObject
     public List<string>? AddDirs { get; set; }
     public string? InitialPrompt { get; set; }
     public bool? WorktreeCreated { get; set; }
+    /// <summary>The choices ("model", "effort", "permissionMode") the thread took from its provider's defaults: they follow
+    /// a change of those defaults until changed for this thread. Null: none (all its own).</summary>
+    public List<string>? FollowsDefaults { get; set; }
 }
 
 public sealed class Bounds : StateObject
