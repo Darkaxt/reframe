@@ -103,7 +103,7 @@ fn tool() -> Value {
     json!({
         "name": "open_thread",
         "description": "Open another Reframe thread: a separate Claude Code session in a tile of its own that the user \
-            sees and can take over, running on the provider you choose, OpenAI or Claude. It starts with your prompt, told which \
+            sees and can take over, running on the provider you choose, OpenAI, Claude or Gemini. It starts with your prompt, told which \
             thread opened it. Once it runs, talk to it with SendMessage to its name (messages between threads carry \
             each side's provider and model). Use it to hand work to an OpenAI model, or to get a second opinion.",
         "inputSchema": {
@@ -111,7 +111,7 @@ fn tool() -> Value {
             "properties": {
                 "name": { "type": "string", "description": "The new thread's name, which SendMessage reaches it by." },
                 "prompt": { "type": "string", "description": "Its first prompt: the task, with what it needs to know." },
-                "provider": { "type": "string", "enum": ["openai", "claude"], "description": "Which models the new thread runs on: openai or claude. Always chosen, never assumed." },
+                "provider": { "type": "string", "enum": ["openai", "claude", "gemini"], "description": "Which models the new thread runs on: openai, claude or gemini (Google's, through the user's proxy). Always chosen, never assumed." },
                 "folder": { "type": "string", "description": "An absolute folder to work in; this thread's folder by default." },
                 "model": { "type": "string", "description": "A model. For openai name one explicitly (the user's saved default is used if left out and can be outdated: an unknown model makes the thread fail at its first request, and Reframe then tells you). The user's default for the provider if left out." },
                 "reasoning_effort": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"], "description": "The reasoning effort; the user's default for the provider if left out." },
@@ -141,7 +141,8 @@ fn call(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
     let provider = match text("provider") {
         Some("openai") => "openai",
         Some("claude") => "claude",
-        _ => return text_result(true, "Choose the provider: openai or claude."),
+        Some("gemini") => "gemini",
+        _ => return text_result(true, "Choose the provider: openai, claude or gemini."),
     };
     let folder = text("folder");
     if folder.is_some_and(|f| !std::path::Path::new(f).is_absolute()) {
@@ -157,7 +158,11 @@ fn call(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
     if !post(request.to_string().as_bytes()) {
         return text_result(true, "Reframe did not take the request: no Reframe window is attached to this thread's host (or it is not running), so nothing was opened. Try again once Reframe is open.");
     }
-    let family = if provider == "claude" { "Claude" } else { "OpenAI" };
+    let family = match provider {
+        "claude" => "Claude",
+        "gemini" => "Gemini",
+        _ => "OpenAI",
+    };
     text_result(
         false,
         &format!(
@@ -450,7 +455,7 @@ mod tests {
             json!({ "prompt": "x", "provider": "openai" }),
             json!({ "name": "a", "prompt": " ", "provider": "openai" }),
             json!({ "name": "a", "prompt": "x" }),
-            json!({ "name": "a", "prompt": "x", "provider": "gemini" }),
+            json!({ "name": "a", "prompt": "x", "provider": "mistral" }),
             json!({ "name": "a", "prompt": "x", "provider": "claude", "folder": "relative" }),
         ] {
             let call = rpc("tools/call", json!({ "name": "open_thread", "arguments": arguments }));

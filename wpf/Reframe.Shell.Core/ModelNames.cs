@@ -7,10 +7,12 @@ namespace Reframe.Shell.Core;
 public static class ModelNames
 {
     public static readonly IReadOnlyList<string> Claude = ["default", "opus", "sonnet", "haiku"];
+    /// <summary>Gemini's models through the proxy's Antigravity sign-in (no "default": the proxy's is the ChatGPT route's).</summary>
+    public static readonly IReadOnlyList<string> Gemini = ["gemini-4-neon-xhigh", "gemini-4-hydrogen-xhigh", "gemini-4-carbon-high", "gemini-3.8-flash-tiered"];
     public static readonly IReadOnlyList<string> OpenAi = ["default", "gpt-6.1-sol", "gpt-6.1-sol-fast", "gpt-6.1-terra", "gpt-6.1-terra-fast", "gpt-6.2-astra"];
 
-    /// <summary>The models the chat view offers for a provider ("anthropic" or "chatgpt").</summary>
-    public static IReadOnlyList<string> Choices(string? provider) => provider == "anthropic" ? Claude : OpenAi;
+    /// <summary>The models the chat view offers for a provider ("anthropic", "chatgpt" or "gemini").</summary>
+    public static IReadOnlyList<string> Choices(string? provider) => provider switch { "anthropic" => Claude, "gemini" => Gemini, _ => OpenAi };
 
     public static string Label(string? id)
     {

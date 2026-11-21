@@ -47,8 +47,11 @@ fn answer(hook: &Value, provider: &str, model: Option<&str>) -> Option<Value> {
 }
 
 fn tag(provider: &str, model: Option<&str>) -> String {
+    // Gemini threads run on the ChatGPT route: their model tells them apart.
     let family = if provider == "anthropic" {
         "Claude (Anthropic)"
+    } else if model.is_some_and(|m| m.to_ascii_lowercase().starts_with("gemini")) {
+        "Gemini (Google)"
     } else {
         "OpenAI"
     };
@@ -99,6 +102,11 @@ mod tests {
         );
         let claude = answer_message(&send(json!("hi")), "anthropic", None);
         assert_eq!(claude, "[from a Reframe thread on Claude (Anthropic)]\nhi");
+        let gemini = answer_message(&send(json!("hi")), "openai", Some("gemini-4-neon-xhigh"));
+        assert_eq!(
+            gemini,
+            "[from a Reframe thread on Gemini (Google), model gemini-4-neon-xhigh]\nhi"
+        );
     }
 
     fn answer_message(hook: &Value, provider: &str, model: Option<&str>) -> String {

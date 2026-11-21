@@ -219,17 +219,19 @@ public sealed class Takeover(IConsoleHelper console, Func<int, bool> isAlive, Fu
     public static void Resumed(LaunchOptions launch, LaunchOptions? there)
     {
         if (there is null) return;
-        launch.Provider = there.Provider ?? launch.Provider;
+        // A Gemini thread runs on the ChatGPT install: found there, it stays a Gemini thread.
+        if (there.Provider is { } p && (launch.Provider is null || StateValues.ClientOf(p) != StateValues.ClientOf(launch.Provider))) launch.Provider = p;
         launch.Model = there.Model;
         launch.Effort = there.Effort;
         launch.PermissionMode = there.PermissionMode;
     }
 
     /// <summary>The provider a transcript's model tells: Claude's models are Anthropic's, any other real one came
-    /// through the ChatGPT route; null for none or a placeholder such as &lt;synthetic&gt;.</summary>
+    /// through the ChatGPT route (Gemini's being Gemini threads); null for none or a placeholder such as &lt;synthetic&gt;.</summary>
     public static string? ProviderOfModel(string? model) =>
         string.IsNullOrWhiteSpace(model) || model.StartsWith('<') ? null
-        : model.StartsWith("claude", StringComparison.OrdinalIgnoreCase) ? "anthropic" : "chatgpt";
+        : model.StartsWith("claude", StringComparison.OrdinalIgnoreCase) ? "anthropic"
+        : model.StartsWith("gemini", StringComparison.OrdinalIgnoreCase) ? "gemini" : "chatgpt";
 
     /// <summary>A Windows command line split as programs see it (CommandLineToArgvW's rules: quotes group, a backslash
     /// escapes only before a quote, "" inside quotes is a quote).</summary>

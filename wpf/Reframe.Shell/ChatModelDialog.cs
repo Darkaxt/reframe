@@ -28,7 +28,7 @@ sealed class ChatModelDialog
     readonly Button cancel, submit;
     bool busy;
 
-    static string ProviderName(string p) => p == "anthropic" ? "Anthropic" : "ChatGPT";
+    static string ProviderName(string p) => StateValues.ProviderLabel(p);
 
     static TextBlock Text(string text, string style = "Text13") => new() { Text = text, Style = S(style), TextWrapping = TextWrapping.Wrap };
 

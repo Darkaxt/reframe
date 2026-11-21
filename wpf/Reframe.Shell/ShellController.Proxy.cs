@@ -28,8 +28,8 @@ sealed partial class ShellController
     public string? ProxyBusy => proxyBusy;
     /// <summary>Whether Reframe can stop and start the proxy (its supervisor and launcher are installed).</summary>
     public bool ProxyControllable => proxyInstall is not null && Writable;
-    /// <summary>How many ChatGPT threads run now (they lose their model while the proxy is down).</summary>
-    public int ChatGptRunning => State.Sessions.Values.Count(r => r.Launch.Provider == "chatgpt" && Runs(r.Id));
+    /// <summary>How many ChatGPT and Gemini threads run now (they lose their model while the proxy is down).</summary>
+    public int ChatGptRunning => State.Sessions.Values.Count(r => r.Launch.Provider is "chatgpt" or "gemini" && Runs(r.Id));
 
     public ProxyState ProxyState => proxy.State;
     public string? ProxyAddress => proxyAt;

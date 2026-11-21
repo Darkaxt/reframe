@@ -198,6 +198,27 @@ public class NewSessionTests
         Assert.Equal([@"C:\Users\ann\Documents\ChatGPT\shop", @"D:\work"], NewSession.ProviderRecent(recent, roots, "chatgpt"));
         Assert.Equal([@"C:\Users\ann\Documents\Anthropic\shop", @"D:\work"], NewSession.ProviderRecent(recent, roots, "anthropic"));
         Assert.Equal("shop", NewSession.FolderName(@"C:\x\shop\ "));
+        // Gemini shares the ChatGPT install's workspace.
+        Assert.Equal([@"C:\Users\ann\Documents\ChatGPT\shop", @"D:\work"], NewSession.ProviderRecent(recent, roots, "gemini"));
+    }
+
+    [Fact]
+    public void A_gemini_thread_runs_on_the_chatgpt_route_with_a_gemini_model()
+    {
+        var preferences = new Preferences { DefaultModel = "gpt-6.1-sol" };
+        Assert.Equal("gemini-4-neon-xhigh", NewSession.DefaultsFor(preferences, "gemini").Model);
+        Settings.Apply(preferences, new PreferencesPatch { DefaultsProvider = "gemini", DefaultModel = "gemini-4-hydrogen-xhigh" });
+        Assert.Equal("gemini-4-hydrogen-xhigh", NewSession.DefaultsFor(preferences, "gemini").Model);
+        Assert.Equal("gpt-6.1-sol", NewSession.DefaultsFor(preferences, "chatgpt").Model);
+        Assert.Equal("gemini", Takeover.ProviderOfModel("gemini-4-neon-xhigh"));
+        Assert.Equal(("chatgpt", "anthropic"), (StateValues.ClientOf("gemini"), StateValues.ClientOf("anthropic")));
+        var launch = new LaunchOptions { Provider = "gemini" };
+        Takeover.Resumed(launch, new LaunchOptions { Provider = "chatgpt", Model = "gemini-4-neon-xhigh" });
+        Assert.Equal("gemini", launch.Provider);
+        var opener = new SessionRecord { Id = "s1", Cwd = @"D:\p", Name = "Lead", Launch = new LaunchOptions { Provider = "gemini" } };
+        var request = NewSession.OpenedBy(JsonNode.Parse("""{ "name": "G", "prompt": "x", "provider": "gemini" }"""), opener, preferences)!;
+        Assert.Equal(("gemini", "gemini-4-hydrogen-xhigh"), (request.Provider, request.Model));
+        Assert.StartsWith("[opened by the Reframe thread \"Lead\" on Gemini (Google);", request.InitialPrompt);
     }
 
     [Fact]
