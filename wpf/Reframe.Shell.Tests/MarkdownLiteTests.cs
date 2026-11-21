@@ -19,6 +19,29 @@ public class MarkdownLiteTests
     }
 
     [Fact]
+    public void Tables_and_links()
+    {
+        var blocks = MarkdownLite.Parse("Before\n| Name | Size |\n| --- | ---: |\n| a | **1** |\n| b |\nafter");
+        Assert.Equal([MdBlockKind.Paragraph, MdBlockKind.Table, MdBlockKind.Paragraph], blocks.Select(b => b.Kind).ToArray());
+        var cells = blocks[1].Cells!;
+        Assert.Equal(3, cells.Count);
+        Assert.Equal(new[] { "Name", "Size" }, cells[0].ToArray());
+        Assert.Equal(new[] { "a", "**1**" }, cells[1].ToArray());
+        Assert.Equal(new[] { "b" }, cells[2].ToArray());
+        // A line starting with | without the separator line stays text.
+        Assert.Equal(MdBlockKind.Paragraph, MarkdownLite.Parse("| not a table |")[0].Kind);
+
+        var spans = MarkdownLite.Spans("See [the docs](https://example.com/a) or https://example.com/b. Done");
+        Assert.Equal(new[] { "See ", "the docs", " or ", "https://example.com/b", ". Done" }, spans.Select(s => s.Text).ToArray());
+        Assert.Equal("https://example.com/a", spans[1].Link);
+        Assert.Equal("https://example.com/b", spans[3].Link);
+        Assert.Null(spans[0].Link);
+        Assert.Equal("(https://x.org/p)", string.Concat(MarkdownLite.Spans("(https://x.org/p)").Select(s => s.Text)));
+        Assert.Equal("https://x.org/p", MarkdownLite.Spans("(https://x.org/p)")[1].Link);
+        Assert.All(MarkdownLite.Spans("[a b](not a url)"), s => Assert.Null(s.Link));
+    }
+
+    [Fact]
     public void Unclosed_markers_stay_plain_text()
     {
         var spans = MarkdownLite.Spans("a **b and `c");

@@ -1,15 +1,17 @@
 namespace Reframe.Shell.Core;
 
-/// <summary>A run of inline text: plain, **bold** or `code`.</summary>
-public sealed record MdSpan(string Text, bool Bold = false, bool Code = false);
+/// <summary>A run of inline text: plain, **bold**, `code`, or a link ([text](url) or a bare http(s) address; Link holds the address).</summary>
+public sealed record MdSpan(string Text, bool Bold = false, bool Code = false, string? Link = null);
 
-public enum MdBlockKind { Paragraph, Heading, Bullet, Code }
+public enum MdBlockKind { Paragraph, Heading, Bullet, Code, Table }
 
-/// <summary>One block: a paragraph, a heading (Level 1-3), a list item (Marker is "•" or "1."), or a fenced code block (Code text in Raw).</summary>
-public sealed record MdBlock(MdBlockKind Kind, IReadOnlyList<MdSpan> Spans, int Level = 0, string Marker = "", string Raw = "");
+/// <summary>One block: a paragraph, a heading (Level 1-3), a list item (Marker is "•" or "1."), a fenced code block (Code text in
+/// Raw), or a table (Cells: the header row first, each cell's Markdown text).</summary>
+public sealed record MdBlock(MdBlockKind Kind, IReadOnlyList<MdSpan> Spans, int Level = 0, string Marker = "", string Raw = "",
+    IReadOnlyList<IReadOnlyList<string>>? Cells = null);
 
-/// <summary>The small part of Markdown the chat view shows: headings, bullet and numbered items, fenced code, bold and inline code.
-/// Anything else stays plain text, so an unknown construct is never lost.</summary>
+/// <summary>The small part of Markdown the chat view shows: headings, bullet and numbered items, fenced code, tables, bold, inline
+/// code and links. Anything else stays plain text, so an unknown construct is never lost.</summary>
 public static class MarkdownLite
 {
     public static List<MdBlock> Parse(string text)
@@ -35,6 +37,14 @@ public static class MarkdownLite
                 blocks.Add(new MdBlock(MdBlockKind.Code, [], Raw: string.Join("\n", code)));
             }
             else if (string.IsNullOrWhiteSpace(line)) Flush();
+            else if (trimmed.StartsWith('|') && i + 1 < lines.Length && IsSeparator(lines[i + 1]))
+            {
+                Flush();
+                var cells = new List<IReadOnlyList<string>> { CellsOf(trimmed) };
+                for (i += 2; i < lines.Length && lines[i].TrimStart().StartsWith('|'); i++) cells.Add(CellsOf(lines[i]));
+                i--;
+                blocks.Add(new MdBlock(MdBlockKind.Table, [], Cells: cells));
+            }
             else if (Heading(trimmed) is { } level)
             {
                 Flush();
@@ -49,6 +59,21 @@ public static class MarkdownLite
         }
         Flush();
         return blocks;
+    }
+
+    /// <summary>A table's second line: | --- | :--: |.</summary>
+    static bool IsSeparator(string line)
+    {
+        var t = line.Trim();
+        return t.StartsWith('|') && t.Contains('-') && t.All(c => c is '|' or '-' or ':' or ' ');
+    }
+
+    static List<string> CellsOf(string line)
+    {
+        var t = line.Trim();
+        if (t.StartsWith('|')) t = t[1..];
+        if (t.EndsWith('|')) t = t[..^1];
+        return [.. t.Split('|').Select(c => c.Trim())];
     }
 
     static int? Heading(string line)
@@ -89,6 +114,23 @@ public static class MarkdownLite
                 Plain();
                 spans.Add(new MdSpan(text[(i + 2)..close], Bold: true));
                 i = close + 1;
+            }
+            else if (text[i] == '[' && text.IndexOf("](", i + 1, StringComparison.Ordinal) is var mid and > 0 && text.IndexOf(')', mid + 2) is var shut and > 0
+                && text.IndexOf('\n', i, mid - i) < 0 && text[(mid + 2)..shut] is { Length: > 0 } target && !target.Any(char.IsWhiteSpace))
+            {
+                Plain();
+                spans.Add(new MdSpan(text[(i + 1)..mid], Link: target));
+                i = shut;
+            }
+            else if ((i == 0 || !char.IsLetterOrDigit(text[i - 1])) && (string.CompareOrdinal(text, i, "https://", 0, 8) == 0 || string.CompareOrdinal(text, i, "http://", 0, 7) == 0))
+            {
+                var end = i;
+                while (end < text.Length && !char.IsWhiteSpace(text[end]) && text[end] is not ('<' or '>' or '"' or '`')) end++;
+                // A sentence's full stop or a closing bracket after the address is not part of it.
+                while (end > i && (text[end - 1] is '.' or ',' or ';' or ':' or '!' or '?' || text[end - 1] == ')' && !text[i..end].Contains('('))) end--;
+                Plain();
+                spans.Add(new MdSpan(text[i..end], Link: text[i..end]));
+                i = end - 1;
             }
             else plain.Append(text[i]);
         }

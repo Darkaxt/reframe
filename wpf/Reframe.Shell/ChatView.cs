@@ -40,6 +40,13 @@ sealed class ChatView : Border
     readonly Dictionary<string, bool> open = [];
     readonly Func<IReadOnlyList<(string Name, string Detail)>> scheduled;
     readonly Button stopButton;
+    readonly Func<string> status;
+    // Shown while the session waits for you in the terminal (a permission prompt or a question): those are answered there.
+    readonly Border waitingBar = new()
+    {
+        BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 6, 6, 6), Margin = new Thickness(16, 4, 28, 0),
+        MaxWidth = 860, Visibility = Visibility.Collapsed,
+    };
     readonly Action<string, bool> fork;
     readonly List<string> history = [];
     int historyAt = -1;
@@ -55,9 +62,11 @@ sealed class ChatView : Border
     long offset;
 
     public ChatView(string claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu,
-        Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt, Action<string, bool> fork, Func<string> title, Func<string?> provider)
+        Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt, Action<string, bool> fork, Func<string> title, Func<string?> provider,
+        Func<string> status, Action showTerminal)
     {
         this.claudeSessionId = claudeSessionId;
+        this.status = status;
         this.fork = fork;
         this.scheduled = scheduled;
         Background = B("terminalBrush");
@@ -182,6 +191,25 @@ sealed class ChatView : Border
         var layout = new DockPanel();
         DockPanel.SetDock(composer, Dock.Bottom);
         layout.Children.Add(composer);
+        waitingBar.Background = B("surfaceBrush");
+        waitingBar.BorderBrush = B("accentBrush");
+        var openTerminal = new Button
+        {
+            Style = S("IconButton"), Width = double.NaN, VerticalAlignment = VerticalAlignment.Center, ToolTip = "Answer it in the terminal",
+            Content = new TextBlock { Text = "Open the terminal", Style = S("Text12"), Foreground = B("textBrush"), Margin = new Thickness(10, 2, 10, 2) },
+        };
+        openTerminal.Click += (_, _) => showTerminal();
+        var waitingRow = new DockPanel();
+        DockPanel.SetDock(openTerminal, Dock.Right);
+        waitingRow.Children.Add(openTerminal);
+        waitingRow.Children.Add(new TextBlock
+        {
+            Text = "The session is waiting for you in the terminal: a permission prompt or a question.", Style = S("Text13"), Foreground = B("textBrush"),
+            TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center,
+        });
+        waitingBar.Child = waitingRow;
+        DockPanel.SetDock(waitingBar, Dock.Bottom);
+        layout.Children.Add(waitingBar);
         scroll.Content = rows;
         earlier = new Button
         {
@@ -556,8 +584,9 @@ sealed class ChatView : Border
         }
     }
 
-    /// <summary>The model is working while the last thing in the transcript is your message, a thought or a call still waiting
-    /// for its result, and the file changed in the last ten minutes. Then the Stop button shows; it also keeps the sent
+    /// <summary>The model is working while the session says it is busy (without a status: while the last thing in the transcript
+    /// is your message, a thought or a call still waiting for its result, and the file changed in the last ten minutes). Then
+    /// the Stop button shows. A session waiting for you shows the bar that sends you to the terminal. It also keeps the sent
     /// messages for the Up key.</summary>
     void UpdateWorking()
     {
@@ -572,7 +601,11 @@ sealed class ChatView : Border
             ToolGroupItem g => g.Calls.Any(c => c.IsPending),
             _ => false,
         };
-        if (working && path is not null)
+        var now = status();
+        waitingBar.Visibility = now == "waiting" ? Visibility.Visible : Visibility.Collapsed;
+        if (now == "busy") working = true;
+        else if (now is "idle" or "waiting" or "background" or "ended" or "error" or "starting" or "detached") working = false;
+        else if (working && path is not null)
             try { working = DateTime.UtcNow - File.GetLastWriteTimeUtc(path) < TimeSpan.FromMinutes(10); }
             catch (IOException) { working = false; }
         stopButton.Visibility = working ? Visibility.Visible : Visibility.Collapsed;
@@ -719,7 +752,7 @@ sealed class ChatView : Border
     {
         UserMessageItem u => Bubble(u),
         AssistantTextItem a => new Border { Margin = new Thickness(0, 6, 16, 6), Child = Markdown(a.Text) },
-        ThinkingItem t => new Border { Margin = new Thickness(0, 6, 16, 6), BorderBrush = AgentTint, BorderThickness = new Thickness(2, 0, 0, 0), Padding = new Thickness(10, 0, 0, 0), Child = Markdown(t.Text, "textBrush") },
+        ThinkingItem t => new Border { Margin = new Thickness(0, 6, 16, 6), Child = Markdown(t.Text) },
         ToolGroupItem { Calls.Count: 1 } g => Call(g.Calls[0]),
         ToolGroupItem g => Fold("group:" + g.Uuid + g.Label, g.Label, () =>
         {
@@ -733,14 +766,28 @@ sealed class ChatView : Border
         _ => new Border(),
     };
 
-    /// <summary>What another session or a scheduled task put into the thread: a card on the left with its sender, folded to its title.</summary>
-    UIElement Injected(UserMessageItem user, InjectedMessage message) => new Border
+    /// <summary>What a scheduled task or another session put into the thread: a bubble on the right like yours, folded to its
+    /// title, with "Sent by …" under it (as Codex shows a scheduled run). A background task's notice is one muted line.</summary>
+    UIElement Injected(UserMessageItem user, InjectedMessage message)
     {
-        BorderBrush = B("borderBrush"), BorderThickness = new Thickness(2, 0, 0, 0), Margin = new Thickness(0, 10, 60, 10), Padding = new Thickness(12, 2, 0, 2),
-        Child = message.Body.Length == 0
-            ? new TextBlock { Text = "↩ " + message.Title, Style = S("Text12"), Foreground = B("mutedBrush"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 4) }
-            : Fold("injected:" + user.Uuid, "↩ " + message.Title, () => new Border { Margin = new Thickness(0, 2, 0, 6), Child = Markdown(message.Body, "mutedBrush") }),
-    };
+        if (message.Body.Length == 0)
+            return new TextBlock { Text = "↩ " + message.Title, Style = S("Text12"), Foreground = B("mutedBrush"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 60, 6) };
+        const string TaskPrefix = "Scheduled task: ", From = "Message from ";
+        var (head, by) = message.Title.StartsWith(TaskPrefix, StringComparison.Ordinal) ? (message.Title[TaskPrefix.Length..], "Sent by scheduled task")
+            : message.Title.StartsWith(From, StringComparison.Ordinal) ? (message.Title, "Sent by " + message.Title[From.Length..])
+            : (message.Title, "");
+        var bubble = new Border
+        {
+            Background = B("surfaceBrush"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 9, 14, 9), HorizontalAlignment = HorizontalAlignment.Right,
+            ContextMenu = ForkMenu(user.Uuid, true),
+            Child = Fold("injected:" + user.Uuid, head, () => new Border { Margin = new Thickness(0, 4, 0, 2), Child = Markdown(message.Body) }),
+        };
+        var column = new StackPanel { Margin = new Thickness(60, 12, 16, 8) };
+        column.Children.Add(bubble);
+        if (by.Length > 0)
+            column.Children.Add(new TextBlock { Text = by, Style = S("Text12"), Foreground = B("mutedBrush"), HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 4, 0) });
+        return column;
+    }
 
     /// <summary>Right-click menu to continue the conversation as a new thread from this message (before it) or this answer (after it).</summary>
     ContextMenu? ForkMenu(string? uuid, bool before)
@@ -1025,6 +1072,9 @@ sealed class ChatView : Border
             Paragraph paragraph;
             switch (block.Kind)
             {
+                case MdBlockKind.Table when block.Cells is { Count: > 0 } cells:
+                    doc.Blocks.Add(TableOf(cells));
+                    continue;
                 case MdBlockKind.Code:
                     paragraph = new Paragraph(new Run(block.Raw))
                     {
@@ -1061,8 +1111,46 @@ sealed class ChatView : Border
                 run.FontFamily = new FontFamily("Consolas");
                 run.Background = B("surfaceBrush");
             }
-            paragraph.Inlines.Add(run);
+            // A web address opens in the browser; another target (a file path) stays text.
+            if (span.Link is { } link && Uri.TryCreate(link, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                var hyperlink = new Hyperlink(run) { NavigateUri = uri, ToolTip = uri.AbsoluteUri, Foreground = B("accentBrush"), Cursor = Cursors.Hand };
+                hyperlink.Click += (_, _) =>
+                {
+                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true }); }
+                    catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { }
+                };
+                paragraph.Inlines.Add(hyperlink);
+            }
+            else paragraph.Inlines.Add(run);
         }
+    }
+
+    /// <summary>A Markdown table: the header row shaded and bold, thin borders, each cell's Markdown.</summary>
+    static Table TableOf(IReadOnlyList<IReadOnlyList<string>> cells)
+    {
+        var columns = cells.Max(r => r.Count);
+        var table = new Table { CellSpacing = 0, Margin = new Thickness(0, 6, 0, 6), BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1, 1, 0, 0) };
+        for (var c = 0; c < columns; c++) table.Columns.Add(new TableColumn());
+        var group = new TableRowGroup();
+        for (var r = 0; r < cells.Count; r++)
+        {
+            var row = new TableRow();
+            if (r == 0)
+            {
+                row.FontWeight = FontWeights.SemiBold;
+                row.Background = B("surfaceBrush");
+            }
+            for (var c = 0; c < columns; c++)
+            {
+                var paragraph = new Paragraph { Margin = new Thickness(0) };
+                if (c < cells[r].Count) AddSpans(paragraph, MarkdownLite.Spans(cells[r][c]));
+                row.Cells.Add(new TableCell(paragraph) { BorderBrush = B("borderBrush"), BorderThickness = new Thickness(0, 0, 1, 1), Padding = new Thickness(8, 4, 8, 4) });
+            }
+            group.Rows.Add(row);
+        }
+        table.RowGroups.Add(group);
+        return table;
     }
 
     static FlowDocument NewDocument(string brush, double size) => new()
@@ -1078,6 +1166,8 @@ sealed class ChatView : Border
             Document = doc, IsReadOnly = true, IsReadOnlyCaretVisible = false, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Padding = new Thickness(0),
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, IsInactiveSelectionHighlightEnabled = true,
             FocusVisualStyle = null, Cursor = Cursors.IBeam,
+            // Links in the document can be clicked (the text stays read-only).
+            IsDocumentEnabled = true,
         };
         box.PreviewMouseWheel += (_, e) =>
         {

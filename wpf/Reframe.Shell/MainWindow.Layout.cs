@@ -464,7 +464,14 @@ public partial class MainWindow
                         () => state.Sessions.GetValueOrDefault(sessionId)?.Launch.Model ?? "default", () => terminal.WriteInput("\u001b"),
                         (uuid, before) => _ = shell.ForkSessionAsync(WindowId, sessionId, uuid, before),
                         () => state.Sessions.GetValueOrDefault(sessionId)?.Name ?? "Thread",
-                        () => state.Sessions.GetValueOrDefault(sessionId)?.Launch.Provider)
+                        () => state.Sessions.GetValueOrDefault(sessionId)?.Launch.Provider,
+                        () => shell.StatusOf(sessionId),
+                        // This tile only (the Chat / Terminal choice of all threads stays): the prompt is answered there.
+                        () =>
+                        {
+                            setChat?.Invoke(false);
+                            if (FindHost(control) is { } host) FocusTerminal(host);
+                        })
                     { Visibility = Visibility.Collapsed };
                     content.Children.Add(chat);
                 }
