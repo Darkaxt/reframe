@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "2125187f1156b97730b250974944ae6ac0aa7953",
+  "sourceBase": "c259851cd43aefccd1d4d66b2fac0403c961c616",
   "scope": "Model persistence, saved-default fallback, selected thread",
   "inputHashes": [
     {
@@ -58,7 +58,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Models.cs",
-      "sha256": "b4ec5b65611085d410341fdf2f42064ead83b1985177c1f104ae35293ff8abe6"
+      "sha256": "cb4cef467cf0b2b5a7043c323e432f21d89f7aaa17d2c59933f2a6ce9745b228"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
