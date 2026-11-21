@@ -40,7 +40,7 @@ sealed class ChatView : Border
     readonly Dictionary<string, bool> open = [];
     readonly Func<IReadOnlyList<(string Name, string Detail)>> scheduled;
     readonly Button stopButton;
-    readonly Func<string> status;
+    readonly Func<string> sessionStatus;
     // Shown while the session waits for you in the terminal (a permission prompt or a question): those are answered there.
     readonly Border waitingBar = new()
     {
@@ -63,10 +63,10 @@ sealed class ChatView : Border
 
     public ChatView(string claudeSessionId, Func<string, Task<bool>> send, Func<string> permission, Action<FrameworkElement> permissionMenu,
         Func<IReadOnlyList<(string Name, string Detail)>> scheduled, Func<string> model, Action interrupt, Action<string, bool> fork, Func<string> title, Func<string?> provider,
-        Func<string> status, Action showTerminal)
+        Func<string> sessionStatus, Action showTerminal)
     {
         this.claudeSessionId = claudeSessionId;
-        this.status = status;
+        this.sessionStatus = sessionStatus;
         this.fork = fork;
         this.scheduled = scheduled;
         Background = B("terminalBrush");
@@ -601,7 +601,7 @@ sealed class ChatView : Border
             ToolGroupItem g => g.Calls.Any(c => c.IsPending),
             _ => false,
         };
-        var now = status();
+        var now = sessionStatus();
         waitingBar.Visibility = now == "waiting" ? Visibility.Visible : Visibility.Collapsed;
         if (now == "busy") working = true;
         else if (now is "idle" or "waiting" or "background" or "ended" or "error" or "starting" or "detached") working = false;
