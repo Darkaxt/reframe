@@ -82,6 +82,8 @@ public static class Notifications
         if (win is null || !state.Sessions.TryGetValue(sessionId, out var record)
             || HiddenThreads.HiddenIds(state.HiddenThreads).Contains(record.ClaudeSessionId))
             return new(false, false, "not shown");
+        // A thread another thread opened reports to its opener: no toast or flash for it unless asked for.
+        if (record.OpenedBy is { Length: > 0 } && !state.Preferences.NotifySubthreads) return new(false, false, "opened by another thread");
         var seen = attentive && !LayoutActions.IsCollapsed(win, sessionId);
         var flash = kind == "waiting" && !seen && !disabled;
         if (disabled) return new(flash, false, "notifications off");

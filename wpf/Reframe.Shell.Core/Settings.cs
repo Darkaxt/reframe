@@ -16,6 +16,7 @@ public sealed record PreferencesPatch
     public bool? CheckForUpdates { get; init; }
     public bool? LookInWsl { get; init; }
     public bool? WakeForTasks { get; init; }
+    public bool? NotifySubthreads { get; init; }
     public int? CloseEndedAfterHours { get; init; }
     /// <summary>The hours the setting offers (0: never).</summary>
     public static readonly int[] CloseEndedChoices = [0, 1, 3, 6, 12, 24];
@@ -88,6 +89,7 @@ public static class Settings
         if (patch.CheckForUpdates is { } updates) p.CheckForUpdates = updates;
         if (patch.LookInWsl is { } wsl) p.LookInWsl = wsl;
         if (patch.WakeForTasks is { } wake) p.WakeForTasks = wake;
+        if (patch.NotifySubthreads is { } subs) p.NotifySubthreads = subs;
         if (patch.CloseEndedAfterHours is { } hours && PreferencesPatch.CloseEndedChoices.Contains(hours)) p.CloseEndedAfterHours = hours;
         if (patch.GpuAcceleration is { } gpu) p.GpuAcceleration = gpu;
         if (patch.PtyHost is { } host && StateValues.PtyHosts.Contains(host)) p.PtyHost = host;
@@ -149,7 +151,7 @@ public static class Settings
 
     static string Snapshot(Preferences p) => string.Join('\u0001', p.ArchiveRoot, p.NameFromFolder, p.Language, p.FontSize, p.SidebarWidth,
         p.SnapToGrid, p.CheckForUpdates, p.LookInWsl, p.GpuAcceleration, p.PtyHost, p.CloseWindow, p.ClaudeBin, p.DefaultModel,
-        p.DefaultEffort, p.DefaultPermissionMode, p.WakeForTasks, p.CloseEndedAfterHours, p.BrowserAnthropic, p.BrowserChatgpt, ProfilesText(p),
+        p.DefaultEffort, p.DefaultPermissionMode, p.WakeForTasks, p.CloseEndedAfterHours, p.NotifySubthreads, p.BrowserAnthropic, p.BrowserChatgpt, ProfilesText(p),
         DefaultsText(p.ProviderDefaults?.Anthropic), DefaultsText(p.ProviderDefaults?.Chatgpt));
 
     /// <summary>The claude sessions would run, as Settings shows it (findClaude's source, resolve.ts): the chosen one
