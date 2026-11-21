@@ -228,6 +228,7 @@ sealed partial class ShellController
             TaskActivityChanged(changed.SessionId);
             foreach (var window in windows.Values) window.HostStatusChanged(changed.SessionId);
             if (changed.Notify is "done" or "waiting") Notify(changed.SessionId, changed.Notify);
+            if (changed.Notify == "done") _ = SyncModelAsync(changed.SessionId);
             RefreshTray();
         });
         foreach (var session in connection.Welcome.Sessions) HostSessions[session.SessionId] = session;
@@ -301,7 +302,6 @@ sealed partial class ShellController
         trayTimer.Tick += (_, _) => RefreshTray();
         trayTimer.Start();
         StartMonitor();
-        StartModelSync();
         StartProxyWatch();
         _ = StartWarningsAsync();
         WatchForeignWindows();
@@ -651,6 +651,9 @@ sealed partial class ShellController
             case "about":
                 Show(first);
                 windows[first].OpenAboutFromTray();
+                break;
+            case "reload":
+                Reload();
                 break;
             case "terminateAll":
                 TerminateAll();

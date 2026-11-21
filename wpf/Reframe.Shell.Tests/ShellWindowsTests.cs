@@ -152,10 +152,19 @@ public class ShellWindowsTests
         {
             "checkbox Window 1 – alpha, delta, beta, … checked", "checkbox Window 2 – eps", "checkbox Window 3 checked", "---",
             "normal New session", "normal New window", "---",
-            "normal About Reframe", "normal Terminate all sessions disabled", "normal Quit",
+            "normal About Reframe", "normal Reload", "normal Terminate all sessions disabled", "normal Quit",
         }, flat);
-        Assert.Equal(["window:w1", "window:w2", "window:w3", null, "newSession", "newWindow", null, "about", "terminateAll", "quit"], menu.Select(m => m.Action));
+        Assert.Equal(["window:w1", "window:w2", "window:w3", null, "newSession", "newWindow", null, "about", "reload", "terminateAll", "quit"], menu.Select(m => m.Action));
         Assert.True(ShellWindows.TrayMenu([], anyRunning: true).Single(m => m.Action == "terminateAll").Enabled);
+    }
+
+    [Fact]
+    public void Long_thread_names_keep_the_tray_entry_short()
+    {
+        var label = ShellWindows.TrayWindowLabel(0, ["Pathweft", "Navic - Player Improvements and more", "Aurral Last.fm Replacement QA", "Fourth"]);
+        Assert.Equal("Window 1 – Pathweft, Navic - Player Improvem…, Aurral Last.fm Replacem…", label);
+        Assert.True(label.Length <= "Window 1 – ".Length + 60);
+        Assert.Equal("Window 2 – a, b", ShellWindows.TrayWindowLabel(1, ["a", "b"]));
     }
 
     [Fact]

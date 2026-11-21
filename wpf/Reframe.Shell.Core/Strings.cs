@@ -106,6 +106,7 @@ public static class Strings
         ["tray.terminateAll"] = "Terminate all sessions",
         ["tray.quit"] = "Quit",
         ["tray.about"] = "About Reframe",
+        ["tray.reload"] = "Reload",
         ["fullscreen.hint"] = "Press F11 to exit full screen",
         ["fullscreen.exit"] = "Exit full screen",
         ["closeWindow.title"] = "Close window",
