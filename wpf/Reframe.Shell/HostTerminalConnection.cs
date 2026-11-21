@@ -19,8 +19,10 @@ sealed class HostTerminalConnection : ITerminalConnection
         this.view = view;
         // A snapshot or output queued on the dispatcher can run after the tile was disposed (many threads opening and
         // closing at once): calling into a destroyed native terminal is an access violation that ends the process, so a
-        // closed or unloaded control is left alone.
-        bool Gone() => closed || !control.IsLoaded || System.Windows.PresentationSource.FromVisual(control) is null;
+        // closed or unloaded control is left alone, and so is one whose terminal window is not built yet or was destroyed
+        // (its HwndHost has no handle then).
+        bool Gone() => closed || !control.IsLoaded || System.Windows.PresentationSource.FromVisual(control) is null
+            || control.FindName("termContainer") is not System.Windows.Interop.HwndHost { Handle: var handle } || handle == IntPtr.Zero;
         view.Snapshot += (data, cols, rows) => control.Dispatcher.InvokeAsync(async () =>
         {
             if (Gone()) return;
@@ -31,7 +33,7 @@ sealed class HostTerminalConnection : ITerminalConnection
             Unpin(control);
             // Back to the control's own size; that resize goes to the host. A hidden one (a single window's other
             // threads) keeps the snapshot's size: its stale size would shrink the session; it is fitted when shown.
-            if (control.IsVisible) control.TriggerResize(control.RenderSize);
+            if (control.IsVisible && !Gone() && control.RenderSize is { Width: > 0, Height: > 0 }) control.TriggerResize(control.RenderSize);
         });
         view.Data += data => control.Dispatcher.InvokeAsync(() =>
         {
