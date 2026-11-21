@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "8e1a7bcbc4d18c2af0cb6ae10f7a9a1476eb9101",
-  "scope": "qa fixes",
+  "sourceBase": "52e766df91ea17d925ab0f8deb7ea4bfb2061b7f",
+  "scope": "chat lazy loading",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.113.md",
-      "sha256": "c5c2b2b43f4e53638fa8b8b391fcf3614cc74f343798f1af19c2459ca7a6caed"
+      "file": "docs/releases/v0.11.0-claudegpt.114.md",
+      "sha256": "86a7fa58182d0ca38afac409f4f1b45c7ff5265144b4236b8634715c226e5306"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,27 +18,19 @@
     },
     {
       "file": "package.json",
-      "sha256": "7a3e6439cfcb6955518f12cbd4f1ba61fc598bc301a6bf109d829ae9f346c0d9"
-    },
-    {
-      "file": "rust/reframe-host/src/tasks.rs",
-      "sha256": "fba00b6381cc26acdeda8d71c87dc8adb0db1eb19389917f4ec21dd8033ea183"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/StateStore.cs",
-      "sha256": "221a855a816f694dbb797cfbd6111caec23e58e2bdefb563d2eb4ff15e705cc9"
+      "sha256": "04d3811aa108f2e26545f164dfe4b575faeb97a05949eae0e2b97bdc0fae4947"
     },
     {
       "file": "wpf/Reframe.Shell.Core/TranscriptReader.cs",
-      "sha256": "b253b38142d4ee1347c2df70e528ac6e264912b742c2c69d8b644e82aa34ed43"
+      "sha256": "3fa6d1651a9e5479ab4c320dd2ca5e5787d16d7ec9366671033149423daba798"
     },
     {
       "file": "wpf/Reframe.Shell.Tests/TranscriptTests.cs",
-      "sha256": "0901554e8e682cb5dc2572538d154450b91150265ffa2d2b5161fd907595bb03"
+      "sha256": "5ab30f71be3dfddd55965b5f55f64bc664f00669bda35d6d06834d638d524a3c"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.Models.cs",
-      "sha256": "b73457714175dd95bcdf6116925ee5700a45cb534fafc027b123961d106f0fa0"
+      "file": "wpf/Reframe.Shell/ChatView.cs",
+      "sha256": "79315d348196a2a6f95d3bc1c3476933e5eb0331b2c8e0a9268126a3bf91d266"
     }
   ],
   "checksNotYetRun": [
