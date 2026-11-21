@@ -28,6 +28,10 @@ public partial class App : Application
 
     SingleInstance? instance;
 
+    /// <summary><c>--relaunch &lt;launcher.vbs&gt;</c> with <c>--after-pid</c> (the tray's Reload): once that shell has gone, run the
+    /// managed launcher through wscript, as the shortcut does, and exit. Never a window.</summary>
+    public const string RelaunchArgument = "--relaunch";
+
     /// <summary>Whether this run draws with the graphics card (the setting as it was at start).</summary>
     public static bool GpuAccelerated { get; private set; } = true;
 
@@ -53,6 +57,7 @@ public partial class App : Application
         string? hostDir = null, profile = null;
         var quit = false;
         var afterPid = 0;
+        string? relaunch = null;
         for (var i = 0; i < e.Args.Length; i++)
         {
             if (e.Args[i] == "--host-dir" && i + 1 < e.Args.Length) hostDir = Path.GetFullPath(e.Args[++i]);
@@ -60,6 +65,7 @@ public partial class App : Application
             if (e.Args[i] == "--profile" && i + 1 < e.Args.Length) profile = e.Args[++i];
             else if (e.Args[i] == "--quit") quit = true;
             else if (e.Args[i] == "--take-over") TakeOver = true;
+            else if (e.Args[i] == RelaunchArgument && i + 1 < e.Args.Length) relaunch = e.Args[++i];
             else if (e.Args[i] == "--after-pid" && i + 1 < e.Args.Length) afterPid = int.TryParse(e.Args[++i], out var pid) ? pid : 0;
             else if (e.Args[i] == Autostart.Argument) StartedBySystem = true;
             else if (e.Args[i] == "--diag-capture" && i + 1 < e.Args.Length) CaptureDir = Path.GetFullPath(e.Args[++i]);
@@ -82,12 +88,34 @@ public partial class App : Application
         if (afterPid > 0)
             try
             {
-                System.Diagnostics.Process.GetProcessById(afterPid).WaitForExit(20000);
+                System.Diagnostics.Process.GetProcessById(afterPid).WaitForExit(relaunch is null ? 20000 : 60000);
             }
             catch (ArgumentException)
             {
                 // already gone
             }
+        if (relaunch is not null)
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            var code = 1;
+            if (Path.IsPathFullyQualified(relaunch) && relaunch.EndsWith(".vbs", StringComparison.OrdinalIgnoreCase) && File.Exists(relaunch))
+                try
+                {
+                    var start = new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "wscript.exe"))
+                    {
+                        UseShellExecute = false,
+                        WorkingDirectory = Path.GetDirectoryName(Path.GetDirectoryName(relaunch)) ?? Path.GetDirectoryName(relaunch)!,
+                    };
+                    foreach (var a in new[] { "//B", "//Nologo", relaunch }) start.ArgumentList.Add(a);
+                    using var _ = System.Diagnostics.Process.Start(start);
+                    code = 0;
+                }
+                catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException)
+                {
+                }
+            Shutdown(code);
+            return;
+        }
         if (quit)
         {
             // reframe.exe --quit (maintenance/windows/stop-managed.ps1): the profile's running shell quits as its tray's

@@ -113,13 +113,19 @@ public static class ClaudeRegistry
         return null;
     }
 
-    /// <summary>The model of the newest assistant message in a transcript file (its last 512 KB), a subagent's messages left out.</summary>
+    /// <summary>The model of the newest assistant message in a transcript file, a subagent's messages left out: its last
+    /// 64 KB are read first, its last 512 KB only when those have none.</summary>
     public static string? LastModelIn(string file)
     {
         using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        const int tail = 512 * 1024;
-        if (stream.Length > tail) stream.Seek(-tail, SeekOrigin.End);
-        using var reader = new StreamReader(stream);
+        const int small = 64 * 1024, large = 512 * 1024;
+        return ModelInTail(stream, small) ?? (stream.Length > small ? ModelInTail(stream, large) : null);
+    }
+
+    static string? ModelInTail(FileStream stream, int tail)
+    {
+        stream.Seek(stream.Length > tail ? -tail : 0, stream.Length > tail ? SeekOrigin.End : SeekOrigin.Begin);
+        using var reader = new StreamReader(stream, leaveOpen: true);
         var lines = reader.ReadToEnd().Split('\n');
         for (var i = lines.Length - 1; i >= 0; i--)
         {

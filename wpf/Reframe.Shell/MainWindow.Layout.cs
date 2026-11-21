@@ -194,7 +194,8 @@ public partial class MainWindow
         if (Writable && selected is not null && win.Selected != selected)
         {
             win.Selected = selected;
-            Saved();
+            // Only written (soon): the lists need no redraw for it.
+            shell.SaveSoon();
         }
         if (zoom is { } z && (z.Layout != LayoutKey(win) || !leaves.Contains(z.SessionId))) zoom = null;
         var one = shown ?? zoom?.SessionId;

@@ -66,10 +66,16 @@ public static class ShellWindows
     public static bool ShouldDiscard(IReadOnlyList<WindowState> windows, string windowId) =>
         windows.Count > 0 && windows[0].Id != windowId && windows.FirstOrDefault(w => w.Id == windowId) is { } win && LayoutActions.IsWindowEmpty(win);
 
-    /// <summary>The tray's window entry: "Window n", with up to three session labels after a dash.</summary>
+    const int TrayNameMax = 24, TrayNamesMax = 60;
+
+    /// <summary>The tray's window entry: "Window n", with up to three session labels after a dash, each cut to
+    /// <see cref="TrayNameMax"/> characters and all of them to <see cref="TrayNamesMax"/>, so long thread names keep the menu narrow.</summary>
     public static string TrayWindowLabel(int index, IReadOnlyList<string> labels)
     {
-        var names = labels.Count > 3 ? string.Join(", ", labels.Take(3)) + ", …" : string.Join(", ", labels);
+        static string Clip(string text, int max) => text.Length <= max ? text : text[..(max - 1)].TrimEnd(' ', ',', '-') + "…";
+        var names = string.Join(", ", labels.Take(3).Select(l => Clip(l.Trim(), TrayNameMax)));
+        if (labels.Count > 3) names += ", …";
+        names = Clip(names, TrayNamesMax);
         return Strings.T("tray.window", ("n", index + 1)) + (names.Length > 0 ? " – " + names : "");
     }
 
@@ -78,8 +84,8 @@ public static class ShellWindows
             [.. LayoutActions.WindowSessions(w).Select(id => state.Sessions.GetValueOrDefault(id)).OfType<SessionRecord>()
                 .Select(r => StateValues.SessionLabel(r.Name, r.ClaudeName, r.Cwd))]), !w.Hidden))];
 
-    /// <summary>tray.ts's menu: the windows (checked while shown), New session, New window, About, Terminate all sessions
-    /// (only while one runs) and Quit. The update entry is left out: the shell has no updater (deployed by script).</summary>
+    /// <summary>tray.ts's menu: the windows (checked while shown), New session, New window, About, Reload (the shell starts
+    /// again as its shortcut starts it, into the installed release), Terminate all sessions (only while one runs) and Quit.</summary>
     public static List<MenuSpec> TrayMenu(IReadOnlyList<TrayWindowItem> windows, bool anyRunning) =>
     [
         .. windows.Select(w => new MenuSpec("checkbox", w.Label, Checked: w.Visible, Action: "window:" + w.Id)),
@@ -88,6 +94,7 @@ public static class ShellWindows
         new("normal", Strings.T("tray.newWindow"), Action: "newWindow"),
         MenuSpec.Separator,
         new("normal", Strings.T("tray.about"), Action: "about"),
+        new("normal", Strings.T("tray.reload"), Action: "reload"),
         new("normal", Strings.T("tray.terminateAll"), Enabled: anyRunning, Action: "terminateAll"),
         new("normal", Strings.T("tray.quit"), Action: "quit"),
     ];
