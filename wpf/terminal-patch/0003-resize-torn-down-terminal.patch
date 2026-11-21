@@ -1,0 +1,82 @@
+diff --git a/src/cascadia/TerminalControl/HwndTerminal.cpp b/src/cascadia/TerminalControl/HwndTerminal.cpp
+index 3d71aa7..868af51 100644
+--- a/src/cascadia/TerminalControl/HwndTerminal.cpp
++++ b/src/cascadia/TerminalControl/HwndTerminal.cpp
+@@ -429,6 +429,9 @@ HRESULT HwndTerminal::Refresh(const til::size windowSize, _Out_ til::size* dimen
+ {
+     RETURN_HR_IF_NULL(E_NOT_VALID_STATE, _terminal);
+     RETURN_HR_IF_NULL(E_INVALIDARG, dimensions);
++    // reframe: a terminal torn down (its window destroyed) has no renderer any more.
++    RETURN_HR_IF_NULL(E_NOT_VALID_STATE, _renderEngine);
++    RETURN_HR_IF_NULL(E_NOT_VALID_STATE, _renderer);
+ 
+     const auto lock = _terminal->LockForWriting();
+ 
+@@ -523,6 +526,10 @@ CATCH_LOG()
+ HRESULT _stdcall TerminalTriggerResize(_In_ void* terminal, _In_ til::CoordType width, _In_ til::CoordType height, _Out_ til::size* dimensions)
+ {
+     const auto publicTerminal = static_cast<HwndTerminal*>(terminal);
++    // reframe: a resize of a terminal not created yet, destroyed or torn down is refused, not an access violation.
++    RETURN_HR_IF_NULL(E_NOT_VALID_STATE, publicTerminal);
++    RETURN_HR_IF_NULL(E_NOT_VALID_STATE, publicTerminal->_terminal);
++    RETURN_HR_IF_NULL(E_NOT_VALID_STATE, publicTerminal->_renderEngine);
+ 
+     LOG_IF_WIN32_BOOL_FALSE(SetWindowPos(
+         publicTerminal->GetHwnd(),
+@@ -548,8 +555,13 @@ HRESULT _stdcall TerminalTriggerResizeWithDimension(_In_ void* terminal, _In_ ti
+ try
+ {
+     RETURN_HR_IF_NULL(E_INVALIDARG, dimensionsInPixels);
++    *dimensionsInPixels = {};
+ 
+     const auto publicTerminal = static_cast<const HwndTerminal*>(terminal);
++    // reframe: as TerminalTriggerResize, nothing for a terminal not created yet, destroyed or torn down.
++    RETURN_HR_IF_NULL(E_NOT_VALID_STATE, publicTerminal);
++    RETURN_HR_IF_NULL(E_NOT_VALID_STATE, publicTerminal->_terminal);
++    RETURN_HR_IF_NULL(E_NOT_VALID_STATE, publicTerminal->_renderEngine);
+ 
+     Viewport viewInPixels;
+     {
+diff --git a/src/cascadia/WpfTerminalControl/TerminalContainer.cs b/src/cascadia/WpfTerminalControl/TerminalContainer.cs
+index 0b0b97d..6e8fd84 100644
+--- a/src/cascadia/WpfTerminalControl/TerminalContainer.cs
++++ b/src/cascadia/WpfTerminalControl/TerminalContainer.cs
+@@ -217,6 +217,12 @@ namespace Microsoft.Terminal.Wpf
+                 throw new ArgumentException("Terminal column or row count cannot be 0.", nameof(renderSize));
+             }
+ 
++            // reframe: no terminal (its window not built yet, or destroyed): nothing to resize.
++            if (this.terminal == IntPtr.Zero)
++            {
++                return;
++            }
++
+             NativeMethods.TerminalTriggerResize(
+                 this.terminal,
+                 (int)renderSize.Width,
+@@ -253,6 +259,12 @@ namespace Microsoft.Terminal.Wpf
+                 Y = Math.Max((int)rows, 2),
+             };
+ 
++            // reframe: no terminal (its window not built yet, or destroyed): nothing to resize.
++            if (this.terminal == IntPtr.Zero)
++            {
++                return;
++            }
++
+             NativeMethods.TerminalTriggerResizeWithDimension(this.terminal, dimensions, out var dimensionsInPixels);
+ 
+             this.Columns = dimensions.X;
+@@ -422,6 +434,12 @@ namespace Microsoft.Terminal.Wpf
+                             break;
+                         }
+ 
++                        // reframe: the window of a terminal already destroyed: nothing to resize.
++                        if (this.terminal == IntPtr.Zero)
++                        {
++                            break;
++                        }
++
+                         NativeMethods.TilSize dimensions;
+ 
+                         if (this.AutoResize)
