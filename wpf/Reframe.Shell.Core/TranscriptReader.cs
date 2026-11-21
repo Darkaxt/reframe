@@ -15,6 +15,9 @@ public sealed record TranscriptRead(IReadOnlyList<string> Lines, long NewOffset,
 /// </summary>
 public static class TranscriptReader
 {
+    /// <summary>The most one read takes (the end of a longer transcript): the view shows the recent part of it.</summary>
+    public const int MaxRead = 8 * 1024 * 1024;
+
     /// <summary>Reads from the file at <paramref name="path"/>. A missing file reads as no new lines at the same offset.</summary>
     public static TranscriptRead Read(string path, long offset)
     {
@@ -45,6 +48,14 @@ public static class TranscriptReader
 
         long remaining = stream.Length - offset;
         if (remaining <= 0) return new TranscriptRead(Array.Empty<string>(), offset, reset);
+        // A long transcript (or a long gap) is read from its last MaxRead bytes only, from the first whole line in them.
+        var skipPartial = false;
+        if (remaining > MaxRead)
+        {
+            offset = stream.Length - MaxRead;
+            remaining = MaxRead;
+            skipPartial = true;
+        }
 
         stream.Seek(offset, SeekOrigin.Begin);
         var buffer = new byte[remaining];
@@ -56,11 +67,11 @@ public static class TranscriptReader
             total += n;
         }
 
-        int lastNewline = Array.LastIndexOf(buffer, (byte)'\n', total - 1);
+        int lastNewline = total == 0 ? -1 : Array.LastIndexOf(buffer, (byte)'\n', total - 1);
         if (total == 0 || lastNewline < 0) return new TranscriptRead(Array.Empty<string>(), offset, reset);
 
         var lines = new List<string>();
-        int start = 0;
+        int start = skipPartial ? Array.IndexOf(buffer, (byte)'\n', 0, lastNewline + 1) + 1 : 0;
         for (int i = 0; i <= lastNewline; i++)
         {
             if (buffer[i] != (byte)'\n') continue;

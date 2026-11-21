@@ -18,7 +18,7 @@ sealed partial class ShellController
         try
         {
             var claudeId = record.ClaudeSessionId;
-            var known = modelFiles.GetValueOrDefault(sessionId);
+            var known = modelFiles.GetValueOrDefault(claudeId);
             var (file, model) = await Task.Run(() =>
             {
                 try
@@ -31,7 +31,7 @@ sealed partial class ShellController
                     return (known, (string?)null);
                 }
             });
-            if (file is not null) modelFiles[sessionId] = file;
+            if (file is not null) modelFiles[claudeId] = file;
             if (model is null || !State.Sessions.TryGetValue(sessionId, out record)) return;
             if (Takeover.ProviderOfModel(model) is { } provider && provider != (record.Launch.Provider ?? "chatgpt")) return;
             if (ModelSync.Changed(record.Launch.Model, model) is not { } next) return;

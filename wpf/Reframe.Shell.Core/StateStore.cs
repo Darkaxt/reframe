@@ -100,22 +100,31 @@ public sealed class StateStore(string file, Func<IStateFiles?> host, Action<stri
     /// <summary>Coalesces frequent saves into one write after <paramref name="delayMs"/>.</summary>
     public void SaveSoon(AppState state, IReadOnlySet<string>? exclude = null, int delayMs = 500)
     {
+        // The state belongs to the thread that changes it (the UI thread): it is serialized there, never on the timer's
+        // thread, where a collection changed meanwhile threw or a torn state was written.
+        var owner = SynchronizationContext.Current;
         lock (gate)
         {
             soon = () => Serialize(state, exclude);
             timer ??= new Timer(_ =>
             {
-                Func<string>? next;
-                lock (gate)
-                {
-                    next = soon;
-                    soon = null;
-                    timer?.Dispose();
-                    timer = null;
-                }
-                if (next is not null) SaveText(next());
+                if (owner is not null) owner.Post(_ => SaveDue(), null);
+                else SaveDue();
             }, null, delayMs, Timeout.Infinite);
         }
+    }
+
+    void SaveDue()
+    {
+        Func<string>? next;
+        lock (gate)
+        {
+            next = soon;
+            soon = null;
+            timer?.Dispose();
+            timer = null;
+        }
+        if (next is not null) SaveText(next());
     }
 
     void CancelSoon()

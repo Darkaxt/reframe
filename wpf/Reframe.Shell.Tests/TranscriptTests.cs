@@ -9,6 +9,18 @@ public class TranscriptReaderTests
     static MemoryStream Bytes(string s) => new(Encoding.UTF8.GetBytes(s));
 
     [Fact]
+    public void A_long_transcript_is_read_from_its_end_from_a_whole_line()
+    {
+        var line = "{\"type\":\"user\",\"n\":\"" + new string('x', 1000) + "\"}";
+        var text = string.Concat(Enumerable.Repeat(line + "\n", TranscriptReader.MaxRead / line.Length + 50));
+        using var s = Bytes(text);
+        var r = TranscriptReader.Read(s, 0);
+        Assert.Equal(s.Length, r.NewOffset);
+        Assert.True(r.Lines.Count <= TranscriptReader.MaxRead / (line.Length + 1));
+        Assert.All(r.Lines, l => Assert.Equal(line, l));
+    }
+
+    [Fact]
     public void ReadsCompleteLinesAndIgnoresPartialLast()
     {
         using var s = Bytes("{\"a\":1}\n{\"b\":2}\n{\"c\":");
