@@ -57,6 +57,23 @@ public class QuotaTests
     }
 
     [Fact]
+    public void The_usage_quota_answer_is_read_in_seconds_without_windows_not_reported()
+    {
+        var answer = J("""
+            {"ok":true,"quota":{"schema":1,"times":"unix seconds","providers":[
+              {"id":"codex","state":"available","observedAt":1795233410.5,"windows":[
+                {"id":"weekly","status":"current","remainingPercent":69.0,"usedPercent":31.0,"resetsAt":1795362939.0,"windowMinutes":10080}]},
+              {"id":"claude","state":"available","observedAt":1795233449.25,"windows":[
+                {"id":"five-hour","status":"not_reported","observedAt":1794885451.5,"windowMinutes":300},
+                {"id":"weekly","status":"current","remainingPercent":25.0,"resetsAt":1795334400.0,"windowMinutes":10080}]}]}}
+            """);
+        var quotas = Quota.ParseCoordinatorProviders(answer);
+        Assert.Equal(1795233449250, quotas["claude"].At);
+        Assert.Equal(new[] { new QuotaWindow("claude:10080", 10080, 75, 1795334400000) }, quotas["claude"].Windows);
+        Assert.Equal(new[] { new QuotaWindow("codex:10080", 10080, 31, 1795362939000) }, Quota.ParseCoordinatorUsage(answer));
+    }
+
+    [Fact]
     public void CodexComesFromTheProvidersElseAnOlderCoordinatorsBuckets()
     {
         Assert.Equal(Quota.ParseCoordinatorProviders(J(Snapshot))["codex"].Windows, Quota.ParseCoordinatorUsage(J(Snapshot)));
