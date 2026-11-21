@@ -56,12 +56,12 @@ sealed class SettingsDialog
     public Button CloseButton { get; private set; } = null!;
     public FrameworkElement HiddenSection { get; private set; } = null!;
     public event Action? CloseRequested;
-    string model;
+    // The default model being typed, per provider (kept across a redraw of the dialog).
+    readonly Dictionary<string, string> models = [];
 
     public SettingsDialog(SettingsContext context)
     {
         this.context = context;
-        model = context.State().Preferences.DefaultModel ?? "";
         var layout = new Grid();
         layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         layout.ColumnDefinitions.Add(new ColumnDefinition());
@@ -295,13 +295,19 @@ sealed class SettingsDialog
             Settings.BrowserChoice(p.BrowserChatgpt), v => Set(new PreferencesPatch { BrowserChatgpt = v }))));
         AddHint(T("inline.browser.hint"));
 
-        Add(Row(T("settings.defaultModel"), ModelInput(p.DefaultModel)));
-        Add(Row(T("inline.defaultEffort"), Select(T("inline.defaultEffort"),
-            [("", T("inline.defaultEffortCli")), .. StateValues.EffortLevels.Select(l => (l, l))],
-            p.DefaultEffort ?? "", v => Set(new PreferencesPatch { DefaultEffort = v }))));
-        Add(Row(T("settings.defaultPermissionMode"), Select(T("settings.defaultPermissionMode"),
-            [("", T("dialog.default")), .. StateValues.PermissionModes.Select(m => (m, StateValues.PermissionLabel(m)))],
-            p.DefaultPermissionMode ?? "", v => Set(new PreferencesPatch { DefaultPermissionMode = v }))));
+        foreach (var provider in new[] { "anthropic", "chatgpt" })
+        {
+            var name = NewSession.ProviderName(provider);
+            var d = NewSession.DefaultsFor(p, provider);
+            Add(new TextBlock { Text = T("settings.defaultsFor", ("provider", name)), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 0) });
+            Add(Row(T("settings.defaultModel"), ModelInput(provider, d.Model)));
+            Add(Row(T("inline.defaultEffort"), Select($"{T("inline.defaultEffort")} – {name}",
+                [("", T("inline.defaultEffortCli")), .. StateValues.EffortLevels.Select(l => (l, l))],
+                d.Effort ?? "", v => Set(new PreferencesPatch { DefaultsProvider = provider, DefaultEffort = v }))));
+            Add(Row(T("settings.defaultPermissionMode"), Select($"{T("settings.defaultPermissionMode")} – {name}",
+                [("", T("dialog.default")), .. StateValues.PermissionModes.Select(m => (m, StateValues.PermissionLabel(m)))],
+                d.PermissionMode ?? "", v => Set(new PreferencesPatch { DefaultsProvider = provider, DefaultPermissionMode = v }))));
+        }
         AddHint(T("settings.launchHint"));
 
         Add(Check(T("settings.lookInWsl"), p.LookInWsl, v => Set(new PreferencesPatch { LookInWsl = v })));
@@ -545,15 +551,15 @@ sealed class SettingsDialog
     }
 
     /// <summary>.setting-input: kept while typing, taken when left (Enter leaves it).</summary>
-    TextBox ModelInput(string? current)
+    TextBox ModelInput(string provider, string? current)
     {
-        var input = new TextBox { Style = S("SettingInput"), Text = model, Tag = T("dialog.modelPlaceholder") };
-        AutomationProperties.SetName(input, T("settings.defaultModel"));
+        var input = new TextBox { Style = S("SettingInput"), Text = models.GetValueOrDefault(provider) ?? current ?? "", Tag = T("dialog.modelPlaceholder") };
+        AutomationProperties.SetName(input, $"{T("settings.defaultModel")} – {NewSession.ProviderName(provider)}");
         Suggestions.Attach(input);
-        input.TextChanged += (_, _) => model = input.Text;
+        input.TextChanged += (_, _) => models[provider] = input.Text;
         input.LostKeyboardFocus += (_, _) =>
         {
-            if (model.Trim() != (current ?? "")) Set(new PreferencesPatch { DefaultModel = model });
+            if (input.Text.Trim() != (current ?? "")) Set(new PreferencesPatch { DefaultsProvider = provider, DefaultModel = input.Text });
         };
         input.KeyDown += (_, e) =>
         {

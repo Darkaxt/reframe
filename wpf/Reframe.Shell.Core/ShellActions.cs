@@ -18,6 +18,7 @@ public static class ShellActions
         string? chosen = mode == "" ? null : StateValues.PermissionModes.FirstOrDefault(m => m == mode);
         if ((mode != "" && chosen is null) || record.Launch.PermissionMode == chosen) return false;
         record.Launch.PermissionMode = chosen;
+        NewSession.StopFollowing(record.Launch, "permissionMode");
         return true;
     }
 

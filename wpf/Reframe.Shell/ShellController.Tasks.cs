@@ -277,9 +277,18 @@ sealed partial class ShellController
                     return;
                 }
                 var defaults = NewSession.DefaultsFor(State.Preferences, record.Launch.Provider ?? "chatgpt");
+                // The task's thread's own choices; what it has from the defaults (or not at all) is the defaults' now, and follows them.
+                var follows = NewSession.FollowFields.Where(f => record.Launch.FollowsDefaults?.Contains(f) == true || f switch
+                {
+                    "model" => record.Launch.Model is null,
+                    "effort" => record.Launch.Effort is null,
+                    _ => record.Launch.PermissionMode is null,
+                }).ToList();
                 var request = new NewSessionRequest(record.Cwd, record.Launch.Provider ?? "chatgpt", $"{task.Name} {run.Since:MM-dd HH:mm}",
-                    Model: record.Launch.Model ?? defaults.Model, Effort: record.Launch.Effort ?? defaults.Effort,
-                    PermissionMode: record.Launch.PermissionMode ?? defaults.PermissionMode, InitialPrompt: ScheduledTasks.RunText(task));
+                    Model: follows.Contains("model") ? defaults.Model : record.Launch.Model,
+                    Effort: follows.Contains("effort") ? defaults.Effort : record.Launch.Effort,
+                    PermissionMode: follows.Contains("permissionMode") ? defaults.PermissionMode : record.Launch.PermissionMode,
+                    InitialPrompt: ScheduledTasks.RunText(task), Follows: follows);
                 var (error, _) = await CreateSessionAsync(window.Id, request, _ => false, quiet: true);
                 Finish(run, error is null, error is null ? "started a new thread" : $"the new thread did not start: {error}");
                 return;

@@ -31,6 +31,9 @@ public sealed record PreferencesPatch
     public string? DefaultModel { get; init; }
     public string? DefaultEffort { get; init; }
     public string? DefaultPermissionMode { get; init; }
+    /// <summary>"anthropic" or "chatgpt": DefaultModel, DefaultEffort and DefaultPermissionMode set that provider's defaults
+    /// (Settings' "New … threads"); null: the older shared fields.</summary>
+    public string? DefaultsProvider { get; init; }
     /// <summary>The whole list of launch profiles (replaces the stored one; invalid entries are dropped).</summary>
     public IReadOnlyList<LaunchProfile>? Profiles { get; init; }
     /// <summary>The id of a profile whose choices become its provider's defaults.</summary>
@@ -97,11 +100,29 @@ public static class Settings
         if (patch.ClaudeBin is { } bin) p.ClaudeBin = Clip(bin.Trim(), 1024) is { Length: > 0 } b ? b : null;
         if (patch.BrowserAnthropic is { } browserA && BrowserChoices.Contains(browserA)) p.BrowserAnthropic = BrowserValue(browserA);
         if (patch.BrowserChatgpt is { } browserC && BrowserChoices.Contains(browserC)) p.BrowserChatgpt = BrowserValue(browserC);
-        if (patch.DefaultModel is { } model) p.DefaultModel = Clip(model.Trim(), 100) is { Length: > 0 } m ? m : null;
-        if (patch.DefaultEffort == "") p.DefaultEffort = null;
-        else if (patch.DefaultEffort is { } effort && StateValues.EffortLevels.Contains(effort)) p.DefaultEffort = effort;
-        if (patch.DefaultPermissionMode == "") p.DefaultPermissionMode = null;
-        else if (patch.DefaultPermissionMode is { } mode && StateValues.PermissionModes.Contains(mode)) p.DefaultPermissionMode = mode;
+        if (patch.DefaultsProvider is { } provider && StateValues.Providers.Contains(provider))
+        {
+            // The provider's own defaults, starting from what it has now.
+            var set = p.ProviderDefaults ??= new ProviderDefaultsSet();
+            var current = NewSession.DefaultsFor(p, provider);
+            var own = (provider == "anthropic" ? set.Anthropic : set.Chatgpt)
+                ?? new ProviderDefaults { Model = current.Model, Effort = current.Effort, PermissionMode = current.PermissionMode, AddDirs = current.AddDirs.Count > 0 ? [.. current.AddDirs] : null };
+            if (provider == "anthropic") set.Anthropic = own;
+            else set.Chatgpt = own;
+            if (patch.DefaultModel is { } model) own.Model = Clip(model.Trim(), 100) is { Length: > 0 } m ? m : null;
+            if (patch.DefaultEffort == "") own.Effort = null;
+            else if (patch.DefaultEffort is { } effort && StateValues.EffortLevels.Contains(effort)) own.Effort = effort;
+            if (patch.DefaultPermissionMode == "") own.PermissionMode = null;
+            else if (patch.DefaultPermissionMode is { } mode && StateValues.PermissionModes.Contains(mode)) own.PermissionMode = mode;
+        }
+        else
+        {
+            if (patch.DefaultModel is { } model) p.DefaultModel = Clip(model.Trim(), 100) is { Length: > 0 } m ? m : null;
+            if (patch.DefaultEffort == "") p.DefaultEffort = null;
+            else if (patch.DefaultEffort is { } effort && StateValues.EffortLevels.Contains(effort)) p.DefaultEffort = effort;
+            if (patch.DefaultPermissionMode == "") p.DefaultPermissionMode = null;
+            else if (patch.DefaultPermissionMode is { } mode && StateValues.PermissionModes.Contains(mode)) p.DefaultPermissionMode = mode;
+        }
         if (patch.Profiles is { } profiles) p.Profiles = CleanProfiles(profiles);
         if (patch.MakeDefaultProfile is { } defaultId && p.Profiles?.FirstOrDefault(x => x.Id == defaultId) is { } chosen)
         {

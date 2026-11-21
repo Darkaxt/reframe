@@ -41,6 +41,7 @@ public static class ChatHistory
         record.Launch.Model = modelGiven
             ? (string.IsNullOrEmpty(model) ? null : model)
             : ModelForProviderChange(record.Launch.Provider, provider, record.Launch.Model);
+        if (modelGiven) NewSession.StopFollowing(record.Launch, "model");
         record.Launch.Provider = provider;
         state.Sessions[record.Id] = record;
         return record;
