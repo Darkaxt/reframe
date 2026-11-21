@@ -455,7 +455,7 @@ mod tests {
             json!({ "prompt": "x", "provider": "openai" }),
             json!({ "name": "a", "prompt": " ", "provider": "openai" }),
             json!({ "name": "a", "prompt": "x" }),
-            json!({ "name": "a", "prompt": "x", "provider": "gemini" }),
+            json!({ "name": "a", "prompt": "x", "provider": "mistral" }),
             json!({ "name": "a", "prompt": "x", "provider": "claude", "folder": "relative" }),
         ] {
             let call = rpc("tools/call", json!({ "name": "open_thread", "arguments": arguments }));
