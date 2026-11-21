@@ -240,6 +240,7 @@ public static class StateParser
             SidebarOpen = o.OptBool("sidebarOpen"),
             ActiveProject = o.OptStr("activeProject"),
             ViewMode = o.OptEnum("viewMode", StateValues.ViewModes),
+            Selected = o.OptStr("selected"),
         };
         o.KeepExtra(w);
         return w;

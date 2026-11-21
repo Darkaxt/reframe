@@ -144,6 +144,8 @@ public sealed class WindowState : StateObject
     public string? ActiveProject { get; set; }
     /// <summary>"single" or "tiled"; absent (older files) means tiled.</summary>
     public string? ViewMode { get; set; }
+    /// <summary>The thread a single window shows (kept so a restart shows it again).</summary>
+    public string? Selected { get; set; }
 
     public static WindowState Empty(string id) => new() { Id = id };
 }

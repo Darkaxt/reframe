@@ -301,6 +301,7 @@ sealed partial class ShellController
         trayTimer.Tick += (_, _) => RefreshTray();
         trayTimer.Start();
         StartMonitor();
+        StartModelSync();
         StartProxyWatch();
         _ = StartWarningsAsync();
         WatchForeignWindows();

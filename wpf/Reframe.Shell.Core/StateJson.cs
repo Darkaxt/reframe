@@ -107,6 +107,7 @@ public static class StateJson
             Opt(o, "sidebarOpen", w.SidebarOpen);
             Opt(o, "activeProject", w.ActiveProject);
             Opt(o, "viewMode", w.ViewMode);
+            Opt(o, "selected", w.Selected);
             return Done(o, w);
         }
 

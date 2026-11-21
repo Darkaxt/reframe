@@ -30,6 +30,7 @@ public static class LayoutActions
         {
             Id = w.Id, Bounds = w.Bounds, Maximized = w.Maximized, Fullscreen = w.Fullscreen, Hidden = w.Hidden,
             Layout = layout, Dock = dock, SidebarOpen = w.SidebarOpen, ActiveProject = w.ActiveProject, ViewMode = w.ViewMode,
+            Selected = w.Selected,
         };
         foreach (var (key, value) in w.Extra) copy.Extra[key] = value;
         return copy;
