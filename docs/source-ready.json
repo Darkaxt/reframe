@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "4c88ed88cf555af30d5f95655f58537a05bc8f38",
+  "sourceBase": "8e9bccee5fab60ab4c2da025c344028b4a1fa28b",
   "scope": "Chat view gaps",
   "inputHashes": [
     {
@@ -30,7 +30,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "8e6f46aa805f61089cd00e73d5f5a375ea72faf2cc10472ca6b07a292e85147e"
+      "sha256": "4ed96198a815830e7bffaa7cc76ff99e434611254ecdf94b7f1b8aee1b7510c0"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
