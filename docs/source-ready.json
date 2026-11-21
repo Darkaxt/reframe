@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "56cc41f1b97cd2a7d81fc8c0247821991d55ddf8",
+  "sourceBase": "99aa95fb2987037af8eb84021e99f14c2d328f2b",
   "scope": "view preferences",
   "inputHashes": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.111.md",
-      "sha256": "c8d0e1b3ec2d7812ac870a42afee0ce9b9e72a513fe4b73af177a2966de1dd7c"
+      "sha256": "20a11ee841eb396bcdbe37689a19efb2cc20f6f6df30eb8b21a047c31f20f371"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -22,19 +22,19 @@
     },
     {
       "file": "wpf/Reframe.Shell.Core/AppState.cs",
-      "sha256": "655d758e99b2b0391cc6aee1b602ef3cd57ab23c37c697fe48498cb85810cdcf"
+      "sha256": "dd9517aa954d8d12ed97dc32d5ea3cb86a23aa5b5dc623fdbc39aa9a229b2024"
     },
     {
       "file": "wpf/Reframe.Shell.Core/StateJson.cs",
-      "sha256": "33c96305b676943667ca4657d4a26e95bcd34ac5d7ad4a13f1482fda6a8fa018"
+      "sha256": "1fb2555893d30adff4e36e05aa62161d40df595e25ba1125521d9dd0360ed7ae"
     },
     {
       "file": "wpf/Reframe.Shell.Core/StateParser.cs",
-      "sha256": "5299a0d1832227d5788f2843268402ba3ec16277dd244f5c4b6cbc3832dbceb8"
+      "sha256": "1e1ea09db78743bc069cad59124b9299c6137a2f90f0bd9d6f68dede731dd6f6"
     },
     {
       "file": "wpf/Reframe.Shell.Tests/ViewPreferenceTests.cs",
-      "sha256": "6dbeb6d593e230e9aa9310dba165e044ae248be12546dc833cd3c8c47dc5cced"
+      "sha256": "2cc04d17b3b559c409444502f6a182cc146551464a32888a2a9cc954ff840ec7"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
@@ -42,7 +42,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "a8c3a51d31d5d377b2a268ef2745f25e239243ce77e0878989af6907162f8cea"
+      "sha256": "b9ba03859bfd6822167644ed798b9f3a931da2932b2f835649ea887ca92a8ba5"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.cs",
