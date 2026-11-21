@@ -66,23 +66,17 @@ public static class ShellWindows
     public static bool ShouldDiscard(IReadOnlyList<WindowState> windows, string windowId) =>
         windows.Count > 0 && windows[0].Id != windowId && windows.FirstOrDefault(w => w.Id == windowId) is { } win && LayoutActions.IsWindowEmpty(win);
 
-    const int TrayNameMax = 24, TrayNamesMax = 60;
+    /// <summary>The tray's window entry: "Window n", and how many of its threads run ("Window 1 – 3 threads active").</summary>
+    public static string TrayWindowLabel(int index, int active) =>
+        Strings.T("tray.window", ("n", index + 1)) + active switch
+        {
+            0 => "",
+            1 => " – " + Strings.T("tray.activeOne"),
+            _ => " – " + Strings.T("tray.active", ("n", active)),
+        };
 
-    /// <summary>The tray's window entry: "Window n", with up to three session labels after a dash, each cut to
-    /// <see cref="TrayNameMax"/> characters and all of them to <see cref="TrayNamesMax"/>, so long thread names keep the menu narrow.</summary>
-    public static string TrayWindowLabel(int index, IReadOnlyList<string> labels)
-    {
-        static string Clip(string text, int max) => text.Length <= max ? text : text[..(max - 1)].TrimEnd(' ', ',', '-') + "…";
-        var names = string.Join(", ", labels.Take(3).Select(l => Clip(l.Trim(), TrayNameMax)));
-        if (labels.Count > 3) names += ", …";
-        names = Clip(names, TrayNamesMax);
-        return Strings.T("tray.window", ("n", index + 1)) + (names.Length > 0 ? " – " + names : "");
-    }
-
-    public static List<TrayWindowItem> TrayWindows(AppState state) =>
-        [.. state.Windows.Select((w, i) => new TrayWindowItem(w.Id, TrayWindowLabel(i,
-            [.. LayoutActions.WindowSessions(w).Select(id => state.Sessions.GetValueOrDefault(id)).OfType<SessionRecord>()
-                .Select(r => StateValues.SessionLabel(r.Name, r.ClaudeName, r.Cwd))]), !w.Hidden))];
+    public static List<TrayWindowItem> TrayWindows(AppState state, Func<string, bool> runs) =>
+        [.. state.Windows.Select((w, i) => new TrayWindowItem(w.Id, TrayWindowLabel(i, LayoutActions.WindowSessions(w).Count(runs)), !w.Hidden))];
 
     /// <summary>tray.ts's menu: the windows (checked while shown), New session, New window, About, Reload (the shell starts
     /// again as its shortcut starts it, into the installed release), Terminate all sessions (only while one runs) and Quit.</summary>

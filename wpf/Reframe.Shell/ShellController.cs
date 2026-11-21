@@ -634,7 +634,7 @@ sealed partial class ShellController
         window.FocusTile(sessionId);
     }
 
-    public List<MenuSpec> TrayMenu() => ShellWindows.TrayMenu(ShellWindows.TrayWindows(State), RunningSessions().Count > 0);
+    public List<MenuSpec> TrayMenu() => ShellWindows.TrayMenu(ShellWindows.TrayWindows(State, Runs), RunningSessions().Count > 0);
 
     void RunTray(string action)
     {

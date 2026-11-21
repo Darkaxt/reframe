@@ -101,6 +101,8 @@ public static class Strings
         ["notify.waiting"] = "{label} needs you",
         ["notify.waitingBody"] = "Claude is waiting for your input.",
         ["tray.window"] = "Window {n}",
+        ["tray.activeOne"] = "1 thread active",
+        ["tray.active"] = "{n} threads active",
         ["tray.newSession"] = "New session",
         ["tray.newWindow"] = "New window",
         ["tray.terminateAll"] = "Terminate all sessions",
