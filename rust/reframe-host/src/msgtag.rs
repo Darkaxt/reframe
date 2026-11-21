@@ -103,7 +103,10 @@ mod tests {
         let claude = answer_message(&send(json!("hi")), "anthropic", None);
         assert_eq!(claude, "[from a Reframe thread on Claude (Anthropic)]\nhi");
         let gemini = answer_message(&send(json!("hi")), "openai", Some("gemini-4-neon-xhigh"));
-        assert_eq!(gemini, "[from a Reframe thread on Gemini (Google), model gemini-4-neon-xhigh]\nhi");
+        assert_eq!(
+            gemini,
+            "[from a Reframe thread on Gemini (Google), model gemini-4-neon-xhigh]\nhi"
+        );
     }
 
     fn answer_message(hook: &Value, provider: &str, model: Option<&str>) -> String {
