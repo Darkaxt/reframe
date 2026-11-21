@@ -256,6 +256,8 @@ public sealed class Preferences : StateObject
     public bool WakeForTasks { get; set; }
     /// <summary>Toasts and taskbar flashes for threads another thread opened (open_thread); off by default.</summary>
     public bool NotifySubthreads { get; set; }
+    /// <summary>Threads show the Chat view instead of the terminal (the Chat / Terminal button sets it for all of them).</summary>
+    public bool ChatView { get; set; }
     /// <summary>Claude in Chrome for Anthropic sessions: true starts them with --chrome, false with --no-chrome, null leaves it to the CLI's own setting.</summary>
     public bool? BrowserAnthropic { get; set; }
     /// <summary>The same for ChatGPT (ClaudeGPT) sessions.</summary>

@@ -34,6 +34,8 @@ sealed class TileView
     public TerminalControl? Control { get; init; }
     public HostTerminalConnection? Terminal { get; init; }
     public TerminalBehaviour? Behaviour { get; init; }
+    /// <summary>Shows the Chat view (true) or the terminal; null for a tile without a running session.</summary>
+    public Action<bool>? SetChat { get; set; }
 }
 
 /// <summary>A drag of a tile's or a group's header (dnd.ts): the node, where it began, whether it moved yet.</summary>
@@ -45,8 +47,11 @@ sealed record HeaderDrag(string Key, bool Group, Point Start, UIElement Source)
 
 public partial class MainWindow
 {
-    /// <summary>Sessions whose tile was left in the Chat view (the choice outlives the tile, which is built anew when you return).</summary>
-    static readonly HashSet<string> ChatShown = [];
+    /// <summary>The Chat / Terminal choice (a preference, for all threads): every tile of this window follows it.</summary>
+    public void ShowChatViews(bool show)
+    {
+        foreach (var tile in tiles.Values) tile.SetChat?.Invoke(show);
+    }
 
     /// <summary>The layout area (.layout: 6px padding) and the canvas its tiles, group frames and separators are placed on.</summary>
     readonly Canvas surface = new() { ClipToBounds = false };
@@ -432,6 +437,7 @@ public partial class MainWindow
         content.Children.Add(terminalHost);
         body.Children.Add(content);
         // Chat / Terminal: the same session, read from its transcript (ChatView); the terminal keeps running underneath.
+        Action<bool>? setChat = null;
         if (control is not null && record?.ClaudeSessionId is { Length: > 0 } transcriptId)
         {
             ChatView? chat = null;
@@ -442,8 +448,9 @@ public partial class MainWindow
                 Content = new TextBlock { Text = "Chat", Style = S("Text12"), Margin = new Thickness(8, 0, 8, 0) },
             };
             AutomationProperties.SetName(chatToggle, "Chat view");
-            chatToggle.Click += (_, _) =>
+            setChat = showChat =>
             {
+                if (chat is null && !showChat) return;
                 if (chat is null)
                 {
                     chat = new ChatView(transcriptId, text => shell.SendChatMessageAsync(sessionId, text, terminal),
@@ -461,19 +468,21 @@ public partial class MainWindow
                     { Visibility = Visibility.Collapsed };
                     content.Children.Add(chat);
                 }
-                var showChat = chat.Visibility != Visibility.Visible;
-                if (showChat) ChatShown.Add(sessionId);
-                else ChatShown.Remove(sessionId);
                 chat.Visibility = showChat ? Visibility.Visible : Visibility.Collapsed;
                 // Hidden, not Collapsed: the terminal keeps its size (a collapsed one was resized to nothing under the session).
                 terminalHost.Visibility = showChat ? Visibility.Hidden : Visibility.Visible;
                 ((TextBlock)chatToggle.Content).Text = showChat ? "Terminal" : "Chat";
                 chatToggle.ToolTip = showChat ? "Back to the terminal" : "Show the conversation as a chat";
-                if (!showChat && FindHost(control) is { } host) FocusTerminal(host);
+            };
+            chatToggle.Click += (_, _) =>
+            {
+                // One choice for every thread, kept across restarts.
+                var show = chat?.Visibility != Visibility.Visible;
+                shell.SetChatView(show);
+                if (!show && FindHost(control) is { } host) FocusTerminal(host);
             };
             Right(chatToggle);
-            // The tile is built anew when you come back to the thread: the view you left it in comes back.
-            if (ChatShown.Contains(sessionId)) chatToggle.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if (state.Preferences.ChatView) setChat(true);
             // The header's last child fills what is left (the folder text); the button must stay before it.
             header.Children.Remove(chatToggle);
             header.Children.Insert(header.Children.IndexOf(cwdText), chatToggle);
@@ -490,6 +499,7 @@ public partial class MainWindow
         {
             SessionId = sessionId, Ring = ring, Frame = frame, Head = head, Dot = dot, Label = title, Cwd = cwdText,
             ZoomIcon = zoomIcon, Zoom = zoomButton, Meters = meters, Tasks = tasksButton, Control = control, Terminal = terminal, Behaviour = behaviour,
+            SetChat = setChat,
         };
         // Files (and images from a browser) dropped on the tile are typed in as their paths, as in reframe.
         if (behaviour is not null)
