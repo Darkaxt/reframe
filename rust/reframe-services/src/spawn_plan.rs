@@ -347,6 +347,12 @@ fn claude_args(session: &Value, mode: &str, settings: Option<&str>, prompt: bool
             args.extend(["--add-dir".into(), dir.into()]);
         }
     }
+    // Claude in Chrome: on or off by the user's setting; absent leaves it to the CLI's own.
+    match launch.get("chrome").and_then(Value::as_bool) {
+        Some(true) => args.push("--chrome".into()),
+        Some(false) => args.push("--no-chrome".into()),
+        None => {}
+    }
     if let Some(settings) = settings.filter(|s| !s.is_empty()) {
         args.extend(["--settings".into(), settings.into()]);
     }
@@ -947,6 +953,20 @@ pub fn spawn_plan(input: &Value, fs: &dyn PlanFs) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn claude_in_chrome_is_set_by_the_launch_not_left_to_the_cli_when_chosen() {
+        let args_of = |launch: Value| {
+            let session = json!({ "claudeSessionId": "s1", "launch": launch });
+            claude_args(&session, "new", None, false)
+        };
+        let on = args_of(json!({ "provider": "anthropic", "chrome": true }));
+        assert!(on.contains(&"--chrome".to_owned()) && !on.contains(&"--no-chrome".to_owned()));
+        let off = args_of(json!({ "provider": "anthropic", "chrome": false }));
+        assert!(off.contains(&"--no-chrome".to_owned()) && !off.contains(&"--chrome".to_owned()));
+        let unset = args_of(json!({ "provider": "anthropic" }));
+        assert!(!unset.iter().any(|a| a == "--chrome" || a == "--no-chrome"));
+    }
 
     #[test]
     fn the_host_gives_sessions_its_thread_tools() {

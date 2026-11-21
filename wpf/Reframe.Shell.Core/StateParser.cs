@@ -380,6 +380,8 @@ public static class StateParser
         p.CloseWindow = o.OptEnum("closeWindow", StateValues.CloseWindow) ?? "ask";
         p.GpuAcceleration = o.OptBool("gpuAcceleration") ?? false;
         p.WakeForTasks = o.OptBool("wakeForTasks") ?? false;
+        p.BrowserAnthropic = o.OptBool("browserAnthropic");
+        p.BrowserChatgpt = o.OptBool("browserChatgpt");
         p.ManagerThread = o.OptStr("managerThread");
         // A value the setting does not offer means never (an older or edited file is not rejected for it).
         p.CloseEndedAfterHours = o.OptNum("closeEndedAfterHours") is { } hours && PreferencesPatch.CloseEndedChoices.Contains((int)hours) && hours == Math.Floor(hours) ? (int)hours : 0;

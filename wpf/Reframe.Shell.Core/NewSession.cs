@@ -250,7 +250,7 @@ public static class SpawnPlans
         string? SettingsFile, string? SettingsContent, JsonObject Meta, IReadOnlyList<string> Warnings);
 
     public static JsonObject Input(SessionRecord record, string mode, string? freshClaudeSessionId, IReadOnlyDictionary<string, string> env,
-        string claudeHome, string settingsDir, Hooks hooks, string? claudeBin, string? adoption, bool captureStatusLine, JsonObject? wsl)
+        string claudeHome, string settingsDir, Hooks hooks, string? claudeBin, string? adoption, bool captureStatusLine, JsonObject? wsl, bool? browser = null)
     {
         var launch = new JsonObject();
         void Put(string key, JsonNode? value)
@@ -266,6 +266,8 @@ public static class SpawnPlans
         Put("worktreeCreated", record.Launch.WorktreeCreated);
         if (record.Launch.AddDirs is { Count: > 0 } dirs) launch["addDirs"] = new JsonArray([.. dirs.Select(d => (JsonNode?)d)]);
         Put("initialPrompt", record.Launch.InitialPrompt);
+        // Claude in Chrome: the spawn plan adds --chrome or --no-chrome; absent leaves it to the CLI.
+        if (browser is { } chrome) launch["chrome"] = chrome;
         var session = new JsonObject
         {
             ["id"] = record.Id, ["claudeSessionId"] = record.ClaudeSessionId, ["cwd"] = record.Cwd, ["launch"] = launch,

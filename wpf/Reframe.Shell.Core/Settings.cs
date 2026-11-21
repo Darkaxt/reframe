@@ -23,6 +23,10 @@ public sealed record PreferencesPatch
     public string? PtyHost { get; init; }
     public string? CloseWindow { get; init; }
     public string? ClaudeBin { get; init; }
+    /// <summary>"on", "off" or "" (the CLI's own setting) for Claude in Chrome on Anthropic sessions.</summary>
+    public string? BrowserAnthropic { get; init; }
+    /// <summary>The same for ChatGPT sessions.</summary>
+    public string? BrowserChatgpt { get; init; }
     public string? DefaultModel { get; init; }
     public string? DefaultEffort { get; init; }
     public string? DefaultPermissionMode { get; init; }
@@ -89,6 +93,8 @@ public static class Settings
         if (patch.PtyHost is { } host && StateValues.PtyHosts.Contains(host)) p.PtyHost = host;
         if (patch.CloseWindow is { } close && StateValues.CloseWindow.Contains(close)) p.CloseWindow = close;
         if (patch.ClaudeBin is { } bin) p.ClaudeBin = Clip(bin.Trim(), 1024) is { Length: > 0 } b ? b : null;
+        if (patch.BrowserAnthropic is { } browserA && BrowserChoices.Contains(browserA)) p.BrowserAnthropic = BrowserValue(browserA);
+        if (patch.BrowserChatgpt is { } browserC && BrowserChoices.Contains(browserC)) p.BrowserChatgpt = BrowserValue(browserC);
         if (patch.DefaultModel is { } model) p.DefaultModel = Clip(model.Trim(), 100) is { Length: > 0 } m ? m : null;
         if (patch.DefaultEffort == "") p.DefaultEffort = null;
         else if (patch.DefaultEffort is { } effort && StateValues.EffortLevels.Contains(effort)) p.DefaultEffort = effort;
@@ -104,6 +110,13 @@ public static class Settings
         }
         return Snapshot(p) != before;
     }
+
+    public static readonly string[] BrowserChoices = ["", "on", "off"];
+
+    static bool? BrowserValue(string choice) => choice switch { "on" => true, "off" => false, _ => null };
+
+    /// <summary>The choice string of a stored browser setting.</summary>
+    public static string BrowserChoice(bool? value) => value switch { true => "on", false => "off", _ => "" };
 
     public const int MaxProfiles = 40;
 
@@ -136,7 +149,7 @@ public static class Settings
 
     static string Snapshot(Preferences p) => string.Join('\u0001', p.ArchiveRoot, p.NameFromFolder, p.Language, p.FontSize, p.SidebarWidth,
         p.SnapToGrid, p.CheckForUpdates, p.LookInWsl, p.GpuAcceleration, p.PtyHost, p.CloseWindow, p.ClaudeBin, p.DefaultModel,
-        p.DefaultEffort, p.DefaultPermissionMode, p.WakeForTasks, p.CloseEndedAfterHours, ProfilesText(p),
+        p.DefaultEffort, p.DefaultPermissionMode, p.WakeForTasks, p.CloseEndedAfterHours, p.BrowserAnthropic, p.BrowserChatgpt, ProfilesText(p),
         DefaultsText(p.ProviderDefaults?.Anthropic), DefaultsText(p.ProviderDefaults?.Chatgpt));
 
     /// <summary>The claude sessions would run, as Settings shows it (findClaude's source, resolve.ts): the chosen one

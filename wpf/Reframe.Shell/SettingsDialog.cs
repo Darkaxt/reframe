@@ -26,6 +26,8 @@ sealed class SettingsContext
     /// <summary>Where the claude sessions run is (findClaude); null: not shown (a capture, like Electron's reference).</summary>
     public Func<string?, string?>? FindClaude { get; init; }
     public bool Capture { get; init; }
+    /// <summary>The CLIs the launch config pinned for each provider (a provider, its binary, whether the adoption record verified it).</summary>
+    public IReadOnlyList<(string Provider, string Path, bool Adopted)> ManagedClients { get; init; } = [];
 }
 
 /// <summary>
@@ -269,6 +271,26 @@ sealed class SettingsDialog
         Add(Row(T("settings.claude"), claudeButtons));
         if (context.FindClaude is { } find) Add(ClaudeLine(p.ClaudeBin, find(p.ClaudeBin)), 6);
         AddHint(T("settings.claudeHint"));
+
+        Add(new TextBlock { Text = T("inline.managed.title"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 6, 0, 0) });
+        if (context.ManagedClients.Count == 0) AddHint(T("inline.managed.none"));
+        foreach (var (provider, path, adopted) in context.ManagedClients)
+        {
+            var version = System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(path)) ?? "";
+            var how = !System.IO.File.Exists(path) ? T("inline.managed.missing") : adopted ? T("inline.managed.adopted") : T("inline.managed.launchConfig");
+            var line = Hint($"{NewSession.ProviderName(provider)} · {version} · {how}\n{path}");
+            line.ToolTip = path;
+            Add(line, 6);
+        }
+        if (context.ManagedClients.Count > 0) AddHint(T("inline.managed.hint"));
+
+        Add(new TextBlock { Text = T("inline.browser.title"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 0) });
+        var browserChoices = new (string, string)[] { ("", T("inline.browser.cli")), ("on", T("inline.browser.on")), ("off", T("inline.browser.off")) };
+        Add(Row(T("inline.browser.anthropic"), Select(T("inline.browser.anthropic"), browserChoices,
+            Settings.BrowserChoice(p.BrowserAnthropic), v => Set(new PreferencesPatch { BrowserAnthropic = v }))));
+        Add(Row(T("inline.browser.chatgpt"), Select(T("inline.browser.chatgpt"), browserChoices,
+            Settings.BrowserChoice(p.BrowserChatgpt), v => Set(new PreferencesPatch { BrowserChatgpt = v }))));
+        AddHint(T("inline.browser.hint"));
 
         Add(Row(T("settings.defaultModel"), ModelInput(p.DefaultModel)));
         Add(Row(T("inline.defaultEffort"), Select(T("inline.defaultEffort"),
