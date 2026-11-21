@@ -186,6 +186,8 @@ public static class StateJson
             Opt(o, "defaultPermissionMode", p.DefaultPermissionMode);
             if (p.WakeForTasks) o["wakeForTasks"] = true;
             if (p.NotifySubthreads) o["notifySubthreads"] = true;
+            if (p.SidebarWidth is { } sidebarWidth) o["sidebarWidth"] = Math.Round(sidebarWidth);
+            if (p.ChatView) o["chatView"] = true;
             if (p.BrowserAnthropic is { } browserAnthropic) o["browserAnthropic"] = browserAnthropic;
             if (p.BrowserChatgpt is { } browserChatgpt) o["browserChatgpt"] = browserChatgpt;
             Opt(o, "managerThread", p.ManagerThread);

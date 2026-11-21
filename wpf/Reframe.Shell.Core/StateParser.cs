@@ -382,6 +382,8 @@ public static class StateParser
         p.GpuAcceleration = o.OptBool("gpuAcceleration") ?? false;
         p.WakeForTasks = o.OptBool("wakeForTasks") ?? false;
         p.NotifySubthreads = o.OptBool("notifySubthreads") ?? false;
+        p.SidebarWidth = o.OptNum("sidebarWidth") is { } sidebarWidth && sidebarWidth is >= 180 and <= 600 ? sidebarWidth : null;
+        p.ChatView = o.OptBool("chatView") ?? false;
         p.BrowserAnthropic = o.OptBool("browserAnthropic");
         p.BrowserChatgpt = o.OptBool("browserChatgpt");
         p.ManagerThread = o.OptStr("managerThread");

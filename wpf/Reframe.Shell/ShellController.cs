@@ -546,6 +546,14 @@ sealed partial class ShellController
     // ---------- saving ----------
 
     /// <summary>Writes the state now (reframe's save()) and lists again in every window.</summary>
+    /// <summary>The Chat / Terminal button: the choice holds for every thread in every window and is kept.</summary>
+    public void SetChatView(bool show)
+    {
+        State.Preferences.ChatView = show;
+        SaveSoon();
+        foreach (var window in windows.Values) window.ShowChatViews(show);
+    }
+
     public void Saved()
     {
         Save();
