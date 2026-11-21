@@ -61,9 +61,20 @@ public partial class MainWindow
             },
             Autostart = Capturing ? null : autostart,
             GpuAccelerated = gpuAtStart.Value,
+            ManagedClients = ManagedClientsOfEnvironment(),
             FindClaude = Capturing ? null : chosen => Settings.FindClaude(chosen, Environment.GetEnvironmentVariable("PATH"), Environment.GetEnvironmentVariable("PATHEXT")),
             Capture = Capturing,
         };
+    }
+
+    /// <summary>The CLIs this shell was started with (the launch config's pins), per provider: the ChatGPT one, then the Anthropic one.</summary>
+    static IReadOnlyList<(string Provider, string Path, bool Adopted)> ManagedClientsOfEnvironment()
+    {
+        var adopted = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("REFRAME_CLIENT_ADOPTION"));
+        var list = new List<(string, string, bool)>();
+        foreach (var (provider, variable) in new[] { ("chatgpt", "REFRAME_CLAUDE_BIN"), ("anthropic", "REFRAME_ANTHROPIC_CLAUDE_BIN") })
+            if (Environment.GetEnvironmentVariable(variable) is { Length: > 0 } path) list.Add((provider, path, adopted));
+        return list;
     }
 
     /// <summary>reframe:set-preferences: applied as app.ts checks it, saved when something changed.</summary>

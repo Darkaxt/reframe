@@ -252,6 +252,10 @@ public sealed class Preferences : StateObject
     public List<LaunchProfile>? Profiles { get; set; }
     /// <summary>Quitting leaves a Task Scheduler task that starts reframe when the next scheduled task is due.</summary>
     public bool WakeForTasks { get; set; }
+    /// <summary>Claude in Chrome for Anthropic sessions: true starts them with --chrome, false with --no-chrome, null leaves it to the CLI's own setting.</summary>
+    public bool? BrowserAnthropic { get; set; }
+    /// <summary>The same for ChatGPT (ClaudeGPT) sessions.</summary>
+    public bool? BrowserChatgpt { get; set; }
     /// <summary>The session id of the thread that manages the app (it maintains Reframe itself): it may delete any thread, not only
     /// those it opened. Archiving or deleting one it did not open still asks the user once per batch.</summary>
     public string? ManagerThread { get; set; }
