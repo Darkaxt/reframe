@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "b5c61ed21f08b6393b15ed22693d5b6731cf58c2",
-  "scope": "Gemini threads on the Antigravity CLI",
+  "sourceBase": "08ca8f6c2542e520657210d3c362716a3d6dd212",
+  "scope": "Chat view: newest turn open",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.120.md",
-      "sha256": "4ea2fbbf3815b2fe67e57073e1c1d365500b65957ef57e685d1ddeef40237f96"
+      "file": "docs/releases/v0.11.0-claudegpt.121.md",
+      "sha256": "cb5eeed02678ee48aadd616a2d296d64e8e74134027264cf1d0f75495e4c6100"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,99 +18,11 @@
     },
     {
       "file": "package.json",
-      "sha256": "a0ff3c3062c3ee443f192d7ab109cf29a24403259e2b88cfb48d6497b5cdcf0b"
-    },
-    {
-      "file": "rust/reframe-host/src/agyhook.rs",
-      "sha256": "c7e5d813e9380e159de780e6d249204fbd01cce4bef1286dabeba4670b51ec0c"
-    },
-    {
-      "file": "rust/reframe-host/src/hooks.rs",
-      "sha256": "5a0c082456bc129dce1a9d5584b332dfedf5bf742b5c4f9b2ba80f29553468cd"
-    },
-    {
-      "file": "rust/reframe-host/src/main.rs",
-      "sha256": "c06249721bf9454c1d32c956d3be1d0c34255233bf53d2672c399815f708c9bc"
-    },
-    {
-      "file": "rust/reframe-host/src/msgtag.rs",
-      "sha256": "92d44fc71dd76d17b58d0b3faf4b4f29e893d6ac1c2495236f646e0a821656c4"
-    },
-    {
-      "file": "rust/reframe-host/src/services.rs",
-      "sha256": "1f7bdf2837258b25c6fce4e323020628910ea9bc31e72edd99b4688f5987f45e"
-    },
-    {
-      "file": "rust/reframe-host/src/threads.rs",
-      "sha256": "05c56dbcc3ee6dd8bf8ffb09944dfd8ec89e37513efa92b36716c0aecdf871a5"
-    },
-    {
-      "file": "rust/reframe-services/src/spawn_plan.rs",
-      "sha256": "2a8b82feff04b56bf507f5bf95b13ab4c9f8f261dd3cb0fd02f598b8608c5f78"
-    },
-    {
-      "file": "rust/reframe-sessions/src/lib.rs",
-      "sha256": "15924047dc0ff233ee153ddd21f8447dc64f51419e0c6964ea71a8c8d6bc5b48"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Antigravity.cs",
-      "sha256": "b0b1efb5a88c4f9c66f3afb3462ed92597fb7bfb983265be44ae5c086f8eef4e"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/AppState.cs",
-      "sha256": "b93a5c7e94bddb83386cbca36c7e1221c92bdc68ce85eeb46e73c16cdce33704"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/ClaudeRegistry.cs",
-      "sha256": "0812d32a10d3e8b08961e764191a193abc0338c2cc9798a2557b27651c8d4c01"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/ModelNames.cs",
-      "sha256": "a6b9ad2fa60600a809ce190f43e17ba972b3521427e504bf2d5291e0ac8f6cff"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/NewSession.cs",
-      "sha256": "c573d1a4b96abcb0ef27a376d8f77a1e1830b044f2d766b2c4e7969f9cd5bba0"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Strings.cs",
-      "sha256": "05f076d946853d6361f151d83648237473f2cc9050d458af05b6e75867fccca1"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/TranscriptModel.cs",
-      "sha256": "acfc06cad4b914458419e9f4e6f36f35f0a7913f7c298b6fe321e5008e265cb6"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/AgyTranscriptTests.cs",
-      "sha256": "47d3adea194e41cc5de8fc30021d5dae80403393eadb4e5f23b64e7e18cc030e"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
-      "sha256": "c286fad66ff569ea08e0c0f0419cc9a3ed65ae2240a8bbe073ac868717641455"
+      "sha256": "a67ed600b026ec7ef21927440cbb58bb2c27dd92f755832aa289d69d65c9c18f"
     },
     {
       "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "5e3c7c87df7cb5083003bc7bb3fd7b6b5cb730ed462bef0ffb7a7aef23ca03df"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "e1f27df9f71bf4a223b99b833db0cc3bb7f3e844a7f2b0ccdcb1147c29b67650"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.Models.cs",
-      "sha256": "85fd444908c0bbac3778dfb68c2dd75a8372f3e1f92b0bedbbf7015657dde846"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.Proxy.cs",
-      "sha256": "2a17e4637d21d796a974da808b11307a4f979464d676f04aee0e24eeca06225b"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
-      "sha256": "75beda2dbfb6f1cdf3306ba3cb843e32be4253a0980c2a219bd587bc57d98967"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "888fe07d3a07f4155cb794b074097142118bedb54efc04e313d34abed2b2d083"
+      "sha256": "a0a4c25cc3b0f62f4f58cecd666ec163d60f3db9f812dbd08bf8483e842dd559"
     }
   ],
   "checksNotYetRun": [
