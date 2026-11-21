@@ -9,6 +9,25 @@ public class TranscriptReaderTests
     static MemoryStream Bytes(string s) => new(Encoding.UTF8.GetBytes(s));
 
     [Fact]
+    public void A_range_holds_only_whole_lines()
+    {
+        var file = Path.Combine(Path.GetTempPath(), "reframe-range-" + Guid.NewGuid().ToString("N") + ".jsonl");
+        try
+        {
+            File.WriteAllText(file, "aaaa\nbbbb\ncccc\ndddd\n");
+            Assert.Equal(new[] { "aaaa", "bbbb" }, TranscriptReader.ReadRange(file, 0, 10));
+            Assert.Equal(new[] { "bbbb", "cccc" }, TranscriptReader.ReadRange(file, 5, 15));
+            Assert.Equal(new[] { "cccc", "dddd" }, TranscriptReader.ReadRange(file, 7, 20));
+            Assert.Empty(TranscriptReader.ReadRange(file, 11, 14));
+            Assert.Equal(new[] { "dddd" }, TranscriptReader.ReadRange(file, 11, long.MaxValue));
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    [Fact]
     public void A_long_transcript_is_read_from_its_end_from_a_whole_line()
     {
         var line = "{\"type\":\"user\",\"n\":\"" + new string('x', 1000) + "\"}";

@@ -23,7 +23,17 @@ sealed class ChatView : Border
     static Style S(string key) => (Style)Application.Current.FindResource(key);
 
     readonly string claudeSessionId;
-    readonly TranscriptModel model = new();
+    TranscriptModel model = new();
+    // Lazy loading: the view starts with the transcript's last InitialTail bytes; scrolling to the top (or the button there)
+    // loads EarlierChunk more, off the UI thread, up to MaxLoaded.
+    const int InitialTail = 512 * 1024, EarlierChunk = 1024 * 1024, MaxLoaded = 64 * 1024 * 1024;
+    long start = -1;
+    bool loadingEarlier;
+    readonly StackPanel turnRows = new();
+    // Each turn is drawn once and kept while it does not change: a growing transcript redraws only its last turn.
+    readonly List<(string Signature, StackPanel Panel)> rendered = [];
+    TextBlock? note;
+    Button? earlier;
     readonly StackPanel rows = new() { Margin = new Thickness(0, 8, 0, 12), MaxWidth = 860 };
     readonly ScrollViewer scroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     readonly DispatcherTimer timer;
@@ -173,6 +183,19 @@ sealed class ChatView : Border
         DockPanel.SetDock(composer, Dock.Bottom);
         layout.Children.Add(composer);
         scroll.Content = rows;
+        earlier = new Button
+        {
+            Style = S("IconButton"), Width = double.NaN, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 8),
+            Visibility = Visibility.Collapsed, ToolTip = "Load the earlier part of this conversation",
+            Content = new TextBlock { Text = "Show earlier messages", Style = S("Text12"), Foreground = B("mutedBrush"), Margin = new Thickness(10, 2, 10, 2) },
+        };
+        earlier.Click += (_, _) => LoadEarlier();
+        rows.Children.Add(earlier);
+        rows.Children.Add(turnRows);
+        scroll.ScrollChanged += (_, e) =>
+        {
+            if (e.VerticalChange < 0 && scroll.VerticalOffset < 40) LoadEarlier();
+        };
         // A selection in a message gets an "Add to chat" button: the selected text goes into the message box as a quote.
         var addButton = new Button { Style = S("IconButton"), Width = double.NaN, Content = new TextBlock { Text = "Add to chat", Style = S("Text12"), Margin = new Thickness(10, 0, 10, 0) } };
         var addPopup = new System.Windows.Controls.Primitives.Popup
@@ -334,36 +357,159 @@ sealed class ChatView : Border
 
     void Refresh(bool toEnd)
     {
-        if (string.IsNullOrEmpty(claudeSessionId)) return;
+        if (string.IsNullOrEmpty(claudeSessionId) || loadingEarlier) return;
         if (Find() is not { } file)
         {
-            if (rows.Children.Count == 0) rows.Children.Add(Note("No transcript yet."));
+            ShowNote("No transcript yet.");
             return;
         }
         TranscriptRead read;
-        try { read = TranscriptReader.Read(file, offset); }
+        try
+        {
+            if (start < 0)
+            {
+                // First read: only the end of the transcript.
+                long end;
+                using (var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) end = LastLineEnd(stream);
+                start = Math.Max(0, end - InitialTail);
+                model = new TranscriptModel();
+                read = new TranscriptRead(TranscriptReader.ReadRange(file, start, end), end, false);
+            }
+            else read = TranscriptReader.Read(file, offset);
+        }
         catch (IOException) { return; }
-        if (read.WasReset) model.Reset();
+        if (read.WasReset)
+        {
+            // Rewritten (compaction): start again from its end.
+            start = -1;
+            ClearTurns();
+            Refresh(toEnd);
+            return;
+        }
         offset = read.NewOffset;
-        if (read.Lines.Count == 0 && rows.Children.Count > 0 && !read.WasReset) return;
+        if (read.Lines.Count == 0 && (rendered.Count > 0 || note is not null)) return;
         model.Append(read.Lines);
+        Render(toEnd);
+    }
+
+    /// <summary>The offset after the last complete line (where the next tail read starts).</summary>
+    static long LastLineEnd(FileStream stream)
+    {
+        var length = stream.Length;
+        var buffer = new byte[64 * 1024];
+        for (var end = length; end > 0;)
+        {
+            var from = Math.Max(0, end - buffer.Length);
+            stream.Seek(from, SeekOrigin.Begin);
+            var n = stream.Read(buffer, 0, (int)(end - from));
+            var at = Array.LastIndexOf(buffer, (byte)'\n', Math.Max(0, n - 1));
+            if (n > 0 && at >= 0 && buffer[at] == (byte)'\n') return from + at + 1;
+            end = from;
+        }
+        return 0;
+    }
+
+    void ShowNote(string text)
+    {
+        if (rendered.Count > 0) return;
+        if (note is null)
+        {
+            note = Note(text);
+            turnRows.Children.Add(note);
+        }
+        else note.Text = text;
+    }
+
+    void ClearTurns()
+    {
+        turnRows.Children.Clear();
+        rendered.Clear();
+        note = null;
+    }
+
+    /// <summary>A turn's state as drawn: it is drawn again only when this changes.</summary>
+    static string Signature(List<ChatItem> turn, bool last)
+    {
+        var calls = CallsOf(turn).ToList();
+        return $"{turn[0].Uuid ?? turn[0].Timestamp}|{turn.Count}|{turn[^1].Uuid}|{calls.Count}|{calls.Count(c => c.IsPending)}|{last}";
+    }
+
+    void Render(bool toEnd)
+    {
         var atEnd = toEnd || scroll.VerticalOffset >= scroll.ScrollableHeight - 24;
-        rows.Children.Clear();
+        if (earlier is not null) earlier.Visibility = start > 0 && offset - start < MaxLoaded ? Visibility.Visible : Visibility.Collapsed;
         // The transcript also holds bookkeeping lines (file-history-snapshot, api-request, turn_duration ...): not rows.
         List<ChatItem> items = [.. model.Items.Where(i => i is not UnknownItem && i is not SystemNoticeItem { Bare: true }
             && !(i is UserMessageItem { Text: var t } && t.StartsWith("[Image: source:", StringComparison.Ordinal)))];
-        if (items.Count > MaxItems) items = items.GetRange(items.Count - MaxItems, MaxItems);
-        if (items.Count == 0) rows.Children.Add(Note("The transcript is empty."));
         var turns = new List<List<ChatItem>>();
         foreach (var item in items)
         {
             if (item is UserMessageItem || turns.Count == 0) turns.Add([]);
             turns[^1].Add(item);
         }
-        for (var n = 0; n < turns.Count; n++) AddTurn(turns[n], n == turns.Count - 1);
-        pendingView = null;
+        if (turns.Count == 0)
+        {
+            ClearTurns();
+            ShowNote("The transcript is empty.");
+        }
+        else
+        {
+            if (note is not null)
+            {
+                turnRows.Children.Remove(note);
+                note = null;
+            }
+            var signatures = turns.Select((turn, n) => Signature(turn, n == turns.Count - 1)).ToList();
+            var same = 0;
+            while (same < rendered.Count && same < turns.Count && rendered[same].Signature == signatures[same]) same++;
+            for (var k = rendered.Count - 1; k >= same; k--)
+            {
+                turnRows.Children.Remove(rendered[k].Panel);
+                rendered.RemoveAt(k);
+            }
+            for (var n = same; n < turns.Count; n++)
+            {
+                var panel = new StackPanel();
+                AddTurn(panel, turns[n], n == turns.Count - 1);
+                turnRows.Children.Add(panel);
+                rendered.Add((signatures[n], panel));
+            }
+        }
         ShowPending(false);
         if (atEnd) scroll.ScrollToEnd();
+    }
+
+    /// <summary>Loads the part of the transcript before the one shown (off the UI thread) and keeps the view where it was.</summary>
+    async void LoadEarlier()
+    {
+        if (loadingEarlier || start <= 0 || offset - start >= MaxLoaded || path is not { } file) return;
+        loadingEarlier = true;
+        try
+        {
+            var from = Math.Max(0, start - EarlierChunk);
+            var to = offset;
+            var fresh = await Task.Run(() =>
+            {
+                var loaded = new TranscriptModel();
+                loaded.Append(TranscriptReader.ReadRange(file, from, to));
+                return loaded;
+            });
+            if (to != offset) return; // the tail moved meanwhile: the next scroll to the top tries again
+            var fromBottom = scroll.ExtentHeight - scroll.VerticalOffset;
+            model = fresh;
+            start = from;
+            ClearTurns();
+            Render(false);
+            scroll.UpdateLayout();
+            scroll.ScrollToVerticalOffset(Math.Max(0, scroll.ExtentHeight - fromBottom));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+        }
+        finally
+        {
+            loadingEarlier = false;
+        }
     }
 
     void ShowPending(bool toEnd)
@@ -515,12 +661,12 @@ sealed class ChatView : Border
         }
     }
 
-    void AddTurn(List<ChatItem> turn, bool last)
+    void AddTurn(Panel target, List<ChatItem> turn, bool last)
     {
         List<ChatItem> rest = turn;
         if (turn[0] is UserMessageItem user)
         {
-            rows.Children.Add(Bubble(user));
+            target.Children.Add(Bubble(user));
             rest = turn.GetRange(1, turn.Count - 1);
         }
         var finalText = rest.OfType<AssistantTextItem>().LastOrDefault();
@@ -530,14 +676,14 @@ sealed class ChatView : Border
         {
             List<ChatItem> timed = [.. work];
             if (finalText is not null) timed.Add(finalText);
-            rows.Children.Add(Fold("turn:" + turnKey, "Worked" + Duration(timed), () =>
+            target.Children.Add(Fold("turn:" + turnKey, "Worked" + Duration(timed), () =>
             {
                 var inner = new StackPanel();
                 foreach (var item in work) inner.Children.Add(Row(item));
                 return inner;
             }, defaultOpen: last && finalText is null));
         }
-        if (finalText is not null) rows.Children.Add(new Border { Margin = new Thickness(0, 8, 16, 8), Child = new StackPanel { Children = { Markdown(finalText.Text), MetaRow(null, finalText.Text, HorizontalAlignment.Left) } }, ContextMenu = ForkMenu(finalText.Uuid, false) });
+        if (finalText is not null) target.Children.Add(new Border { Margin = new Thickness(0, 8, 16, 8), Child = new StackPanel { Children = { Markdown(finalText.Text), MetaRow(null, finalText.Text, HorizontalAlignment.Left) } }, ContextMenu = ForkMenu(finalText.Uuid, false) });
         var edited = new List<string>();
         var counts = new Dictionary<string, (int Added, int Removed)>();
         foreach (var call in CallsOf(rest))
@@ -547,7 +693,7 @@ sealed class ChatView : Border
                 var (added, removed) = counts.GetValueOrDefault(call.Summary);
                 counts[call.Summary] = (added + call.Diff.Count(l => l.StartsWith('+')), removed + call.Diff.Count(l => l.StartsWith('-')));
             }
-        if (edited.Count > 0 && finalText is not null) rows.Children.Add(FilesCard(edited, "turnfiles:" + turnKey, counts));
+        if (edited.Count > 0 && finalText is not null) target.Children.Add(FilesCard(edited, "turnfiles:" + turnKey, counts));
     }
 
     static IEnumerable<ToolCallItem> CallsOf(IEnumerable<ChatItem> items)
