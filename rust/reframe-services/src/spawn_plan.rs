@@ -759,7 +759,30 @@ fn find_agy(input: &Value, env: &Env, fs: &dyn PlanFs) -> Option<String> {
         .find(|file| fs.is_file(file))
 }
 
-/// agy's arguments: the conversation resumed, the model (its id carries the effort: gemini-4-neon-high), the permission
+/// agy's model id for a thread's model and effort: agy's ids carry the effort (gemini-4-neon-high), Reframe keeps the
+/// family (gemini-4-neon) and the effort apart. An id with its effort already (or another model) is used as it is.
+/// Neon and Hydrogen go up to xhigh, the others to high; no effort is high.
+pub fn agy_model(model: &str, effort: Option<&str>) -> String {
+    const LEVELS: [&str; 4] = ["low", "medium", "high", "xhigh"];
+    let family = model.starts_with("gemini-4-") || model.starts_with("gemini-3.8-flash");
+    if !family || LEVELS.iter().any(|level| model.ends_with(&format!("-{level}"))) {
+        return model.to_owned();
+    }
+    let top = if model.starts_with("gemini-4-neon") || model.starts_with("gemini-4-hydrogen") {
+        "xhigh"
+    } else {
+        "high"
+    };
+    let level = match effort {
+        Some("low") => "low",
+        Some("medium") => "medium",
+        Some("xhigh" | "max") => top,
+        _ => "high",
+    };
+    format!("{model}-{level}")
+}
+
+/// agy's arguments: the conversation resumed, the model (with the thread's effort, agy_model), the permission
 /// mode, the folders (the hooks' own first) and a new thread's first prompt (`-i`: the session stays open after it).
 fn agy_args(session: &Value, mode: &str, root: Option<&str>) -> Vec<String> {
     let launch = session.get("launch").cloned().unwrap_or(Value::Null);
@@ -771,7 +794,7 @@ fn agy_args(session: &Value, mode: &str, root: Option<&str>) -> Vec<String> {
         ]);
     }
     if let Some(model) = nonempty(&launch, "model") {
-        args.extend(["--model".into(), model.into()]);
+        args.extend(["--model".into(), agy_model(model, nonempty(&launch, "effort"))]);
     }
     match nonempty(&launch, "permissionMode") {
         Some("bypassPermissions") => args.push("--dangerously-skip-permissions".into()),
@@ -1279,7 +1302,7 @@ mod tests {
         };
         let transcript = agy_transcript(home, "c1");
         let fs = FixtureFs(json!({ "files": { agy: "", transcript.clone(): "" }, "dirs": ["D:\\p"] }));
-        let launch = json!({ "provider": "gemini", "model": "gemini-4-neon-high", "permissionMode": "bypassPermissions",
+        let launch = json!({ "provider": "gemini", "model": "gemini-4-neon", "effort": "high", "permissionMode": "bypassPermissions",
             "initialPrompt": "hi", "addDirs": ["D:\\x"] });
         let plan = spawn_plan(&input("new", launch.clone(), false), &fs).unwrap();
         assert_eq!(plan["ok"], json!(true));
@@ -1337,6 +1360,16 @@ mod tests {
         assert_eq!(
             spawn_plan(&input("resume", launch, true), &gone).unwrap()["error"],
             json!("transcriptMissing")
+        );
+        // The effort picks agy's variant of the model.
+        assert_eq!(agy_model("gemini-4-neon", Some("max")), "gemini-4-neon-xhigh");
+        assert_eq!(agy_model("gemini-4-argon", Some("xhigh")), "gemini-4-argon-high");
+        assert_eq!(agy_model("gemini-3.8-flash", Some("low")), "gemini-3.8-flash-low");
+        assert_eq!(agy_model("gemini-4-hydrogen", None), "gemini-4-hydrogen-high");
+        assert_eq!(agy_model("gemini-4-neon-xhigh", Some("low")), "gemini-4-neon-xhigh");
+        assert_eq!(
+            agy_model("gemini-pro-orchestrator-neon", Some("low")),
+            "gemini-pro-orchestrator-neon"
         );
         // agy on PATH comes first; the other permission modes.
         let on_path = FixtureFs(json!({ "files": { "C:\\w\\agy.exe": "", agy: "" }, "dirs": ["D:\\p"] }));

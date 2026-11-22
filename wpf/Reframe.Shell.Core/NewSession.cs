@@ -52,8 +52,9 @@ public static partial class NewSession
     /// the older shared Settings fields (the default model is the ChatGPT route's).</summary>
     public static DialogDefaults DefaultsFor(Preferences preferences, string provider)
     {
-        if (Remembered(preferences, provider) is { } r) return new(r.Model, r.Effort, r.PermissionMode, r.AddDirs ?? []);
-        // Gemini always names its model (agy's ids carry the effort).
+        if (Remembered(preferences, provider) is { } r)
+            return new(provider == "gemini" && r.Model is { } g ? ModelNames.GeminiFamily(g) : r.Model, r.Effort, r.PermissionMode, r.AddDirs ?? []);
+        // Gemini always names its model (the family: the effort picks agy's variant).
         var model = provider switch { "chatgpt" => preferences.DefaultModel, "gemini" => ModelNames.Gemini[0], _ => null };
         return new(model, preferences.DefaultEffort, preferences.DefaultPermissionMode, []);
     }
