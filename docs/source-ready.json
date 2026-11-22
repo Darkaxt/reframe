@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "4ed5ce76574a158b06f5ac3484f556f37e1b5959",
+  "sourceBase": "5c1eac96339b29b366c25bb2c0523b7f106e2b10",
   "scope": "Drop Electron's terminal host setting",
   "inputHashes": [
     {
@@ -15,6 +15,10 @@
     {
       "file": "docs/wpf-cutover.md",
       "sha256": "981946325780f61184baa82cd7a6c24393935b066c0abc6f44ad1010a694d6d7"
+    },
+    {
+      "file": "maintenance/windows/smoke-packaged.ps1",
+      "sha256": "4797c93788b607f0aa4b5b326b41c8fc6c23bc8f82b3dd21d4242a323e3537e2"
     },
     {
       "file": "package.json",
