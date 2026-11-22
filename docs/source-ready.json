@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "35b448dbdfae2efd6ca70b004a1b6bfaa2dcd426",
+  "sourceBase": "5dd6d5c849e4471418c46acb1b63b013e3b6383a",
   "scope": "Remove dead Electron preferences",
   "inputHashes": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.128.md",
-      "sha256": "927455a778056ba38d7f29ea32c44b5aab251134e83845bc161503249c1eb329"
+      "sha256": "2ce02044c75bbd69a57cb0b799f89c242c696ce5cc3a22cbcb7edf702cf1386b"
     },
     {
       "file": "docs/wpf-cutover.md",
