@@ -1,68 +1,44 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "5dd6d5c849e4471418c46acb1b63b013e3b6383a",
-  "scope": "Remove dead Electron preferences",
+  "sourceBase": "19f4d6bb89b72cf9727717bb405d6155c26893a3",
+  "scope": "Model select in Settings",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.128.md",
-      "sha256": "2ce02044c75bbd69a57cb0b799f89c242c696ce5cc3a22cbcb7edf702cf1386b"
+      "file": "docs/releases/v0.11.0-claudegpt.129.md",
+      "sha256": "428e04f5a7a7c2337a5aaf3d3652caa3120695c099630cd798ee1e724c11fdd2"
     },
     {
       "file": "docs/wpf-cutover.md",
       "sha256": "981946325780f61184baa82cd7a6c24393935b066c0abc6f44ad1010a694d6d7"
     },
     {
-      "file": "maintenance/windows/smoke-packaged.ps1",
-      "sha256": "6497507d1b3fec378f09ffbd366415d5b57f3483f758a57852744b4cf89900fc"
-    },
-    {
       "file": "package.json",
-      "sha256": "8f3a651bf2ccc742e51b6088dd3f823f30bdc094b296ccfb84c752346f1381d0"
+      "sha256": "2618049ea4fd0cab492f13dae45373808c7d1d0737ff8af381cd5147088b7560"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/AppState.cs",
-      "sha256": "dc62d457adf30720b8c9fe0cf058371731f340779a467b5607aa03c96d06eb98"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Settings.cs",
-      "sha256": "13910c842b6dde9a32601532c2fca193c5f23ac6e12ccf3d6221ff7c06f2647e"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/StateJson.cs",
-      "sha256": "0791d3b9b6f4252f2cb607105b05c47b30f906b4f365ddaed07f9d5af8221fe3"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/StateParser.cs",
-      "sha256": "2c6d7653b926dd325834d5cc51e9dda17b81d54ffcffe1b386028ed97c0e72ce"
+      "file": "wpf/Reframe.Shell.Core/ModelNames.cs",
+      "sha256": "db203d07db5372982c09db8d6d044f684d2ae6445fdac341a56a2353a51484cf"
     },
     {
       "file": "wpf/Reframe.Shell.Core/Strings.cs",
-      "sha256": "be20fe23aa026b049574792c4ae1f58330565a6ddc123b49b4e96ec70860e5ea"
+      "sha256": "a26929ef62a1b5f1284a58957163612ce9ed83abbd221bebe05a21ca792328e0"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/SettingsTests.cs",
-      "sha256": "b91f2700f77bc8bb1db30e6a1dfc0ed68c2232130aa092a9bee53f7b1cd50aff"
+      "file": "wpf/Reframe.Shell.Tests/ModelNamesTests.cs",
+      "sha256": "ce2c979e4bb4a5b4b409fa14d9bfc8a09dd68f7065f9a44ab7f6d5d307ce12bb"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/StateModelTests.cs",
-      "sha256": "6373c0a7ae466c9eeaf1647f428e1c9c18de5dcb872086c9b052c1048b504f55"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/StateWriteTests.cs",
-      "sha256": "248eb8128e802f1cd3d05b425a4ba2d6928cfeb41aa1c163fb636db01b4ec976"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.Properties.cs",
-      "sha256": "cf1391cef959df3ebdc15b927b1033735104b74301732b9a144bc77799aa9e47"
+      "file": "wpf/Reframe.Shell/NewSessionDialog.cs",
+      "sha256": "46cbefaae99cac3c24003611ddeab2d3844111b7d5fa04d40ad92a006b256bcd"
     },
     {
       "file": "wpf/Reframe.Shell/SettingsDialog.cs",
-      "sha256": "eea42fc23153a96c52346eca5e77f9d929f4614f381d7679d51448a98bb28f4c"
+      "sha256": "5761a3b8260d658b4064f01291d351b819a3cc56126638dbfe79d73057549e7a"
     }
   ],
   "checksNotYetRun": [
