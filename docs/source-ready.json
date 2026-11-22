@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "39dd7dbbe9593fec903420d8a82a0bbab00ae924",
-  "scope": "New session model picker",
+  "sourceBase": "60780f41f28e1e552c33235362e2810f2651ae51",
+  "scope": "Model lists",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.122.md",
-      "sha256": "bfb680ea226e3aa9509941c7834eb9b83937fea1340fa7def277ea85be5ce220"
+      "file": "docs/releases/v0.11.0-claudegpt.123.md",
+      "sha256": "a1a2ca9ef77a99e81a787440568b90f93f38b2d2b12e6f3751dfb8c75d14ee52"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,43 +18,15 @@
     },
     {
       "file": "package.json",
-      "sha256": "dfb38f717d8851a65d079f1c1f6aec15f9f94207c1d70af01fe3edbb2eed57f9"
-    },
-    {
-      "file": "rust/reframe-services/src/spawn_plan.rs",
-      "sha256": "b312fc0a899455d365f1c4ce6ffd61c79e7c46229a1e701da2a70c1c16fa6ceb"
+      "sha256": "0833f79624bfb8d88a696c4472bcc649e8550301f0ba89ed35660f19e33dee72"
     },
     {
       "file": "wpf/Reframe.Shell.Core/ModelNames.cs",
-      "sha256": "dc29c69e57475701a401c389d9f8684ff6940285d66e047b8323060e62e4da88"
+      "sha256": "e6d39da3d96fc482975e151cb5001ef14c6a3f9c2ae385e1cdf9a6ebe81148f2"
     },
     {
       "file": "wpf/Reframe.Shell.Core/ModelSync.cs",
-      "sha256": "437f9c104fe61302eb13f6f5956bcb828a945f5ee49540d50a407378c66d50fc"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/NewSession.cs",
-      "sha256": "866086a098df305a16298de768dc250d920e874da9f0c04bca8a8670fd5008ae"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/Strings.cs",
-      "sha256": "e6b360555abb7db5b25e0116689f0166c4fddfe1f09ae99ce74ef5d969f2a72b"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
-      "sha256": "b52639b693f8baeeb9359f6e5c7ab70a1ba0380c9b84d5120bbd8f9e09af39dc"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "acea2b888469c771c1743edbef99eac2c2b1d69a5d825a397a4a2ad2114e046c"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "439c74d42ea31ed511dcf1e6ed1ec082293ad12f74cc552b84c7d76624b5e95e"
-    },
-    {
-      "file": "wpf/Reframe.Shell/NewSessionDialog.cs",
-      "sha256": "3a2592fe5a8215ebf39647f17d755639c6d8ebacc7f8ecef64cd9ebe7fdb49ae"
+      "sha256": "e7856971c7da213b81635c001b6fc0497a8154a413baa3ac2bd8e487772fbdad"
     }
   ],
   "checksNotYetRun": [
