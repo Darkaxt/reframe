@@ -5,7 +5,7 @@ namespace Reframe.Shell.Core;
 public static class ModelSync
 {
     // Gemini's families stand for agy's ids with an effort (gemini-4-neon for gemini-4-neon-high).
-    static readonly string[] Families = ["opus", "sonnet", "haiku", .. ModelNames.Gemini];
+    static readonly string[] Families = ["fable", "opus", "sonnet", "haiku", .. ModelNames.Gemini];
 
     /// <summary>The model to store when a session ran <paramref name="seen"/> while its record says <paramref name="stored"/>; null
     /// when they are the same model (an alias such as "opus" stands for any version of it, and a "[1m]" suffix is ignored) or
