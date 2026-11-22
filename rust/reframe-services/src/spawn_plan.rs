@@ -459,9 +459,18 @@ fn hook_settings_json(
             }] }]),
         );
     }
-    if let Some(tag) = message_tag {
-        hooks.insert("PreToolUse".into(), tag);
-    }
+    // CronCreate: the host tags each job with this thread, and hands one fired in another thread to its own
+    // (reframe-host's cron.rs).
+    let mut pre = match message_tag {
+        Some(Value::Array(tag)) => tag,
+        _ => Vec::new(),
+    };
+    pre.push(json!({ "matcher": "CronCreate", "hooks": [{
+        "type": "http",
+        "url": format!("http://127.0.0.1:{port}/hook/{id}/PreToolUse"),
+        "headers": { HOOK_TOKEN_HEADER: token },
+    }] }));
+    hooks.insert("PreToolUse".into(), Value::Array(pre));
     let mut out = Map::new();
     out.insert("hooks".into(), Value::Object(hooks));
     if let Some(line) = status_line {
@@ -1200,8 +1209,15 @@ mod tests {
             .as_str()
             .unwrap()
             .ends_with(" anthropic"));
+        assert_eq!(content["hooks"]["PreToolUse"][1]["matcher"], json!("CronCreate"));
         let none: Value = serde_json::from_str(&hook_settings_json(4100, "tok", "s", None, None, None)).unwrap();
-        assert!(none["hooks"].get("PreToolUse").is_none());
+        let cron = &none["hooks"]["PreToolUse"];
+        assert_eq!(cron.as_array().unwrap().len(), 1);
+        assert_eq!(cron[0]["matcher"], json!("CronCreate"));
+        assert_eq!(
+            cron[0]["hooks"][0]["url"],
+            json!("http://127.0.0.1:4100/hook/s/PreToolUse")
+        );
     }
 
     #[test]

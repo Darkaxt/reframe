@@ -9,6 +9,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::cron;
 use crate::protocol::same_token;
 
 /// Events with a hook (HOOK_EVENTS in settings.ts) and the status line's own.
@@ -17,6 +18,10 @@ pub const HOOK_EVENTS: [&str; 4] = ["UserPromptSubmit", "Stop", "Notification", 
 pub const STATUS_LINE_EVENT: &str = "StatusLine";
 /// A session's thread tools asking reframe to open another thread (threads.rs).
 pub const OPEN_THREAD_EVENT: &str = "OpenThread";
+/// Claude Code's PreToolUse hook for CronCreate, answered here (cron.rs).
+pub const PRE_TOOL_USE_EVENT: &str = "PreToolUse";
+/// A cron job blocked in a thread that is not its own, for reframe to deliver to its own (cron.rs): not a route.
+pub const HAND_OFF_EVENT: &str = "HandOff";
 const TOKEN_HEADER: &str = "x-reframe-token";
 const MAX_BODY: usize = 1024 * 1024;
 const MAX_HEAD: usize = 64 * 1024;
@@ -112,17 +117,35 @@ async fn serve(mut stream: TcpStream, token: &str, attached: &AtomicBool) -> Opt
         reply(&mut stream, 503).await;
         return None;
     }
-    reply(&mut stream, 200).await;
     // An empty or broken body still tells that the event happened.
     let payload = match serde_json::from_slice::<Value>(&body) {
         Ok(value @ (Value::Object(_) | Value::Array(_))) => value,
         _ => Value::Object(Map::new()),
     };
-    Some(HookMessage {
-        session_id,
-        event,
-        payload,
-    })
+    // A cron job: tagged with its thread, or blocked in another thread and handed to its own (held for reframe
+    // while none is attached, as hooks are).
+    match cron::answer(&session_id, &event, &payload) {
+        Some(cron::Answer::Reply(answer)) => {
+            reply_with(&mut stream, 200, &answer.to_string()).await;
+            None
+        }
+        Some(cron::Answer::HandOff { reply, owner, prompt }) => {
+            reply_with(&mut stream, 200, &reply.to_string()).await;
+            Some(HookMessage {
+                session_id,
+                event: HAND_OFF_EVENT.into(),
+                payload: json!({ "owner": owner, "prompt": prompt }),
+            })
+        }
+        None => {
+            reply(&mut stream, 200).await;
+            Some(HookMessage {
+                session_id,
+                event,
+                payload,
+            })
+        }
+    }
 }
 
 async fn read_chunked(stream: &mut TcpStream, mut raw: Vec<u8>) -> Option<Vec<u8>> {
@@ -166,6 +189,10 @@ async fn read_more(stream: &mut TcpStream, raw: &mut Vec<u8>) -> Option<()> {
 }
 
 async fn reply(stream: &mut TcpStream, status: u16) {
+    reply_with(stream, status, "{}").await;
+}
+
+async fn reply_with(stream: &mut TcpStream, status: u16, body: &str) {
     let reason = match status {
         200 => "OK",
         400 => "Bad Request",
@@ -173,8 +200,9 @@ async fn reply(stream: &mut TcpStream, status: u16) {
         503 => "Service Unavailable",
         _ => "Not Found",
     };
+    let length = body.len();
     let response = format!(
-        "HTTP/1.1 {status} {reason}\r\ncontent-type: application/json\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{{}}"
+        "HTTP/1.1 {status} {reason}\r\ncontent-type: application/json\r\ncontent-length: {length}\r\nconnection: close\r\n\r\n{body}"
     );
     let _ = stream.write_all(response.as_bytes()).await;
     let _ = stream.shutdown().await;
@@ -244,7 +272,11 @@ pub fn route(head: &Head, token: &str) -> Route {
     if !head.token.as_deref().is_some_and(|given| same_token(given, token)) {
         return Route::Status(403);
     }
-    if event != STATUS_LINE_EVENT && event != OPEN_THREAD_EVENT && !HOOK_EVENTS.contains(&event) {
+    if event != STATUS_LINE_EVENT
+        && event != OPEN_THREAD_EVENT
+        && event != PRE_TOOL_USE_EVENT
+        && !HOOK_EVENTS.contains(&event)
+    {
         return Route::Status(404);
     }
     match decode_uri_component(id) {
@@ -388,5 +420,27 @@ mod tests {
         let answer = send(request).await;
         assert!(answer.starts_with("HTTP/1.1 200"), "{answer}");
         assert_eq!(rx.recv().await.unwrap().event, OPEN_THREAD_EVENT);
+        // A cron job is tagged with its thread; fired in another thread, it is blocked there and handed to its own.
+        let post = |id: &str, event: &str, body: &str| {
+            format!(
+                "POST /hook/{id}/{event} HTTP/1.1\r\nX-Reframe-Token: tok\r\nContent-Length: {}\r\n\r\n{body}",
+                body.len()
+            )
+        };
+        let create = r#"{"tool_name":"CronCreate","tool_input":{"cron":"* * * * *","prompt":"Check"}}"#;
+        let answer = send(post("s1", "PreToolUse", create)).await;
+        assert!(answer.ends_with(r#"\nCheck"}}}"#), "{answer}");
+        let fired = json!({ "prompt": format!("{}s1]\nCheck", cron::TAG_START) }).to_string();
+        let answer = send(post("s2", "UserPromptSubmit", &fired)).await;
+        assert!(answer.contains(r#""decision":"block""#), "{answer}");
+        let handed = rx.recv().await.unwrap();
+        assert_eq!(
+            (handed.session_id.as_str(), handed.event.as_str()),
+            ("s2", HAND_OFF_EVENT)
+        );
+        assert_eq!(handed.payload["owner"], json!("s1"));
+        let answer = send(post("s1", "UserPromptSubmit", &fired)).await;
+        assert!(answer.ends_with("\r\n\r\n{}"), "{answer}");
+        assert_eq!(rx.recv().await.unwrap().event, "UserPromptSubmit");
     }
 }
