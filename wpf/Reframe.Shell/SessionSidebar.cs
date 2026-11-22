@@ -77,11 +77,7 @@ sealed class SessionSidebar : Border
             ToolTip = (count == 1 ? "1 scheduled task" : $"{count} scheduled tasks") + (running ? ", running now" : ""),
         };
         // A task is at work in the thread: the clock pulses until it is done.
-        if (running)
-            mark.BeginAnimation(UIElement.OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(1, 0.3, TimeSpan.FromMilliseconds(700))
-            {
-                AutoReverse = true, RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
-            });
+        if (running) mark.IsVisibleChanged += (_, _) => Pulse.Set(mark, true, 0.3, 0.7);
         return mark;
     }
 

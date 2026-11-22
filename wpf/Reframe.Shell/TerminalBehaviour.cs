@@ -81,11 +81,25 @@ sealed class TerminalBehaviour
         // A terminal not shown (another thread of a single window, a docked or hidden tile, the window hidden) does not
         // draw: its native render thread waits (it drew every output and cursor blink, in software by default, for no
         // one to see). Shown again, it draws it all; output goes into its buffer meanwhile.
-        control.IsVisibleChanged += (_, e) => control.SetPainting((bool)e.NewValue);
+        // A minimised window's terminals are shown (IsVisible) but not seen either.
+        control.IsVisibleChanged += (_, _) => UpdatePainting();
+        // The window outlives the tile: no handler of a closed tile's terminal left on it.
+        control.Unloaded += (_, _) =>
+        {
+            if (window is not null) window.StateChanged -= WindowStateChanged;
+            window = null;
+        };
         control.Loaded += (_, _) =>
         {
-            // Created where it is not shown: IsVisibleChanged has nothing to change from.
-            control.SetPainting(control.IsVisible);
+            if (window is null && Window.GetWindow(control) is { } shownIn)
+            {
+                window = shownIn;
+                window.StateChanged += WindowStateChanged;
+            }
+            // Created where it is not shown (IsVisibleChanged has nothing to change from), or its native terminal
+            // made again (it starts drawing).
+            painting = null;
+            UpdatePainting();
             ApplyFont();
             if (host is not null) return;
             host = FindHost(control);
@@ -103,6 +117,19 @@ sealed class TerminalBehaviour
             findRefresh.Stop();
             findRefresh.Start();
         };
+    }
+
+    Window? window;
+    bool? painting;
+
+    void WindowStateChanged(object? sender, EventArgs e) => UpdatePainting();
+
+    void UpdatePainting()
+    {
+        var on = control.IsVisible && window?.WindowState != System.Windows.WindowState.Minimized;
+        if (painting == on) return;
+        painting = on;
+        control.SetPainting(on);
     }
 
     /// <summary>The find bar (.tile-find), above the terminal while it is open.</summary>

@@ -250,6 +250,24 @@ public class SidebarTests
     }
 
     [Fact]
+    public async Task TheSidebarIsDrawnAgainOnlyWhenWhatItShowsChanged()
+    {
+        var made = 1_800_000_000_000.0;
+        var list = await SessionListBuilder.BuildAsync(Sessions(made).Sources(), "", SessionListBuilder.Page);
+        // Half an hour after the fixture's whole hours: 1 ms changes no stamp ("2h") nor tooltip time (to the minute).
+        var now = made + 30 * 60_000;
+        var signature = SidebarView.Build(list, now).Signature();
+        Assert.Equal(signature, SidebarView.Build(list, now).Signature());
+        Assert.NotEmpty(list.App);
+        // A transcript written again (a thread at work) changes nothing shown.
+        var written = list with { App = [.. list.App.Select(i => i with { LastActiveAt = i.LastActiveAt + 1, ModifiedAt = i.ModifiedAt + 1 })] };
+        Assert.Equal(signature, SidebarView.Build(written, now).Signature());
+        // A status does.
+        var busy = list with { App = [.. list.App.Select((i, n) => n == 0 ? i with { Status = i.Status == "busy" ? "idle" : "busy" } : i)] };
+        Assert.NotEqual(signature, SidebarView.Build(busy, now).Signature());
+    }
+
+    [Fact]
     public async Task SearchingFiltersEverySection()
     {
         var now = 1_800_000_000_000.0;

@@ -396,6 +396,8 @@ public partial class MainWindow : Window
         }
     }
 
+    string? shownSignature;
+
     void Render()
     {
         if (list is null) return;
@@ -409,7 +411,12 @@ public partial class MainWindow : Window
         expanded ??= [];
         foreach (var id in SidebarView.RunningProjects(list))
             if (openedWhileRunning.Add(id)) expanded.Add(id);
-        sidebar.Show(SidebarView.Build(list with { ExpandedProjects = [.. expanded] }, Now, subagentsShown: subagentsShown));
+        var sections = SidebarView.Build(list with { ExpandedProjects = [.. expanded] }, Now, subagentsShown: subagentsShown);
+        // The same list as shown, with the same scheduled-task clocks: nothing is built again.
+        var signature = sections.Signature() + string.Join(",", sections.Ordered().Select(r => $"{sidebar.TaskCount?.Invoke(r)}{(sidebar.TaskRunning?.Invoke(r) == true ? "r" : "")}"));
+        if (signature == shownSignature) return;
+        shownSignature = signature;
+        sidebar.Show(sections);
     }
 
     string ChatKeyOf(string sessionId) =>

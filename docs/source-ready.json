@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "a6e0fb981ec935a30eaafa12db6767badb70dc3f",
-  "scope": "Hidden terminals stop drawing (Reframe.Terminal.Wpf reframe.5)",
+  "sourceBase": "9fdb927051b8946e0d3b1675eac345c88613819a",
+  "scope": "Less WPF drawing: pulses at 15 fps while shown, sidebar rebuilt only on change, minimised terminals paused",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.126.md",
-      "sha256": "77330c47d9a29d477ac0b1f336a4cb0911cc1688ccbb689661e6f85ce3f80457"
+      "file": "docs/releases/v0.11.0-claudegpt.127.md",
+      "sha256": "809f110e975666393860730bb9ab0c8289a2c76c974376a37ec354ff452e5048"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,23 +18,31 @@
     },
     {
       "file": "package.json",
-      "sha256": "6714a9fc08b7c753632b1a8be6fbfecb7a8448a6c5cc57dec2dd2350d0b31457"
+      "sha256": "0ebf605b918a5fe4b15bc1ed3f4705b427b37c741329db267d7a91fd33906b79"
     },
     {
-      "file": "wpf/Get-TerminalPackage.ps1",
-      "sha256": "d00bd026f0fe4d843560f08cdafc3debc727b17d48eb333d3ca83d878441b168"
+      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
+      "sha256": "1e8a4257145907b467f33b4b8744fc41000c6e27279a77ede7165eeaaf3311bb"
     },
     {
-      "file": "wpf/Reframe.Shell/Reframe.Shell.csproj",
-      "sha256": "979e99079e4331cb6bd890bf7cee64e13dc3489e066e221e348bd557cb0f0dcd"
+      "file": "wpf/Reframe.Shell.Tests/SidebarTests.cs",
+      "sha256": "82aabe11c813fdfe1926f4b6e4c1601ad869093093987e791e9b3e75affa4115"
+    },
+    {
+      "file": "wpf/Reframe.Shell/Controls.cs",
+      "sha256": "a8384548f4b9dbcb344f0df13d664a83419dfbc39958834e734db13c213f99f0"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
+      "sha256": "642f87de96e7e4c103a8b8c6d4f25fd69876a8a206decabc2dd397c10d7bafcf"
+    },
+    {
+      "file": "wpf/Reframe.Shell/SessionSidebar.cs",
+      "sha256": "bc84df642a48759ccfb02d22f64f87fa684971342260998348ca774f5a6a4d54"
     },
     {
       "file": "wpf/Reframe.Shell/TerminalBehaviour.cs",
-      "sha256": "deca221774d99b3c40d2338b765d3c349cdcd2877e3a81bb36ab05984abb6bbf"
-    },
-    {
-      "file": "wpf/terminal-patch/0004-pause-hidden-terminals.patch",
-      "sha256": "3ce4798c8e4e8bccd688ab2e575e5932f0d9bb14e8a87f961964f4df2ecbcd3e"
+      "sha256": "d6e10039808b61aa974b77a62508fa44337756dddde6d830afcc41a1c74c6dce"
     }
   ],
   "checksNotYetRun": [

@@ -58,6 +58,29 @@ public sealed class VectorIcon : FrameworkElement
     }
 }
 
+/// <summary>An element's opacity pulsing (busy and waiting threads, a running task): only while it is shown, and at 15
+/// frames a second. While any animation runs WPF draws the window at its frame rate (60 by default), in software when
+/// GPU acceleration is off, so a few busy threads' icons kept the UI and render threads drawing all the time.</summary>
+public static class Pulse
+{
+    const int FrameRate = 15;
+
+    public static void Set(UIElement element, bool on, double low, double halfSeconds, IEasingFunction? ease = null)
+    {
+        if (!on || !element.IsVisible)
+        {
+            element.BeginAnimation(UIElement.OpacityProperty, null);
+            return;
+        }
+        var pulse = new DoubleAnimation(1, low, TimeSpan.FromSeconds(halfSeconds))
+        {
+            AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = ease,
+        };
+        Timeline.SetDesiredFrameRate(pulse, FrameRate);
+        element.BeginAnimation(UIElement.OpacityProperty, pulse);
+    }
+}
+
 /// <summary>A thread's status as a media-player icon (StatusDot.tsx's dot before; the user's choice, in its colours):
 /// busy a play triangle (accent, pulsing), background work a pause (accent, dimmed), waiting for the user a question
 /// mark (yellow, pulsing faster), idle a check (green), starting an outlined play (grey, pulsing), ended a stop square
@@ -80,6 +103,7 @@ public sealed class StatusDot : FrameworkElement
         Width = Height = Size;
         SnapsToDevicePixels = true;
         Loaded += (_, _) => Changed();
+        IsVisibleChanged += (_, _) => Animate();
     }
 
     /// <summary>What the icon says, for its tooltip.</summary>
@@ -104,17 +128,14 @@ public sealed class StatusDot : FrameworkElement
     void Animate()
     {
         var seconds = Status switch { "busy" or "starting" => 1.2, "waiting" => 0.9, _ => 0 };
-        if (seconds == 0 || Still || SystemParameters.ClientAreaAnimation == false)
+        if (seconds == 0 || Still || SystemParameters.ClientAreaAnimation == false || !IsVisible)
         {
             BeginAnimation(OpacityProperty, null);
             Opacity = Status == "background" ? 0.6 : 1;
             return;
         }
         // @keyframes pulse { 50% { opacity: 0.35 } }, ease-in-out.
-        BeginAnimation(OpacityProperty, new DoubleAnimation(1, 0.35, TimeSpan.FromSeconds(seconds / 2))
-        {
-            AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
-        });
+        Pulse.Set(this, true, 0.35, seconds / 2, new SineEase { EasingMode = EasingMode.EaseInOut });
     }
 
     static Brush Resource(string key) => (Brush)Application.Current.FindResource(key);
