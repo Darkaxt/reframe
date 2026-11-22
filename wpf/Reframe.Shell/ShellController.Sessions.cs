@@ -58,6 +58,11 @@ sealed partial class ShellController
                 _ = asked["payload"] is JsonObject { } body ? body.ContainsKey("wake") ? WakeThreadAsync(asked) : body.ContainsKey("close") ? CloseThreadAsync(asked) : OpenThreadAsync(asked) : OpenThreadAsync(asked);
                 return;
             }
+            if (message["message"] is JsonObject handed && (string?)handed["event"] == "HandOff")
+            {
+                _ = HandOffAsync(handed);
+                return;
+            }
             // The status line input of reframe's Anthropic sessions: its rate_limits are the Claude quota.
             if (message["message"] is JsonObject hook && (string?)hook["event"] == "StatusLine"
                 && Quotas.ApplyStatusLine(hook["payload"]?["rate_limits"], DateTimeOffset.Now.ToUnixTimeMilliseconds()))

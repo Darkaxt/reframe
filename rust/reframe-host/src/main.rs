@@ -13,6 +13,7 @@
 compile_error!("reframe-host runs on Windows (ConPTY); elsewhere reframe uses its Node host");
 
 mod agyhook;
+mod cron;
 mod files;
 mod hooks;
 mod host;
