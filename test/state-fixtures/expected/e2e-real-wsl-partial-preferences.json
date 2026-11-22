@@ -13,8 +13,7 @@
       "checkForUpdates": true,
       "lookInWsl": true,
       "closeWindow": "ask",
-      "gpuAcceleration": false,
-      "ptyHost": "node"
+      "gpuAcceleration": false
     },
     "hiddenThreads": []
   }

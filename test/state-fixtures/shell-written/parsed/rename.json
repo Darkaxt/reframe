@@ -173,7 +173,6 @@
     "lookInWsl": true,
     "closeWindow": "keep",
     "gpuAcceleration": true,
-    "ptyHost": "rust",
     "claudeBin": "C:\\bin\\claude.exe",
     "defaultModel": "sonnet",
     "defaultEffort": "low",

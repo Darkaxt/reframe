@@ -45,7 +45,7 @@ public partial class MainWindow
         {
             rows.Add(("Process ID", hosted.Pid.ToString(CultureInfo.InvariantCulture)));
             if (shell.ConnectionOf(sessionId)?.Welcome is { } welcome)
-                rows.Add(("PTY host", $"{(welcome.Kind == "rust" ? "Rust" : "Node")} host {welcome.Version} (pid {welcome.Pid})"));
+                rows.Add(("PTY host", $"{welcome.Version} (pid {welcome.Pid})"));
             if (lastUsage.GetValueOrDefault(sessionId) is { } usage)
                 rows.Add(("Use now", usage.Describe(max: 8)));
         }

@@ -322,10 +322,6 @@ sealed class SettingsDialog
         Add(Check(T("settings.gpu"), p.GpuAcceleration, v => Set(new PreferencesPatch { GpuAcceleration = v })));
         AddHint(p.GpuAcceleration == context.GpuAccelerated ? T("settings.gpuHint") : T("settings.gpuRestart"));
 
-        Add(Row(T("settings.ptyHost"), Select(T("settings.ptyHost"),
-            [("node", T("settings.ptyHostNode")), ("rust", T("settings.ptyHostRust"))],
-            p.PtyHost, v => Set(new PreferencesPatch { PtyHost = v }))));
-        AddHint(T("settings.ptyHostHint"));
     }
 
     void BuildThreads(AppState state)

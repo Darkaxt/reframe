@@ -118,7 +118,6 @@ public class StateModelTests
         Assert.Equal("system", state.Preferences.Language);
         Assert.Equal(13, state.Preferences.FontSize);
         Assert.True(state.Preferences.SnapToGrid);
-        Assert.Equal("node", state.Preferences.PtyHost);
         var workspaces = StateParser.Parse(ReadInput("old-saved-workspaces.json")).State!;
         Assert.False(StateJson.Write(workspaces, keepUnknown: false).ContainsKey("workspaces"));
         Assert.False(StateJson.Write(workspaces, keepUnknown: false)["windows"]![0]!.AsObject().ContainsKey("workspaceId"));

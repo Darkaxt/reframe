@@ -41,7 +41,6 @@
     "lookInWsl": false,
     "closeWindow": "ask",
     "gpuAcceleration": false,
-    "ptyHost": "node",
     "providerDefaults": {
       "anthropic": {
         "model": "m"
