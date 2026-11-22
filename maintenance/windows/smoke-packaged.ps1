@@ -63,7 +63,7 @@ try {
         version = 1; sessions = @{}; windows = @(@{ id = 'w0'; bounds = $null; maximized = $false; hidden = $false; layout = $null; dock = @() })
         recentFolders = @(); hiddenThreads = @()
         preferences = [ordered]@{ nameFromFolder = $false; language = 'en'; fontSize = 13; snapToGrid = $true; checkForUpdates = $false
-            lookInWsl = $false; closeWindow = 'keep'; gpuAcceleration = $false; ptyHost = 'rust'; claudeBin = $claude }
+            lookInWsl = $false; closeWindow = 'keep'; gpuAcceleration = $false; claudeBin = $claude }
     })
     $preferencesBefore = (Get-Content -LiteralPath (Join-Path $profile 'state.json') -Raw | ConvertFrom-Json -AsHashtable).preferences
 
