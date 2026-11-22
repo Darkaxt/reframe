@@ -405,6 +405,7 @@ sealed class ChatView : Border
     void Refresh(bool toEnd)
     {
         if (string.IsNullOrEmpty(claudeSessionId) || loadingEarlier) return;
+        using var doing = UiWatchdog.Enter("the chat view's transcript");
         if (Find() is not { } file)
         {
             ShowNote("No transcript yet.");

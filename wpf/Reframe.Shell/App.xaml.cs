@@ -139,6 +139,7 @@ public partial class App : Application
                 return;
             }
             FileLog.Start(ProfileDir, AboutDialog.Version);
+            UiWatchdog.Start(Dispatcher);
             ApplyGpuPreference();
             System.Diagnostics.Trace.WriteLine($"gpu: {(GpuAccelerated ? "hardware" : "software")} rendering");
             if (HostLauncher.FindSource(hostDir, AppContext.BaseDirectory) is { } source)

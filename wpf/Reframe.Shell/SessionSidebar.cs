@@ -167,6 +167,7 @@ sealed class SessionSidebar : Border
 
     public void Show(SidebarSections sections)
     {
+        using var doing = UiWatchdog.Enter("drawing the sidebar");
         shown = sections;
         order = sections.Ordered();
         rows.Clear();
