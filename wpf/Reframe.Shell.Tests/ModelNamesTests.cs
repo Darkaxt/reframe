@@ -18,6 +18,25 @@ public class ModelNamesTests
     public void Models_have_their_commercial_name(string? id, string expected) => Assert.Equal(expected, ModelNames.Label(id));
 
     [Fact]
+    public void A_model_select_offers_the_providers_models_and_keeps_one_set_before()
+    {
+        var (options, selected) = ModelNames.Options("anthropic", "opus");
+        Assert.Equal(["", "fable", "opus", "sonnet", "haiku"], options.Select(o => o.Value));
+        Assert.All(options, o => Assert.True(o.Known));
+        Assert.Equal("opus", selected);
+        Assert.Equal("", ModelNames.Options("chatgpt", "default").Selected);
+        Assert.Equal("", ModelNames.Options("chatgpt", null).Selected);
+        // A typo set by hand before: listed last, marked, until another is picked.
+        (options, selected) = ModelNames.Options("chatgpt", "gpt-6.1-sool");
+        Assert.Equal(("gpt-6.1-sool", false), (options[^1].Value, options[^1].Known));
+        Assert.Equal("gpt-6.1-sool", selected);
+        // A Gemini id with its effort is its family.
+        (options, selected) = ModelNames.Options("gemini", "gemini-4-neon-xhigh");
+        Assert.Equal("gemini-4-neon", selected);
+        Assert.All(options, o => Assert.True(o.Known));
+    }
+
+    [Fact]
     public void Each_provider_offers_its_own_models()
     {
         Assert.Contains("opus", ModelNames.Choices("anthropic"));

@@ -57,7 +57,6 @@ sealed class SettingsDialog
     public FrameworkElement HiddenSection { get; private set; } = null!;
     public event Action? CloseRequested;
     // The default model being typed, per provider (kept across a redraw of the dialog).
-    readonly Dictionary<string, string> models = [];
 
     public SettingsDialog(SettingsContext context)
     {
@@ -300,7 +299,8 @@ sealed class SettingsDialog
             var name = NewSession.ProviderName(provider);
             var d = NewSession.DefaultsFor(p, provider);
             Add(new TextBlock { Text = T("settings.defaultsFor", ("provider", name)), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 0) });
-            Add(Row(T("settings.defaultModel"), ModelInput(provider, d.Model)));
+            Add(Row(T("settings.defaultModel"), ModelSelect($"{T("settings.defaultModel")} – {name}", provider, d.Model,
+                v => Set(new PreferencesPatch { DefaultsProvider = provider, DefaultModel = v }))));
             Add(Row(T("inline.defaultEffort"), Select($"{T("inline.defaultEffort")} – {name}",
                 [("", T("inline.defaultEffortCli")), .. StateValues.EffortLevels.Select(l => (l, l))],
                 d.Effort ?? "", v => Set(new PreferencesPatch { DefaultsProvider = provider, DefaultEffort = v }))));
@@ -484,8 +484,10 @@ sealed class SettingsDialog
         {
             if (v.Trim().Length > 0) Update(profile.Id, x => x.Name = v);
         });
-        var model = Field(T("settings.defaultModel"), profile.Model ?? "", v => Update(profile.Id, x => x.Model = v.Trim().Length > 0 ? v.Trim() : null));
-        Suggestions.Attach(model);
+        var model = Row(T("settings.defaultModel"), ModelSelect(T("settings.defaultModel"), profile.Provider, profile.Model,
+            v => Update(profile.Id, x => x.Model = v.Length > 0 ? v : null)));
+        model.Margin = new Thickness(0, 10, 0, 0);
+        editor.Children.Add(model);
         var effort = Row(T("inline.defaultEffort"), Select(T("inline.defaultEffort"),
             [("", T("inline.defaultEffortCli")), .. StateValues.EffortLevels.Select(l => (l, l))],
             profile.Effort ?? "", v => Update(profile.Id, x => x.Effort = v.Length > 0 ? v : null)));
@@ -546,24 +548,13 @@ sealed class SettingsDialog
         return line;
     }
 
-    /// <summary>.setting-input: kept while typing, taken when left (Enter leaves it).</summary>
-    TextBox ModelInput(string provider, string? current)
+    /// <summary>The provider's models to pick from (ModelNames.Options), not a model typed in: no typo or retired model
+    /// is set. One set before that is not in the list shows marked until another is picked.</summary>
+    ComboBox ModelSelect(string label, string provider, string? current, Action<string> changed)
     {
-        var input = new TextBox { Style = S("SettingInput"), Text = models.GetValueOrDefault(provider) ?? current ?? "", Tag = T("dialog.modelPlaceholder") };
-        AutomationProperties.SetName(input, $"{T("settings.defaultModel")} – {NewSession.ProviderName(provider)}");
-        Suggestions.Attach(input);
-        input.TextChanged += (_, _) => models[provider] = input.Text;
-        input.LostKeyboardFocus += (_, _) =>
-        {
-            if (input.Text.Trim() != (current ?? "")) Set(new PreferencesPatch { DefaultsProvider = provider, DefaultModel = input.Text });
-        };
-        input.KeyDown += (_, e) =>
-        {
-            if (e.Key != Key.Enter) return;
-            e.Handled = true;
-            Keyboard.Focus(CloseButton);
-        };
-        return input;
+        var (options, selected) = ModelNames.Options(provider, current);
+        return Select(label, [.. options.Select(o => (o.Value, o.Value == "" ? T("dialog.default") : o.Known ? o.Label : T("settings.modelUnknown", ("model", o.Value))))],
+            selected, changed);
     }
 
     /// <summary>section.hidden-threads: the row with Restore all, the hint, then "none" or the list (6 apart, at most

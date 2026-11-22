@@ -29,6 +29,19 @@ public static class ModelNames
     /// <summary>The models the chat view offers for a provider ("anthropic", "chatgpt" or "gemini").</summary>
     public static IReadOnlyList<string> Choices(string? provider) => provider switch { "anthropic" => Claude, "gemini" => Gemini, _ => OpenAi };
 
+    /// <summary>What a model select offers for a provider: "" (the provider's default) first, then its models. A model set
+    /// before that is not one of them (typed by hand, or retired) is listed last, not Known, so it shows as it is until
+    /// another is picked. Selected is the entry for <paramref name="current"/> (a Gemini id with its effort is its family).</summary>
+    public static (IReadOnlyList<(string Value, string Label, bool Known)> Options, string Selected) Options(string? provider, string? current)
+    {
+        var model = current?.Trim() is { Length: > 0 } m && m != "default" ? m : "";
+        if (provider == "gemini" && model.Length > 0) model = GeminiFamily(model);
+        var options = new List<(string, string, bool)> { ("", "Default", true) };
+        options.AddRange(Choices(provider).Where(id => id != "default").Select(id => (id, Label(id), true)));
+        if (model.Length > 0 && !options.Any(o => o.Item1 == model)) options.Add((model, Label(model), false));
+        return (options, model);
+    }
+
     public static string Label(string? id)
     {
         if (string.IsNullOrWhiteSpace(id) || id == "default") return "Default";
