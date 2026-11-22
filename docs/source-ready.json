@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "60780f41f28e1e552c33235362e2810f2651ae51",
-  "scope": "Model lists",
+  "sourceBase": "ed81c1a76914858029bc7fb0154fade0fe8dfe00",
+  "scope": "cron jobs stay with their thread",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.123.md",
-      "sha256": "a1a2ca9ef77a99e81a787440568b90f93f38b2d2b12e6f3751dfb8c75d14ee52"
+      "file": "docs/releases/v0.11.0-claudegpt.124.md",
+      "sha256": "e1ca67e3a1c383d0fcdcc1fbd073a27b3f3130d3c725542f1aba0e0a8f1a840d"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,15 +18,31 @@
     },
     {
       "file": "package.json",
-      "sha256": "0833f79624bfb8d88a696c4472bcc649e8550301f0ba89ed35660f19e33dee72"
+      "sha256": "43014026981fb6248e307d11d76291e8d26ecf972b7507521d77c3dd5d1d850b"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/ModelNames.cs",
-      "sha256": "e6d39da3d96fc482975e151cb5001ef14c6a3f9c2ae385e1cdf9a6ebe81148f2"
+      "file": "rust/reframe-host/src/cron.rs",
+      "sha256": "776b701692c955aec14d42852c8ebc4f3b0853d841d081238cdb0a562cbc18a7"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/ModelSync.cs",
-      "sha256": "e7856971c7da213b81635c001b6fc0497a8154a413baa3ac2bd8e487772fbdad"
+      "file": "rust/reframe-host/src/hooks.rs",
+      "sha256": "bb844355b122e23cb9f4ef6117d3ca2ac75b193e78ee260d41f362bc303ae5cd"
+    },
+    {
+      "file": "rust/reframe-host/src/main.rs",
+      "sha256": "e23b2a2c39e9c18d313f832d313fa80757645c4c31ba3b20571df8e84d34069d"
+    },
+    {
+      "file": "rust/reframe-services/src/spawn_plan.rs",
+      "sha256": "c122f11401b85d9191525eaa08e0caf29e43ab2c2e8de7bf6e8e3e97f078faf9"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
+      "sha256": "46bf02dddd3b44cc2feb55d33c9d367f87d7024a96a14c455d5439b0b85d1029"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
+      "sha256": "da6daa10b7377ba089599f237392456f23bf341a349db229b70a15a50bfe6942"
     }
   ],
   "checksNotYetRun": [
