@@ -73,6 +73,7 @@ public static class Strings
         ["settings.programs"] = "Programs",
         ["settings.allFiles"] = "All files",
         ["settings.defaultModel"] = "Model for new sessions",
+        ["settings.modelUnknown"] = "{model} (not offered)",
         ["settings.defaultPermissionMode"] = "Permission mode for new sessions",
         ["settings.launchHint"] = "New threads start with these (you can change them there). A thread that kept a default takes a new one when it next starts; what you changed for a thread stays.",
         ["settings.defaultsFor"] = "New {provider} threads",

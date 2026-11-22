@@ -269,13 +269,10 @@ sealed class NewSessionDialog
     /// one of them; a Gemini model by its family, the effort picking agy's variant).</summary>
     void ShowModels(string? model)
     {
-        if (provider == "gemini" && model is not null) model = ModelNames.GeminiFamily(model);
         modelBox.Items.Clear();
-        var choices = ModelNames.Choices(provider).Select(m => m == "default" ? "" : m).ToList();
-        if (!choices.Contains("")) choices.Insert(0, "");
-        if (model is { Length: > 0 } && model != "default" && !choices.Contains(model)) choices.Add(model);
-        foreach (var id in choices) modelBox.Items.Add(new ComboBoxItem { Content = id == "" ? T("dialog.modelPlaceholder") : ModelNames.Label(id), Tag = id });
-        Pick(modelBox, model == "default" ? "" : model);
+        var (options, selected) = ModelNames.Options(provider, model);
+        foreach (var (id, label, _) in options) modelBox.Items.Add(new ComboBoxItem { Content = id == "" ? T("dialog.modelPlaceholder") : label, Tag = id });
+        Pick(modelBox, selected);
     }
 
     /// <summary>The provider's profiles in the select (hidden when it has none); "Default settings" is what ApplyDefaults gives.</summary>
