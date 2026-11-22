@@ -76,8 +76,10 @@ sealed partial class ShellController
     public async Task NotifyAsync(MonitorWarning warning)
     {
         if (Connection is not { IsOpen: true, IsObserver: false } connection || !CanNotify(warning)) return;
+        // In the thread's queue: not into the prompt the user is writing.
+        using var hold = await InputGuard.TakeAsync(warning.SessionId);
+        if (!CanNotify(warning)) return;
         var view = connection.CreateView(warning.SessionId);
-        using var hold = InputGuard.Hold(warning.SessionId);
         try
         {
             await view.OpenAsync();

@@ -25,6 +25,8 @@ sealed partial class ShellController
         /// <summary>The text to type instead of the task's prompt: a wake-up from another thread (wake_thread), which
         /// is not a saved task (nothing of it is written, only a failure is told).</summary>
         public string? Wake { get; init; }
+        /// <summary>The log told it waits for the user's unsent prompt.</summary>
+        public bool WaitedForUser { get; set; }
     }
 
     static readonly TimeSpan TaskWaitLimit = TimeSpan.FromHours(12);
@@ -328,6 +330,13 @@ sealed partial class ShellController
                     typedInto.Remove(record.Id);
                     if (StatusOf(record.Id) != "idle") return;
                 }
+                // The user writes in the thread: the run waits (typed in, it would be sent with their half-written prompt).
+                if (InputGuard.UserOwns(record.Id))
+                {
+                    if (!run.WaitedForUser) TaskLog($"{task.Id}: waits: the user is writing in its thread");
+                    run.WaitedForUser = true;
+                    return;
+                }
                 if (StatusOf(record.Id) == "idle")
                 {
                     typedInto[record.Id] = DateTimeOffset.Now;
@@ -407,18 +416,22 @@ sealed partial class ShellController
             own.WriteInput("\r");
             sent = true;
         }
-        else if (running) sent = await TypeIntoAsync(sessionId, text);
+        else if (running) sent = await TypeIntoAsync(sessionId, text, queued: false);
         TaskLog($"chat: {text.Length} characters to {sessionId}: {(sent ? "typed" : running ? "typing failed" : "not running")}");
         return sent;
     }
 
-    /// <summary>Types the text into the thread (a bracketed paste, then Enter a moment later), through a view of its own.</summary>
-    async Task<bool> TypeIntoAsync(string sessionId, string text, bool interrupt = false)
+    /// <summary>Types the text into the thread (a bracketed paste, then Enter a moment later), through a view of its own.
+    /// Reframe's own messages (queued) wait in the thread's queue while the user writes in it; the user's own (a
+    /// broadcast, the chat view's) do not.</summary>
+    async Task<bool> TypeIntoAsync(string sessionId, string text, bool interrupt = false, bool queued = true)
     {
         if (Connection is not { IsOpen: true, IsObserver: false } connection) return false;
-        var view = connection.CreateView(sessionId);
+        if (queued && InputGuard.UserOwns(sessionId)) TaskLog($"typing into {sessionId} waits: the user is writing in it");
         // The user's own typing into this thread waits until the message is in.
-        using var hold = InputGuard.Hold(sessionId);
+        using var hold = queued ? await InputGuard.TakeAsync(sessionId) : InputGuard.Hold(sessionId);
+        if (Connection is not { IsOpen: true, IsObserver: false } || !Runs(sessionId)) return false;
+        var view = connection.CreateView(sessionId);
         try
         {
             await view.OpenAsync();

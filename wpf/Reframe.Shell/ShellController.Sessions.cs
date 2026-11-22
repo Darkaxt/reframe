@@ -83,6 +83,8 @@ sealed partial class ShellController
                 break;
             case "exit":
                 endedAt[id] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                // A new process starts with an empty prompt.
+                InputGuard.Forget(id);
                 break;
             default:
                 return;

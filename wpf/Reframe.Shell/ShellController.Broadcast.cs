@@ -22,7 +22,7 @@ sealed partial class ShellController
     public async Task<int> BroadcastAsync(string kind, string text, IReadOnlyList<Broadcast.Target> targets)
     {
         if (Connection is not { IsOpen: true, IsObserver: false }) return 0;
-        var sent = await Task.WhenAll(targets.Select(target => TypeIntoAsync(target.SessionId, text, target.Interrupt)));
+        var sent = await Task.WhenAll(targets.Select(target => TypeIntoAsync(target.SessionId, text, target.Interrupt, queued: false)));
         for (var i = 0; i < targets.Count; i++)
         {
             if (!sent[i]) continue;
