@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "4da4326bce1a6a3445e10b625548f61c77526200",
+  "sourceBase": "944db4dde8b570e3d9c331c9df6d7c6ed2c38318",
   "scope": "Cross-provider thread messaging",
   "inputHashes": [
     {
@@ -30,7 +30,7 @@
     },
     {
       "file": "wpf/Reframe.Shell.Tests/NewSessionTests.cs",
-      "sha256": "545eac6ed3c0d5034e94aaa416199c6faf1404260a0be4df51159b24645187de"
+      "sha256": "852474e8842b464d88c0f6a80090d3e81174182765fec274ad67133dd09a3aa0"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
