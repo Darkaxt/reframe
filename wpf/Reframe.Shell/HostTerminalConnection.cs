@@ -25,6 +25,7 @@ sealed class HostTerminalConnection : ITerminalConnection
             || control.FindName("termContainer") is not System.Windows.Interop.HwndHost { Handle: var handle } || handle == IntPtr.Zero;
         view.Snapshot += (data, cols, rows) => control.Dispatcher.InvokeAsync(async () =>
         {
+            using var doing = UiWatchdog.Enter("a terminal's snapshot");
             if (Gone()) return;
             // As reframe's renderer does: a terminal of the snapshot's size, reset, then the repaint.
             await control.ResizeAsync((uint)rows, (uint)cols, CancellationToken.None);
@@ -35,10 +36,16 @@ sealed class HostTerminalConnection : ITerminalConnection
             // threads) keeps the snapshot's size: its stale size would shrink the session; it is fitted when shown.
             if (control.IsVisible && !Gone() && control.RenderSize is { Width: > 0, Height: > 0 }) control.TriggerResize(control.RenderSize);
         });
-        view.Data += data => control.Dispatcher.InvokeAsync(() =>
+        view.Data += data =>
         {
-            if (!Gone()) Output(data);
-        });
+            UiWatchdog.OutputQueued();
+            control.Dispatcher.InvokeAsync(() =>
+            {
+                UiWatchdog.OutputRan();
+                using var doing = UiWatchdog.Enter("terminal output");
+                if (!Gone()) Output(data);
+            });
+        };
         view.Exit += code => control.Dispatcher.InvokeAsync(() =>
         {
             if (!Gone()) Output($"\r\n[the session ended with {code}]\r\n");

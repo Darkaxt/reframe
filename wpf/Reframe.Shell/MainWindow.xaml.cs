@@ -401,6 +401,7 @@ public partial class MainWindow : Window
     void Render()
     {
         if (list is null) return;
+        using var doing = UiWatchdog.Enter("the session list");
         if (openMenu is { IsOpen: true })
         {
             renderDeferred = true;
