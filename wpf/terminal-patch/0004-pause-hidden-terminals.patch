@@ -1,0 +1,141 @@
+diff --git a/src/cascadia/TerminalControl/HwndTerminal.cpp b/src/cascadia/TerminalControl/HwndTerminal.cpp
+index 868af51..f5aa34e 100644
+--- a/src/cascadia/TerminalControl/HwndTerminal.cpp
++++ b/src/cascadia/TerminalControl/HwndTerminal.cpp
+@@ -1118,6 +1118,28 @@ try
+ }
+ CATCH_LOG()
+ 
++void _stdcall TerminalSetPainting(void* terminal, bool enable)
++try
++{
++    const auto publicTerminal = static_cast<HwndTerminal*>(terminal);
++    // Nothing for a terminal not created yet, destroyed or torn down (EnablePainting would start its thread again).
++    if (!publicTerminal || !publicTerminal->_terminal || !publicTerminal->_renderEngine || !publicTerminal->_renderer)
++    {
++        return;
++    }
++    if (enable)
++    {
++        // As ControlCore::ResumeRendering: the lock, because it reads the viewport; the whole screen is drawn again.
++        const auto lock = publicTerminal->_terminal->LockForWriting();
++        publicTerminal->_renderer->EnablePainting();
++    }
++    else
++    {
++        publicTerminal->_renderer->DisablePainting();
++    }
++}
++CATCH_LOG()
++
+ void __stdcall TerminalSetFocused(void* terminal, bool focused)
+ {
+     const auto publicTerminal = static_cast<HwndTerminal*>(terminal);
+diff --git a/src/cascadia/TerminalControl/HwndTerminal.hpp b/src/cascadia/TerminalControl/HwndTerminal.hpp
+index bc705ec..df12eca 100644
+--- a/src/cascadia/TerminalControl/HwndTerminal.hpp
++++ b/src/cascadia/TerminalControl/HwndTerminal.hpp
+@@ -67,6 +67,8 @@ __declspec(dllexport) void _stdcall TerminalSetDefaultSoftwareRendering(bool ena
+ __declspec(dllexport) void _stdcall TerminalSetFont(void* terminal, LPCWSTR fontFamily, float fontSize, LPCWSTR cellWidth, LPCWSTR cellHeight, int newDpi);
+ __declspec(dllexport) int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView, _Out_ int* currentMatch);
+ __declspec(dllexport) void _stdcall TerminalClearSearch(void* terminal);
++// reframe: stop drawing a terminal that is not shown (its render thread waits), and draw it all again when shown.
++__declspec(dllexport) void _stdcall TerminalSetPainting(void* terminal, bool enable);
+ };
+ 
+ struct HwndTerminal : ::Microsoft::Console::Types::IControlAccessibilityInfo
+@@ -150,6 +152,7 @@ private:
+     friend void _stdcall TerminalSetFont(void* terminal, LPCWSTR fontFamily, float fontSize, LPCWSTR cellWidth, LPCWSTR cellHeight, int newDpi);
+     friend int _stdcall TerminalSearch(void* terminal, LPCWSTR text, bool goForward, bool caseSensitive, bool executeSearch, bool scrollIntoView, _Out_ int* currentMatch);
+     friend void _stdcall TerminalClearSearch(void* terminal);
++    friend void _stdcall TerminalSetPainting(void* terminal, bool enable);
+ 
+     void _UpdateFont(int newDpi);
+     void _WriteTextToConnection(const std::wstring_view text) noexcept;
+diff --git a/src/cascadia/WpfTerminalControl/NativeMethods.cs b/src/cascadia/WpfTerminalControl/NativeMethods.cs
+index f1361e0..2394849 100644
+--- a/src/cascadia/WpfTerminalControl/NativeMethods.cs
++++ b/src/cascadia/WpfTerminalControl/NativeMethods.cs
+@@ -239,6 +239,9 @@ namespace Microsoft.Terminal.Wpf
+         [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
+         public static extern void TerminalClearSearch(IntPtr terminal);
+ 
++        [DllImport("Microsoft.Terminal.Control.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall, PreserveSig = true)]
++        public static extern void TerminalSetPainting(IntPtr terminal, [MarshalAs(UnmanagedType.U1)] bool enable);
++
+         [DllImport("user32.dll", SetLastError = true)]
+         public static extern IntPtr SetFocus(IntPtr hWnd);
+ 
+diff --git a/src/cascadia/WpfTerminalControl/TerminalContainer.cs b/src/cascadia/WpfTerminalControl/TerminalContainer.cs
+index 6e8fd84..394bce8 100644
+--- a/src/cascadia/WpfTerminalControl/TerminalContainer.cs
++++ b/src/cascadia/WpfTerminalControl/TerminalContainer.cs
+@@ -192,6 +192,18 @@ namespace Microsoft.Terminal.Wpf
+             NativeMethods.TerminalClearSearch(this.terminal);
+         }
+ 
++        /// <summary>
++        /// Stops or resumes drawing (a terminal not shown); resuming draws it all again.
++        /// </summary>
++        /// <param name="enable">Whether the terminal draws.</param>
++        internal void SetPainting(bool enable)
++        {
++            if (this.terminal != IntPtr.Zero)
++            {
++                NativeMethods.TerminalSetPainting(this.terminal, enable);
++            }
++        }
++
+         /// <summary>
+         /// Gets the selected text from the terminal renderer and clears the selection.
+         /// </summary>
+diff --git a/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs b/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
+index 9db55d9..4724106 100644
+--- a/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
++++ b/src/cascadia/WpfTerminalControl/TerminalControl.xaml.cs
+@@ -159,6 +159,16 @@ namespace Microsoft.Terminal.Wpf
+             this.termContainer.ClearSearch();
+         }
+ 
++        /// <summary>
++        /// Stops drawing a terminal that is not shown (no rendering work while it is hidden), or resumes it, drawing
++        /// it all again. Output still goes into its buffer while it does not draw.
++        /// </summary>
++        /// <param name="enable">Whether the terminal draws.</param>
++        public void SetPainting(bool enable)
++        {
++            this.termContainer.SetPainting(enable);
++        }
++
+         /// <summary>
+         /// Gets the selected text in the terminal, clearing the selection. Otherwise, returns an empty string.
+         /// </summary>
+diff --git a/src/renderer/base/renderer.cpp b/src/renderer/base/renderer.cpp
+index 83a18ec..615fc92 100644
+--- a/src/renderer/base/renderer.cpp
++++ b/src/renderer/base/renderer.cpp
+@@ -100,6 +100,11 @@ void Renderer::_disablePainting() noexcept
+     _enable.ResetEvent();
+ }
+ 
++void Renderer::DisablePainting() noexcept
++{
++    _disablePainting();
++}
++
+ // Method Description:
+ // - Called when the host is about to die, to give the renderer one last chance
+ //      to paint before the host exits.
+diff --git a/src/renderer/base/renderer.hpp b/src/renderer/base/renderer.hpp
+index 5eefc56..a0ae78c 100644
+--- a/src/renderer/base/renderer.hpp
++++ b/src/renderer/base/renderer.hpp
+@@ -65,6 +65,8 @@ namespace Microsoft::Console::Render
+         bool IsGlyphWideByFont(const std::wstring_view glyph);
+ 
+         void EnablePainting();
++        // reframe: the render thread waits before its next frame until EnablePainting (a terminal not shown).
++        void DisablePainting() noexcept;
+ 
+         void AddRenderEngine(_In_ IRenderEngine* const pEngine);
+         void RemoveRenderEngine(_In_ IRenderEngine* const pEngine);

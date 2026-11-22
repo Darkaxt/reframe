@@ -8,8 +8,8 @@ param([string]$Out = (Join-Path $PSScriptRoot 'packages-local'))
 $ErrorActionPreference = 'Stop'
 
 # Keep in step with Reframe.Shell.csproj's PackageReference and the workflow's PACKAGE_VERSION / RELEASE_TAG.
-$Version = '1.25.3131-reframe.4'
-$Tag = 'terminal-wpf-v1.25.3131.0-reframe.4'
+$Version = '1.25.3131-reframe.5'
+$Tag = 'terminal-wpf-v1.25.3131.0-reframe.5'
 $Sha256 = '05B52362936E0DA4B65110EB2A35F1DABD0D5C765A2E2E9DDF1B04B3D8AF91E0'
 
 $name = "Reframe.Terminal.Wpf.$Version.nupkg"

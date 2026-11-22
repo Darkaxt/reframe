@@ -78,8 +78,14 @@ sealed class TerminalBehaviour
         this.notice = notice;
         fontPx = fontSize;
         control.PreviewKeyDown += KeyDown;
+        // A terminal not shown (another thread of a single window, a docked or hidden tile, the window hidden) does not
+        // draw: its native render thread waits (it drew every output and cursor blink, in software by default, for no
+        // one to see). Shown again, it draws it all; output goes into its buffer meanwhile.
+        control.IsVisibleChanged += (_, e) => control.SetPainting((bool)e.NewValue);
         control.Loaded += (_, _) =>
         {
+            // Created where it is not shown: IsVisibleChanged has nothing to change from.
+            control.SetPainting(control.IsVisible);
             ApplyFont();
             if (host is not null) return;
             host = FindHost(control);
