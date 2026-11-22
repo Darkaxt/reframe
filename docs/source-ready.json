@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "854241e21a1a70b8f1c3157250e2c6fd3ff80526",
-  "scope": "cron jobs stay with their thread",
+  "sourceBase": "b5e953fe3cdf22653f28407de2bd3b2a7cdb9527",
+  "scope": "missed cron jobs go to their own thread",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.124.md",
-      "sha256": "e1ca67e3a1c383d0fcdcc1fbd073a27b3f3130d3c725542f1aba0e0a8f1a840d"
+      "file": "docs/releases/v0.11.0-claudegpt.125.md",
+      "sha256": "4a8336758ac05adb0b7a36e9a9b70e7570e083e256c07abe19c6ea3fe0883cc7"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,31 +18,19 @@
     },
     {
       "file": "package.json",
-      "sha256": "43014026981fb6248e307d11d76291e8d26ecf972b7507521d77c3dd5d1d850b"
+      "sha256": "567a73089ee67a2f060ba432433139b6779fba5c090a2c81d2fea5a925d588f3"
     },
     {
       "file": "rust/reframe-host/src/cron.rs",
-      "sha256": "776b701692c955aec14d42852c8ebc4f3b0853d841d081238cdb0a562cbc18a7"
+      "sha256": "15d99e6440c165d5c3e0f7829db34aedbe19ed40a5ef7918d95deb65d06abd6e"
     },
     {
       "file": "rust/reframe-host/src/hooks.rs",
-      "sha256": "bb844355b122e23cb9f4ef6117d3ca2ac75b193e78ee260d41f362bc303ae5cd"
-    },
-    {
-      "file": "rust/reframe-host/src/main.rs",
-      "sha256": "e23b2a2c39e9c18d313f832d313fa80757645c4c31ba3b20571df8e84d34069d"
-    },
-    {
-      "file": "rust/reframe-services/src/spawn_plan.rs",
-      "sha256": "c122f11401b85d9191525eaa08e0caf29e43ab2c2e8de7bf6e8e3e97f078faf9"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
-      "sha256": "46bf02dddd3b44cc2feb55d33c9d367f87d7024a96a14c455d5439b0b85d1029"
+      "sha256": "3a821813c5ff7ed3d5b021e5994242e4ffc1e46db3491456b38f71e31f32d860"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
-      "sha256": "da6daa10b7377ba089599f237392456f23bf341a349db229b70a15a50bfe6942"
+      "sha256": "42116c454a02ea440ac0f6315d5c04206f55de4d3b0939ed7316da3b6a71b8ab"
     }
   ],
   "checksNotYetRun": [
