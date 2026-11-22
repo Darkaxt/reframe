@@ -252,14 +252,15 @@ public class SidebarTests
     [Fact]
     public async Task TheSidebarIsDrawnAgainOnlyWhenWhatItShowsChanged()
     {
-        var now = 1_800_000_000_000.0;
-        var list = await SessionListBuilder.BuildAsync(Sessions(now).Sources(), "", SessionListBuilder.Page);
+        var made = 1_800_000_000_000.0;
+        var list = await SessionListBuilder.BuildAsync(Sessions(made).Sources(), "", SessionListBuilder.Page);
+        // Half an hour after the fixture's whole hours: 1 ms changes no stamp ("2h") nor tooltip time (to the minute).
+        var now = made + 30 * 60_000;
         var signature = SidebarView.Build(list, now).Signature();
         Assert.Equal(signature, SidebarView.Build(list, now).Signature());
         Assert.NotEmpty(list.App);
-        // A transcript written again (a thread at work) changes nothing shown (1 ms earlier: the fixture's times fall on
-        // whole hours, where 1 ms later would change a stamp).
-        var written = list with { App = [.. list.App.Select(i => i with { LastActiveAt = i.LastActiveAt - 1, ModifiedAt = i.ModifiedAt - 1 })] };
+        // A transcript written again (a thread at work) changes nothing shown.
+        var written = list with { App = [.. list.App.Select(i => i with { LastActiveAt = i.LastActiveAt + 1, ModifiedAt = i.ModifiedAt + 1 })] };
         Assert.Equal(signature, SidebarView.Build(written, now).Signature());
         // A status does.
         var busy = list with { App = [.. list.App.Select((i, n) => n == 0 ? i with { Status = i.Status == "busy" ? "idle" : "busy" } : i)] };
