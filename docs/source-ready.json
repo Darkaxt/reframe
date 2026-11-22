@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "977fdef5d38eae0dbc3e9d10a3dd0838b5e0d457",
+  "sourceBase": "05db6e645458f7ceeb7f86de66706530d1796c4c",
   "scope": "Less WPF drawing: pulses at 15 fps while shown, sidebar rebuilt only on change, minimised terminals paused",
   "inputHashes": [
     {
@@ -26,7 +26,7 @@
     },
     {
       "file": "wpf/Reframe.Shell.Tests/SidebarTests.cs",
-      "sha256": "7a290487b604d7c75f3660460f81f373f4d039a00927b24f582b4f8875ffc216"
+      "sha256": "e9abd952c2271f03c377e9677787efc6fd01a9370f64d24a27357ddac1c97605"
     },
     {
       "file": "wpf/Reframe.Shell/Controls.cs",
