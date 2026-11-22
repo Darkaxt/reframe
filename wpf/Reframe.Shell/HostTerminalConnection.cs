@@ -78,9 +78,11 @@ sealed class HostTerminalConnection : ITerminalConnection
         if (text.Length > 0) Send(PasteText.Prepare(text, Modes.BracketedPaste));
     }
 
-    /// <summary>The user's input; it waits while Reframe types a message of its own into the thread (<see cref="InputGuard"/>).</summary>
+    /// <summary>The user's input; it waits while Reframe types a message of its own into the thread, and Reframe's
+    /// messages wait while the user writes (<see cref="InputGuard"/>).</summary>
     void Send(string data)
     {
+        InputGuard.NoteUser(view.SessionId, data);
         if (!InputGuard.Defer(view.SessionId, () => view.InputAsync(data))) _ = view.InputAsync(data);
     }
 

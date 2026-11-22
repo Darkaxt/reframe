@@ -140,6 +140,7 @@ public partial class MainWindow
         notify.Click += async (_, _) =>
         {
             notify.IsEnabled = false;
+            if (InputGuard.UserOwns(warning.SessionId)) ((TextBlock)notify.Content).Text = "Waits for your prompt";
             await shell.NotifyAsync(warning);
             ((TextBlock)notify.Content).Text = "Notified";
         };
