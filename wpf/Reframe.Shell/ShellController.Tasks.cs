@@ -244,7 +244,8 @@ sealed partial class ShellController
             return;
         }
         var target = matches[0];
-        var by = $"[woken by the Reframe thread \"{askerName}\"; answer it with SendMessage to \"{askerName}\"]";
+        // wake_thread answers it, whatever its provider (a Gemini thread has no SendMessage).
+        var by = $"[message from the Reframe thread \"{askerName}\"; answer it with wake_thread to \"{askerName}\"]";
         var task = new ScheduledTask($"wake-{Guid.NewGuid():N}", "heartbeat", name, message, "ACTIVE", "", target.Id, "important", 0, 0, new Dictionary<string, object>());
         var run = new PendingRun(task, DateTimeOffset.Now) { Wake = $"{by}\n{message}" };
         pendingRuns[task.Id] = run;

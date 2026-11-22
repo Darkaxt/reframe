@@ -20,13 +20,13 @@ public class NewSessionTests
         var opener = new SessionRecord { Id = "s1", Cwd = @"D:\Projects\app", Name = "Lead", Launch = new LaunchOptions { Provider = "anthropic" } };
         var request = NewSession.OpenedBy(JsonNode.Parse("""{ "name": " Docs ", "prompt": "Review the API", "provider": "openai" }"""), opener, preferences);
         Assert.Equal(new NewSessionRequest(@"D:\Projects\app", "chatgpt", "Docs", Model: "gpt-6.1-sol", PermissionMode: "auto",
-            InitialPrompt: "[opened by the Reframe thread \"Lead\" on Claude (Anthropic); answer it with SendMessage to \"Lead\"]\nReview the API", OpenedBy: "s1"),
+            InitialPrompt: "[opened by the Reframe thread \"Lead\" on Claude (Anthropic); answer it with wake_thread to \"Lead\"]\nReview the API", OpenedBy: "s1"),
             request! with { Follows = null });
         Assert.Equal(new[] { "permissionMode", "model", "effort" }, request.Follows!);
         var claude = NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B", "prompt": "x", "provider": "claude", "folder": "E:\\w", "model": "opus" }"""),
             new SessionRecord { Cwd = @"D:\a" }, preferences)!;
         Assert.Equal(("anthropic", @"E:\w", "opus", "high"), (claude.Provider, claude.Cwd, claude.Model, claude.Effort));
-        Assert.StartsWith("[opened by a Reframe thread on OpenAI;", claude.InitialPrompt);
+        Assert.StartsWith("[opened by a Reframe thread on OpenAI]", claude.InitialPrompt);
         Assert.Equal("low", NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B", "prompt": "x", "provider": "openai", "reasoning_effort": "low" }"""), opener, preferences)!.Effort);
         Assert.NotEqual("bogus", NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B", "prompt": "x", "provider": "openai", "effort": "bogus" }"""), opener, preferences)!.Effort);
         Assert.Null(NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B" }"""), opener, preferences));
