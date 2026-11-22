@@ -13,15 +13,13 @@
   ],
   "recentFolders": [],
   "preferences": {
-    "nameFromFolder": false,
     "language": "system",
     "fontSize": 13,
     "snapToGrid": true,
     "checkForUpdates": true,
     "lookInWsl": false,
     "closeWindow": "ask",
-    "gpuAcceleration": false,
-    "ptyHost": "node"
+    "gpuAcceleration": false
   },
   "pinnedChats": [
     "[\u0022\u0022,\u00221c0f6f0e-4c1a-4a51-9a51-0c6a1d0e0a01\u0022]"

@@ -6,15 +6,13 @@
     "windows": [],
     "recentFolders": [],
     "preferences": {
-      "nameFromFolder": false,
       "language": "de",
       "fontSize": 15,
       "snapToGrid": true,
       "checkForUpdates": true,
       "lookInWsl": false,
       "closeWindow": "ask",
-      "gpuAcceleration": false,
-      "ptyHost": "node"
+      "gpuAcceleration": false
     },
     "folderWorkspaces": [
       {

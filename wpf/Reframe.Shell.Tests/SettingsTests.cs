@@ -127,12 +127,12 @@ public class SettingsTests
     public void ValidValuesAreTakenAndInvalidOnesIgnored()
     {
         var p = new Preferences();
-        Assert.True(Settings.Apply(p, new PreferencesPatch { Language = "de", FontSize = 15, CloseWindow = "keep", PtyHost = "rust", SnapToGrid = false }));
-        Assert.Equal(("de", 15, "keep", "rust", false), (p.Language, p.FontSize, p.CloseWindow, p.PtyHost, p.SnapToGrid));
-        Assert.False(Settings.Apply(p, new PreferencesPatch { Language = "fr", FontSize = 15.5, CloseWindow = "never", PtyHost = "go" }));
+        Assert.True(Settings.Apply(p, new PreferencesPatch { Language = "de", FontSize = 15, CloseWindow = "keep", SnapToGrid = false }));
+        Assert.Equal(("de", 15, "keep", false), (p.Language, p.FontSize, p.CloseWindow, p.SnapToGrid));
+        Assert.False(Settings.Apply(p, new PreferencesPatch { Language = "fr", FontSize = 15.5, CloseWindow = "never" }));
         Assert.False(Settings.Apply(p, new PreferencesPatch { FontSize = StateValues.FontSizeMax + 1 }));
         Assert.False(Settings.Apply(p, new PreferencesPatch { FontSize = StateValues.FontSizeMin - 1 }));
-        Assert.Equal(("de", 15, "keep", "rust"), (p.Language, p.FontSize, p.CloseWindow, p.PtyHost));
+        Assert.Equal(("de", 15, "keep"), (p.Language, p.FontSize, p.CloseWindow));
         Assert.False(Settings.Apply(p, new PreferencesPatch()));
     }
 
@@ -140,8 +140,8 @@ public class SettingsTests
     public void BooleansAndTheEffortAndPermissionModeLists()
     {
         var p = new Preferences();
-        Settings.Apply(p, new PreferencesPatch { GpuAcceleration = true, LookInWsl = true, CheckForUpdates = false, NameFromFolder = true });
-        Assert.True(p.GpuAcceleration && p.LookInWsl && !p.CheckForUpdates && p.NameFromFolder);
+        Settings.Apply(p, new PreferencesPatch { GpuAcceleration = true, LookInWsl = true, CheckForUpdates = false });
+        Assert.True(p.GpuAcceleration && p.LookInWsl && !p.CheckForUpdates);
         Settings.Apply(p, new PreferencesPatch { DefaultEffort = "xhigh", DefaultPermissionMode = "plan" });
         Assert.Equal(("xhigh", "plan"), (p.DefaultEffort, p.DefaultPermissionMode));
         Assert.False(Settings.Apply(p, new PreferencesPatch { DefaultEffort = "extreme", DefaultPermissionMode = "yolo" }));

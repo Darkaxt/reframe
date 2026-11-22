@@ -1,0 +1,19 @@
+{
+  "result": "state",
+  "state": {
+    "version": 1,
+    "sessions": {},
+    "windows": [],
+    "recentFolders": [],
+    "preferences": {
+      "language": "en",
+      "fontSize": 13,
+      "snapToGrid": true,
+      "checkForUpdates": true,
+      "lookInWsl": false,
+      "closeWindow": "ask",
+      "gpuAcceleration": false
+    },
+    "hiddenThreads": []
+  }
+}

@@ -6,7 +6,6 @@
     "windows": [],
     "recentFolders": [],
     "preferences": {
-      "nameFromFolder": false,
       "language": "system",
       "fontSize": 13,
       "sidebarWidth": 0,
@@ -14,8 +13,7 @@
       "checkForUpdates": true,
       "lookInWsl": false,
       "closeWindow": "ask",
-      "gpuAcceleration": false,
-      "ptyHost": "node"
+      "gpuAcceleration": false
     },
     "hiddenThreads": []
   }

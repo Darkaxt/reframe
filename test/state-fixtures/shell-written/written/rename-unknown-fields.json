@@ -39,7 +39,6 @@
   ],
   "recentFolders": [],
   "preferences": {
-    "nameFromFolder": false,
     "language": "system",
     "fontSize": 13,
     "snapToGrid": true,
@@ -47,7 +46,6 @@
     "lookInWsl": false,
     "closeWindow": "ask",
     "gpuAcceleration": false,
-    "ptyHost": "node",
     "providerDefaults": {
       "anthropic": {
         "model": "m",

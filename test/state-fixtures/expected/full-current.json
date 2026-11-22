@@ -166,7 +166,6 @@
     ],
     "preferences": {
       "archiveRoot": "D:\\arch",
-      "nameFromFolder": true,
       "language": "en",
       "fontSize": 8,
       "sidebarWidth": 9999,
@@ -175,7 +174,6 @@
       "lookInWsl": true,
       "closeWindow": "keep",
       "gpuAcceleration": true,
-      "ptyHost": "rust",
       "claudeBin": "C:\\bin\\claude.exe",
       "defaultModel": "sonnet",
       "defaultEffort": "low",

@@ -171,7 +171,6 @@ public static class StateJson
         {
             var o = new JsonObject();
             Opt(o, "archiveRoot", p.ArchiveRoot);
-            o["nameFromFolder"] = p.NameFromFolder;
             o["language"] = p.Language;
             o["fontSize"] = p.FontSize;
             Opt(o, "sidebarWidth", p.SidebarWidth);
@@ -180,7 +179,6 @@ public static class StateJson
             o["lookInWsl"] = p.LookInWsl;
             o["closeWindow"] = p.CloseWindow;
             o["gpuAcceleration"] = p.GpuAcceleration;
-            o["ptyHost"] = p.PtyHost;
             Opt(o, "claudeBin", p.ClaudeBin);
             Opt(o, "defaultModel", p.DefaultModel);
             Opt(o, "defaultEffort", p.DefaultEffort);

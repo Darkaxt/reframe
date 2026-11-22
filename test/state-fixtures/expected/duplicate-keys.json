@@ -8,15 +8,13 @@
       "second wins"
     ],
     "preferences": {
-      "nameFromFolder": false,
       "language": "system",
       "fontSize": 13,
       "snapToGrid": true,
       "checkForUpdates": true,
       "lookInWsl": false,
       "closeWindow": "ask",
-      "gpuAcceleration": false,
-      "ptyHost": "node"
+      "gpuAcceleration": false
     },
     "hiddenThreads": []
   }

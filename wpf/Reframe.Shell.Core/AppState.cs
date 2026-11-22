@@ -53,7 +53,6 @@ public static class StateValues
     public static readonly IReadOnlyList<string> Lifecycles = ["open", "ended"];
     public static readonly IReadOnlyList<string> Languages = ["system", "en", "de"];
     public static readonly IReadOnlyList<string> CloseWindow = ["ask", "end", "keep"];
-    public static readonly IReadOnlyList<string> PtyHosts = ["node", "rust"];
     public const int FontSizeNormal = 13, FontSizeMin = 8, FontSizeMax = 32;
     public const int SidebarWidthNormal = 270, SidebarWidthMin = 200, SidebarWidthMax = 640;
 
@@ -259,7 +258,6 @@ public sealed class ProviderDefaultsSet : StateObject
 public sealed class Preferences : StateObject
 {
     public string? ArchiveRoot { get; set; }
-    public bool NameFromFolder { get; set; }
     public string Language { get; set; } = "system";
     public int FontSize { get; set; } = StateValues.FontSizeNormal;
     /// <summary>As stored; use <see cref="StateValues.ClampSidebarWidth"/>.</summary>
@@ -269,7 +267,6 @@ public sealed class Preferences : StateObject
     public bool LookInWsl { get; set; }
     public string CloseWindow { get; set; } = "ask";
     public bool GpuAcceleration { get; set; }
-    public string PtyHost { get; set; } = "node";
     public string? ClaudeBin { get; set; }
     public string? DefaultModel { get; set; }
     public string? DefaultEffort { get; set; }

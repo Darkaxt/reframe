@@ -15,15 +15,13 @@
     ],
     "recentFolders": [],
     "preferences": {
-      "nameFromFolder": true,
       "language": "system",
       "fontSize": 13,
       "snapToGrid": true,
       "checkForUpdates": true,
       "lookInWsl": false,
       "closeWindow": "ask",
-      "gpuAcceleration": false,
-      "ptyHost": "node"
+      "gpuAcceleration": false
     },
     "hiddenThreads": []
   }

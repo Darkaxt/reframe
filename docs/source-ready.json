@@ -1,48 +1,68 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "9fdb927051b8946e0d3b1675eac345c88613819a",
-  "scope": "Less WPF drawing: pulses at 15 fps while shown, sidebar rebuilt only on change, minimised terminals paused",
+  "sourceBase": "5dd6d5c849e4471418c46acb1b63b013e3b6383a",
+  "scope": "Remove dead Electron preferences",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.127.md",
-      "sha256": "809f110e975666393860730bb9ab0c8289a2c76c974376a37ec354ff452e5048"
+      "file": "docs/releases/v0.11.0-claudegpt.128.md",
+      "sha256": "2ce02044c75bbd69a57cb0b799f89c242c696ce5cc3a22cbcb7edf702cf1386b"
     },
     {
       "file": "docs/wpf-cutover.md",
       "sha256": "981946325780f61184baa82cd7a6c24393935b066c0abc6f44ad1010a694d6d7"
     },
     {
+      "file": "maintenance/windows/smoke-packaged.ps1",
+      "sha256": "6497507d1b3fec378f09ffbd366415d5b57f3483f758a57852744b4cf89900fc"
+    },
+    {
       "file": "package.json",
-      "sha256": "0ebf605b918a5fe4b15bc1ed3f4705b427b37c741329db267d7a91fd33906b79"
+      "sha256": "8f3a651bf2ccc742e51b6088dd3f823f30bdc094b296ccfb84c752346f1381d0"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
-      "sha256": "1e8a4257145907b467f33b4b8744fc41000c6e27279a77ede7165eeaaf3311bb"
+      "file": "wpf/Reframe.Shell.Core/AppState.cs",
+      "sha256": "dc62d457adf30720b8c9fe0cf058371731f340779a467b5607aa03c96d06eb98"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/SidebarTests.cs",
-      "sha256": "82aabe11c813fdfe1926f4b6e4c1601ad869093093987e791e9b3e75affa4115"
+      "file": "wpf/Reframe.Shell.Core/Settings.cs",
+      "sha256": "13910c842b6dde9a32601532c2fca193c5f23ac6e12ccf3d6221ff7c06f2647e"
     },
     {
-      "file": "wpf/Reframe.Shell/Controls.cs",
-      "sha256": "a8384548f4b9dbcb344f0df13d664a83419dfbc39958834e734db13c213f99f0"
+      "file": "wpf/Reframe.Shell.Core/StateJson.cs",
+      "sha256": "0791d3b9b6f4252f2cb607105b05c47b30f906b4f365ddaed07f9d5af8221fe3"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "642f87de96e7e4c103a8b8c6d4f25fd69876a8a206decabc2dd397c10d7bafcf"
+      "file": "wpf/Reframe.Shell.Core/StateParser.cs",
+      "sha256": "2c6d7653b926dd325834d5cc51e9dda17b81d54ffcffe1b386028ed97c0e72ce"
     },
     {
-      "file": "wpf/Reframe.Shell/SessionSidebar.cs",
-      "sha256": "bc84df642a48759ccfb02d22f64f87fa684971342260998348ca774f5a6a4d54"
+      "file": "wpf/Reframe.Shell.Core/Strings.cs",
+      "sha256": "be20fe23aa026b049574792c4ae1f58330565a6ddc123b49b4e96ec70860e5ea"
     },
     {
-      "file": "wpf/Reframe.Shell/TerminalBehaviour.cs",
-      "sha256": "d6e10039808b61aa974b77a62508fa44337756dddde6d830afcc41a1c74c6dce"
+      "file": "wpf/Reframe.Shell.Tests/SettingsTests.cs",
+      "sha256": "b91f2700f77bc8bb1db30e6a1dfc0ed68c2232130aa092a9bee53f7b1cd50aff"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/StateModelTests.cs",
+      "sha256": "6373c0a7ae466c9eeaf1647f428e1c9c18de5dcb872086c9b052c1048b504f55"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/StateWriteTests.cs",
+      "sha256": "248eb8128e802f1cd3d05b425a4ba2d6928cfeb41aa1c163fb636db01b4ec976"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Properties.cs",
+      "sha256": "cf1391cef959df3ebdc15b927b1033735104b74301732b9a144bc77799aa9e47"
+    },
+    {
+      "file": "wpf/Reframe.Shell/SettingsDialog.cs",
+      "sha256": "eea42fc23153a96c52346eca5e77f9d929f4614f381d7679d51448a98bb28f4c"
     }
   ],
   "checksNotYetRun": [
