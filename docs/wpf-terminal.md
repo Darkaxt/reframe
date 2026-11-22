@@ -52,6 +52,11 @@ The patches (all in `HwndTerminal` and the WPF wrapper; the wrapper's existing A
 - `TerminalSetDefaultSoftwareRendering(enable)` (`0002-software-rendering.patch`): `AtlasEngine::SetSoftwareRendering`
   (Direct3D's WARP rasterizer, Windows Terminal's "Use software rendering") for terminals created afterwards; the
   shell turns it on when "Use GPU acceleration" is off. Wrapper: `TerminalControl.SetDefaultSoftwareRendering`.
+- `TerminalSetPainting(terminal, enable)` (`0004-pause-hidden-terminals.patch`): a public `Renderer::DisablePainting`
+  (the render thread waits before its next frame, as after a paint error) and `Renderer::EnablePainting` under the
+  write lock (as `ControlCore::ResumeRendering`: viewport resync, everything drawn again); nothing for a terminal not
+  created or torn down. The shell stops drawing terminals that are not shown (`IsVisible`). Wrapper:
+  `TerminalControl.SetPainting`.
 
 ### Earlier decision (S6)
 
