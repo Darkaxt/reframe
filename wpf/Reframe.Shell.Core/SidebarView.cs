@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
+
 namespace Reframe.Shell.Core;
 
 /// <summary>A conversation row of the sidebar, as SessionSidebar's renderChat shows it.</summary>
@@ -56,6 +59,28 @@ public sealed record SidebarSections(IReadOnlyList<ChatRow> Pinned, IReadOnlyLis
         .. Pinned.Concat(Projects.Where(p => p.Expanded).SelectMany(p => p.Chats)).Concat(Recents)
             .GroupBy(r => r.Key).Select(g => g.First()),
     ];
+
+    /// <summary>What the sections show, for the list to be drawn again only when it changed: the list is made again
+    /// every few seconds (and every two while threads write their transcripts), and building the sidebar's elements
+    /// anew each time kept the UI thread busy. When chats were last used or written is left out (the rows show it as
+    /// <see cref="ChatRow.Stamp"/> and in their order).</summary>
+    public string Signature() => JsonSerializer.Serialize(this, SignatureOptions);
+
+    static readonly JsonSerializerOptions SignatureOptions = new()
+    {
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver
+        {
+            Modifiers =
+            {
+                info =>
+                {
+                    if (info.Kind != JsonTypeInfoKind.Object) return;
+                    foreach (var property in info.Properties)
+                        if (property.Name is "LastActiveAt" or "ModifiedAt") property.ShouldSerialize = (_, _) => false;
+                },
+            },
+        },
+    };
 }
 
 /// <summary>What SessionSidebar.tsx renders from a session list (English texts of src/shared/i18n.ts).</summary>
