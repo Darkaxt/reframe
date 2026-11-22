@@ -26,7 +26,7 @@ public class NewSessionTests
         var claude = NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B", "prompt": "x", "provider": "claude", "folder": "E:\\w", "model": "opus" }"""),
             new SessionRecord { Cwd = @"D:\a" }, preferences)!;
         Assert.Equal(("anthropic", @"E:\w", "opus", "high"), (claude.Provider, claude.Cwd, claude.Model, claude.Effort));
-        Assert.StartsWith("[opened by a Reframe thread on OpenAI;", claude.InitialPrompt);
+        Assert.StartsWith("[opened by a Reframe thread on OpenAI]", claude.InitialPrompt);
         Assert.Equal("low", NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B", "prompt": "x", "provider": "openai", "reasoning_effort": "low" }"""), opener, preferences)!.Effort);
         Assert.NotEqual("bogus", NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B", "prompt": "x", "provider": "openai", "effort": "bogus" }"""), opener, preferences)!.Effort);
         Assert.Null(NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B" }"""), opener, preferences));
