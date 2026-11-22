@@ -254,18 +254,25 @@ sealed partial class ShellController
 
     /// <summary>A Claude Code cron job of one thread fired in another (Claude Code keeps durable jobs per folder), and
     /// the host blocked it there (reframe-host's cron.rs): it is delivered to its own thread like a task's run
-    /// (waiting for idle, resuming an ended thread); one whose thread is gone is told as a run that failed.</summary>
+    /// (waiting for idle, resuming an ended thread); one whose thread is gone is told as a run that failed. A notice of
+    /// missed jobs comes split by thread, the part with the thread's own jobs back to it as it was.</summary>
     async Task HandOffAsync(JsonObject hook)
     {
-        string? Text(string key) => hook["payload"] is JsonObject o && o[key] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim() is { Length: > 0 } t ? t : null;
-        if (Text("owner") is not { } owner || Text("prompt") is not { } prompt) return;
+        if (hook["payload"]?["to"] is not JsonArray to) return;
         var fromId = (string?)hook["sessionId"];
         var from = fromId is not null && State.Sessions.TryGetValue(fromId, out var r) ? StateValues.SessionLabel(r.Name, r.ClaudeName, r.Cwd) : "another thread";
-        var task = new ScheduledTask($"handoff-{Guid.NewGuid():N}", "heartbeat", "Scheduled job", prompt, "ACTIVE", "", owner, "important", 0, 0, new Dictionary<string, object>());
-        var run = new PendingRun(task, DateTimeOffset.Now) { Wake = $"[Reframe: this scheduled job of yours fired in the thread \"{from}\", which did not run it; it is yours to run]\n{prompt}" };
-        pendingRuns[task.Id] = run;
-        TaskLog($"handoff: a job of {owner} fired in {fromId}");
-        await AdvanceAsync(run);
+        var runs = new List<PendingRun>();
+        foreach (var item in to)
+        {
+            if (item?["owner"] is not JsonValue o || !o.TryGetValue<string>(out var owner) || item["prompt"] is not JsonValue p || !p.TryGetValue<string>(out var prompt)) continue;
+            var task = new ScheduledTask($"handoff-{Guid.NewGuid():N}", "heartbeat", "Scheduled job", prompt, "ACTIVE", "", owner, "important", 0, 0, new Dictionary<string, object>());
+            var wake = owner == fromId ? prompt : $"[Reframe: this scheduled job of yours came up in the thread \"{from}\", which did not run it; it is yours]\n{prompt}";
+            var run = new PendingRun(task, DateTimeOffset.Now) { Wake = wake };
+            pendingRuns[task.Id] = run;
+            TaskLog($"handoff: a job of {owner} came up in {fromId}");
+            runs.Add(run);
+        }
+        foreach (var run in runs) await AdvanceAsync(run);
     }
 
     /// <summary>Run now (the Tasks dialog): taken at once, the schedule going on from now.</summary>

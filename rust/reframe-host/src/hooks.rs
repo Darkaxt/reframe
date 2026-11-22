@@ -129,12 +129,16 @@ async fn serve(mut stream: TcpStream, token: &str, attached: &AtomicBool) -> Opt
             reply_with(&mut stream, 200, &answer.to_string()).await;
             None
         }
-        Some(cron::Answer::HandOff { reply, owner, prompt }) => {
+        Some(cron::Answer::HandOff { reply, to }) => {
             reply_with(&mut stream, 200, &reply.to_string()).await;
+            let to: Vec<Value> = to
+                .into_iter()
+                .map(|(owner, prompt)| json!({ "owner": owner, "prompt": prompt }))
+                .collect();
             Some(HookMessage {
                 session_id,
                 event: HAND_OFF_EVENT.into(),
-                payload: json!({ "owner": owner, "prompt": prompt }),
+                payload: json!({ "to": to }),
             })
         }
         None => {
@@ -438,7 +442,7 @@ mod tests {
             (handed.session_id.as_str(), handed.event.as_str()),
             ("s2", HAND_OFF_EVENT)
         );
-        assert_eq!(handed.payload["owner"], json!("s1"));
+        assert_eq!(handed.payload["to"][0]["owner"], json!("s1"));
         let answer = send(post("s1", "UserPromptSubmit", &fired)).await;
         assert!(answer.ends_with("\r\n\r\n{}"), "{answer}");
         assert_eq!(rx.recv().await.unwrap().event, "UserPromptSubmit");
