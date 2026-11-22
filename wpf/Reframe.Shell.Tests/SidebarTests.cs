@@ -257,8 +257,9 @@ public class SidebarTests
         var signature = SidebarView.Build(list, now).Signature();
         Assert.Equal(signature, SidebarView.Build(list, now).Signature());
         Assert.NotEmpty(list.App);
-        // A transcript written again (a thread at work) changes nothing shown.
-        var written = list with { App = [.. list.App.Select(i => i with { LastActiveAt = i.LastActiveAt + 1, ModifiedAt = i.ModifiedAt + 1 })] };
+        // A transcript written again (a thread at work) changes nothing shown (1 ms earlier: the fixture's times fall on
+        // whole hours, where 1 ms later would change a stamp).
+        var written = list with { App = [.. list.App.Select(i => i with { LastActiveAt = i.LastActiveAt - 1, ModifiedAt = i.ModifiedAt - 1 })] };
         Assert.Equal(signature, SidebarView.Build(written, now).Signature());
         // A status does.
         var busy = list with { App = [.. list.App.Select((i, n) => n == 0 ? i with { Status = i.Status == "busy" ? "idle" : "busy" } : i)] };
