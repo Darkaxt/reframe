@@ -126,7 +126,7 @@ sealed class TerminalBehaviour
 
     void UpdatePainting()
     {
-        var on = control.IsVisible && window?.WindowState != WindowState.Minimized;
+        var on = control.IsVisible && window?.WindowState != System.Windows.WindowState.Minimized;
         if (painting == on) return;
         painting = on;
         control.SetPainting(on);
