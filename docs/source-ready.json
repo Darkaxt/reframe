@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "ed81c1a76914858029bc7fb0154fade0fe8dfe00",
+  "sourceBase": "854241e21a1a70b8f1c3157250e2c6fd3ff80526",
   "scope": "cron jobs stay with their thread",
   "inputHashes": [
     {
