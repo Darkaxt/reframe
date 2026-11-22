@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "5c1eac96339b29b366c25bb2c0523b7f106e2b10",
-  "scope": "Drop Electron's terminal host setting",
+  "sourceBase": "35b448dbdfae2efd6ca70b004a1b6bfaa2dcd426",
+  "scope": "Remove dead Electron preferences",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.128.md",
-      "sha256": "65c818c5f468051e362346e0394058f38c9e296fc291113f694303faaacdd2f3"
+      "sha256": "927455a778056ba38d7f29ea32c44b5aab251134e83845bc161503249c1eb329"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,7 +18,7 @@
     },
     {
       "file": "maintenance/windows/smoke-packaged.ps1",
-      "sha256": "4797c93788b607f0aa4b5b326b41c8fc6c23bc8f82b3dd21d4242a323e3537e2"
+      "sha256": "6497507d1b3fec378f09ffbd366415d5b57f3483f758a57852744b4cf89900fc"
     },
     {
       "file": "package.json",
@@ -26,19 +26,19 @@
     },
     {
       "file": "wpf/Reframe.Shell.Core/AppState.cs",
-      "sha256": "4a0814ddf6ed967d391f050f9b37d578829b3075925c6e520d746ebe6ca9f85f"
+      "sha256": "dc62d457adf30720b8c9fe0cf058371731f340779a467b5607aa03c96d06eb98"
     },
     {
       "file": "wpf/Reframe.Shell.Core/Settings.cs",
-      "sha256": "e9211edec6b02985decced3b229f11795285bb693f0ff996e09f3de704712ba0"
+      "sha256": "13910c842b6dde9a32601532c2fca193c5f23ac6e12ccf3d6221ff7c06f2647e"
     },
     {
       "file": "wpf/Reframe.Shell.Core/StateJson.cs",
-      "sha256": "840fd9fdfb6a6a503ffa4ac14c539f49b54534ead2d36effabebffde0c56e444"
+      "sha256": "0791d3b9b6f4252f2cb607105b05c47b30f906b4f365ddaed07f9d5af8221fe3"
     },
     {
       "file": "wpf/Reframe.Shell.Core/StateParser.cs",
-      "sha256": "d504387d019da065dad920d5e242ed3c55c0f6b9e1a99c56f63357cdc66dd2a9"
+      "sha256": "2c6d7653b926dd325834d5cc51e9dda17b81d54ffcffe1b386028ed97c0e72ce"
     },
     {
       "file": "wpf/Reframe.Shell.Core/Strings.cs",
@@ -46,7 +46,7 @@
     },
     {
       "file": "wpf/Reframe.Shell.Tests/SettingsTests.cs",
-      "sha256": "929ad2bbe031afad34134979652c42e2f3cff57a447541d3f66ab0408c689df3"
+      "sha256": "b91f2700f77bc8bb1db30e6a1dfc0ed68c2232130aa092a9bee53f7b1cd50aff"
     },
     {
       "file": "wpf/Reframe.Shell.Tests/StateModelTests.cs",
@@ -54,7 +54,7 @@
     },
     {
       "file": "wpf/Reframe.Shell.Tests/StateWriteTests.cs",
-      "sha256": "d969fc17726beb59a1d69d5adb8e608836a801ad4d8224646bb102c4c72825d0"
+      "sha256": "248eb8128e802f1cd3d05b425a4ba2d6928cfeb41aa1c163fb636db01b4ec976"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.Properties.cs",
