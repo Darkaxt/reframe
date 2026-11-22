@@ -171,7 +171,6 @@ public static class StateJson
         {
             var o = new JsonObject();
             Opt(o, "archiveRoot", p.ArchiveRoot);
-            o["nameFromFolder"] = p.NameFromFolder;
             o["language"] = p.Language;
             o["fontSize"] = p.FontSize;
             Opt(o, "sidebarWidth", p.SidebarWidth);

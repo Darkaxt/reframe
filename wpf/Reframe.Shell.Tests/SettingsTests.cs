@@ -140,8 +140,8 @@ public class SettingsTests
     public void BooleansAndTheEffortAndPermissionModeLists()
     {
         var p = new Preferences();
-        Settings.Apply(p, new PreferencesPatch { GpuAcceleration = true, LookInWsl = true, CheckForUpdates = false, NameFromFolder = true });
-        Assert.True(p.GpuAcceleration && p.LookInWsl && !p.CheckForUpdates && p.NameFromFolder);
+        Settings.Apply(p, new PreferencesPatch { GpuAcceleration = true, LookInWsl = true, CheckForUpdates = false });
+        Assert.True(p.GpuAcceleration && p.LookInWsl && !p.CheckForUpdates);
         Settings.Apply(p, new PreferencesPatch { DefaultEffort = "xhigh", DefaultPermissionMode = "plan" });
         Assert.Equal(("xhigh", "plan"), (p.DefaultEffort, p.DefaultPermissionMode));
         Assert.False(Settings.Apply(p, new PreferencesPatch { DefaultEffort = "extreme", DefaultPermissionMode = "yolo" }));

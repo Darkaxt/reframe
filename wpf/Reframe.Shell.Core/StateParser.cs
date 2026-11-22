@@ -365,7 +365,6 @@ public static class StateParser
         var p = new Preferences
         {
             ArchiveRoot = o.OptStr("archiveRoot"),
-            NameFromFolder = o.Bool("nameFromFolder"),
             Language = o.OptEnum("language", StateValues.Languages) ?? "system",
         };
         if (o.OptNum("fontSize") is { } size)
@@ -391,6 +390,8 @@ public static class StateParser
         p.CloseEndedAfterHours = o.OptNum("closeEndedAfterHours") is { } hours && PreferencesPatch.CloseEndedChoices.Contains((int)hours) && hours == Math.Floor(hours) ? (int)hours : 0;
         // Electron's choice of terminal host (node or rust): the shell always runs the Rust host, and the key is not kept.
         _ = o.Get("ptyHost");
+        // Electron's naming of new threads after their folder: never used by the shell, and not kept.
+        _ = o.Get("nameFromFolder");
         p.ClaudeBin = o.OptStr("claudeBin");
         p.DefaultModel = o.OptStr("defaultModel");
         p.DefaultEffort = o.OptEnum("defaultEffort", StateValues.EffortLevels);

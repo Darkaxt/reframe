@@ -7,7 +7,6 @@ namespace Reframe.Shell.Core;
 public sealed record PreferencesPatch
 {
     public string? ArchiveRoot { get; init; }
-    public bool? NameFromFolder { get; init; }
     public string? Language { get; init; }
     /// <summary>A number as the page sends it (only a whole one in range is taken).</summary>
     public double? FontSize { get; init; }
@@ -82,7 +81,6 @@ public static class Settings
         var p = preferences;
         var before = Snapshot(p);
         if (patch.ArchiveRoot is { } root && IsArchiveRoot(root)) p.ArchiveRoot = root;
-        if (patch.NameFromFolder is { } nameFromFolder) p.NameFromFolder = nameFromFolder;
         if (patch.Language is { } language && StateValues.Languages.Contains(language)) p.Language = language;
         if (patch.FontSize is { } size && size == Math.Floor(size) && size >= StateValues.FontSizeMin && size <= StateValues.FontSizeMax)
             p.FontSize = (int)size;
@@ -166,7 +164,7 @@ public static class Settings
 
     static string DefaultsText(ProviderDefaults? d) => d is null ? "" : string.Join('\u0001', d.Model, d.Effort, d.PermissionMode, string.Join(';', d.AddDirs ?? []));
 
-    static string Snapshot(Preferences p) => string.Join('\u0001', p.ArchiveRoot, p.NameFromFolder, p.Language, p.FontSize, p.SidebarWidth,
+    static string Snapshot(Preferences p) => string.Join('\u0001', p.ArchiveRoot, p.Language, p.FontSize, p.SidebarWidth,
         p.SnapToGrid, p.CheckForUpdates, p.LookInWsl, p.GpuAcceleration, p.CloseWindow, p.ClaudeBin, p.DefaultModel,
         p.DefaultEffort, p.DefaultPermissionMode, p.WakeForTasks, p.CloseEndedAfterHours, p.NotifySubthreads, p.BrowserAnthropic, p.BrowserChatgpt, ProfilesText(p),
         DefaultsText(p.ProviderDefaults?.Anthropic), DefaultsText(p.ProviderDefaults?.Chatgpt));

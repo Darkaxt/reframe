@@ -258,7 +258,6 @@ public sealed class ProviderDefaultsSet : StateObject
 public sealed class Preferences : StateObject
 {
     public string? ArchiveRoot { get; set; }
-    public bool NameFromFolder { get; set; }
     public string Language { get; set; } = "system";
     public int FontSize { get; set; } = StateValues.FontSizeNormal;
     /// <summary>As stored; use <see cref="StateValues.ClampSidebarWidth"/>.</summary>

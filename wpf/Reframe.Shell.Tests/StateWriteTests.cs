@@ -69,6 +69,7 @@ public class StateStoreTests : IDisposable
         Assert.Equal(1, (int)written["preferences"]!["future"]!);
         // Electron's terminal host choice is not kept.
         Assert.Null(written["preferences"]!["ptyHost"]);
+        Assert.Null(written["preferences"]!["nameFromFolder"]);
         Assert.Equal(SidebarChats.ChatKey("c1"), (string)written["pinnedChats"]![0]!);
         Assert.Equal(StateParseKind.State, StateParser.Parse(host.Files[File_]!).Kind);
         Assert.False(File.Exists(File_)); // nothing written here
