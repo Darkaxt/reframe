@@ -98,6 +98,18 @@ public sealed class StatusDot : FrameworkElement
 
     public string Status { get => (string)GetValue(StatusProperty); set => SetValue(StatusProperty, value); }
 
+    /// <summary>A tooltip in place of the status's description (a background thread's work), or null.</summary>
+    public string? Detail
+    {
+        get => detail;
+        set
+        {
+            detail = value;
+            ToolTip = value ?? Describe(Status);
+        }
+    }
+    string? detail;
+
     public StatusDot()
     {
         Width = Height = Size;
@@ -121,7 +133,7 @@ public sealed class StatusDot : FrameworkElement
 
     void Changed()
     {
-        ToolTip = Describe(Status);
+        ToolTip = Detail ?? Describe(Status);
         Animate();
     }
 
@@ -131,7 +143,7 @@ public sealed class StatusDot : FrameworkElement
         if (seconds == 0 || Still || SystemParameters.ClientAreaAnimation == false || !IsVisible)
         {
             BeginAnimation(OpacityProperty, null);
-            Opacity = Status == "background" ? 0.6 : 1;
+            Opacity = 1;
             return;
         }
         // @keyframes pulse { 50% { opacity: 0.35 } }, ease-in-out.

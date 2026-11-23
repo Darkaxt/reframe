@@ -24,6 +24,8 @@ sealed class TileView
     public required Border Head { get; init; }
     public required StatusDot Dot { get; init; }
     public required TextBlock Label { get; init; }
+    /// <summary>What a background thread runs ("Background: python x.py · 14 min"), after the title; hidden otherwise.</summary>
+    public required TextBlock Background { get; init; }
     public required TextBlock Cwd { get; init; }
     public required VectorIcon ZoomIcon { get; init; }
     public required Button Zoom { get; init; }
@@ -380,6 +382,12 @@ public partial class MainWindow
             TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, ToolTip = "Double-click to rename",
         };
         Left(title);
+        var background = new TextBlock
+        {
+            Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center, MaxWidth = 360, Visibility = Visibility.Collapsed,
+        };
+        Left(background, 8);
         var close = TileButton("close", "End session", "End session");
         close.Click += (_, _) => CloseTile(sessionId);
         Right(close);
@@ -505,10 +513,11 @@ public partial class MainWindow
         Panel.SetZIndex(ring, 1);
         var view = new TileView
         {
-            SessionId = sessionId, Ring = ring, Frame = frame, Head = head, Dot = dot, Label = title, Cwd = cwdText,
+            SessionId = sessionId, Ring = ring, Frame = frame, Head = head, Dot = dot, Label = title, Background = background, Cwd = cwdText,
             ZoomIcon = zoomIcon, Zoom = zoomButton, Meters = meters, Tasks = tasksButton, Control = control, Terminal = terminal, Behaviour = behaviour,
             SetChat = setChat,
         };
+        ShowBackground(background, dot, sessionId);
         // Files (and images from a browser) dropped on the tile are typed in as their paths, as in reframe.
         if (behaviour is not null)
         {
@@ -618,9 +627,30 @@ public partial class MainWindow
 
     void UpdateTileStatus(string sessionId)
     {
-        if (tiles.TryGetValue(sessionId, out var view)) view.Dot.Status = StatusOf(sessionId);
+        if (tiles.TryGetValue(sessionId, out var view))
+        {
+            view.Dot.Status = StatusOf(sessionId);
+            ShowBackground(view.Background, view.Dot, sessionId);
+        }
         foreach (var dot in dockItems.Children.OfType<FrameworkElement>().Where(d => d.Tag as string == sessionId))
             if (dot is Border { Child: StackPanel panel } && panel.Children[0] is StatusDot s) s.Status = StatusOf(sessionId);
+    }
+
+    /// <summary>A background thread's work in its tile header (text and the dot's tooltip); hidden otherwise.</summary>
+    void ShowBackground(TextBlock text, StatusDot dot, string sessionId)
+    {
+        if (shell.BackgroundTextOf(sessionId) is { } work)
+        {
+            text.Text = work.Text;
+            text.ToolTip = work.Label;
+            text.Visibility = Visibility.Visible;
+            dot.Detail = work.Text;
+        }
+        else
+        {
+            text.Visibility = Visibility.Collapsed;
+            dot.Detail = null;
+        }
     }
 
     void SelectTile(string sessionId)
