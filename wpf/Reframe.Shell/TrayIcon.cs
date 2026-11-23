@@ -59,7 +59,16 @@ sealed class TrayIcon : IDisposable
     readonly Action<string> run;
     readonly Action click;
     string tooltip;
-    bool added;
+    volatile bool added;
+    /// <summary>Shell_NotifyIcon waits for Explorer (seconds at a busy login or restart), so it runs off the UI thread,
+    /// one call after another; the icon's window only receives its messages.</summary>
+    Task shell = Task.CompletedTask;
+    readonly object shellGate = new();
+
+    void Shell(Action call)
+    {
+        lock (shellGate) shell = shell.ContinueWith(_ => call(), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+    }
 
     public TrayIcon(string tooltip, Func<List<MenuSpec>> menu, Action<string> run, Action click)
     {
@@ -100,7 +109,7 @@ sealed class TrayIcon : IDisposable
     void Add()
     {
         var data = Data(NIF_MESSAGE | NIF_ICON | NIF_TIP);
-        added = Shell_NotifyIcon(NIM_ADD, ref data);
+        Shell(() => added = Shell_NotifyIcon(NIM_ADD, ref data));
     }
 
     /// <summary>tray.setToolTip.</summary>
@@ -109,7 +118,10 @@ sealed class TrayIcon : IDisposable
         if (text == tooltip) return;
         tooltip = text;
         var data = Data(NIF_TIP);
-        if (added) Shell_NotifyIcon(NIM_MODIFY, ref data);
+        Shell(() =>
+        {
+            if (added) Shell_NotifyIcon(NIM_MODIFY, ref data);
+        });
     }
 
     IntPtr Hook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -165,8 +177,15 @@ sealed class TrayIcon : IDisposable
     public void Dispose()
     {
         var data = Data(0);
-        if (added) Shell_NotifyIcon(NIM_DELETE, ref data);
-        added = false;
+        Shell(() =>
+        {
+            if (added) Shell_NotifyIcon(NIM_DELETE, ref data);
+            added = false;
+        });
+        // The icon goes before the process does (a left-over one stays in the notification area until hovered).
+        Task last;
+        lock (shellGate) last = shell;
+        last.Wait(TimeSpan.FromSeconds(3));
         if (icon != IntPtr.Zero) DestroyIcon(icon);
         window.Dispose();
     }

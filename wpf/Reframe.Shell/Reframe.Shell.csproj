@@ -10,6 +10,9 @@
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
+    <!-- The published shell is precompiled (ReadyToRun): without it every start compiled the shell, the Windows SDK
+         projection and the terminal control on the UI thread, which stalled the windows for most of a minute. -->
+    <PublishReadyToRun>true</PublishReadyToRun>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- About shows reframe's version: package.json's, without the commit the SDK would append. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
