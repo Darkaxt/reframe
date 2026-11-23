@@ -55,6 +55,8 @@ sealed class SessionSidebar : Border
     public Func<ChatRow, int>? TaskCount { get; set; }
     /// <summary>Whether a task is running in a chat's thread (its clock pulses).</summary>
     public Func<ChatRow, bool>? TaskRunning { get; set; }
+    /// <summary>What a background chat's thread runs ("Background: python x.py · 14 min"), or null; shown under its title.</summary>
+    public Func<ChatRow, string?>? BackgroundText { get; set; }
     /// <summary>A row's clock is clicked: the thread's tasks.</summary>
     public event Action<ChatRow, FrameworkElement>? TasksClicked;
 
@@ -484,6 +486,11 @@ sealed class SessionSidebar : Border
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(titleLine);
         text.Children.Add(new TextBlock { Text = chat.Meta, Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis });
+        if (BackgroundText?.Invoke(chat) is { } background)
+        {
+            text.Children.Add(new TextBlock { Text = background, Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = background });
+            mark.Detail = background;
+        }
         Grid.SetColumn(text, 4);
         grid.Children.Add(text);
         var visual = Row(grid, chat, chat.Key + "|" + chat.Section);

@@ -234,6 +234,7 @@ sealed partial class ShellController
                 Save();
             }
             TaskActivityChanged(changed.SessionId);
+            BackgroundStatusChanged(changed.SessionId);
             foreach (var window in windows.Values) window.HostStatusChanged(changed.SessionId);
             if (changed.Notify is "done" or "waiting") Notify(changed.SessionId, changed.Notify);
             if (changed.Notify == "done") _ = SyncModelAsync(changed.SessionId);
@@ -242,7 +243,11 @@ sealed partial class ShellController
         foreach (var session in connection.Welcome.Sessions) HostSessions[session.SessionId] = session;
         try
         {
-            foreach (var listed in await services.ListSessionsAsync()) HostStatus[listed.SessionId] = listed;
+            foreach (var listed in await services.ListSessionsAsync())
+            {
+                HostStatus[listed.SessionId] = listed;
+                BackgroundStatusChanged(listed.SessionId);
+            }
         }
         catch (HostServiceException e)
         {

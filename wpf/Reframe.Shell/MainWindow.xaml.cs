@@ -180,6 +180,7 @@ public partial class MainWindow : Window
         sidebar.RowMenu += (chat, target) => ShowMenu(ListMenuOf(chat), target, chat);
         sidebar.TaskCount = chat => chat.Ref is { Kind: ListItemKind.App, SessionId: { } id } ? TaskCountOf(id) : 0;
         sidebar.TaskRunning = chat => chat.Ref is { Kind: ListItemKind.App, SessionId: { } id } && shell.TaskRunningOn(id);
+        sidebar.BackgroundText = chat => chat.Status == "background" && chat.Ref is { Kind: ListItemKind.App, SessionId: { } id } ? shell.BackgroundTextOf(id)?.Text : null;
         sidebar.TasksClicked += (chat, target) =>
         {
             if (chat.Ref.SessionId is { } id) TasksDialog.OpenFor(this, shell, id, target);
@@ -329,6 +330,13 @@ public partial class MainWindow : Window
         _ = RefreshAsync();
     }
 
+    /// <summary>What these background threads run was read again: their tiles' and rows' text.</summary>
+    public void BackgroundWorkChanged(IReadOnlyList<string> sessionIds)
+    {
+        foreach (var id in sessionIds) UpdateTileStatus(id);
+        _ = RefreshAsync();
+    }
+
     /// <summary>What the sessions use now (<c>monitor.sample</c>): each tile's meters; a tile not in it shows none.</summary>
     public void ShowUsage(IReadOnlyDictionary<string, SessionUsage> usage)
     {
@@ -414,7 +422,7 @@ public partial class MainWindow : Window
             if (openedWhileRunning.Add(id)) expanded.Add(id);
         var sections = SidebarView.Build(list with { ExpandedProjects = [.. expanded] }, Now, subagentsShown: subagentsShown);
         // The same list as shown, with the same scheduled-task clocks: nothing is built again.
-        var signature = sections.Signature() + string.Join(",", sections.Ordered().Select(r => $"{sidebar.TaskCount?.Invoke(r)}{(sidebar.TaskRunning?.Invoke(r) == true ? "r" : "")}"));
+        var signature = sections.Signature() + string.Join(",", sections.Ordered().Select(r => $"{sidebar.TaskCount?.Invoke(r)}{(sidebar.TaskRunning?.Invoke(r) == true ? "r" : "")}{sidebar.BackgroundText?.Invoke(r)}"));
         if (signature == shownSignature) return;
         shownSignature = signature;
         sidebar.Show(sections);

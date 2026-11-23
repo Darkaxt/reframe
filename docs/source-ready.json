@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "67f6b063c9a05e72ed7c7ada5953ff6e0b5d4129",
-  "scope": "Update restart only off screen; stall stacks without process snapshots; ClrMD and dispatcher hooks removed",
+  "sourceBase": "da7556460e7c887dcd243704bd4a9bfe8c72d238",
+  "scope": "Background threads say what runs and for how long",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.140.md",
-      "sha256": "38b735a67e08c73a7d0c9b192a16ff141528e36634f5f24184f4d4c7e27a51b8"
+      "file": "docs/releases/v0.11.0-claudegpt.141.md",
+      "sha256": "474559e0af6b24eb11ba5dc2827c5abdb6ba345ef5f3f8011474253881692cae"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,31 +18,43 @@
     },
     {
       "file": "package.json",
-      "sha256": "c15312be2a5efe34dc3a2f0bce3a2a212643193817a3c3681490b1e6c5a894eb"
+      "sha256": "e8eefbed1051993f09f3c0aa31087ed299745f2888a97568622ddc6f15d4cf5c"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/NativeStacksTests.cs",
-      "sha256": "58a0651af28f8ca3fa1c16d032d55a8f6b795f6f65eb211d60b0aaec7b504203"
+      "file": "wpf/Reframe.Shell.Core/BackgroundWork.cs",
+      "sha256": "fc6b289ff36339baa2e940a08e9bbe755709fe0efc9e2b92be472a9dae878670"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.Attention.cs",
-      "sha256": "52da70348444d418ac6802d16204a1b34140a9d418a08ff4aef82efad22255e4"
+      "file": "wpf/Reframe.Shell.Tests/BackgroundWorkTests.cs",
+      "sha256": "bee7888d96711b63c7b7ab3f736980e993e01dbeee190d0a254eff198646de6e"
     },
     {
-      "file": "wpf/Reframe.Shell/NativeStacks.cs",
-      "sha256": "4aca0be77c62229a41d4c46acba5a3be85dc47224e216a7e9d84352495cbb3aa"
+      "file": "wpf/Reframe.Shell/BackgroundWatch.cs",
+      "sha256": "14e0b9d793e3e94a74613a78b03bc07cc9b2b5a4d2ca92519b4b3d6263338ba9"
     },
     {
-      "file": "wpf/Reframe.Shell/Reframe.Shell.csproj",
-      "sha256": "cca848f9495bc0fefb57c5a620747835cc82a1cc837e18358863ec56b148d622"
+      "file": "wpf/Reframe.Shell/Controls.cs",
+      "sha256": "1961066b1b1eaaed7ce379621ef5dd813b03e17f1ff31dba144226a09ff0373d"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.Update.cs",
-      "sha256": "5fc0de99f05ab14cc30c0e370e7b70cbf81efb7d32954fdc0e42a9f169a9fc77"
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "72226ddecc717090fafe828a02c00e18d50e603a0b8dbe5928a4af3208754498"
     },
     {
-      "file": "wpf/Reframe.Shell/UiWatchdog.cs",
-      "sha256": "b9d23d04552612306c506b786d149ae5036b179856d30f42cb390011a101680f"
+      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
+      "sha256": "53591837e3f179aff28bcf577b01ff084c12078ea414c6d10e89f51b4e20cf53"
+    },
+    {
+      "file": "wpf/Reframe.Shell/SessionSidebar.cs",
+      "sha256": "86b2d76213beba5c0664382f09971c00a572fff32b1931cf9879f145028c0ddb"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Background.cs",
+      "sha256": "f74f1797eb411af7c515234b07ca5ad530ed9792e3f13d4e870e416b3aea6ed2"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.cs",
+      "sha256": "7c62e77f37845325e7d2e55d5c7cb66cf4790a4b8fce39a95fdee24e763decfa"
     }
   ],
   "checksNotYetRun": [
