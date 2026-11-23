@@ -6,22 +6,28 @@ using Microsoft.Diagnostics.Runtime;
 namespace Reframe.Shell;
 
 /// <summary>
-/// The stacks of this process's threads, native and managed frames together, read from a snapshot of the process (the
-/// process goes on meanwhile; the snapshot is released at once). Native frames are named by module and offset
-/// ("win32u.dll+0x1234", resolved later against the module's symbols), managed frames by type and method. The walk is
-/// DbgHelp's, with the unwind tables of this process's modules and of its JIT-compiled code.
+/// The stacks of this process's threads, native and managed frames together. Each thread's registers and stack are read
+/// as they are (GetThreadContext, ReadProcessMemory: a read that fails ends the walk, it cannot crash; a thread that
+/// waits, as a stalled one does, reads consistently), and walked by DbgHelp with the unwind tables of this process's
+/// modules and of its JIT-compiled code. Native frames are named by module and offset ("win32u.dll+0x1234", resolved
+/// later against the module's symbols), managed frames by type and method (from a snapshot of the process, ClrMD).
 /// </summary>
 public static class NativeStacks
 {
     /// <summary>Each thread's frames, innermost first (threads whose context could not be read are left out).</summary>
     public static List<(uint Thread, List<string> Frames)> Read(int maxFrames = 40)
     {
+        // The stacks first, as they are now; then the names.
+        uint[] ids;
+        using (var process = Process.GetCurrentProcess())
+            ids = process.Threads.Cast<ProcessThread>().Select(t => (uint)t.Id).ToArray();
+        var self = GetCurrentThreadId();
+        var walked = ids.Where(id => id != self).Select(id => (Id: id, Ips: Walk(id, maxFrames))).Where(t => t.Ips.Count > 0).ToList();
         using var target = DataTarget.CreateSnapshotAndAttach(Environment.ProcessId);
         using var runtime = target.ClrVersions[0].CreateRuntime();
         var modules = target.EnumerateModules()
             .Select(m => (Base: m.ImageBase, End: m.ImageBase + (ulong)m.ImageSize, Name: Path.GetFileName(m.FileName) ?? "?"))
             .ToArray();
-        var reader = target.DataReader;
         string Name(ulong ip)
         {
             if (runtime.GetMethodByInstructionPointer(ip) is { } method) return $"{method.Type?.Name}.{method.Name}";
@@ -29,32 +35,24 @@ public static class NativeStacks
                 if (ip >= start && ip < end) return $"{name}+0x{ip - start:x}";
             return $"0x{ip:x}";
         }
-        var threads = new List<(uint, List<string>)>();
-        uint[] ids;
-        using (var process = Process.GetCurrentProcess())
-            ids = process.Threads.Cast<ProcessThread>().Select(t => (uint)t.Id).ToArray();
-        var context = new byte[ContextSize];
-        foreach (var id in ids)
-        {
-            Array.Clear(context);
-            if (!reader.GetThreadContext(id, ContextFull, context)) continue;
-            var frames = Walk(context, reader, maxFrames).Select(Name).ToList();
-            if (frames.Count > 0) threads.Add((id, frames));
-        }
-        return threads;
+        return walked.Select(t => (t.Id, t.Ips.Select(Name).ToList())).ToList();
     }
 
     /// <summary>The return addresses from the context's instruction pointer outwards.</summary>
-    static List<ulong> Walk(byte[] context, IDataReader reader, int maxFrames)
+    static List<ulong> Walk(uint threadId, int maxFrames)
     {
         var ips = new List<ulong>();
+        var thread = OpenThread(ThreadGetContext | ThreadQueryInformation, false, threadId);
+        if (thread == IntPtr.Zero) return ips;
         // CONTEXT needs 16-byte alignment.
         var contextMemory = Marshal.AllocHGlobal(ContextSize + 16);
         var frame = Marshal.AllocHGlobal(FrameSize);
         try
         {
             var ctx = (IntPtr)(((long)contextMemory + 15) & ~15L);
-            Marshal.Copy(context, 0, ctx, ContextSize);
+            Marshal.Copy(new byte[ContextSize], 0, ctx, ContextSize);
+            Marshal.WriteInt32(ctx, ContextFlagsAt, (int)ContextFull);
+            if (!GetThreadContext(thread, ctx)) return ips;
             Marshal.Copy(new byte[FrameSize], 0, frame, FrameSize);
             // STACKFRAME64: AddrPC, AddrReturn, AddrFrame, AddrStack (ADDRESS64: Offset, Segment, Mode), flat addresses.
             Marshal.WriteInt64(frame, 0, Marshal.ReadInt64(ctx, RipAt));
@@ -65,10 +63,9 @@ public static class NativeStacks
             Marshal.WriteInt32(frame, 60, AddrModeFlat);
             ReadMemory read = (IntPtr _, ulong address, IntPtr buffer, uint size, out uint done) =>
             {
-                var bytes = new byte[size];
-                done = (uint)Math.Max(0, reader.Read(address, bytes));
-                Marshal.Copy(bytes, 0, buffer, (int)done);
-                return done > 0;
+                var ok = ReadProcessMemory(CurrentProcess, (IntPtr)(long)address, buffer, (IntPtr)size, out var count);
+                done = (uint)count;
+                return ok;
             };
             FunctionTableAccess table = (IntPtr _, ulong address) => RtlLookupFunctionEntry(address, out ulong _, IntPtr.Zero);
             GetModuleBase moduleBase = (IntPtr _, ulong address) =>
@@ -90,6 +87,7 @@ public static class NativeStacks
         {
             Marshal.FreeHGlobal(frame);
             Marshal.FreeHGlobal(contextMemory);
+            CloseHandle(thread);
         }
         return ips;
     }
@@ -97,6 +95,9 @@ public static class NativeStacks
     // x64 CONTEXT: 1232 bytes; CONTEXT_FULL; Rsp, Rbp and Rip offsets.
     const int ContextSize = 1232;
     const uint ContextFull = 0x0010000B;
+    const int ContextFlagsAt = 0x30;
+    const uint ThreadGetContext = 0x0008;
+    const uint ThreadQueryInformation = 0x0040;
     const int RspAt = 0x98;
     const int RbpAt = 0xA0;
     const int RipAt = 0xF8;
@@ -113,6 +114,12 @@ public static class NativeStacks
     [DllImport("dbghelp.dll")]
     static extern bool StackWalk64(uint machineType, IntPtr process, IntPtr thread, IntPtr stackFrame, IntPtr contextRecord,
         ReadMemory readMemory, FunctionTableAccess functionTableAccess, GetModuleBase getModuleBase, IntPtr translateAddress);
+
+    [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+    [DllImport("kernel32.dll")] static extern IntPtr OpenThread(uint access, bool inherit, uint threadId);
+    [DllImport("kernel32.dll")] static extern bool GetThreadContext(IntPtr thread, IntPtr context);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, IntPtr buffer, IntPtr size, out IntPtr read);
 
     [DllImport("ntdll.dll")]
     static extern IntPtr RtlLookupFunctionEntry(ulong controlPc, out ulong imageBase, IntPtr historyTable);
