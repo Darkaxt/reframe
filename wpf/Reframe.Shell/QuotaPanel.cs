@@ -29,8 +29,16 @@ sealed class QuotaPanel : Border
         AutomationProperties.SetName(this, T("quota.label"));
     }
 
+    string? shownSignature;
+
     public void Show(IReadOnlyList<ProviderQuota> shown, double now)
     {
+        // Every status line of a Claude session reports the quota: the rows are built again only when what they show
+        // (percentages, "resets in", the observed time of the tooltips) changed.
+        var signature = string.Join(";", shown.Select(q => $"{q.Source}@{RelativeTime.Exact(q.At)}:" + string.Join(",", q.Windows.Select(w =>
+            $"{w.Id}/{w.Minutes}/{Quota.Percent(w.UsedPercent)}/{(w.ResetsAt is { } at ? Quota.UntilLabel(at, now) + "/" + RelativeTime.Exact(at) : "")}"))));
+        if (signature == shownSignature) return;
+        shownSignature = signature;
         content.Children.Clear();
         Visibility = shown.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         foreach (var quota in shown)

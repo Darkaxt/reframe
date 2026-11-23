@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "6332f1aeea1684908539782dbb75096732318425",
-  "scope": "Event-driven sidebar: cached registry, no timed rebuild, changed rows only",
+  "sourceBase": "6aef79fee6f719125e85f39a03d690fc7b7efab8",
+  "scope": "Startup: one sidebar refresh per burst, reused project rows, quota rows on change; render diagnostics",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.142.md",
-      "sha256": "5febfc0647985d95908acd693f34f68da37360ac146ef4c43d56668eb902f2b8"
+      "file": "docs/releases/v0.11.0-claudegpt.143.md",
+      "sha256": "d08353291d0802a7f025220a496ae0b12456bfac264324e8f5bc08238c2ac80e"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,39 +18,27 @@
     },
     {
       "file": "package.json",
-      "sha256": "307b267568e71cb2bb9fc59ca52427cd6b2176e199f56c78940803a943e92edd"
+      "sha256": "97eff4ee1a26cbdacda6ce275a90a1b85dd1dc6fdea6968f606c83f06c3bb0a4"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/ClaudeRegistry.cs",
-      "sha256": "f8f7bbbd167a4c533ecb54cbaa34e9ca52335a9278e7e7521836b0fa75646513"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/ClaudeRegistryCache.cs",
-      "sha256": "87cfc9166246091e2b0ac54ee49d5e1e85d70c3b794007444461fcf08dae8ee6"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
-      "sha256": "788c00b0dbc1c34a52d901bbd247ff01bb6613e233e7f76a2e8ee7bcde532e46"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/SidebarTests.cs",
-      "sha256": "3e4bb95660b8ba06b6e8d1df2550be1950ba4ab086b5c619ceb58ce3fdbc4318"
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "1ee0394d328369c2342b17b4b8a7772717b9bfed68f8e9c7f3890e22b6fae78c"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "a4d898ef08384535ff5525dfc3e1b95eb9c34998c4c07ed75a466d9c13cd28da"
+      "sha256": "017d45eaa3ddc20447cff52a412b641b4312664a844788f62758d1b045fd7645"
+    },
+    {
+      "file": "wpf/Reframe.Shell/QuotaPanel.cs",
+      "sha256": "07efb5ca9fee54abd70d5154b42b05b20c1651bb279254a9b7a662f3c7bb0a5b"
     },
     {
       "file": "wpf/Reframe.Shell/SessionSidebar.cs",
-      "sha256": "712302764dc618c14cf08041de5d4b66ce507443a6d2a03a0c2e3081c0787cd6"
+      "sha256": "d43cb7b05ba00bea26138e86c642671794496ffa13ad3166a89afae57c9ca0e7"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.Foreign.cs",
-      "sha256": "1768ae087cecc1a9643db412652e0bea4c1feaf6541977d58fdd3ef045cea309"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "f0f00a7f20eb2e5ee53ac894499051a52ca0555956f78b9497d2ecfe4bc3413c"
+      "file": "wpf/Reframe.Shell/StartupTrace.cs",
+      "sha256": "de1443c0312c1c6fc2f042dbf3b9cdca84ef22bedf049640b998a4144905e66e"
     }
   ],
   "checksNotYetRun": [
