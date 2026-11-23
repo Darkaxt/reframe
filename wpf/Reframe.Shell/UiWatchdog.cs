@@ -155,9 +155,10 @@ static class UiWatchdog
     {
         try
         {
-            var threads = NativeStacks.Read();
+            var threads = NativeStacks.Read(uiThread, out var managed);
             var ui = threads.FirstOrDefault(t => t.Thread == uiThread).Frames;
-            var uiText = ui is null ? "(the UI thread was not found)" : string.Join(" <- ", ui);
+            var uiText = (ui is null ? "(the UI thread was not found)" : string.Join(" <- ", ui)) +
+                $" || managed, from the snapshot: {(managed is { Count: > 0 } ? string.Join(" <- ", managed) : "(none)")}";
             // The other threads (a long line) at most once in ten minutes.
             if (othersTakenAt != long.MinValue && Stopwatch.GetElapsedTime(othersTakenAt) < OthersEvery) return uiText;
             othersTakenAt = Stopwatch.GetTimestamp();
