@@ -314,6 +314,7 @@ public partial class MainWindow
     void EnsureTile(string sessionId)
     {
         if (tiles.ContainsKey(sessionId)) return;
+        var built = System.Diagnostics.Stopwatch.StartNew();
         var record = state.Sessions.GetValueOrDefault(sessionId);
         var label = LabelOf(sessionId);
         var cwd = record?.Cwd ?? "";
@@ -552,6 +553,7 @@ public partial class MainWindow
         ShowTaskMark(view);
         surface.Children.Add(ring);
         ring.Visibility = Visibility.Hidden;
+        if (StartupTrace.Early) System.Diagnostics.Trace.WriteLine($"ui: tile {sessionId} built in {built.ElapsedMilliseconds} ms at +{StartupTrace.Uptime.TotalSeconds:0.0}s");
     }
 
     /// <summary>.tile-overlay and its card (Tile.tsx): the session ended, or why it could not start, with Resume (Take

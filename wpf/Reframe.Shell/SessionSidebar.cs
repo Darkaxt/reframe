@@ -31,6 +31,13 @@ sealed class SessionSidebar : Border
     Dictionary<string, (string Signature, ListBoxItem Item, TextBlock Line, StatusDot Mark)> chatItems = [];
     Dictionary<string, (string Signature, ListBoxItem Item, TextBlock Line, StatusDot Mark)> reusable = [];
     readonly List<ListBox> chatLists = [];
+    // The projects' header rows as drawn (by project id), kept while they show the same.
+    Dictionary<string, (string Signature, DockPanel Header, Border Row)> projectHeaders = [];
+    Dictionary<string, (string Signature, DockPanel Header, Border Row)> reusableHeaders = [];
+
+    /// <summary>What the last <see cref="Show"/> did: rows built and reused (chat rows and project headers).</summary>
+    public (int Built, int Reused) LastShowCounts { get; private set; }
+    int built, reused;
     /// <summary>The selected chats (keys), the Shift+click anchor, and the rows in the order shown.</summary>
     List<string> selected = [];
     string? anchor;
@@ -182,6 +189,9 @@ sealed class SessionSidebar : Border
         // The shown rows' items are taken out of their lists first, so the new lists can take the unchanged ones.
         reusable = chatItems;
         chatItems = [];
+        reusableHeaders = projectHeaders;
+        projectHeaders = [];
+        built = reused = 0;
         foreach (var old in chatLists) old.Items.Clear();
         chatLists.Clear();
         rows.Clear();
@@ -212,6 +222,8 @@ sealed class SessionSidebar : Border
             });
         foreach (var distro in sections.WslStopped) content.Children.Add(WslNote(distro));
         reusable = [];
+        reusableHeaders = [];
+        LastShowCounts = (built, reused);
         UpdateSelection();
     }
 
@@ -354,8 +366,10 @@ sealed class SessionSidebar : Border
             backgroundLines[id] = (chat, kept.Line, kept.Mark);
             SetBackground(kept.Line, kept.Mark, BackgroundText?.Invoke(chat));
             chatItems[id] = kept;
+            reused++;
             return kept.Item;
         }
+        built++;
         var row = ChatVisual(chat);
         var (_, backgroundLine, statusMark) = backgroundLines[id];
         var item = new ListBoxItem { Content = row, ToolTip = chat.Tooltip };
@@ -579,6 +593,39 @@ sealed class SessionSidebar : Border
     /// <summary>A project (.sidebar-project): the folder-workspace row and its + button, then its chats when expanded.</summary>
     FrameworkElement Project(ProjectRow project)
     {
+        var panel = new StackPanel();
+        panel.Children.Add(ProjectHeader(project));
+        if (project.Expanded)
+        {
+            var chats = new Border
+            {
+                Margin = new Thickness(16, 0, 0, 0), Padding = new Thickness(6, 0, 0, 0),
+                BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1, 0, 0, 0),
+            };
+            if (project.Chats.Count > 0) chats.Child = List($"{project.Name} chats", project.Chats);
+            else chats.Child = new TextBlock { Text = "No matching chats.", Style = S("Text12"), Foreground = B("mutedBrush"), Margin = new Thickness(6, 4, 6, 4) };
+            panel.Children.Add(chats);
+        }
+        return panel;
+    }
+
+    /// <summary>The project's row and its + button: kept as drawn while it shows the same (each new element costs UI
+    /// Automation work while a client listens), with the newest record in the row's tag for its handlers.</summary>
+    DockPanel ProjectHeader(ProjectRow project)
+    {
+        var id = "project|" + project.Id;
+        var signature = string.Join("|", project.Name, project.Cwd, project.Count, project.Activity, project.StateLabel, project.Expanded, project.Current, project.Tooltip);
+        if (reusableHeaders.Remove(project.Id, out var kept) && kept.Signature == signature)
+        {
+            if (kept.Header.Parent is Panel parent) parent.Children.Remove(kept.Header);
+            kept.Row.Tag = project;
+            rows[id] = kept.Row;
+            Paint(kept.Row);
+            projectHeaders[project.Id] = kept;
+            reused++;
+            return kept.Header;
+        }
+        built++;
         var busy = project.Activity;
         var grid = new Grid();
         foreach (var w in new[] { 14.0, 8, 14, 8 }) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w) });
@@ -620,7 +667,8 @@ sealed class SessionSidebar : Border
         Grid.SetColumn(count, 6);
         grid.Children.Add(count);
 
-        var row = Row(grid, project, "project|" + project.Id);
+        var row = Row(grid, project, id);
+        ProjectRow Current() => row.Tag as ProjectRow ?? project;
         row.MinHeight = 44;
         row.ToolTip = project.Tooltip;
         Paint(row);
@@ -628,30 +676,17 @@ sealed class SessionSidebar : Border
         AutomationProperties.SetName(button, project.Name);
         AutomationProperties.SetHelpText(button, project.Tooltip);
         AutomationProperties.SetItemStatus(button, project.Expanded ? "expanded" : "collapsed");
-        button.Click += (_, _) => ProjectToggled?.Invoke(project.Id);
+        button.Click += (_, _) => ProjectToggled?.Invoke(Current().Id);
 
         var plus = new Button { Style = S("IconButton"), Content = new VectorIcon { Kind = "plus", Size = 14 }, ToolTip = $"New session in {project.Name}", Margin = new Thickness(2, 0, 0, 0) };
         AutomationProperties.SetName(plus, $"New session in {project.Name}");
-        plus.Click += (_, _) => NewSessionIn?.Invoke(project);
+        plus.Click += (_, _) => NewSessionIn?.Invoke(Current());
         var header = new DockPanel();
         DockPanel.SetDock(plus, Dock.Right);
         header.Children.Add(plus);
         header.Children.Add(button);
-
-        var panel = new StackPanel();
-        panel.Children.Add(header);
-        if (project.Expanded)
-        {
-            var chats = new Border
-            {
-                Margin = new Thickness(16, 0, 0, 0), Padding = new Thickness(6, 0, 0, 0),
-                BorderBrush = B("borderBrush"), BorderThickness = new Thickness(1, 0, 0, 0),
-            };
-            if (project.Chats.Count > 0) chats.Child = List($"{project.Name} chats", project.Chats);
-            else chats.Child = new TextBlock { Text = "No matching chats.", Style = S("Text12"), Foreground = B("mutedBrush"), Margin = new Thickness(6, 4, 6, 4) };
-            panel.Children.Add(chats);
-        }
-        return panel;
+        projectHeaders[project.Id] = (signature, header, row);
+        return header;
     }
 
     static ControlTemplate BareTemplate()

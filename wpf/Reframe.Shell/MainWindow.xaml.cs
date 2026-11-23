@@ -320,6 +320,18 @@ public partial class MainWindow : Window
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         timer.Tick += (_, _) => Render();
         timer.Start();
+        // Once, a minute in: how many elements each part holds (what UI Automation follows on every layout pass).
+        var census = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(60) };
+        census.Tick += (_, _) =>
+        {
+            census.Stop();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var total = StartupTrace.CountVisuals(this);
+            var inSidebar = StartupTrace.CountVisuals(sidebar);
+            var inOverview = StartupTrace.CountVisuals(overview);
+            System.Diagnostics.Trace.WriteLine($"ui: visuals in window {Win.Id}: {total} (sidebar {inSidebar}, overview {inOverview}, tiles and the rest {total - inSidebar - inOverview}; {tiles.Count} tiles), counted in {watch.ElapsedMilliseconds} ms");
+        };
+        census.Start();
     }
 
     void SetStatus(string text) => shell.SetStatus(text);
@@ -330,7 +342,7 @@ public partial class MainWindow : Window
     public void HostStatusChanged(string sessionId)
     {
         UpdateTileStatus(sessionId);
-        _ = RefreshAsync();
+        RequestRefresh();
     }
 
     /// <summary>What these background threads run was read again: their tiles' and rows' text.</summary>
@@ -349,7 +361,22 @@ public partial class MainWindow : Window
     }
 
     /// <summary>The state changed (this or another window, Settings): listed again.</summary>
-    public void ListChanged() => _ = RefreshAsync();
+    public void ListChanged() => RequestRefresh();
+
+    bool refreshQueued;
+
+    /// <summary>A refresh for an event: at most one waits, at Background priority, so a burst of events (each
+    /// session's status as the host connects) is listed and drawn once, after them all.</summary>
+    void RequestRefresh()
+    {
+        if (refreshQueued) return;
+        refreshQueued = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            refreshQueued = false;
+            _ = RefreshAsync();
+        }, DispatcherPriority.Background);
+    }
 
     /// <summary>sessionView's status: the host's (background: idle with background work), else ended.</summary>
     string StatusOf(string sessionId) => shell.StatusOf(sessionId);
@@ -440,7 +467,12 @@ public partial class MainWindow : Window
         var signature = sections.Signature() + string.Join(",", sections.Ordered().Select(r => $"{sidebar.TaskCount?.Invoke(r)}{(sidebar.TaskRunning?.Invoke(r) == true ? "r" : "")}"));
         if (signature == shownSignature) return;
         shownSignature = signature;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
         sidebar.Show(sections);
+        watch.Stop();
+        var (built, reused) = sidebar.LastShowCounts;
+        StartupTrace.Log($"sidebar: drawn in {watch.ElapsedMilliseconds} ms ({built} rows built, {reused} reused; {sections.Projects.Count} projects, " +
+            $"{sections.Pinned.Count} pinned, {sections.Recents.Count} recents)", watch.ElapsedMilliseconds);
     }
 
     string ChatKeyOf(string sessionId) =>
