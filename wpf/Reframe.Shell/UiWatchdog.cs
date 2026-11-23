@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Threading;
+using Microsoft.Diagnostics.Runtime;
 
 namespace Reframe.Shell;
 
@@ -9,7 +11,9 @@ namespace Reframe.Shell;
 /// asks the dispatcher every half second for an Input-priority callback (where the user's keys and clicks wait), and a
 /// callback that waited 400 ms or more is logged with how long, what the UI thread was doing (<see cref="Enter"/>),
 /// how many terminal outputs waited on the dispatcher, and whether a full garbage collection ran meanwhile. A wait of
-/// 5 seconds is logged while it lasts. One callback every half second is all it costs.
+/// 5 seconds is logged while it lasts, with the UI thread's managed stack then (read from a snapshot of the process,
+/// ClrMD; at most once in ten minutes; only method names are logged). One callback every half second is all it costs
+/// otherwise.
 /// </summary>
 static class UiWatchdog
 {
@@ -47,8 +51,16 @@ static class UiWatchdog
     /// <summary>A queued terminal output ran.</summary>
     public static void OutputRan() => Interlocked.Decrement(ref outputsQueued);
 
+    static uint uiThread;
+    static long stackTakenAt = long.MinValue;
+    static readonly TimeSpan StackEvery = TimeSpan.FromMinutes(10);
+
+    [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+
+    /// <summary>Called on the UI thread.</summary>
     public static void Start(Dispatcher dispatcher)
     {
+        uiThread = GetCurrentThreadId();
         var thread = new Thread(() => Watch(dispatcher)) { IsBackground = true, Name = "reframe ui watchdog", Priority = ThreadPriority.AboveNormal };
         thread.Start();
     }
@@ -89,6 +101,11 @@ static class UiWatchdog
                 {
                     toldStill = true;
                     Trace.WriteLine($"ui: not responding for {clock.ElapsedMilliseconds} ms so far (doing: {last}; terminal outputs waiting: {Volatile.Read(ref outputsQueued)})");
+                    if (Stopwatch.GetElapsedTime(stackTakenAt) >= StackEvery || stackTakenAt == long.MinValue)
+                    {
+                        stackTakenAt = Stopwatch.GetTimestamp();
+                        Trace.WriteLine($"ui: the UI thread's stack: {UiStack()}");
+                    }
                 }
             }
             var waited = clock.ElapsedMilliseconds;
@@ -97,6 +114,27 @@ static class UiWatchdog
             var gc = GC.CollectionCount(2) > gen2 ? "; a full garbage collection ran" : "";
             Trace.WriteLine($"ui: did not respond for {waited} ms (doing: {doing}; terminal outputs waiting at most: " +
                 $"{Volatile.Read(ref outputsPeak)}, {Volatile.Read(ref outputsDispatched) - dispatchedBefore} queued meanwhile{gc})");
+        }
+    }
+
+    /// <summary>The UI thread's managed frames, innermost first, from a snapshot of this process (the process goes on
+    /// meanwhile; the snapshot is released at once).</summary>
+    static string UiStack()
+    {
+        try
+        {
+            using var target = DataTarget.CreateSnapshotAndAttach(Environment.ProcessId);
+            using var runtime = target.ClrVersions[0].CreateRuntime();
+            var thread = runtime.Threads.FirstOrDefault(t => t.OSThreadId == uiThread);
+            if (thread is null) return "(the UI thread was not found)";
+            var frames = thread.EnumerateStackTrace().Take(40)
+                .Select(f => f.Method is { } m ? $"{m.Type?.Name}.{m.Name}" : $"[{f.FrameName ?? f.Kind.ToString()}]")
+                .ToList();
+            return frames.Count == 0 ? "(no managed frames)" : string.Join(" <- ", frames);
+        }
+        catch (Exception e)
+        {
+            return $"(not read: {e.GetType().Name}: {e.Message})";
         }
     }
 }
