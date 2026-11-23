@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "c44fc4765f0369be8f71d8168817a5627cbd5724",
+  "sourceBase": "9ce62309ea049c51310059c8b8858ebf3510c4a3",
   "scope": "terminal output batches and native UI stall stacks",
   "inputHashes": [
     {
@@ -30,7 +30,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/NativeStacks.cs",
-      "sha256": "38e5f2bc19bc59783996762387231baf4ae2892755ba28b17894b01effe1e350"
+      "sha256": "36f41fa6c5531ca9e0476d3c2b0693a576a0b196dbf6565d29c5476c5fc2aab5"
     },
     {
       "file": "wpf/Reframe.Shell/UiWatchdog.cs",
