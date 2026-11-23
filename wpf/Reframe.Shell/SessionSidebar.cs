@@ -24,6 +24,8 @@ sealed class SessionSidebar : Border
     public ProxyPanel Proxy { get; } = new();
     readonly StackPanel content = new();
     readonly Dictionary<string, Border> rows = [];
+    /// <summary>Each chat row's background line and status dot (by the row's key), updated in place.</summary>
+    readonly Dictionary<string, (ChatRow Chat, TextBlock Line, StatusDot Mark)> backgroundLines = [];
     /// <summary>The selected chats (keys), the Shift+click anchor, and the rows in the order shown.</summary>
     List<string> selected = [];
     string? anchor;
@@ -173,6 +175,7 @@ sealed class SessionSidebar : Border
         shown = sections;
         order = sections.Ordered();
         rows.Clear();
+        backgroundLines.Clear();
         content.Children.Clear();
         Heading("Pinned");
         if (sections.Pinned.Count > 0) content.Children.Add(List("Pinned", sections.Pinned));
@@ -486,17 +489,34 @@ sealed class SessionSidebar : Border
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(titleLine);
         text.Children.Add(new TextBlock { Text = chat.Meta, Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis });
-        if (BackgroundText?.Invoke(chat) is { } background)
-        {
-            text.Children.Add(new TextBlock { Text = background, Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = background });
-            mark.Detail = background;
-        }
+        // Always there (collapsed without work), so the background text can change without building the row again.
+        var line = new TextBlock { Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis };
+        text.Children.Add(line);
+        SetBackground(line, mark, BackgroundText?.Invoke(chat));
         Grid.SetColumn(text, 4);
         grid.Children.Add(text);
-        var visual = Row(grid, chat, chat.Key + "|" + chat.Section);
+        var id = chat.Key + "|" + chat.Section;
+        backgroundLines[id] = (chat, line, mark);
+        var visual = Row(grid, chat, id);
         // A subagent sits under its parent, indented.
         if (chat.Depth > 0) visual.Margin = new Thickness(16 * chat.Depth, 0, 0, 0);
         return visual;
+    }
+
+    static void SetBackground(TextBlock line, StatusDot mark, string? background)
+    {
+        if (line.Text == (background ?? "") && mark.Detail == background) return;
+        line.Text = background ?? "";
+        line.ToolTip = background;
+        line.Visibility = background is null ? Visibility.Collapsed : Visibility.Visible;
+        mark.Detail = background;
+    }
+
+    /// <summary>The background text of every shown chat row read again (<see cref="BackgroundText"/>) and set in place:
+    /// no row is built again.</summary>
+    public void UpdateBackground()
+    {
+        foreach (var (chat, line, mark) in backgroundLines.Values) SetBackground(line, mark, BackgroundText?.Invoke(chat));
     }
 
     Border Row(UIElement child, object tag, string id)
