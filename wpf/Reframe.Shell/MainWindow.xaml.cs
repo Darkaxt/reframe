@@ -314,8 +314,11 @@ public partial class MainWindow : Window
         await RefreshAsync();
         StartQuota();
         ShowProxy();
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-        timer.Tick += async (_, _) => await RefreshAsync();
+        // The list follows events (the registry's and the transcripts' changes, the host's statuses, the state, WSL,
+        // tasks); only the rows' "5m" stamps follow the clock: drawn again (changed rows only) when one would read
+        // differently, nothing read again.
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        timer.Tick += (_, _) => Render();
         timer.Start();
     }
 
@@ -334,7 +337,8 @@ public partial class MainWindow : Window
     public void BackgroundWorkChanged(IReadOnlyList<string> sessionIds)
     {
         foreach (var id in sessionIds) UpdateTileStatus(id);
-        _ = RefreshAsync();
+        // Only the text changed: set in place, the rows are not built again (a status change refreshes the list itself).
+        sidebar.UpdateBackground();
     }
 
     /// <summary>What the sessions use now (<c>monitor.sample</c>): each tile's meters; a tile not in it shows none.</summary>
@@ -350,7 +354,7 @@ public partial class MainWindow : Window
     /// <summary>sessionView's status: the host's (background: idle with background work), else ended.</summary>
     string StatusOf(string sessionId) => shell.StatusOf(sessionId);
 
-    ListSources Sources()
+    ListSources Sources(IReadOnlyList<RunningClaude>? running = null)
     {
         // A capture lists its fixture with the statuses the shell gives them (a failed start's "error" too).
         if (fixture is not null) return fixture.Sources() with { StatusOf = r => StatusOf(r.Id) };
@@ -363,7 +367,8 @@ public partial class MainWindow : Window
             State = state,
             StatusOf = r => StatusOf(r.Id),
             RunsInReframe = hostSessions.ContainsKey,
-            Running = ClaudeRegistry.Running(home),
+            // Only a list reads the running claudes (RefreshAsync, off the UI thread); a lookup needs the transcripts.
+            Running = running ?? [],
             ProviderOfProcess = shell.ProviderOfProcess,
             Transcripts = transcripts,
             Wsl = wsl,
@@ -389,7 +394,10 @@ public partial class MainWindow : Window
                 refreshAgain = false;
                 try
                 {
-                    list = await SessionListBuilder.BuildAsync(Sources(), query, SessionListBuilder.Page);
+                    // The registry comes from memory (followed as it changes, ShellController.Registry); its first
+                    // read and a new process's provider (its command line) happen off the UI thread.
+                    var running = fixture is null ? await Task.Run(() => RunningElsewhere()) : null;
+                    list = await SessionListBuilder.BuildAsync(Sources(running), query, SessionListBuilder.Page);
                 }
                 catch (HostServiceException e)
                 {
@@ -402,6 +410,13 @@ public partial class MainWindow : Window
         {
             refreshing = false;
         }
+    }
+
+    List<RunningClaude> RunningElsewhere()
+    {
+        var running = shell.Registry.Running();
+        foreach (var entry in running) shell.ProviderOfProcess(entry.Pid);
+        return running;
     }
 
     string? shownSignature;
@@ -422,7 +437,7 @@ public partial class MainWindow : Window
             if (openedWhileRunning.Add(id)) expanded.Add(id);
         var sections = SidebarView.Build(list with { ExpandedProjects = [.. expanded] }, Now, subagentsShown: subagentsShown);
         // The same list as shown, with the same scheduled-task clocks: nothing is built again.
-        var signature = sections.Signature() + string.Join(",", sections.Ordered().Select(r => $"{sidebar.TaskCount?.Invoke(r)}{(sidebar.TaskRunning?.Invoke(r) == true ? "r" : "")}{sidebar.BackgroundText?.Invoke(r)}"));
+        var signature = sections.Signature() + string.Join(",", sections.Ordered().Select(r => $"{sidebar.TaskCount?.Invoke(r)}{(sidebar.TaskRunning?.Invoke(r) == true ? "r" : "")}"));
         if (signature == shownSignature) return;
         shownSignature = signature;
         sidebar.Show(sections);

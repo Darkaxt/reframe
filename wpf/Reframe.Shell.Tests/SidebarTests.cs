@@ -268,6 +268,44 @@ public class SidebarTests
     }
 
     [Fact]
+    public async Task ARowIsKeptAsDrawnWhileWhatItShowsIsUnchanged()
+    {
+        var made = 1_800_000_000_000.0;
+        var list = await SessionListBuilder.BuildAsync(Sessions(made).Sources(), "", SessionListBuilder.Page);
+        var now = made + 30 * 60_000;
+        var row = SidebarView.Build(list, now).Ordered().First(r => r.Stamp != "");
+        var written = list with { App = [.. list.App.Select(i => i with { LastActiveAt = i.LastActiveAt + 1, ModifiedAt = i.ModifiedAt + 1 })] };
+        Assert.Equal(SidebarSections.RowSignature(row), SidebarSections.RowSignature(SidebarView.Build(written, now).Ordered().First(r => r.Key == row.Key && r.Section == row.Section)));
+        // A day later its stamp reads differently: that row is drawn again.
+        var later = SidebarView.Build(list, now + 24 * 3_600_000).Ordered().First(r => r.Key == row.Key && r.Section == row.Section);
+        Assert.NotEqual(SidebarSections.RowSignature(row), SidebarSections.RowSignature(later));
+    }
+
+    [Fact]
+    public void TheRegistryCacheFollowsItsFiles()
+    {
+        var entries = new Dictionary<string, RunningClaude>(StringComparer.OrdinalIgnoreCase);
+        var one = new RunningClaude(41, "a", @"C:\work", "one");
+        Assert.True(ClaudeRegistryCache.Apply(entries, "s/41.json", one, fileExists: true));
+        // Read again unchanged: nothing to list again.
+        Assert.False(ClaudeRegistryCache.Apply(entries, "S/41.JSON", one with { }, fileExists: true));
+        Assert.True(ClaudeRegistryCache.Apply(entries, "s/41.json", one with { Name = "renamed" }, fileExists: true));
+        Assert.Equal("renamed", entries["s/41.json"].Name);
+        // Being written (not readable yet): kept as it was.
+        Assert.False(ClaudeRegistryCache.Apply(entries, "s/41.json", null, fileExists: true));
+        Assert.Single(entries);
+        Assert.True(ClaudeRegistryCache.Apply(entries, "s/41.json", null, fileExists: false));
+        Assert.Empty(entries);
+        Assert.False(ClaudeRegistryCache.Apply(entries, "s/41.json", null, fileExists: false));
+        // Its process exited: its entries go.
+        ClaudeRegistryCache.Apply(entries, "s/41.json", one, fileExists: true);
+        ClaudeRegistryCache.Apply(entries, "s/42.json", one with { Pid = 42, SessionId = "b" }, fileExists: true);
+        Assert.True(ClaudeRegistryCache.RemovePid(entries, 41));
+        Assert.False(ClaudeRegistryCache.RemovePid(entries, 41));
+        Assert.Equal(42, Assert.Single(entries).Value.Pid);
+    }
+
+    [Fact]
     public async Task SearchingFiltersEverySection()
     {
         var now = 1_800_000_000_000.0;

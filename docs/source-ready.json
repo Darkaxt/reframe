@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "da7556460e7c887dcd243704bd4a9bfe8c72d238",
-  "scope": "Background threads say what runs and for how long",
+  "sourceBase": "6332f1aeea1684908539782dbb75096732318425",
+  "scope": "Event-driven sidebar: cached registry, no timed rebuild, changed rows only",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.141.md",
-      "sha256": "474559e0af6b24eb11ba5dc2827c5abdb6ba345ef5f3f8011474253881692cae"
+      "file": "docs/releases/v0.11.0-claudegpt.142.md",
+      "sha256": "5febfc0647985d95908acd693f34f68da37360ac146ef4c43d56668eb902f2b8"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,43 +18,39 @@
     },
     {
       "file": "package.json",
-      "sha256": "e8eefbed1051993f09f3c0aa31087ed299745f2888a97568622ddc6f15d4cf5c"
+      "sha256": "307b267568e71cb2bb9fc59ca52427cd6b2176e199f56c78940803a943e92edd"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/BackgroundWork.cs",
-      "sha256": "fc6b289ff36339baa2e940a08e9bbe755709fe0efc9e2b92be472a9dae878670"
+      "file": "wpf/Reframe.Shell.Core/ClaudeRegistry.cs",
+      "sha256": "f8f7bbbd167a4c533ecb54cbaa34e9ca52335a9278e7e7521836b0fa75646513"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/BackgroundWorkTests.cs",
-      "sha256": "bee7888d96711b63c7b7ab3f736980e993e01dbeee190d0a254eff198646de6e"
+      "file": "wpf/Reframe.Shell.Core/ClaudeRegistryCache.cs",
+      "sha256": "87cfc9166246091e2b0ac54ee49d5e1e85d70c3b794007444461fcf08dae8ee6"
     },
     {
-      "file": "wpf/Reframe.Shell/BackgroundWatch.cs",
-      "sha256": "14e0b9d793e3e94a74613a78b03bc07cc9b2b5a4d2ca92519b4b3d6263338ba9"
+      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
+      "sha256": "788c00b0dbc1c34a52d901bbd247ff01bb6613e233e7f76a2e8ee7bcde532e46"
     },
     {
-      "file": "wpf/Reframe.Shell/Controls.cs",
-      "sha256": "1961066b1b1eaaed7ce379621ef5dd813b03e17f1ff31dba144226a09ff0373d"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "72226ddecc717090fafe828a02c00e18d50e603a0b8dbe5928a4af3208754498"
+      "file": "wpf/Reframe.Shell.Tests/SidebarTests.cs",
+      "sha256": "3e4bb95660b8ba06b6e8d1df2550be1950ba4ab086b5c619ceb58ce3fdbc4318"
     },
     {
       "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "53591837e3f179aff28bcf577b01ff084c12078ea414c6d10e89f51b4e20cf53"
+      "sha256": "a4d898ef08384535ff5525dfc3e1b95eb9c34998c4c07ed75a466d9c13cd28da"
     },
     {
       "file": "wpf/Reframe.Shell/SessionSidebar.cs",
-      "sha256": "86b2d76213beba5c0664382f09971c00a572fff32b1931cf9879f145028c0ddb"
+      "sha256": "712302764dc618c14cf08041de5d4b66ce507443a6d2a03a0c2e3081c0787cd6"
     },
     {
-      "file": "wpf/Reframe.Shell/ShellController.Background.cs",
-      "sha256": "f74f1797eb411af7c515234b07ca5ad530ed9792e3f13d4e870e416b3aea6ed2"
+      "file": "wpf/Reframe.Shell/ShellController.Foreign.cs",
+      "sha256": "1768ae087cecc1a9643db412652e0bea4c1feaf6541977d58fdd3ef045cea309"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "7c62e77f37845325e7d2e55d5c7cb66cf4790a4b8fce39a95fdee24e763decfa"
+      "sha256": "f0f00a7f20eb2e5ee53ac894499051a52ca0555956f78b9497d2ecfe4bc3413c"
     }
   ],
   "checksNotYetRun": [
