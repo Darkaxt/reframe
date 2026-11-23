@@ -23,7 +23,13 @@ sealed class HostTerminalConnection : ITerminalConnection
         // (its HwndHost has no handle then).
         bool Gone() => closed || !control.IsLoaded || System.Windows.PresentationSource.FromVisual(control) is null
             || control.FindName("termContainer") is not System.Windows.Interop.HwndHost { Handle: var handle } || handle == IntPtr.Zero;
-        view.Snapshot += (data, cols, rows) => control.Dispatcher.InvokeAsync(async () =>
+        view.Snapshot += (data, cols, rows) =>
+        {
+            // Output that came before the snapshot stays before it; what comes after goes in a batch after it.
+            lock (batchGate) batch = null;
+            control.Dispatcher.InvokeAsync(() => ApplySnapshotAsync(data, cols, rows), OutputPriority);
+        };
+        async Task ApplySnapshotAsync(string data, int cols, int rows)
         {
             if (Gone()) return;
             // As reframe's renderer does: a terminal of the snapshot's size, reset, then the repaint.
@@ -35,22 +41,48 @@ sealed class HostTerminalConnection : ITerminalConnection
             // Back to the control's own size; that resize goes to the host. A hidden one (a single window's other
             // threads) keeps the snapshot's size: its stale size would shrink the session; it is fitted when shown.
             if (control.IsVisible && !Gone() && control.RenderSize is { Width: > 0, Height: > 0 }) control.TriggerResize(control.RenderSize);
-        });
+        }
+        // The output that comes while one batch waits for the UI thread joins it: one dispatch then, not one per chunk
+        // (a busy thread, or every thread at once after a restart, queued thousands, and each scrolled the terminal).
         view.Data += data =>
         {
+            System.Text.StringBuilder? queue = null;
+            lock (batchGate)
+            {
+                if (batch is null) queue = batch = new System.Text.StringBuilder();
+                batch.Append(data);
+            }
+            if (queue is null) return;
             UiWatchdog.OutputQueued();
             control.Dispatcher.InvokeAsync(() =>
             {
                 UiWatchdog.OutputRan();
+                string text;
+                lock (batchGate)
+                {
+                    if (batch == queue) batch = null;
+                    text = queue.ToString();
+                }
                 using var doing = UiWatchdog.Enter("terminal output");
-                if (!Gone()) Output(data);
-            });
+                if (!Gone()) Output(text);
+            }, OutputPriority);
         };
-        view.Exit += code => control.Dispatcher.InvokeAsync(() =>
+        view.Exit += code =>
         {
-            if (!Gone()) Output($"\r\n[the session ended with {code}]\r\n");
-        });
+            lock (batchGate) batch = null;
+            control.Dispatcher.InvokeAsync(() =>
+            {
+                if (!Gone()) Output($"\r\n[the session ended with {code}]\r\n");
+            }, OutputPriority);
+        };
     }
+
+    /// <summary>Below Input: the user's keys and clicks go first, the terminals' output after them.</summary>
+    const System.Windows.Threading.DispatcherPriority OutputPriority = System.Windows.Threading.DispatcherPriority.Background;
+
+    readonly object batchGate = new();
+    /// <summary>The output waiting for the UI thread, in one dispatch (null when none waits, or after a snapshot).</summary>
+    System.Text.StringBuilder? batch;
 
     public TerminalModes Modes { get; } = new();
 
