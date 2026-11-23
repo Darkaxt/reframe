@@ -18,18 +18,20 @@ public class SubagentTreeTests
     [Fact]
     public void Subagents_follow_their_parent_even_when_they_were_used_later()
     {
-        var rows = Nested(null, Thread("lead", "idle", 10), Thread("other", "ended", 20), Thread("w1", "busy", 30, "lead"), Thread("w2", "ended", 5, "lead"));
+        var shown = new Dictionary<string, bool> { [SidebarChats.ChatKey("c-lead")] = true };
+        var rows = Nested(shown, Thread("lead", "idle", 10), Thread("other", "ended", 20), Thread("w1", "busy", 30, "lead"), Thread("w2", "ended", 5, "lead"));
         Assert.Equal([("other", 0, 0, false), ("lead", 0, 2, true), ("w1", 1, 0, false), ("w2", 1, 0, false)], rows);
     }
 
     [Fact]
-    public void Subagents_are_hidden_by_default_once_all_have_ended_and_the_user_can_choose()
+    public void Subagents_are_hidden_by_default_even_while_they_run_and_the_user_can_choose()
     {
         var items = new[] { Thread("lead", "ended", 10), Thread("w1", "ended", 5, "lead") };
         Assert.Equal([("lead", 0, 1, false)], Nested(null, items));
         var key = SidebarChats.ChatKey("c-lead");
         Assert.Equal([("lead", 0, 1, true), ("w1", 1, 0, false)], Nested(new Dictionary<string, bool> { [key] = true }, items));
         var busy = new[] { Thread("lead", "ended", 10), Thread("w1", "busy", 5, "lead") };
+        Assert.Equal([("lead", 0, 1, false)], Nested(null, busy));
         Assert.Equal([("lead", 0, 1, false)], Nested(new Dictionary<string, bool> { [key] = false }, busy));
     }
 
@@ -46,7 +48,7 @@ public class SubagentTreeTests
         var worker = Thread("w1", "busy", 30, "lead") with { Cwd = @"D:\Workers" };
         FolderWorkspace Project(string cwd) => new() { Id = Workspaces.WorkspaceKey(cwd), Cwd = cwd, Name = cwd };
         var list = new SessionList { App = [lead, worker], FolderWorkspaces = [Project(@"D:\P"), Project(@"D:\Workers")] };
-        var sections = SidebarView.Build(list, 100);
+        var sections = SidebarView.Build(list, 100, subagentsShown: new Dictionary<string, bool> { [SidebarChats.ChatKey("c-lead")] = true });
         var main = sections.Projects.Single(p => p.Cwd == @"D:\P");
         Assert.Equal(["lead", "w1"], main.Chats.Select(c => c.Label));
         Assert.Equal([0, 1], main.Chats.Select(c => c.Depth));
@@ -58,7 +60,8 @@ public class SubagentTreeTests
     {
         var items = new List<ListItem> { Thread("lead", "idle", 100), Thread("live", "busy", 50, "lead") };
         for (var n = 0; n < 30; n++) items.Add(Thread($"done{n}", "ended", n, "lead"));
-        var rows = SidebarView.Nest(SidebarChats.Build(new SessionList { App = items }), null, limit: 20);
+        var shown = new Dictionary<string, bool> { [SidebarChats.ChatKey("c-lead")] = true };
+        var rows = SidebarView.Nest(SidebarChats.Build(new SessionList { App = items }), shown, limit: 20);
         var lead = rows.Single(r => r.Depth == 0);
         Assert.Equal((1, 30, true), (lead.Subagents, lead.Ended, lead.Shown));
         Assert.Equal(1 + SidebarView.MaxSubagentRows, rows.Count);

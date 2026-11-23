@@ -102,7 +102,8 @@ public static class SidebarView
 
     /// <summary>The chats with each subagent (a thread opened by another listed thread, <see cref="SidebarChat.ParentKey"/>)
     /// right under its parent, and no longer apart from it; a parent's subagents are hidden when <paramref name="shown"/>
-    /// says so (by default they are shown while any of them is not ended). A subagent whose parent is not in
+    /// says so (by default they are hidden, like a closed folder: the parent's count tells how many there are and how
+    /// many run, and their rows are built only once the user opens them). A subagent whose parent is not in
     /// <paramref name="chats"/> stands alone.</summary>
     public const int MaxSubagentRows = 25;
 
@@ -120,7 +121,7 @@ public static class SidebarView
             if (++roots > limit) break;
             var own = children.GetValueOrDefault(chat.Key) ?? [];
             var live = own.Count(c => c.Status != "ended");
-            var show = own.Count > 0 && (shown is not null && shown.TryGetValue(chat.Key, out var chosen) ? chosen : live > 0);
+            var show = own.Count > 0 && (shown is not null && shown.TryGetValue(chat.Key, out var chosen) && chosen);
             result.Add((chat, 0, live, own.Count - live, show));
             // Live subagents first, and no more than MaxSubagentRows rows (hundreds of rows make the list lag).
             if (show) result.AddRange(own.OrderBy(c => c.Status == "ended").Take(MaxSubagentRows).Select(c => (c, 1, 0, 0, false)));
@@ -167,14 +168,6 @@ public static class SidebarView
         {
             Archives = list.Archives, WslStopped = list.WslStopped,
         };
-    }
-
-    /// <summary>The projects (folder workspaces) with a thread running now: a fresh start opens those, and a project
-    /// whose first thread starts later, and leaves the rest closed (the saved expandedProjects are not used).</summary>
-    public static List<string> RunningProjects(SessionList list)
-    {
-        var activity = ProjectView.Activity(list.App.Select(a => (a.Cwd, a.Status)));
-        return [.. list.FolderWorkspaces.Select(p => p.Id).Where(activity.ContainsKey)];
     }
 
     /// <summary>list.wslStopped's note beside a stopped distribution.</summary>

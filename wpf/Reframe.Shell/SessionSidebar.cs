@@ -232,7 +232,8 @@ sealed class SessionSidebar : Border
     {
         var list = new StackPanel();
         AutomationProperties.SetName(list, "Archived chats");
-        foreach (var archive in archives)
+        // The rows are built only while the list is open (a closed one shows just its count).
+        foreach (var archive in archivesOpen ? archives : Array.Empty<ArchiveEntry>())
         {
             var grid = new Grid();
             foreach (var w in new[] { 16.0, 8 }) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w) });
