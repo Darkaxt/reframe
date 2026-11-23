@@ -15,7 +15,12 @@ namespace Reframe.Shell;
 public static class NativeStacks
 {
     /// <summary>Each thread's frames, innermost first (threads whose context could not be read are left out).</summary>
-    public static List<(uint Thread, List<string> Frames)> Read(int maxFrames = 40)
+    public static List<(uint Thread, List<string> Frames)> Read(int maxFrames = 40) => Read(0, out _, maxFrames);
+
+    /// <summary>As <see cref="Read(int)"/>, and the managed frames of one thread as the snapshot has them. A thread that
+    /// runs while it is walked can give a torn native stack; the snapshot's is consistent (taken while the thread was
+    /// briefly stopped), so it names what a busy thread did.</summary>
+    public static List<(uint Thread, List<string> Frames)> Read(uint managedOf, out List<string>? managed, int maxFrames = 40)
     {
         // The stacks first, as they are now; then the names.
         uint[] ids;
@@ -25,6 +30,9 @@ public static class NativeStacks
         var walked = ids.Where(id => id != self).Select(id => (Id: id, Ips: Walk(id, maxFrames))).Where(t => t.Ips.Count > 0).ToList();
         using var target = DataTarget.CreateSnapshotAndAttach(Environment.ProcessId);
         using var runtime = target.ClrVersions[0].CreateRuntime();
+        managed = runtime.Threads.FirstOrDefault(t => t.OSThreadId == managedOf)?.EnumerateStackTrace().Take(maxFrames)
+            .Select(f => f.Method is { } m ? $"{m.Type?.Name}.{m.Name}" : $"[{f.FrameName ?? f.Kind.ToString()}]")
+            .ToList();
         var modules = target.EnumerateModules()
             .Select(m => (Base: m.ImageBase, End: m.ImageBase + (ulong)m.ImageSize, Name: Path.GetFileName(m.FileName) ?? "?"))
             .ToArray();

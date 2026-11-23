@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "f8f5f5e5e7937d790365328446661c8a1e17dde1",
-  "scope": "ReadyToRun startup and stall stack sampling",
+  "sourceBase": "2c6b8fa8f8ba4c7356a336497ad175b5bcf82839",
+  "scope": "toast notifier off the UI thread, busy stall stacks, operation names",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.138.md",
-      "sha256": "e853116132565b6b3f21a5f5fc6b86466cc4ba2c970ccaaa18f735787c103d64"
+      "file": "docs/releases/v0.11.0-claudegpt.139.md",
+      "sha256": "2593b84aacccbb9b1bf7389958dd5a13b40fa036ec09101c4d1b753c2fc3f071"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,19 @@
     },
     {
       "file": "package.json",
-      "sha256": "5b0cce49c1f9a0f2ab59767931a34c55235cf9082f59a977c79c2293e9e10294"
+      "sha256": "911d7e96ba30725946d4e2d389c745e1c801e6476bcdf43ccb72b6335f89ecdf"
     },
     {
-      "file": "wpf/Reframe.Shell/Reframe.Shell.csproj",
-      "sha256": "f57bd4e6392f7000ddb1ae9b135beb7c700dc4f76d261c9941a200923fe7979c"
+      "file": "wpf/Reframe.Shell/NativeStacks.cs",
+      "sha256": "84c67fefe9d9f6ef7f6f34a64085267a7097d818714ca39c7c819ed22fac3321"
     },
     {
-      "file": "wpf/Reframe.Shell/TrayIcon.cs",
-      "sha256": "6bc66b7a2362eee8f788d01ff5198080e71e139558c6655564e437345cabe5c5"
+      "file": "wpf/Reframe.Shell/Toasts.cs",
+      "sha256": "513d380d5bf3fea46a6ccde8c77131b37901e553e411fc613b1a67287a80ccfb"
     },
     {
       "file": "wpf/Reframe.Shell/UiWatchdog.cs",
-      "sha256": "bc4641348b3df19ea5088c9d73115b5b04f102387c6899b2efe5e6723997c279"
+      "sha256": "0c4d4c8a5c531d766c7923ef14b832e8100956ae572a8dfdd0d6ab960f01e53e"
     }
   ],
   "checksNotYetRun": [

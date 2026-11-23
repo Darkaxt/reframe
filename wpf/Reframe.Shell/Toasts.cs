@@ -28,7 +28,9 @@ sealed class Toasts : IDisposable
     const uint CLSCTX_LOCAL_SERVER = 4, REGCLS_MULTIPLEUSE = 1;
 
     public string AppId { get; }
-    readonly ToastNotifier? notifier;
+    /// <summary>Made off the UI thread: CreateToastNotifier calls the notification platform (another process) and
+    /// held the UI thread up at startup.</summary>
+    readonly Task<ToastNotifier?> notifier;
     readonly Action<string> activated;
     /// <summary>NotificationKeeper: the shown toast per session, so its Activated handler lives until it is replaced.</summary>
     readonly Dictionary<string, ToastNotification> held = [];
@@ -42,12 +44,24 @@ sealed class Toasts : IDisposable
         try
         {
             SetCurrentProcessExplicitAppUserModelID(AppId);
-            notifier = ToastNotificationManager.CreateToastNotifier(AppId);
         }
         catch (Exception e)
         {
-            Trace.WriteLine($"toasts unavailable: {e.Message}");
+            Trace.WriteLine($"toasts: no app id: {e.Message}");
         }
+        var appId = AppId;
+        notifier = Task.Run<ToastNotifier?>(() =>
+        {
+            try
+            {
+                return ToastNotificationManager.CreateToastNotifier(appId);
+            }
+            catch (Exception e)
+            {
+                Trace.WriteLine($"toasts unavailable: {e.Message}");
+                return null;
+            }
+        });
         try
         {
             var clsid = Guid.Parse(Notifications.ToastActivatorClsid(AppId));
@@ -62,7 +76,13 @@ sealed class Toasts : IDisposable
     /// <summary>Shows a session's toast; a newer one for the same session replaces the older.</summary>
     public void Show(string sessionId, string title, string body)
     {
-        if (notifier is null) return;
+        // At startup, before the notifier is made: shown once it is.
+        if (!notifier.IsCompleted)
+        {
+            notifier.ContinueWith(_ => Show(sessionId, title, body), TaskScheduler.Default);
+            return;
+        }
+        if (notifier.Result is not { } shown) return;
         try
         {
             var xml = new XmlDocument();
@@ -77,7 +97,7 @@ sealed class Toasts : IDisposable
             };
             Hide(sessionId);
             lock (held) held[sessionId] = toast;
-            notifier.Show(toast);
+            shown.Show(toast);
         }
         catch (Exception e)
         {
@@ -90,7 +110,7 @@ sealed class Toasts : IDisposable
         ToastNotification? previous;
         lock (held) held.Remove(sessionId, out previous);
         if (previous is null) return;
-        try { notifier?.Hide(previous); } catch (Exception) { }
+        try { if (notifier.IsCompleted) notifier.Result?.Hide(previous); } catch (Exception) { }
     }
 
     void Release(string sessionId, ToastNotification toast)
