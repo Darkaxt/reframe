@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "195a8a424370d1807e1be4b03ed7ae8bab8b84b6",
-  "scope": "toast notifier off the UI thread, busy stall stacks",
+  "sourceBase": "2c6b8fa8f8ba4c7356a336497ad175b5bcf82839",
+  "scope": "toast notifier off the UI thread, busy stall stacks, operation names",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.139.md",
-      "sha256": "51436c08d10eddbadee547d3b5b52f3a4273870b7a1ef8b85b13392c70ea3d4b"
+      "sha256": "2593b84aacccbb9b1bf7389958dd5a13b40fa036ec09101c4d1b753c2fc3f071"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -30,7 +30,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/UiWatchdog.cs",
-      "sha256": "98b745ef07dcc78e198b9284abe3674c762db5b3baf8a9995ddfdc9fb4689920"
+      "sha256": "0c4d4c8a5c531d766c7923ef14b832e8100956ae572a8dfdd0d6ab960f01e53e"
     }
   ],
   "checksNotYetRun": [
