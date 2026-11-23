@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "307188b32f8614dd25ebc98ecd8613c0689c1ff7",
-  "scope": "UI watchdog",
+  "sourceBase": "abdcf6bbbaaf77070b931b11d6cfb48a78051f6a",
+  "scope": "UI stall stacks",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.132.md",
-      "sha256": "4507429945b4193823f740e2796fe81f0a5d94379e7670b9d64aa4226404cfb0"
+      "file": "docs/releases/v0.11.0-claudegpt.133.md",
+      "sha256": "fe8acc04b5f3ac9c67647ee22ec4b56fc799ce7c7d7a1cf641bcace9f5e18fde"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,31 +18,19 @@
     },
     {
       "file": "package.json",
-      "sha256": "708675f5b4a05cc2d70635e9e73daf36030bf4761c87f638d65f3fca76560c20"
-    },
-    {
-      "file": "wpf/Reframe.Shell/App.xaml.cs",
-      "sha256": "c9bac8c7975c6915873c7122354700b63e2444708c3e32a96b7734c1c389b576"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ChatView.cs",
-      "sha256": "e3ad39de792af3c7727e80863d84bac62c13db90688d7b6e8c7ad757f9a93b1b"
+      "sha256": "a4b7a1f6395fe7fbf3d7908a8e7117a1031e0137352a779c68c4a9133c4309c6"
     },
     {
       "file": "wpf/Reframe.Shell/HostTerminalConnection.cs",
-      "sha256": "90505b4ada2e11f6ce13e202a8ba1f715eaab4cca613df27baf4fe8f05a0146f"
+      "sha256": "ee2e2de7f1de45d2ee5ea67d0541cdb4396e9149bf0caf592b19a66b1d451c8e"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "c8ec65ae2cdbb178b524a597030ad7316151204256dddd1bb84737e6c6a2fdf5"
-    },
-    {
-      "file": "wpf/Reframe.Shell/SessionSidebar.cs",
-      "sha256": "c4a5c3695d492d7a4e04966f5707546b340f3a15b57e3769c31a1591f799dfa6"
+      "file": "wpf/Reframe.Shell/Reframe.Shell.csproj",
+      "sha256": "1da382b3b810cdd4ebef2eb933d3ad275d1b9e9408f52427ee141e19b3e9fb03"
     },
     {
       "file": "wpf/Reframe.Shell/UiWatchdog.cs",
-      "sha256": "8042461aefdcd270a763f049e204111a5ba66aaca409974d38264e185eb672cd"
+      "sha256": "0597d1b389a4c01cf4debeadf5b5bb8070ab861683ff69e589f966498bd8d985"
     }
   ],
   "checksNotYetRun": [
