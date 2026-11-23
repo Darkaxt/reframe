@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "abdcf6bbbaaf77070b931b11d6cfb48a78051f6a",
-  "scope": "UI stall stacks",
+  "sourceBase": "a946ef496c3339bad65a624d2c5bda9336329ca0",
+  "scope": "UI watchdog diagnostics",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.133.md",
-      "sha256": "fe8acc04b5f3ac9c67647ee22ec4b56fc799ce7c7d7a1cf641bcace9f5e18fde"
+      "file": "docs/releases/v0.11.0-claudegpt.134.md",
+      "sha256": "f2707eeb5b43df3d693f7407b45dbf4a1fefa53d8f3e14ab79139507ff50ddaf"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,11 @@
     },
     {
       "file": "package.json",
-      "sha256": "a4b7a1f6395fe7fbf3d7908a8e7117a1031e0137352a779c68c4a9133c4309c6"
-    },
-    {
-      "file": "wpf/Reframe.Shell/HostTerminalConnection.cs",
-      "sha256": "ee2e2de7f1de45d2ee5ea67d0541cdb4396e9149bf0caf592b19a66b1d451c8e"
-    },
-    {
-      "file": "wpf/Reframe.Shell/Reframe.Shell.csproj",
-      "sha256": "1da382b3b810cdd4ebef2eb933d3ad275d1b9e9408f52427ee141e19b3e9fb03"
+      "sha256": "0a4c55f0e904f91c24858f048a5770953059c4c4ae7b3ffa334a06df226ead4f"
     },
     {
       "file": "wpf/Reframe.Shell/UiWatchdog.cs",
-      "sha256": "0597d1b389a4c01cf4debeadf5b5bb8070ab861683ff69e589f966498bd8d985"
+      "sha256": "40f083207cfc1b6508ba9b3bb0a248899fdff161d30dabc1f0a4297bf43bd65f"
     }
   ],
   "checksNotYetRun": [
