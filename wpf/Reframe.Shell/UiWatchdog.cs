@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Threading;
@@ -8,7 +9,8 @@ namespace Reframe.Shell;
 /// <summary>
 /// Tells in main.log when the UI thread does not answer (the windows do not respond to the user): a thread of its own
 /// asks the dispatcher every half second for an Input-priority callback (where the user's keys and clicks wait), and a
-/// callback that waited 400 ms or more is logged with how long, what the UI thread was doing (<see cref="Enter"/>),
+/// callback that waited 400 ms or more is logged with how long, what the UI thread was doing (<see cref="Enter"/>, or
+/// else the dispatcher operation that ran: a timer's handlers, an async method, a delegate's method),
 /// how many terminal outputs waited on the dispatcher, and whether a full garbage collection ran meanwhile. A wait of
 /// 5 seconds is logged while it lasts. A stall's stacks are logged at 1.8, 5, 10 and 20 seconds (a stall's first at
 /// most once in 30 seconds): the UI thread's native and managed frames (<see cref="NativeStacks"/>), and, at most once
@@ -76,8 +78,57 @@ static class UiWatchdog
     {
         uiThread = GetCurrentThreadId();
         uiThreadHandle = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, false, uiThread);
+        // Every dispatcher operation names itself while it runs (labels from Enter, inside it, are more precise).
+        dispatcher.Hooks.OperationStarted += (_, e) =>
+        {
+            operationLabels.Push(activity);
+            activity = OperationName(e.Operation);
+        };
+        dispatcher.Hooks.OperationCompleted += (_, _) =>
+        {
+            if (operationLabels.TryPop(out var before)) activity = before;
+        };
         var thread = new Thread(() => Watch(dispatcher)) { IsBackground = true, Name = "reframe ui watchdog", Priority = ThreadPriority.AboveNormal };
         thread.Start();
+    }
+
+    static readonly Stack<string?> operationLabels = new();
+    static readonly Dictionary<(MethodInfo, Type?), string> operationNames = new();
+    static readonly FieldInfo? OperationMethod = typeof(DispatcherOperation).GetField("_method", BindingFlags.Instance | BindingFlags.NonPublic);
+    static readonly FieldInfo? OperationArgs = typeof(DispatcherOperation).GetField("_args", BindingFlags.Instance | BindingFlags.NonPublic);
+    static readonly FieldInfo? TimerTick = typeof(DispatcherTimer).GetField("Tick", BindingFlags.Instance | BindingFlags.NonPublic);
+
+    /// <summary>What a dispatcher operation runs: a timer's Tick handlers, an async method's continuation, or the
+    /// delegate's method (on the UI thread).</summary>
+    static string OperationName(DispatcherOperation operation)
+    {
+        try
+        {
+            if (OperationMethod?.GetValue(operation) is not Delegate method) return "an operation";
+            var args = OperationArgs?.GetValue(operation);
+            if (args is DispatcherTimer timer)
+                return TimerTick?.GetValue(timer) is Delegate tick
+                    ? "timer: " + string.Join(", ", tick.GetInvocationList().Select(h => Name(h.Method, h.Target?.GetType())))
+                    : "a timer";
+            // A posted callback (an await's continuation): what it continues.
+            if (args is Delegate inner) method = inner;
+            return Name(method.Method, method.Target?.GetType());
+        }
+        catch (Exception)
+        {
+            return "an operation";
+        }
+    }
+
+    static string Name(MethodInfo method, Type? target)
+    {
+        if (operationNames.TryGetValue((method, target), out var name)) return name;
+        // An async method's state machine box: the method.
+        if (target is { IsGenericType: true } && target.Name.Contains("AsyncStateMachineBox") && target.GetGenericArguments() is [.., var machine])
+            name = $"{machine.DeclaringType?.Name}.{machine.Name}";
+        else name = $"{method.DeclaringType?.Name}.{method.Name}";
+        operationNames[(method, target)] = name;
+        return name;
     }
 
     static void Watch(Dispatcher dispatcher)
