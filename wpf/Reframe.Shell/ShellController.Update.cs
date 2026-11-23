@@ -1,12 +1,13 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows.Threading;
 using Reframe.Shell.Core;
 
 namespace Reframe.Shell;
 
 /// <summary>Restarts the shell into a release the deploy script installed while it ran (<see cref="UpdateWatch"/>). The
-/// sessions keep running in their host; the new shell attaches to it. It waits until the user is not in a Reframe window.</summary>
+/// sessions keep running in their host; the new shell attaches to it. It waits until no Reframe window is on screen.</summary>
 sealed partial class ShellController
 {
     DispatcherTimer? updateTimer;
@@ -42,13 +43,33 @@ sealed partial class ShellController
             Announce(update, "Restart Reframe to use it.");
             return;
         }
-        if (windows.Values.Any(w => w.Attentive))
+        // A window on screen is in use, focused or not (watching output in a window beside another app is using it). Restart only
+        // when every window is hidden or minimized, or when nobody has touched the keyboard or mouse for half an hour.
+        if (windows.Values.Any(w => w.OnScreen) && InputIdle() < TimeSpan.FromMinutes(30))
         {
-            Announce(update, "Reframe restarts into it when you are not in a Reframe window.");
+            Announce(update, "Reframe restarts into it once its windows are minimized or closed to the tray, or use Reload in the tray.");
             return;
         }
         Restart(update);
     }
+
+    /// <summary>How long since the last keyboard or mouse input anywhere in the session (GetLastInputInfo).</summary>
+    static TimeSpan InputIdle()
+    {
+        var info = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
+        if (!GetLastInputInfo(ref info)) return TimeSpan.Zero;
+        return TimeSpan.FromMilliseconds(unchecked((uint)Environment.TickCount - info.dwTime));
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct LASTINPUTINFO
+    {
+        public uint cbSize;
+        public uint dwTime;
+    }
+
+    [DllImport("user32.dll")]
+    static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
 
     void Announce(InstalledUpdate update, string body)
     {
