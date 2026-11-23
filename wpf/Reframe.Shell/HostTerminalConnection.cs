@@ -25,12 +25,12 @@ sealed class HostTerminalConnection : ITerminalConnection
             || control.FindName("termContainer") is not System.Windows.Interop.HwndHost { Handle: var handle } || handle == IntPtr.Zero;
         view.Snapshot += (data, cols, rows) => control.Dispatcher.InvokeAsync(async () =>
         {
-            using var doing = UiWatchdog.Enter("a terminal's snapshot");
             if (Gone()) return;
             // As reframe's renderer does: a terminal of the snapshot's size, reset, then the repaint.
             await control.ResizeAsync((uint)rows, (uint)cols, CancellationToken.None);
             if (Gone()) return;
-            Output("\u001bc" + data);
+            // Named around what runs at once only: a scope held over an await named whatever ran meanwhile.
+            using (UiWatchdog.Enter("a terminal's snapshot")) Output("\u001bc" + data);
             Unpin(control);
             // Back to the control's own size; that resize goes to the host. A hidden one (a single window's other
             // threads) keeps the snapshot's size: its stale size would shrink the session; it is fitted when shown.
