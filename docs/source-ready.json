@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "9ce62309ea049c51310059c8b8858ebf3510c4a3",
-  "scope": "terminal output batches and native UI stall stacks",
+  "sourceBase": "49a0d6672b2850cddee5fc4433678976ff51c11c",
+  "scope": "startup stalls",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.136.md",
-      "sha256": "175649a02e6eb239a12761452142118d95b38c8cdf076b675d497cd378e60a95"
+      "file": "docs/releases/v0.11.0-claudegpt.137.md",
+      "sha256": "cf6a0862a7d3d711a2bba113c5f04d421e9551224df25578297530dda3587dc7"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,23 +18,15 @@
     },
     {
       "file": "package.json",
-      "sha256": "1a73dcbf2e6ec2c09ed63881e5a273352d88bc2a0104fb5498d27a8e8f4723e0"
+      "sha256": "9a5e7b5cf33659662b46ec3d1584a2c7b9b18a22640ebd74505807e7f56e077d"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/NativeStacksTests.cs",
-      "sha256": "4adbf27b339a89a85aad60dfc3b67a342281cbc99f03ddbfee41da13426c8454"
+      "file": "wpf/Reframe.Shell/Reframe.Shell.csproj",
+      "sha256": "f57bd4e6392f7000ddb1ae9b135beb7c700dc4f76d261c9941a200923fe7979c"
     },
     {
-      "file": "wpf/Reframe.Shell/HostTerminalConnection.cs",
-      "sha256": "6ac152e7711a21cd8971ce05075766ff556e0897ddd477014dd8716b6e77c049"
-    },
-    {
-      "file": "wpf/Reframe.Shell/NativeStacks.cs",
-      "sha256": "36f41fa6c5531ca9e0476d3c2b0693a576a0b196dbf6565d29c5476c5fc2aab5"
-    },
-    {
-      "file": "wpf/Reframe.Shell/UiWatchdog.cs",
-      "sha256": "84fd36e6dcbc30063e1c409241aee586d56d25fa4f64cf8842e38bc2d3bf9bf0"
+      "file": "wpf/Reframe.Shell/TrayIcon.cs",
+      "sha256": "6bc66b7a2362eee8f788d01ff5198080e71e139558c6655564e437345cabe5c5"
     }
   ],
   "checksNotYetRun": [
