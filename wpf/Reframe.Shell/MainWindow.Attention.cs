@@ -18,6 +18,9 @@ public partial class MainWindow
     /// <summary>isAttentive: the user is looking at this window right now.</summary>
     public bool Attentive => IsVisible && WindowState != System.Windows.WindowState.Minimized && IsActive;
 
+    /// <summary>Shown and not minimized: on screen, whether or not it has the focus.</summary>
+    public bool OnScreen => IsVisible && WindowState != System.Windows.WindowState.Minimized;
+
     /// <summary>flash: the taskbar button flashes until the window comes to the front (flashFrame(true)).</summary>
     public void Flash() => FlashFrame(FLASHW_TRAY | FLASHW_TIMERNOFG);
 

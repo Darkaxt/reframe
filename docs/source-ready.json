@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "2c6b8fa8f8ba4c7356a336497ad175b5bcf82839",
-  "scope": "toast notifier off the UI thread, busy stall stacks, operation names",
+  "sourceBase": "67f6b063c9a05e72ed7c7ada5953ff6e0b5d4129",
+  "scope": "Update restart only off screen; stall stacks without process snapshots; ClrMD and dispatcher hooks removed",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.139.md",
-      "sha256": "2593b84aacccbb9b1bf7389958dd5a13b40fa036ec09101c4d1b753c2fc3f071"
+      "file": "docs/releases/v0.11.0-claudegpt.140.md",
+      "sha256": "38b735a67e08c73a7d0c9b192a16ff141528e36634f5f24184f4d4c7e27a51b8"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,19 +18,31 @@
     },
     {
       "file": "package.json",
-      "sha256": "911d7e96ba30725946d4e2d389c745e1c801e6476bcdf43ccb72b6335f89ecdf"
+      "sha256": "c15312be2a5efe34dc3a2f0bce3a2a212643193817a3c3681490b1e6c5a894eb"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/NativeStacksTests.cs",
+      "sha256": "58a0651af28f8ca3fa1c16d032d55a8f6b795f6f65eb211d60b0aaec7b504203"
+    },
+    {
+      "file": "wpf/Reframe.Shell/MainWindow.Attention.cs",
+      "sha256": "52da70348444d418ac6802d16204a1b34140a9d418a08ff4aef82efad22255e4"
     },
     {
       "file": "wpf/Reframe.Shell/NativeStacks.cs",
-      "sha256": "84c67fefe9d9f6ef7f6f34a64085267a7097d818714ca39c7c819ed22fac3321"
+      "sha256": "4aca0be77c62229a41d4c46acba5a3be85dc47224e216a7e9d84352495cbb3aa"
     },
     {
-      "file": "wpf/Reframe.Shell/Toasts.cs",
-      "sha256": "513d380d5bf3fea46a6ccde8c77131b37901e553e411fc613b1a67287a80ccfb"
+      "file": "wpf/Reframe.Shell/Reframe.Shell.csproj",
+      "sha256": "cca848f9495bc0fefb57c5a620747835cc82a1cc837e18358863ec56b148d622"
+    },
+    {
+      "file": "wpf/Reframe.Shell/ShellController.Update.cs",
+      "sha256": "5fc0de99f05ab14cc30c0e370e7b70cbf81efb7d32954fdc0e42a9f169a9fc77"
     },
     {
       "file": "wpf/Reframe.Shell/UiWatchdog.cs",
-      "sha256": "0c4d4c8a5c531d766c7923ef14b832e8100956ae572a8dfdd0d6ab960f01e53e"
+      "sha256": "b9d23d04552612306c506b786d149ae5036b179856d30f42cb390011a101680f"
     }
   ],
   "checksNotYetRun": [

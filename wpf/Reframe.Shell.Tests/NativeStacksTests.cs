@@ -9,7 +9,7 @@ public class NativeStacksTests
     [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
 
     [Fact]
-    public void A_waiting_threads_stack_has_its_native_frames_and_the_managed_ones_that_called_them()
+    public void A_waiting_threads_stack_goes_from_the_kernel_through_the_runtime()
     {
         using var release = new ManualResetEvent(false);
         using var waiting = new ManualResetEventSlim();
@@ -27,9 +27,10 @@ public class NativeStacksTests
             Thread.Sleep(300);
             var frames = NativeStacks.Read().Single(t => t.Thread == id).Frames;
             var stack = string.Join(" <- ", frames);
-            // The wait in the kernel, through the runtime's wait, out to this test's code.
+            // The wait in the kernel, through the runtime's wait (coreclr), out to managed code.
             Assert.Contains(frames, f => f.StartsWith("ntdll.dll+", StringComparison.OrdinalIgnoreCase));
-            Assert.True(frames.Any(f => f.Contains("NativeStacksTests")), stack);
+            Assert.True(frames.Any(f => f.StartsWith("coreclr.dll+", StringComparison.OrdinalIgnoreCase)), stack);
+            Assert.True(frames.Count >= 4, stack);
         }
         finally
         {

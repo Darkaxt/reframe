@@ -1,49 +1,38 @@
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
-using Microsoft.Diagnostics.Runtime;
 
 namespace Reframe.Shell;
 
 /// <summary>
-/// The stacks of this process's threads, native and managed frames together. Each thread's registers and stack are read
-/// as they are (GetThreadContext, ReadProcessMemory: a read that fails ends the walk, it cannot crash; a thread that
-/// waits, as a stalled one does, reads consistently), and walked by DbgHelp with the unwind tables of this process's
-/// modules and of its JIT-compiled code. Native frames are named by module and offset ("win32u.dll+0x1234", resolved
-/// later against the module's symbols), managed frames by type and method (from a snapshot of the process, ClrMD).
+/// The stacks of this process's threads. Each thread's registers and stack are read as they are (GetThreadContext,
+/// ReadProcessMemory: a read that fails ends the walk, it cannot crash; nothing is suspended or copied, so taking them
+/// never stops the process), and walked by DbgHelp with the unwind tables of this process's modules and of its
+/// JIT-compiled code. Frames are named by module and offset ("win32u.dll+0x1234", resolved later against the module's
+/// symbols); JIT-compiled code by its address ("jit 0x7ff...").
 /// </summary>
 public static class NativeStacks
 {
     /// <summary>Each thread's frames, innermost first (threads whose context could not be read are left out).</summary>
-    public static List<(uint Thread, List<string> Frames)> Read(int maxFrames = 40) => Read(0, out _, maxFrames);
-
-    /// <summary>As <see cref="Read(int)"/>, and the managed frames of one thread as the snapshot has them. A thread that
-    /// runs while it is walked can give a torn native stack; the snapshot's is consistent (taken while the thread was
-    /// briefly stopped), so it names what a busy thread did.</summary>
-    public static List<(uint Thread, List<string> Frames)> Read(uint managedOf, out List<string>? managed, int maxFrames = 40)
+    public static List<(uint Thread, List<string> Frames)> Read(int maxFrames = 40)
     {
-        // The stacks first, as they are now; then the names.
         uint[] ids;
+        (ulong Base, ulong End, string Name)[] modules;
         using (var process = Process.GetCurrentProcess())
+        {
             ids = process.Threads.Cast<ProcessThread>().Select(t => (uint)t.Id).ToArray();
+            modules = process.Modules.Cast<ProcessModule>()
+                .Select(m => (Base: (ulong)(long)m.BaseAddress, End: (ulong)(long)m.BaseAddress + (ulong)m.ModuleMemorySize, Name: m.ModuleName ?? "?"))
+                .ToArray();
+        }
         var self = GetCurrentThreadId();
-        var walked = ids.Where(id => id != self).Select(id => (Id: id, Ips: Walk(id, maxFrames))).Where(t => t.Ips.Count > 0).ToList();
-        using var target = DataTarget.CreateSnapshotAndAttach(Environment.ProcessId);
-        using var runtime = target.ClrVersions[0].CreateRuntime();
-        managed = runtime.Threads.FirstOrDefault(t => t.OSThreadId == managedOf)?.EnumerateStackTrace().Take(maxFrames)
-            .Select(f => f.Method is { } m ? $"{m.Type?.Name}.{m.Name}" : $"[{f.FrameName ?? f.Kind.ToString()}]")
-            .ToList();
-        var modules = target.EnumerateModules()
-            .Select(m => (Base: m.ImageBase, End: m.ImageBase + (ulong)m.ImageSize, Name: Path.GetFileName(m.FileName) ?? "?"))
-            .ToArray();
         string Name(ulong ip)
         {
-            if (runtime.GetMethodByInstructionPointer(ip) is { } method) return $"{method.Type?.Name}.{method.Name}";
             foreach (var (start, end, name) in modules)
                 if (ip >= start && ip < end) return $"{name}+0x{ip - start:x}";
-            return $"0x{ip:x}";
+            return $"jit 0x{ip:x}";
         }
-        return walked.Select(t => (t.Id, t.Ips.Select(Name).ToList())).ToList();
+        return ids.Where(id => id != self).Select(id => (Id: id, Ips: Walk(id, maxFrames))).Where(t => t.Ips.Count > 0)
+            .Select(t => (t.Id, t.Ips.Select(Name).ToList())).ToList();
     }
 
     /// <summary>The return addresses from the context's instruction pointer outwards.</summary>
