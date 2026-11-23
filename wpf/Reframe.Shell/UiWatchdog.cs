@@ -11,8 +11,8 @@ namespace Reframe.Shell;
 /// callback that waited 400 ms or more is logged with how long, what the UI thread was doing (<see cref="Enter"/>),
 /// how many terminal outputs waited on the dispatcher, and whether a full garbage collection ran meanwhile. A wait of
 /// 5 seconds is logged while it lasts. A stall's stacks are logged at 1.8, 5, 10 and 20 seconds (a stall's first at
-/// most once in ten minutes): the UI thread's native and managed frames (<see cref="NativeStacks"/>), and those of the
-/// threads in the terminals' or graphics modules (module offsets and method names only). Each logged
+/// most once in 30 seconds): the UI thread's native and managed frames (<see cref="NativeStacks"/>), and, at most once
+/// in ten minutes, those of the threads in the terminals' or graphics modules (module offsets and method names only). Each logged
 /// wait also tells how much of it the UI thread spent running (busy, or idle waiting for messages), and whether a
 /// Normal-priority callback got through meanwhile. One callback every half second is all it costs otherwise.
 /// </summary>
@@ -57,7 +57,9 @@ static class UiWatchdog
 
     static uint uiThread;
     static long stackTakenAt = long.MinValue;
-    static readonly TimeSpan StackEvery = TimeSpan.FromMinutes(10);
+    static readonly TimeSpan StackEvery = TimeSpan.FromSeconds(30);
+    static long othersTakenAt = long.MinValue;
+    static readonly TimeSpan OthersEvery = TimeSpan.FromMinutes(10);
 
     [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
     [DllImport("kernel32.dll")] static extern IntPtr OpenThread(uint access, bool inherit, uint threadId);
@@ -122,7 +124,7 @@ static class UiWatchdog
                     toldStill = true;
                     Trace.WriteLine($"ui: not responding for {clock.ElapsedMilliseconds} ms so far (doing: {last}; terminal outputs waiting: {Volatile.Read(ref outputsQueued)})");
                 }
-                // The stall's stacks (StacksAtMs); a stall's first at most once in ten minutes.
+                // The stall's stacks (StacksAtMs); a stall's first at most once in 30 seconds.
                 var stackDue = stacks < StacksAtMs.Length && clock.ElapsedMilliseconds >= StacksAtMs[stacks] &&
                     (stacks > 0 || stackTakenAt == long.MinValue || Stopwatch.GetElapsedTime(stackTakenAt) >= StackEvery);
                 if (stackDue)
@@ -155,13 +157,16 @@ static class UiWatchdog
         {
             var threads = NativeStacks.Read();
             var ui = threads.FirstOrDefault(t => t.Thread == uiThread).Frames;
+            var uiText = ui is null ? "(the UI thread was not found)" : string.Join(" <- ", ui);
+            // The other threads (a long line) at most once in ten minutes.
+            if (othersTakenAt != long.MinValue && Stopwatch.GetElapsedTime(othersTakenAt) < OthersEvery) return uiText;
+            othersTakenAt = Stopwatch.GetTimestamp();
             var others = threads
                 .Where(t => t.Thread != uiThread && t.Frames.Any(f => GraphicsModules.Any(m => f.StartsWith(m, StringComparison.OrdinalIgnoreCase))))
                 .GroupBy(t => string.Join(" <- ", t.Frames.Take(12)))
                 .Select(g => $"{g.Count()}x: {g.Key}")
                 .Take(12);
-            return (ui is null ? "(the UI thread was not found)" : string.Join(" <- ", ui)) +
-                $" || terminal and graphics threads: {string.Join(" | ", others)}";
+            return uiText + $" || terminal and graphics threads: {string.Join(" | ", others)}";
         }
         catch (Exception e)
         {
