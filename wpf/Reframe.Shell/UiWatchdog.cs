@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Threading;
-using Microsoft.Diagnostics.Runtime;
 
 namespace Reframe.Shell;
 
@@ -11,8 +10,9 @@ namespace Reframe.Shell;
 /// asks the dispatcher every half second for an Input-priority callback (where the user's keys and clicks wait), and a
 /// callback that waited 400 ms or more is logged with how long, what the UI thread was doing (<see cref="Enter"/>),
 /// how many terminal outputs waited on the dispatcher, and whether a full garbage collection ran meanwhile. A wait of
-/// 5 seconds is logged while it lasts, with the UI thread's managed stack then (read from a snapshot of the process,
-/// ClrMD; at most once in ten minutes, with two more 5 and 15 seconds later; only method names are logged). Each logged
+/// 5 seconds is logged while it lasts. A stall's stacks are logged at 1.8, 5, 10 and 20 seconds (a stall's first at
+/// most once in ten minutes): the UI thread's native and managed frames (<see cref="NativeStacks"/>), and those of the
+/// threads in the terminals' or graphics modules (module offsets and method names only). Each logged
 /// wait also tells how much of it the UI thread spent running (busy, or idle waiting for messages), and whether a
 /// Normal-priority callback got through meanwhile. One callback every half second is all it costs otherwise.
 /// </summary>
@@ -21,6 +21,9 @@ static class UiWatchdog
     const int IntervalMs = 500;
     const int LogFromMs = 400;
     const int StillFromMs = 5000;
+    /// <summary>When a stall's stacks are taken: the first early (most stalls end within a few seconds), then while it
+    /// lasts.</summary>
+    static readonly int[] StacksAtMs = [1800, 5000, 10000, 20000];
 
     static volatile string? activity;
     static int outputsQueued;
@@ -118,16 +121,13 @@ static class UiWatchdog
                 {
                     toldStill = true;
                     Trace.WriteLine($"ui: not responding for {clock.ElapsedMilliseconds} ms so far (doing: {last}; terminal outputs waiting: {Volatile.Read(ref outputsQueued)})");
-                    if (Stopwatch.GetElapsedTime(stackTakenAt) >= StackEvery || stackTakenAt == long.MinValue)
-                    {
-                        stackTakenAt = Stopwatch.GetTimestamp();
-                        stacks = 1;
-                        Trace.WriteLine($"ui: the UI thread's stack: {UiStack()}");
-                    }
                 }
-                // Two more stacks of the same stall, 5 and 15 seconds later.
-                if (stacks is 1 or 2 && clock.ElapsedMilliseconds >= StillFromMs + (stacks == 1 ? 5000 : 15000))
+                // The stall's stacks (StacksAtMs); a stall's first at most once in ten minutes.
+                var stackDue = stacks < StacksAtMs.Length && clock.ElapsedMilliseconds >= StacksAtMs[stacks] &&
+                    (stacks > 0 || stackTakenAt == long.MinValue || Stopwatch.GetElapsedTime(stackTakenAt) >= StackEvery);
+                if (stackDue)
                 {
+                    if (stacks == 0) stackTakenAt = Stopwatch.GetTimestamp();
                     stacks++;
                     Trace.WriteLine($"ui: the UI thread's stack at {clock.ElapsedMilliseconds} ms: {UiStack()}");
                 }
@@ -145,20 +145,23 @@ static class UiWatchdog
         }
     }
 
-    /// <summary>The UI thread's managed frames, innermost first, from a snapshot of this process (the process goes on
-    /// meanwhile; the snapshot is released at once).</summary>
+    static readonly string[] GraphicsModules = ["Microsoft.Terminal.Control", "d3d11", "d3d10warp", "dxgi", "nvwgf", "nvldumd", "wpfgfx", "msctf", "dcomp"];
+
+    /// <summary>The UI thread's frames, innermost first, then the other threads that are in the terminals' or graphics
+    /// modules (identical stacks counted once), from a snapshot of this process.</summary>
     static string UiStack()
     {
         try
         {
-            using var target = DataTarget.CreateSnapshotAndAttach(Environment.ProcessId);
-            using var runtime = target.ClrVersions[0].CreateRuntime();
-            var thread = runtime.Threads.FirstOrDefault(t => t.OSThreadId == uiThread);
-            if (thread is null) return "(the UI thread was not found)";
-            var frames = thread.EnumerateStackTrace().Take(40)
-                .Select(f => f.Method is { } m ? $"{m.Type?.Name}.{m.Name}" : $"[{f.FrameName ?? f.Kind.ToString()}]")
-                .ToList();
-            return frames.Count == 0 ? "(no managed frames)" : string.Join(" <- ", frames);
+            var threads = NativeStacks.Read();
+            var ui = threads.FirstOrDefault(t => t.Thread == uiThread).Frames;
+            var others = threads
+                .Where(t => t.Thread != uiThread && t.Frames.Any(f => GraphicsModules.Any(m => f.StartsWith(m, StringComparison.OrdinalIgnoreCase))))
+                .GroupBy(t => string.Join(" <- ", t.Frames.Take(12)))
+                .Select(g => $"{g.Count()}x: {g.Key}")
+                .Take(12);
+            return (ui is null ? "(the UI thread was not found)" : string.Join(" <- ", ui)) +
+                $" || terminal and graphics threads: {string.Join(" | ", others)}";
         }
         catch (Exception e)
         {
