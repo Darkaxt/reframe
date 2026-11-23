@@ -66,11 +66,10 @@ public partial class MainWindow : Window
     Dictionary<string, HostSession> hostSessions => shell.HostSessions;
     VisualFixture? fixture { get => shell.Fixture; set => shell.Fixture = value; }
     readonly string home = ClaudeRegistry.Home();
-    /// <summary>Parents whose subagents the user showed or hid (by chat key); others show them while any is not ended.</summary>
+    /// <summary>Parents whose subagents the user showed or hid (by chat key); others keep them hidden.</summary>
     readonly Dictionary<string, bool> subagentsShown = [];
     string query = "";
     HashSet<string>? expanded;
-    readonly HashSet<string> openedWhileRunning = [];
     SessionList? list;
     bool refreshing, refreshAgain;
 
@@ -457,11 +456,9 @@ public partial class MainWindow : Window
             renderDeferred = true;
             return;
         }
-        // Projects open once, when a thread of theirs is first seen running (at start or later); the user's own
-        // toggles stand after that.
+        // Projects start closed, like folders in a tree: the header tells how many chats there are and what runs, and
+        // the chats' rows are built only when the user opens it.
         expanded ??= [];
-        foreach (var id in SidebarView.RunningProjects(list))
-            if (openedWhileRunning.Add(id)) expanded.Add(id);
         var sections = SidebarView.Build(list with { ExpandedProjects = [.. expanded] }, Now, subagentsShown: subagentsShown);
         // The same list as shown, with the same scheduled-task clocks: nothing is built again.
         var signature = sections.Signature() + string.Join(",", sections.Ordered().Select(r => $"{sidebar.TaskCount?.Invoke(r)}{(sidebar.TaskRunning?.Invoke(r) == true ? "r" : "")}"));
