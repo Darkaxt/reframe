@@ -26,6 +26,11 @@ sealed class SessionSidebar : Border
     readonly Dictionary<string, Border> rows = [];
     /// <summary>Each chat row's background line and status dot (by the row's key), updated in place.</summary>
     readonly Dictionary<string, (ChatRow Chat, TextBlock Line, StatusDot Mark)> backgroundLines = [];
+    /// <summary>Each shown chat row's item by the row's key (<c>key|section</c>) with what it shows: drawing the list
+    /// again keeps the items of rows that show the same, and builds only new or changed ones.</summary>
+    Dictionary<string, (string Signature, ListBoxItem Item, TextBlock Line, StatusDot Mark)> chatItems = [];
+    Dictionary<string, (string Signature, ListBoxItem Item, TextBlock Line, StatusDot Mark)> reusable = [];
+    readonly List<ListBox> chatLists = [];
     /// <summary>The selected chats (keys), the Shift+click anchor, and the rows in the order shown.</summary>
     List<string> selected = [];
     string? anchor;
@@ -174,6 +179,11 @@ sealed class SessionSidebar : Border
         using var doing = UiWatchdog.Enter("drawing the sidebar");
         shown = sections;
         order = sections.Ordered();
+        // The shown rows' items are taken out of their lists first, so the new lists can take the unchanged ones.
+        reusable = chatItems;
+        chatItems = [];
+        foreach (var old in chatLists) old.Items.Clear();
+        chatLists.Clear();
         rows.Clear();
         backgroundLines.Clear();
         content.Children.Clear();
@@ -201,6 +211,7 @@ sealed class SessionSidebar : Border
                 Text = archiveError, Style = S("Text13"), Foreground = B("dangerBrush"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(6, 0, 6, 6),
             });
         foreach (var distro in sections.WslStopped) content.Children.Add(WslNote(distro));
+        reusable = [];
         UpdateSelection();
     }
 
@@ -327,47 +338,63 @@ sealed class SessionSidebar : Border
         var list = new ListBox { Style = S("PlainList") };
         AutomationProperties.SetName(list, name);
         foreach (var chat in chats) list.Items.Add(Item(chat));
+        chatLists.Add(list);
         return list;
     }
 
     ListBoxItem Item(ChatRow chat)
     {
+        var id = chat.Key + "|" + chat.Section;
+        var signature = $"{SidebarSections.RowSignature(chat)}|{TaskCount?.Invoke(chat)}|{TaskRunning?.Invoke(chat)}";
+        if (reusable.Remove(id, out var kept) && kept.Signature == signature && kept.Item.Content is Border keptRow)
+        {
+            // Shows the same: kept as drawn, with the row's newest record (its handlers read it from the row).
+            keptRow.Tag = chat;
+            rows[id] = keptRow;
+            backgroundLines[id] = (chat, kept.Line, kept.Mark);
+            SetBackground(kept.Line, kept.Mark, BackgroundText?.Invoke(chat));
+            chatItems[id] = kept;
+            return kept.Item;
+        }
         var row = ChatVisual(chat);
+        var (_, backgroundLine, statusMark) = backgroundLines[id];
         var item = new ListBoxItem { Content = row, ToolTip = chat.Tooltip };
+        chatItems[id] = (signature, item, backgroundLine, statusMark);
+        ChatRow Current() => row.Tag as ChatRow ?? chat;
         AutomationProperties.SetName(item, chat.Label);
         AutomationProperties.SetHelpText(item, chat.Tooltip);
         item.PreviewMouseLeftButtonUp += (_, e) =>
         {
             if (e.OriginalSource is FrameworkElement { Tag: TasksMarkTag } mark)
             {
-                TasksClicked?.Invoke(chat, mark);
+                TasksClicked?.Invoke(Current(), mark);
                 e.Handled = true;
                 return;
             }
             if (e.OriginalSource is FrameworkElement { Tag: SubagentsTag })
             {
-                SubagentsToggled?.Invoke(chat);
+                SubagentsToggled?.Invoke(Current());
                 e.Handled = true;
                 return;
             }
-            Click(chat, Keyboard.Modifiers);
+            Click(Current(), Keyboard.Modifiers);
             e.Handled = true;
         };
         item.MouseRightButtonUp += (_, e) =>
         {
-            Menu(chat, item);
+            Menu(Current(), item);
             e.Handled = true;
         };
         item.KeyDown += (_, e) =>
         {
             if (e.Key == Key.Apps || (Keyboard.Modifiers == ModifierKeys.Shift && (e.Key == Key.F10 || e.SystemKey == Key.F10)))
             {
-                Menu(chat, item);
+                Menu(Current(), item);
                 e.Handled = true;
                 return;
             }
             if (e.Key is not (Key.Enter or Key.Space)) return;
-            Choose(chat);
+            Choose(Current());
             e.Handled = true;
         };
         return item;

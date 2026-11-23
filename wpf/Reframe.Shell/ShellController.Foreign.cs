@@ -73,6 +73,33 @@ sealed partial class ShellController
     /// <summary>The provider of a claude running outside reframe, read once per process (query-only).</summary>
     public string? ProviderOfProcess(int pid) => processProviders.GetOrAdd(pid, p => ProcessLaunch.Of(p)?.Provider);
 
+    ClaudeRegistryCache? registry;
+
+    /// <summary>Claude Code's session registry, read once and then followed as it changes (its files watched, its
+    /// processes followed to their exit): every window lists again when the claudes running change. Created on first
+    /// use (off the UI thread: its first read reads the registry).</summary>
+    public ClaudeRegistryCache Registry
+    {
+        get
+        {
+            if (Volatile.Read(ref registry) is { } existing) return existing;
+            var created = new ClaudeRegistryCache(ClaudeRegistry.Home());
+            if (Interlocked.CompareExchange(ref registry, created, null) is { } other)
+            {
+                created.Dispose();
+                return other;
+            }
+            created.Changed += () => Ui.InvokeAsync(ListChanged);
+            return created;
+        }
+    }
+
+    void StopRegistry()
+    {
+        registry?.Dispose();
+        registry = null;
+    }
+
     static Task KillTreeAsync(int pid)
     {
         try

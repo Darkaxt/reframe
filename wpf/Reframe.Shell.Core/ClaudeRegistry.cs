@@ -26,7 +26,7 @@ public static class ClaudeRegistry
         {
             if (!Directory.Exists(dir)) return result;
             foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
-                if (Read(file) is { } entry) result.Add(entry);
+                if (ReadEntry(file) is { } entry) result.Add(entry);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
@@ -36,9 +36,10 @@ public static class ClaudeRegistry
     }
 
     /// <summary>The registry's entry of process <paramref name="pid"/> as it is now (its name may have changed).</summary>
-    public static RunningClaude? Entry(string home, int pid) => Read(Path.Combine(home, "sessions", $"{pid}.json"));
+    public static RunningClaude? Entry(string home, int pid) => ReadEntry(Path.Combine(home, "sessions", $"{pid}.json"));
 
-    static RunningClaude? Read(string file)
+    /// <summary>One registry file's entry; null when it is missing, being written or not an entry.</summary>
+    public static RunningClaude? ReadEntry(string file)
     {
         try
         {

@@ -314,8 +314,11 @@ public partial class MainWindow : Window
         await RefreshAsync();
         StartQuota();
         ShowProxy();
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-        timer.Tick += async (_, _) => await RefreshAsync();
+        // The list follows events (the registry's and the transcripts' changes, the host's statuses, the state, WSL,
+        // tasks); only the rows' "5m" stamps follow the clock: drawn again (changed rows only) when one would read
+        // differently, nothing read again.
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        timer.Tick += (_, _) => Render();
         timer.Start();
     }
 
@@ -364,7 +367,8 @@ public partial class MainWindow : Window
             State = state,
             StatusOf = r => StatusOf(r.Id),
             RunsInReframe = hostSessions.ContainsKey,
-            Running = running ?? ClaudeRegistry.Running(home),
+            // Only a list reads the running claudes (RefreshAsync, off the UI thread); a lookup needs the transcripts.
+            Running = running ?? [],
             ProviderOfProcess = shell.ProviderOfProcess,
             Transcripts = transcripts,
             Wsl = wsl,
@@ -390,9 +394,9 @@ public partial class MainWindow : Window
                 refreshAgain = false;
                 try
                 {
-                    // The registry's files and its processes are read off the UI thread (every 5 s), and a new
-                    // process's provider (its command line) looked up there too.
-                    var running = fixture is null ? await Task.Run(() => RunningElsewhere(home)) : null;
+                    // The registry comes from memory (followed as it changes, ShellController.Registry); its first
+                    // read and a new process's provider (its command line) happen off the UI thread.
+                    var running = fixture is null ? await Task.Run(() => RunningElsewhere()) : null;
                     list = await SessionListBuilder.BuildAsync(Sources(running), query, SessionListBuilder.Page);
                 }
                 catch (HostServiceException e)
@@ -408,9 +412,9 @@ public partial class MainWindow : Window
         }
     }
 
-    List<RunningClaude> RunningElsewhere(string home)
+    List<RunningClaude> RunningElsewhere()
     {
-        var running = ClaudeRegistry.Running(home);
+        var running = shell.Registry.Running();
         foreach (var entry in running) shell.ProviderOfProcess(entry.Pid);
         return running;
     }

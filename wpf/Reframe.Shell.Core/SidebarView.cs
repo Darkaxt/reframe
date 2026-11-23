@@ -66,6 +66,9 @@ public sealed record SidebarSections(IReadOnlyList<ChatRow> Pinned, IReadOnlyLis
     /// <see cref="ChatRow.Stamp"/> and in their order).</summary>
     public string Signature() => JsonSerializer.Serialize(this, SignatureOptions);
 
+    /// <summary>What one row shows (<see cref="Signature"/>'s rules): a row whose signature is unchanged is kept as drawn.</summary>
+    public static string RowSignature(ChatRow row) => JsonSerializer.Serialize(row, SignatureOptions);
+
     static readonly JsonSerializerOptions SignatureOptions = new()
     {
         TypeInfoResolver = new DefaultJsonTypeInfoResolver

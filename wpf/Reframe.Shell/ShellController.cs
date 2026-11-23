@@ -503,6 +503,7 @@ sealed partial class ShellController
         updateTimer?.Stop();
         StopWatchingForeignWindows();
         StopTasks();
+        StopRegistry();
         if (Store is not null)
         {
             Store.Save(State, Synthetic);
