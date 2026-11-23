@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "49a0d6672b2850cddee5fc4433678976ff51c11c",
-  "scope": "startup stalls",
+  "sourceBase": "f8f5f5e5e7937d790365328446661c8a1e17dde1",
+  "scope": "ReadyToRun startup and stall stack sampling",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.137.md",
-      "sha256": "cf6a0862a7d3d711a2bba113c5f04d421e9551224df25578297530dda3587dc7"
+      "file": "docs/releases/v0.11.0-claudegpt.138.md",
+      "sha256": "e853116132565b6b3f21a5f5fc6b86466cc4ba2c970ccaaa18f735787c103d64"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,7 +18,7 @@
     },
     {
       "file": "package.json",
-      "sha256": "9a5e7b5cf33659662b46ec3d1584a2c7b9b18a22640ebd74505807e7f56e077d"
+      "sha256": "5b0cce49c1f9a0f2ab59767931a34c55235cf9082f59a977c79c2293e9e10294"
     },
     {
       "file": "wpf/Reframe.Shell/Reframe.Shell.csproj",
@@ -27,6 +27,10 @@
     {
       "file": "wpf/Reframe.Shell/TrayIcon.cs",
       "sha256": "6bc66b7a2362eee8f788d01ff5198080e71e139558c6655564e437345cabe5c5"
+    },
+    {
+      "file": "wpf/Reframe.Shell/UiWatchdog.cs",
+      "sha256": "bc4641348b3df19ea5088c9d73115b5b04f102387c6899b2efe5e6723997c279"
     }
   ],
   "checksNotYetRun": [
