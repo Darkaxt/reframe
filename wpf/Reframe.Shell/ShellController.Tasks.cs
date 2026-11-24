@@ -340,7 +340,7 @@ sealed partial class ShellController
                 if (StatusOf(record.Id) == "idle")
                 {
                     typedInto[record.Id] = DateTimeOffset.Now;
-                    var typed = await TypeIntoAsync(record.Id, run.Wake ?? ScheduledTasks.RunText(task));
+                    var typed = await TypeIntoAsync(record.Id, ThroughFile(record, run.Wake ?? ScheduledTasks.RunText(task)));
                     if (!typed) typedInto.Remove(record.Id);
                     Finish(run, typed, typed ? "delivered" : "could not type into its thread");
                 }
@@ -376,6 +376,28 @@ sealed partial class ShellController
         finally
         {
             run.Busy = false;
+        }
+    }
+
+    /// <summary>Where long messages for threads are kept (<see cref="LongMessages"/>).</summary>
+    public static string MessagesDir => Path.Combine(App.ProfileDir, "messages");
+
+    /// <summary>A long message goes to a file and the thread gets a line naming it (as a WSL thread reaches it); a short
+    /// one, or one whose file could not be written, is typed in as it is.</summary>
+    static string ThroughFile(SessionRecord record, string text)
+    {
+        try
+        {
+            var distro = WslPaths.Parse(record.Cwd)?.Distro;
+            Func<string, string>? reader = distro is null ? null : p => WslPaths.LinuxPathOf(p, distro, WslPaths.DefaultMountRoot) ?? p;
+            var prepared = LongMessages.Prepare(text, MessagesDir, DateTimeOffset.Now, reader);
+            if (prepared != text) TaskLog($"{record.Id}: a message of {text.Length} characters goes through a file");
+            return prepared ?? text;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            TaskLog($"{record.Id}: the long message's file was not written ({e.Message}); typed in as it is");
+            return text;
         }
     }
 
@@ -440,10 +462,29 @@ sealed partial class ShellController
                 await view.InputAsync(Broadcast.Background);
                 await System.Threading.Tasks.Task.Delay(TimeSpan.FromMilliseconds(300));
             }
+            // An idle thread shows it took the prompt by turning busy (UserPromptSubmit). A long paste into a big
+            // session can still be read in when Enter comes, and that Enter is lost: it is pressed again while the
+            // prompt waits (an Enter on an empty prompt does nothing).
+            var idle = StatusOf(sessionId) == "idle";
+            var taken = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (idle) submitWaits[sessionId] = taken;
             await view.InputAsync("\u001b[200~" + text + "\u001b[201~");
             await System.Threading.Tasks.Task.Delay(TimeSpan.FromMilliseconds(300));
             await view.InputAsync("\r");
-            return true;
+            if (!idle) return true;
+            for (var attempt = 1; ; attempt++)
+            {
+                if (await System.Threading.Tasks.Task.WhenAny(taken.Task, System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(5))) == taken.Task)
+                {
+                    if (attempt > 1) TaskLog($"typing into {sessionId}: taken after Enter number {attempt} ({text.Length} characters)");
+                    return true;
+                }
+                if (attempt == 4 || !Runs(sessionId)) break;
+                await view.InputAsync("\r");
+            }
+            if (submitWaits.GetValueOrDefault(sessionId) == taken) submitWaits.Remove(sessionId);
+            TaskLog($"typing into {sessionId}: the prompt was not taken ({text.Length} characters; still {StatusOf(sessionId)} after 4 Enters)");
+            return false;
         }
         catch (Exception e)
         {
