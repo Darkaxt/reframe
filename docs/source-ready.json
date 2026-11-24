@@ -1,8 +1,8 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "548637fcbb66292c166148f7095587544170445f",
-  "scope": "Slash commands not confirmed",
+  "sourceBase": "45e240173fcab1d66c207abfd7d20590f5728966",
+  "scope": "Slash commands not confirmed; sender told of undelivered wakes",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.148.md",
-      "sha256": "5174666996baf82e31e4514dc7a9e8bc0c04531fecebdefdf8c1e73866bc3fc0"
+      "sha256": "8d5ace8c6f8e34c265ddf26a8e37c1b8c4caae5be5c094a56ca1e39271e04192"
     },
     {
       "file": "docs/wpf-cutover.md",
