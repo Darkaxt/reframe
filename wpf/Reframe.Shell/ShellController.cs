@@ -43,6 +43,30 @@ sealed partial class ShellController
     /// <summary>What the session reported last; null before its first status line (or for agy).</summary>
     public ModelInUse? ModelInUseOf(string sessionId) => modelsInUse.GetValueOrDefault(sessionId);
 
+    /// <summary>When each session's transcript tail was read last (the status line comes often: at most every 3 s).</summary>
+    readonly Dictionary<string, long> modelReadAt = [];
+
+    /// <summary>A session's status line came: its model, and the effort its last turn ran with (the transcript's last
+    /// assistant entry, read off the UI thread; the status line leaves the effort out for some models).</summary>
+    async Task ReadModelInUseAsync(string sessionId, ModelInUse? statusLine, string? transcript)
+    {
+        ModelInUse? fromTranscript = null;
+        if (transcript is { Length: > 0 })
+        {
+            var now = Environment.TickCount64;
+            if (modelReadAt.TryGetValue(sessionId, out var at) && now - at < 3000)
+                fromTranscript = modelsInUse.GetValueOrDefault(sessionId) is { } known ? known with { Model = null } : null;
+            else
+            {
+                modelReadAt[sessionId] = now;
+                fromTranscript = await Task.Run(() => ModelBadge.ReadTail(transcript) is { } tail ? ModelBadge.FromTranscriptTail(tail) : null);
+            }
+        }
+        if (ModelBadge.Combine(statusLine, fromTranscript) is not { } shown || modelsInUse.GetValueOrDefault(sessionId) == shown) return;
+        modelsInUse[sessionId] = shown;
+        foreach (var window in windows.Values) window.ModelChanged(sessionId);
+    }
+
     IDisposable? shellLock;
     readonly Dictionary<string, MainWindow> windows = [];
     readonly Dictionary<string, long> focusedAt = [];
