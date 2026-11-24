@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "bb7f17c0840a8da77e5072dc446e360f76bc19a7",
-  "scope": "Tile model and effort",
+  "sourceBase": "7cfdbf10b6eaca99b20a165c33323b90c982e99e",
+  "scope": "Effort from transcript",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.145.md",
-      "sha256": "f61ee5852ebf7888b962d411685df3a2087e9e60105479780c872b7b8b3b126f"
+      "file": "docs/releases/v0.11.0-claudegpt.146.md",
+      "sha256": "33f47e648e7150572f4ecf6cd54e7092ee561e982bccd5fcf906d07dcfe88831"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,27 +18,23 @@
     },
     {
       "file": "package.json",
-      "sha256": "01661365b88b12181b31cf37a8b8cd89ed9adb841ad002af11a5336843ce1a3f"
+      "sha256": "e31bfc3b1d01f0db1b1571a130a743712b392b15aa89403a36a6e7ffcadb73ab"
     },
     {
       "file": "wpf/Reframe.Shell.Core/ModelBadge.cs",
-      "sha256": "f7b76dfa425aff7dead5bc03dadcd1fcfd767da1df2bf3df1c12631c1bd9e962"
+      "sha256": "ea0bf0d2ffed9cd8bc42d363383db1c868c37e7e07d04a43a42b51558cb383ee"
     },
     {
       "file": "wpf/Reframe.Shell.Tests/ModelBadgeTests.cs",
-      "sha256": "b4bbb9c5ed0cfcfef3e566f8894c0907fd55ab7770a97627e419eca92c46bbee"
-    },
-    {
-      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
-      "sha256": "5521cc7bd230b21ca79cf7d6003cc80c0682fdf984f7fe276f2d38417d6b97f8"
+      "sha256": "0adfa10e903df3ce6dcc9b2cdc1e432ca563b8c0cf6ff37a75998d6ed92c1575"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
-      "sha256": "bd664219b4bbeb3f1a566f6cfeba01ab502d5223027be00b92faf3484b989ad5"
+      "sha256": "d990bb2fbdfc9cda9a7c086ad3c60eeb21c2931693c35c1348e2fd5e2f7da0c3"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "f03906d525b98069a0c3cd69d94f0309996f8b33ec5a2b74baf8680e7e346345"
+      "sha256": "ba563d05328a9143bd14a60f0c31112a921b03f1835ffe19bc68076d00469729"
     }
   ],
   "checksNotYetRun": [
