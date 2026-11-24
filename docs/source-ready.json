@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "be261e2668d023452e0d874d10d79782e4ea9789",
-  "scope": "Wake delivery confirmed",
+  "sourceBase": "b4803e29e86cc1ecdcec72976dab739f22824f4e",
+  "scope": "Slash commands not confirmed; sender told of undelivered wakes",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.147.md",
-      "sha256": "476e3f19a50aaa7298f7c13eee52f0630f72c68ffb83517bd6e1578086248b33"
+      "file": "docs/releases/v0.11.0-claudegpt.148.md",
+      "sha256": "8d5ace8c6f8e34c265ddf26a8e37c1b8c4caae5be5c094a56ca1e39271e04192"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,23 +18,11 @@
     },
     {
       "file": "package.json",
-      "sha256": "38be6740099224322a1dc5d2fcba75c367da96372a91c237685cd0ef8b00f63b"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Core/LongMessages.cs",
-      "sha256": "140858d2f125283ef7a10264c29465973fdfe61ece239cc74ad7a4b195a75b4a"
-    },
-    {
-      "file": "wpf/Reframe.Shell.Tests/LongMessagesTests.cs",
-      "sha256": "ad64afc1b6aed3b185fe669d1a45b142615009e12e59ea709d0114e91ccdd470"
+      "sha256": "8285381df9e2b7bf433699c0a47c3e68c279f1f47dbbaf33e6d41b96be69ae55"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
-      "sha256": "de8a5bebe9d8eed05207f6369ecd2c8c522707c92d5241875fe3d4aed7f02714"
-    },
-    {
-      "file": "wpf/Reframe.Shell/ShellController.cs",
-      "sha256": "cab7f1210b5f22152751f962d25f69506058b1a90791083d7420d98a0a241d14"
+      "sha256": "ed5bcfb3ca92a69f026636eae902581ea3211012aaf31cc2199473f40f3c6543"
     }
   ],
   "checksNotYetRun": [
