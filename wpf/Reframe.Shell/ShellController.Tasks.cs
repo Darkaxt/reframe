@@ -464,8 +464,9 @@ sealed partial class ShellController
             }
             // An idle thread shows it took the prompt by turning busy (UserPromptSubmit). A long paste into a big
             // session can still be read in when Enter comes, and that Enter is lost: it is pressed again while the
-            // prompt waits (an Enter on an empty prompt does nothing).
-            var idle = StatusOf(sessionId) == "idle";
+            // prompt waits (an Enter on an empty prompt does nothing). A slash command (/rename, /model) runs in Claude
+            // Code itself and never turns the thread busy: it is not waited for.
+            var idle = StatusOf(sessionId) == "idle" && !text.StartsWith('/');
             var taken = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             if (idle) submitWaits[sessionId] = taken;
             await view.InputAsync("\u001b[200~" + text + "\u001b[201~");
