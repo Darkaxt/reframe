@@ -43,6 +43,9 @@ sealed partial class ShellController
     /// <summary>What the session reported last; null before its first status line (or for agy).</summary>
     public ModelInUse? ModelInUseOf(string sessionId) => modelsInUse.GetValueOrDefault(sessionId);
 
+    /// <summary>Typed-in prompts waiting to be taken: completed when the session's status leaves idle.</summary>
+    readonly Dictionary<string, TaskCompletionSource> submitWaits = [];
+
     /// <summary>When each session's transcript tail was read last (the status line comes often: at most every 3 s).</summary>
     readonly Dictionary<string, long> modelReadAt = [];
 
@@ -255,6 +258,8 @@ sealed partial class ShellController
         services.StatusChanged += changed => Ui.InvokeAsync(() =>
         {
             HostStatus[changed.SessionId] = changed;
+            // A prompt Reframe typed in was taken (UserPromptSubmit made the session busy).
+            if (changed.Status != "idle" && submitWaits.Remove(changed.SessionId, out var taken)) taken.TrySetResult();
             // agy names its own conversation (its SessionStart hook): the thread resumes and reads that one from now on.
             if (State.Sessions.TryGetValue(changed.SessionId, out var record) && record.Launch.Provider == "gemini"
                 && changed.ClaudeSessionId is { Length: > 0 } conversation && conversation != record.ClaudeSessionId && Writable)

@@ -440,10 +440,29 @@ sealed partial class ShellController
                 await view.InputAsync(Broadcast.Background);
                 await System.Threading.Tasks.Task.Delay(TimeSpan.FromMilliseconds(300));
             }
+            // An idle thread shows it took the prompt by turning busy (UserPromptSubmit). A long paste into a big
+            // session can still be read in when Enter comes, and that Enter is lost: it is pressed again while the
+            // prompt waits (an Enter on an empty prompt does nothing).
+            var idle = StatusOf(sessionId) == "idle";
+            var taken = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (idle) submitWaits[sessionId] = taken;
             await view.InputAsync("\u001b[200~" + text + "\u001b[201~");
             await System.Threading.Tasks.Task.Delay(TimeSpan.FromMilliseconds(300));
             await view.InputAsync("\r");
-            return true;
+            if (!idle) return true;
+            for (var attempt = 1; ; attempt++)
+            {
+                if (await System.Threading.Tasks.Task.WhenAny(taken.Task, System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(5))) == taken.Task)
+                {
+                    if (attempt > 1) TaskLog($"typing into {sessionId}: taken after Enter number {attempt} ({text.Length} characters)");
+                    return true;
+                }
+                if (attempt == 4 || !Runs(sessionId)) break;
+                await view.InputAsync("\r");
+            }
+            if (submitWaits.GetValueOrDefault(sessionId) == taken) submitWaits.Remove(sessionId);
+            TaskLog($"typing into {sessionId}: the prompt was not taken ({text.Length} characters; still {StatusOf(sessionId)} after 4 Enters)");
+            return false;
         }
         catch (Exception e)
         {
