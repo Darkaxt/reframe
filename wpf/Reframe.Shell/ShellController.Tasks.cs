@@ -22,6 +22,8 @@ sealed partial class ShellController
         public DateTimeOffset Since { get; } = since;
         public DateTimeOffset? ResumedAt { get; set; }
         public bool Busy { get; set; }
+        /// <summary>For a wake-up: the thread that sent it, told when it could not be delivered.</summary>
+        public string? AskerId { get; init; }
         /// <summary>The text to type instead of the task's prompt: a wake-up from another thread (wake_thread), which
         /// is not a saved task (nothing of it is written, only a failure is told).</summary>
         public string? Wake { get; init; }
@@ -249,7 +251,7 @@ sealed partial class ShellController
         // wake_thread answers it, whatever its provider (a Gemini thread has no SendMessage).
         var by = $"[message from the Reframe thread \"{askerName}\"; answer it with wake_thread to \"{askerName}\"]";
         var task = new ScheduledTask($"wake-{Guid.NewGuid():N}", "heartbeat", name, message, "ACTIVE", "", target.Id, "important", 0, 0, new Dictionary<string, object>());
-        var run = new PendingRun(task, DateTimeOffset.Now) { Wake = $"{by}\n{message}" };
+        var run = new PendingRun(task, DateTimeOffset.Now) { Wake = $"{by}\n{message}", AskerId = askerId };
         pendingRuns[task.Id] = run;
         TaskLog($"wake: {askerId} wakes {target.Id}");
         await AdvanceAsync(run);
@@ -409,6 +411,9 @@ sealed partial class ShellController
         {
             TaskLog($"{task.Id}: {result}");
             if (!delivered) toasts?.Show(task.TargetThreadId, $"Could not wake: {task.Name}", result);
+            // The sender is told too, so it can send again instead of waiting for an answer that cannot come.
+            if (!delivered && run.AskerId is { } asker && Runs(asker))
+                _ = TypeIntoAsync(asker, $"[Reframe: your message to \"{task.Name}\" was not delivered: {result}. Send it again with wake_thread if it is still needed.]");
             return;
         }
         var runs = ScheduledTasks.ReadRuns(TasksDir, task.Id);
