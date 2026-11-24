@@ -328,9 +328,8 @@ sealed partial class ShellController
             {
                 if (typedInto.TryGetValue(record.Id, out var typedAt))
                 {
-                    if (StatusOf(record.Id) == "idle" && DateTimeOffset.Now - typedAt < TimeSpan.FromMinutes(1)) return;
+                    if (DateTimeOffset.Now - typedAt < TimeSpan.FromMinutes(1)) return;
                     typedInto.Remove(record.Id);
-                    if (StatusOf(record.Id) != "idle") return;
                 }
                 // The user writes in the thread: the run waits (typed in, it would be sent with their half-written prompt).
                 if (InputGuard.UserOwns(record.Id))
@@ -339,7 +338,7 @@ sealed partial class ShellController
                     run.WaitedForUser = true;
                     return;
                 }
-                if (StatusOf(record.Id) == "idle")
+                if (CanTypeInNow(record))
                 {
                     typedInto[record.Id] = DateTimeOffset.Now;
                     var typed = await TypeIntoAsync(record.Id, ThroughFile(record, run.Wake ?? ScheduledTasks.RunText(task)));
@@ -402,6 +401,17 @@ sealed partial class ShellController
             return text;
         }
     }
+
+    /// <summary>Whether a message can be typed into a running thread now. An idle thread takes it. A busy Claude Code
+    /// thread (Anthropic or ChatGPT route), working or idle with background work, queues it for its next step, as when the user types while it works: most
+    /// threads are rarely idle, so it is not kept waiting, unless the user is in that thread's tile. Never while the
+    /// thread asks something (a permission or a question: typing would answer it), nor into a busy Gemini thread.</summary>
+    bool CanTypeInNow(SessionRecord record) => StatusOf(record.Id) switch
+    {
+        "idle" => true,
+        "busy" or "background" => record.Launch.Provider != "gemini" && !windows.Values.Any(w => w.IsIn(record.Id)),
+        _ => false,
+    };
 
     void Finish(PendingRun run, bool delivered, string result)
     {

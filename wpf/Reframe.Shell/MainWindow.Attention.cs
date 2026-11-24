@@ -18,6 +18,9 @@ public partial class MainWindow
     /// <summary>isAttentive: the user is looking at this window right now.</summary>
     public bool Attentive => IsVisible && WindowState != System.Windows.WindowState.Minimized && IsActive;
 
+    /// <summary>Whether the user is in this session's tile: it has the keyboard focus in this window, the active one.</summary>
+    public bool IsIn(string sessionId) => Attentive && focused == sessionId;
+
     /// <summary>Shown and not minimized: on screen, whether or not it has the focus.</summary>
     public bool OnScreen => IsVisible && WindowState != System.Windows.WindowState.Minimized;
 
