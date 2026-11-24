@@ -244,7 +244,11 @@ fn wake(arguments: &Value, resume: bool, post: &mut dyn FnMut(&[u8]) -> bool) ->
             "The message is too long; put the details in a file and point to it.",
         );
     }
-    if !post(json!({ "wake": name, "message": message, "resume": resume }).to_string().as_bytes()) {
+    if !post(
+        json!({ "wake": name, "message": message, "resume": resume })
+            .to_string()
+            .as_bytes(),
+    ) {
         return text_result(true, "Reframe's host did not take the request (is Reframe running?).");
     }
     text_result(
@@ -451,7 +455,10 @@ mod tests {
         })
         .unwrap();
         assert_eq!(result["result"]["isError"], false);
-        assert_eq!(posted, [json!({ "wake": "Navic", "message": "Carry on", "resume": true })]);
+        assert_eq!(
+            posted,
+            [json!({ "wake": "Navic", "message": "Carry on", "resume": true })]
+        );
         let bad = rpc(
             "tools/call",
             json!({ "name": "wake_thread", "arguments": { "name": "Navic" } }),
@@ -467,7 +474,10 @@ mod tests {
             json!({ "name": "Navic", "message": "Hi" }),
             json!({ "name": "Navic", "message": "Hi", "wake": true }),
         ] {
-            let call = rpc("tools/call", json!({ "name": "message_thread", "arguments": arguments }));
+            let call = rpc(
+                "tools/call",
+                json!({ "name": "message_thread", "arguments": arguments }),
+            );
             let result = answer(&call, None, &mut |body| {
                 posted.push(serde_json::from_slice::<Value>(body).unwrap());
                 true
@@ -501,7 +511,10 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("schedule_task"));
-        assert!(init["result"]["instructions"].as_str().unwrap().contains("message_thread"));
+        assert!(init["result"]["instructions"]
+            .as_str()
+            .unwrap()
+            .contains("message_thread"));
         // Messaging other threads is told without a tasks folder too.
         let bare = answer(&rpc("initialize", json!({})), None, &mut never).unwrap();
         assert_eq!(bare["result"]["instructions"], MESSAGING);
