@@ -22,7 +22,7 @@ public class LongMessagesTests
         var dir = TempDir();
         try
         {
-            var text = "[message from the Reframe thread \"eBook Backend\"; answer it with wake_thread to \"eBook Backend\"]\n" + new string('x', 4000);
+            var text = "[message from the Reframe thread \"eBook Backend\"; answer it with message_thread to \"eBook Backend\"]\n" + new string('x', 4000);
             var line = LongMessages.Prepare(text, dir, DateTimeOffset.Now)!;
             var file = Assert.Single(Directory.GetFiles(dir));
             Assert.Equal(text, File.ReadAllText(file));

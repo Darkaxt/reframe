@@ -3,7 +3,7 @@
 //! spawn_plan). Its one tool, `open_thread`, asks reframe to open another thread (a session of its own, in a tile the
 //! user sees and can take over), on OpenAI or Claude, with a first prompt: it posts the request to the host's hook
 //! server as the session's `OpenThread` event, and the attached reframe creates the thread as its New session dialog
-//! would. The two threads then talk with wake_thread, whatever their providers (SendMessage, tagged with each one's
+//! would. The two threads then talk with message_thread, whatever their providers (SendMessage, tagged with each one's
 //! provider and model by msgtag.rs, reaches only Claude sessions).
 
 use std::io::{BufRead, Write};
@@ -76,14 +76,18 @@ fn answer(message: &Value, tasks: Option<&Tasks>, post: &mut dyn FnMut(&[u8]) ->
         }
         "ping" => json!({}),
         "tools/list" => {
-            let mut tools = vec![tool(), wake_tool(), close_tool()];
+            let mut tools = vec![tool(), message_tool(), wake_tool(), close_tool()];
             if tasks.is_some() {
                 tools.extend(tasks::tools());
             }
             json!({ "tools": tools })
         }
         "tools/call" if message["params"]["name"] == "open_thread" => call(&message["params"]["arguments"], post),
-        "tools/call" if message["params"]["name"] == "wake_thread" => wake(&message["params"]["arguments"], post),
+        "tools/call" if message["params"]["name"] == "message_thread" => {
+            let arguments = &message["params"]["arguments"];
+            wake(arguments, arguments["wake"].as_bool().unwrap_or(false), post)
+        }
+        "tools/call" if message["params"]["name"] == "wake_thread" => wake(&message["params"]["arguments"], true, post),
         "tools/call" if message["params"]["name"] == "close_thread" => close(&message["params"]["arguments"], post),
         "tools/call" => match (tasks, message["params"]["name"].as_str()) {
             (Some(tasks), Some(name)) if tasks::NAMES.contains(&name) => {
@@ -107,12 +111,12 @@ fn tool() -> Value {
         "name": "open_thread",
         "description": "Open another Reframe thread: a separate Claude Code session in a tile of its own that the user \
             sees and can take over, running on the provider you choose, OpenAI, Claude or Gemini. It starts with your prompt, told which \
-            thread opened it. Once it runs, talk to it with wake_thread to its name (whatever its provider; SendMessage \
+            thread opened it. Once it runs, talk to it with message_thread to its name (whatever its provider; SendMessage \
             reaches only Claude sessions). Use it to hand work to an OpenAI model, or to get a second opinion.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "name": { "type": "string", "description": "The new thread's name, which wake_thread reaches it by." },
+                "name": { "type": "string", "description": "The new thread's name, which message_thread reaches it by." },
                 "prompt": { "type": "string", "description": "Its first prompt: the task, with what it needs to know." },
                 "provider": { "type": "string", "enum": ["openai", "claude", "gemini"], "description": "Which models the new thread runs on: openai, claude or gemini (Google's, through the Antigravity CLI). Always chosen, never assumed." },
                 "folder": { "type": "string", "description": "An absolute folder to work in; this thread's folder by default." },
@@ -177,20 +181,41 @@ fn call(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
     )
 }
 
-/// Part of the server's guide: messaging other threads. Without it threads took wake_thread for ended threads only and
-/// told the user they could not reach a running one (a Gemini thread has no SendMessage).
+/// Part of the server's guide: messaging other threads. Without it threads told the user they could not reach a
+/// running one (a Gemini thread has no SendMessage).
 const MESSAGING: &str = "To give another Reframe thread a message (Claude, ChatGPT or Gemini, running or ended), use \
-    wake_thread with its name. A message starting with \"[message from the Reframe thread ...]\" came that way: answer \
-    with wake_thread to that name when an answer is wanted.";
+    message_thread with its name; an ended thread gets it when it next starts, or now with wake: true. A message \
+    starting with \"[message from the Reframe thread ...]\" came that way: answer with message_thread to that name \
+    when an answer is wanted.";
+
+fn message_tool() -> Value {
+    json!({
+        "name": "message_thread",
+        "description": "Send a message to another Reframe thread, by the name Reframe shows: a Claude, ChatGPT or \
+            Gemini thread, running or ended (any provider; SendMessage reaches only Claude sessions). A running thread \
+            gets it at once (a working Claude thread queues it, as when the user types while it works), unless the user \
+            is in that thread's tile or writing in it, or it asks a permission or a question; a busy Gemini thread gets \
+            it when idle. An ended thread is not started: it gets the message when it next runs (the user's Resume, a \
+            task, a wake), unless wake is true, which resumes it now (its own conversation, as the user's Resume does). \
+            The message is marked with your thread's name, so it can answer with message_thread too. If no thread has \
+            that name, Reframe tells you in a message.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string", "description": "The name of the thread, as Reframe shows it." },
+                "message": { "type": "string", "description": "What it should do or know: stand-alone, as it does not know why you write." },
+                "wake": { "type": "boolean", "description": "Resume the thread now if it has ended. False by default: it gets the message when it next starts." },
+            },
+            "required": ["name", "message"],
+        },
+    })
+}
 
 fn wake_tool() -> Value {
     json!({
         "name": "wake_thread",
-        "description": "Send a message to another Reframe thread, by the name Reframe shows: a Claude, ChatGPT or \
-            Gemini thread, running or ended (any provider; SendMessage reaches only Claude sessions). Reframe types the \
-            message in once the thread is idle, resuming an ended thread first (its own conversation, as the user's \
-            Resume does). The message is marked with your thread's name, so it can answer with wake_thread too. If no \
-            thread has that name, Reframe tells you in a message.",
+        "description": "The same as message_thread with wake: true (its older name): an ended thread is resumed to get \
+            the message.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -202,7 +227,7 @@ fn wake_tool() -> Value {
     })
 }
 
-fn wake(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
+fn wake(arguments: &Value, resume: bool, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
     let text = |key: &str| {
         arguments
             .get(key)
@@ -219,14 +244,19 @@ fn wake(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
             "The message is too long; put the details in a file and point to it.",
         );
     }
-    if !post(json!({ "wake": name, "message": message }).to_string().as_bytes()) {
+    if !post(json!({ "wake": name, "message": message, "resume": resume }).to_string().as_bytes()) {
         return text_result(true, "Reframe's host did not take the request (is Reframe running?).");
     }
     text_result(
         false,
         &format!(
-            "Reframe was asked to give the thread \"{name}\" your message. It types it in once the thread is idle (an \
-             ended thread is resumed first, which takes a minute). If no thread has that name, a message tells you."
+            "Reframe was asked to give the thread \"{name}\" your message. A running thread gets it now; {} If no \
+             thread has that name, a message tells you.",
+            if resume {
+                "an ended one is resumed first, which takes a minute."
+            } else {
+                "an ended one is not started but gets it when it next runs (a message tells you)."
+            }
         ),
     )
 }
@@ -236,7 +266,7 @@ fn close_tool() -> Value {
         "name": "close_thread",
         "description": "Shut down another Reframe thread (for example one you opened with open_thread) when its work is done. \
             action \"end\" (the default) stops its Claude session and closes its tile; the thread stays in Reframe's list, \
-            ended, and wake_thread or the user's Resume brings it back. action \"archive\" ends it and then archives its \
+            ended, and message_thread with wake: true or the user's Resume brings it back. action \"archive\" ends it and then archives its \
             conversation to a verified ZIP, and action \"delete\" ends it and deletes it for good; both ask the user to confirm in \
             Reframe's window first, unless you opened the thread yourself with open_thread (then they just happen), and delete \
             is refused for any thread you did not open. Not for the thread you run in. Give several threads in names to close them all in one request: they are \
@@ -421,13 +451,37 @@ mod tests {
         })
         .unwrap();
         assert_eq!(result["result"]["isError"], false);
-        assert_eq!(posted, [json!({ "wake": "Navic", "message": "Carry on" })]);
+        assert_eq!(posted, [json!({ "wake": "Navic", "message": "Carry on", "resume": true })]);
         let bad = rpc(
             "tools/call",
             json!({ "name": "wake_thread", "arguments": { "name": "Navic" } }),
         );
         assert_eq!(answer(&bad, None, &mut |_| true).unwrap()["result"]["isError"], true);
         assert_eq!(answer(&call, None, &mut |_| false).unwrap()["result"]["isError"], true);
+    }
+
+    #[test]
+    fn messages_a_thread_waking_it_only_when_asked() {
+        let mut posted = Vec::new();
+        for arguments in [
+            json!({ "name": "Navic", "message": "Hi" }),
+            json!({ "name": "Navic", "message": "Hi", "wake": true }),
+        ] {
+            let call = rpc("tools/call", json!({ "name": "message_thread", "arguments": arguments }));
+            let result = answer(&call, None, &mut |body| {
+                posted.push(serde_json::from_slice::<Value>(body).unwrap());
+                true
+            })
+            .unwrap();
+            assert_eq!(result["result"]["isError"], false);
+        }
+        assert_eq!(
+            posted,
+            [
+                json!({ "wake": "Navic", "message": "Hi", "resume": false }),
+                json!({ "wake": "Navic", "message": "Hi", "resume": true }),
+            ]
+        );
     }
 
     #[test]
@@ -447,12 +501,12 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("schedule_task"));
-        assert!(init["result"]["instructions"].as_str().unwrap().contains("wake_thread"));
+        assert!(init["result"]["instructions"].as_str().unwrap().contains("message_thread"));
         // Messaging other threads is told without a tasks folder too.
         let bare = answer(&rpc("initialize", json!({})), None, &mut never).unwrap();
         assert_eq!(bare["result"]["instructions"], MESSAGING);
         let list = answer(&rpc("tools/list", json!({})), Some(&tasks), &mut never).unwrap();
-        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 7);
+        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 8);
         let call = rpc(
             "tools/call",
             json!({ "name": "schedule_task", "arguments": { "name": "Daily", "prompt": "p", "rrule": "FREQ=DAILY" } }),

@@ -229,7 +229,7 @@ public static partial class NewSession
         var openerName = (string.IsNullOrWhiteSpace(opener.Name) ? opener.ClaudeName : opener.Name)?.Trim();
         var by = string.IsNullOrEmpty(openerName)
             ? $"[opened by a Reframe thread on {family}]"
-            : $"[opened by the Reframe thread \"{openerName}\" on {family}; answer it with wake_thread to \"{openerName}\"]";
+            : $"[opened by the Reframe thread \"{openerName}\" on {family}; answer it with message_thread to \"{openerName}\"]";
         var effort = (Text("reasoning_effort") ?? Text("effort")) is { } asked && EffortLevels.Contains(asked) ? asked : null;
         // What the asking thread did not choose is the defaults', and follows them.
         List<string> follows = ["permissionMode"];

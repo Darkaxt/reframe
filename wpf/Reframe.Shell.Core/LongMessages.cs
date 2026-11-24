@@ -1,6 +1,6 @@
 namespace Reframe.Shell.Core;
 
-/// <summary>A long message for a thread (wake_thread, a handed-off job, a task's prompt) is put in a file and the
+/// <summary>A long message for a thread (message_thread, a handed-off job, a task's prompt) is put in a file and the
 /// thread is given a short line pointing at it: a long paste into a big session can lose the Enter that sends it.</summary>
 public static class LongMessages
 {
