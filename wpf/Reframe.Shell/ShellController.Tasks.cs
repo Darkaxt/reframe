@@ -453,11 +453,12 @@ sealed partial class ShellController
     /// broadcast, the chat view's) do not.</summary>
     async Task<bool> TypeIntoAsync(string sessionId, string text, bool interrupt = false, bool queued = true)
     {
-        if (Connection is not { IsOpen: true, IsObserver: false } connection) return false;
+        // The host that runs the thread: an older host keeps the threads it ran before Reframe was updated.
+        if (ConnectionOf(sessionId) is not { IsOpen: true, IsObserver: false } connection) return false;
         if (queued && InputGuard.UserOwns(sessionId)) TaskLog($"typing into {sessionId} waits: the user is writing in it");
         // The user's own typing into this thread waits until the message is in.
         using var hold = queued ? await InputGuard.TakeAsync(sessionId) : InputGuard.Hold(sessionId);
-        if (Connection is not { IsOpen: true, IsObserver: false } || !Runs(sessionId)) return false;
+        if (!connection.IsOpen || !Runs(sessionId)) return false;
         var view = connection.CreateView(sessionId);
         try
         {
