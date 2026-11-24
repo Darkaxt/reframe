@@ -27,6 +27,8 @@ sealed class TileView
     /// <summary>What a background thread runs ("Background: python x.py · 14 min"), after the title; hidden otherwise.</summary>
     public required TextBlock Background { get; init; }
     public required TextBlock Cwd { get; init; }
+    /// <summary>The model and reasoning effort after the title (a pill holding a TextBlock); hidden when unknown.</summary>
+    public required Border Model { get; init; }
     public required VectorIcon ZoomIcon { get; init; }
     public required Button Zoom { get; init; }
     /// <summary>The CPU, GPU and RAM meters of the header (shown once the host tells what the session uses).</summary>
@@ -383,6 +385,14 @@ public partial class MainWindow
             TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, ToolTip = "Double-click to rename",
         };
         Left(title);
+        // The model and reasoning effort ("Opus 5.5 · high effort"): a low effort stands out.
+        var model = new Border
+        {
+            CornerRadius = new CornerRadius(4), Padding = new Thickness(6, 0, 6, 1), VerticalAlignment = VerticalAlignment.Center,
+            Background = B("surfaceBrush"), Visibility = Visibility.Collapsed,
+            Child = new TextBlock { Style = S("Text12"), TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 260 },
+        };
+        Left(model, 8);
         var background = new TextBlock
         {
             Style = S("Text12"), Foreground = B("mutedBrush"), TextTrimming = TextTrimming.CharacterEllipsis,
@@ -516,9 +526,10 @@ public partial class MainWindow
         {
             SessionId = sessionId, Ring = ring, Frame = frame, Head = head, Dot = dot, Label = title, Background = background, Cwd = cwdText,
             ZoomIcon = zoomIcon, Zoom = zoomButton, Meters = meters, Tasks = tasksButton, Control = control, Terminal = terminal, Behaviour = behaviour,
-            SetChat = setChat,
+            SetChat = setChat, Model = model,
         };
         ShowBackground(background, dot, sessionId);
+        ShowModel(model, sessionId);
         // Files (and images from a browser) dropped on the tile are typed in as their paths, as in reframe.
         if (behaviour is not null)
         {
@@ -636,6 +647,28 @@ public partial class MainWindow
         }
         foreach (var dot in dockItems.Children.OfType<FrameworkElement>().Where(d => d.Tag as string == sessionId))
             if (dot is Border { Child: StackPanel panel } && panel.Children[0] is StatusDot s) s.Status = StatusOf(sessionId);
+    }
+
+    /// <summary>The session's model and effort in its tile header: what it reported last, else its launch choice.</summary>
+    void ShowModel(Border pill, string sessionId)
+    {
+        var launch = state.Sessions.GetValueOrDefault(sessionId)?.Launch;
+        var text = (TextBlock)pill.Child;
+        if (ModelBadge.Describe(shell.ModelInUseOf(sessionId), launch?.Model, launch?.Effort) is { } shown)
+        {
+            text.Text = shown.Text;
+            text.Foreground = B(shown.Low ? "warnBrush" : "mutedBrush");
+            pill.ToolTip = shown.Tooltip;
+            AutomationProperties.SetName(pill, shown.Text);
+            pill.Visibility = Visibility.Visible;
+        }
+        else pill.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>A session reported another model or effort (its status line), or its process ended.</summary>
+    public void ModelChanged(string sessionId)
+    {
+        if (tiles.TryGetValue(sessionId, out var view)) ShowModel(view.Model, sessionId);
     }
 
     /// <summary>A background thread's work in its tile header (text and the dot's tooltip); hidden otherwise.</summary>

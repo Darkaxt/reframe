@@ -37,6 +37,12 @@ sealed partial class ShellController
     /// <summary>The status lines changed what <see cref="Quotas"/> shows.</summary>
     public event Action? QuotaChanged;
 
+    /// <summary>The model and effort each running Claude Code thread reported last (its status line), by session id.</summary>
+    readonly Dictionary<string, ModelInUse> modelsInUse = [];
+
+    /// <summary>What the session reported last; null before its first status line (or for agy).</summary>
+    public ModelInUse? ModelInUseOf(string sessionId) => modelsInUse.GetValueOrDefault(sessionId);
+
     IDisposable? shellLock;
     readonly Dictionary<string, MainWindow> windows = [];
     readonly Dictionary<string, long> focusedAt = [];

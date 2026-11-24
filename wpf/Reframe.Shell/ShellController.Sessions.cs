@@ -63,10 +63,19 @@ sealed partial class ShellController
                 _ = HandOffAsync(handed);
                 return;
             }
-            // The status line input of reframe's Anthropic sessions: its rate_limits are the Claude quota.
-            if (message["message"] is JsonObject hook && (string?)hook["event"] == "StatusLine"
-                && Quotas.ApplyStatusLine(hook["payload"]?["rate_limits"], DateTimeOffset.Now.ToUnixTimeMilliseconds()))
-                QuotaChanged?.Invoke();
+            // The status line input of reframe's Claude Code sessions: its rate_limits are the Claude quota, and its
+            // model and effort what the thread's tile header shows.
+            if (message["message"] is JsonObject hook && (string?)hook["event"] == "StatusLine")
+            {
+                if (Quotas.ApplyStatusLine(hook["payload"]?["rate_limits"], DateTimeOffset.Now.ToUnixTimeMilliseconds()))
+                    QuotaChanged?.Invoke();
+                if ((string?)hook["sessionId"] is { Length: > 0 } sessionId && ModelBadge.FromStatusLine(hook["payload"]) is { } now
+                    && modelsInUse.GetValueOrDefault(sessionId) != now)
+                {
+                    modelsInUse[sessionId] = now;
+                    foreach (var window in windows.Values) window.ModelChanged(sessionId);
+                }
+            }
             return;
         }
         if ((string?)message["sessionId"] is not { } id || (int?)message["instance"] is not { } instance) return;
@@ -83,8 +92,9 @@ sealed partial class ShellController
                 break;
             case "exit":
                 endedAt[id] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                // A new process starts with an empty prompt.
+                // A new process starts with an empty prompt, and with its launch model and effort until it reports.
                 InputGuard.Forget(id);
+                if (modelsInUse.Remove(id)) foreach (var window in windows.Values) window.ModelChanged(id);
                 break;
             default:
                 return;

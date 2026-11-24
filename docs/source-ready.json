@@ -1,16 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "873de2fc10eaf2f3a352cf3e74eabb72745be1b0",
-  "scope": "Sidebar collapsed by default",
+  "sourceBase": "bb7f17c0840a8da77e5072dc446e360f76bc19a7",
+  "scope": "Tile model and effort",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
     },
     {
-      "file": "docs/releases/v0.11.0-claudegpt.144.md",
-      "sha256": "6abfc98849f96508551df56f3b462803a9e2b7154033d38c93a67bd06d71db14"
+      "file": "docs/releases/v0.11.0-claudegpt.145.md",
+      "sha256": "f61ee5852ebf7888b962d411685df3a2087e9e60105479780c872b7b8b3b126f"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -18,27 +18,27 @@
     },
     {
       "file": "package.json",
-      "sha256": "5187e83eb99c87289f56ab986e7c2405124ec0b4a641237a5c442e79492506db"
+      "sha256": "01661365b88b12181b31cf37a8b8cd89ed9adb841ad002af11a5336843ce1a3f"
     },
     {
-      "file": "wpf/Reframe.Shell.Core/SidebarView.cs",
-      "sha256": "c7d20e8dbbb8793c3483cd886993f06a2c71a5341b2977ef75cc5258bd49e21b"
+      "file": "wpf/Reframe.Shell.Core/ModelBadge.cs",
+      "sha256": "f7b76dfa425aff7dead5bc03dadcd1fcfd767da1df2bf3df1c12631c1bd9e962"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/SidebarTests.cs",
-      "sha256": "62706a0ac5ed286e55e12c8f3462ccc1cc425120a66de3d13fd12c5ce9a72c1b"
+      "file": "wpf/Reframe.Shell.Tests/ModelBadgeTests.cs",
+      "sha256": "b4bbb9c5ed0cfcfef3e566f8894c0907fd55ab7770a97627e419eca92c46bbee"
     },
     {
-      "file": "wpf/Reframe.Shell.Tests/SubagentTreeTests.cs",
-      "sha256": "6663e9afe6c794acec3c22a175f9c56eaaf08f64eca85afa8f16b9295dac00b9"
+      "file": "wpf/Reframe.Shell/MainWindow.Layout.cs",
+      "sha256": "5521cc7bd230b21ca79cf7d6003cc80c0682fdf984f7fe276f2d38417d6b97f8"
     },
     {
-      "file": "wpf/Reframe.Shell/MainWindow.xaml.cs",
-      "sha256": "5a31ab997399088e9362560ff2a4b177cdc2c2868af275dc2f2723cffed8c150"
+      "file": "wpf/Reframe.Shell/ShellController.Sessions.cs",
+      "sha256": "bd664219b4bbeb3f1a566f6cfeba01ab502d5223027be00b92faf3484b989ad5"
     },
     {
-      "file": "wpf/Reframe.Shell/SessionSidebar.cs",
-      "sha256": "1adddf3dbec69e081b39219221d05e8c27a7084bcdc05fd053610b1f74120284"
+      "file": "wpf/Reframe.Shell/ShellController.cs",
+      "sha256": "f03906d525b98069a0c3cd69d94f0309996f8b33ec5a2b74baf8680e7e346345"
     }
   ],
   "checksNotYetRun": [
