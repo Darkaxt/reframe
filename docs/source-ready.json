@@ -1,12 +1,16 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "7e0b12edf325f47ad59da93b04db0ec341b2b2cc",
+  "sourceBase": "09e029e41b6dfe432d7ecc164c2b65b75e3e5c43",
   "scope": "Type into the thread's own host",
   "inputHashes": [
     {
       "file": "docs/ptyhost-protocol.md",
       "sha256": "1ee73d12368c6cf2ac13fb469b4210577ed7f13afa46087e9d3df9bf2c7c9f64"
+    },
+    {
+      "file": "docs/releases/v0.11.0-claudegpt.149.md",
+      "sha256": "1fe655e5e49b61751a7d6645c5f2a3020ee609bb337d2a7ebf93b6dc6c94603d"
     },
     {
       "file": "docs/wpf-cutover.md",
