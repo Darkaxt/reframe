@@ -24,9 +24,12 @@ sealed partial class ShellController
         public bool Busy { get; set; }
         /// <summary>For a wake-up: the thread that sent it, told when it could not be delivered.</summary>
         public string? AskerId { get; init; }
-        /// <summary>The text to type instead of the task's prompt: a wake-up from another thread (wake_thread), which
+        /// <summary>The text to type instead of the task's prompt: a wake-up from another thread (message_thread), which
         /// is not a saved task (nothing of it is written, only a failure is told).</summary>
         public string? Wake { get; init; }
+        /// <summary>A message_thread message without wake: held again instead of resuming its thread, should the thread
+        /// end before it is typed in.</summary>
+        public HeldMessage? HoldIfEnded { get; init; }
         /// <summary>The log told it waits for the user's unsent prompt.</summary>
         public bool WaitedForUser { get; set; }
     }
@@ -41,6 +44,10 @@ sealed partial class ShellController
     FileSystemWatcher? taskWatcher;
 
     public static string TasksDir => Path.Combine(App.ProfileDir, "tasks");
+    static string HeldFile => Path.Combine(MessagesDir, "held.json");
+    /// <summary>Messages for ended threads (HeldMessages), loaded at the first use; the shell alone writes the file.</summary>
+    List<HeldMessage>? held;
+    List<HeldMessage> Held => held ??= HeldMessages.Load(HeldFile);
     public IReadOnlyList<ScheduledTask> ScheduledTasksList => tasks;
     public bool IsRunPending(string taskId) => pendingRuns.ContainsKey(taskId);
 
@@ -166,6 +173,7 @@ sealed partial class ShellController
             if (ScheduledTasks.NextDue(task, runs) is not { } due || due > now) continue;
             Take(task, runs, now, $"due {due:yyyy-MM-dd HH:mm:ss}");
         }
+        DeliverHeld(now);
         foreach (var run in pendingRuns.Values.Where(r => !r.Busy).ToList()) _ = AdvanceAsync(run);
         SyncNames();
     }
@@ -231,8 +239,10 @@ sealed partial class ShellController
         TasksChanged?.Invoke();
     }
 
-    /// <summary>A thread asked to wake another by name (its <c>wake_thread</c> tool): the message is delivered like a
-    /// task's run (waiting for idle, resuming an ended thread); an unknown or ambiguous name is told to the asker.</summary>
+    /// <summary>A thread messaged another by name (its <c>message_thread</c> or <c>wake_thread</c> tool): the message is
+    /// delivered like a task's run (waiting until it can be typed in, resuming an ended thread); without "resume"
+    /// (message_thread's wake false) an ended thread is not resumed: the message is held until it next runs. An older
+    /// host posts no "resume": it wakes. An unknown or ambiguous name is told to the asker.</summary>
     async Task WakeThreadAsync(JsonObject hook)
     {
         var askerId = (string?)hook["sessionId"];
@@ -248,13 +258,73 @@ sealed partial class ShellController
             return;
         }
         var target = matches[0];
-        // wake_thread answers it, whatever its provider (a Gemini thread has no SendMessage).
-        var by = $"[message from the Reframe thread \"{askerName}\"; answer it with wake_thread to \"{askerName}\"]";
-        var task = new ScheduledTask($"wake-{Guid.NewGuid():N}", "heartbeat", name, message, "ACTIVE", "", target.Id, "important", 0, 0, new Dictionary<string, object>());
-        var run = new PendingRun(task, DateTimeOffset.Now) { Wake = $"{by}\n{message}", AskerId = askerId };
-        pendingRuns[task.Id] = run;
-        TaskLog($"wake: {askerId} wakes {target.Id}");
+        var resume = hook["payload"]?["resume"] is not JsonValue r || !r.TryGetValue<bool>(out var b) || b;
+        // message_thread answers it, whatever its provider (a Gemini thread has no SendMessage).
+        var by = $"[message from the Reframe thread \"{askerName}\"; answer it with message_thread to \"{askerName}\"]";
+        var kept = new HeldMessage(target.Id, name, askerId, askerName, $"{by}\n{message}", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+        if (!resume && !Runs(target.Id))
+        {
+            Hold(kept);
+            if (Runs(askerId))
+                await TypeIntoAsync(askerId, $"[Reframe: \"{name}\" has ended; your message is kept and given to it when it next starts. Send it with wake: true to start it now.]");
+            return;
+        }
+        var run = WakeRun(kept, resume);
+        TaskLog($"wake: {askerId} {(resume ? "wakes" : "messages")} {target.Id}");
         await AdvanceAsync(run);
+    }
+
+    /// <summary>A pending run typing <paramref name="message"/> into its thread; without <paramref name="resume"/> it
+    /// is held again if the thread has ended by then.</summary>
+    PendingRun WakeRun(HeldMessage message, bool resume)
+    {
+        var task = new ScheduledTask($"wake-{Guid.NewGuid():N}", "heartbeat", message.TargetName, message.Text, "ACTIVE", "", message.TargetId, "important", 0, 0, new Dictionary<string, object>());
+        var run = new PendingRun(task, DateTimeOffset.Now) { Wake = message.Text, AskerId = message.AskerId, HoldIfEnded = resume ? null : message };
+        pendingRuns[task.Id] = run;
+        return run;
+    }
+
+    void Hold(HeldMessage message)
+    {
+        Held.Add(message);
+        SaveHeld();
+        TaskLog($"wake: held for ended {message.TargetId} from {message.AskerId}");
+    }
+
+    void SaveHeld()
+    {
+        try
+        {
+            HeldMessages.Save(HeldFile, Held);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            TaskLog($"held messages not saved: {e.Message}");
+        }
+    }
+
+    /// <summary>At each tick: the held messages of threads that run now become their wake-ups; those held longer than
+    /// LongMessages.KeepFor are dropped, their senders told.</summary>
+    void DeliverHeld(DateTimeOffset now)
+    {
+        if (Held.Count == 0) return;
+        var changed = false;
+        foreach (var message in HeldMessages.TakeExpired(Held, now))
+        {
+            changed = true;
+            TaskLog($"wake: held message for {message.TargetId} expired");
+            if (Runs(message.AskerId))
+                _ = TypeIntoAsync(message.AskerId, $"[Reframe: your message to \"{message.TargetName}\" was not delivered: it was kept {LongMessages.KeepFor.TotalDays:0} days and \"{message.TargetName}\" did not start.]");
+        }
+        foreach (var targetId in Held.Select(m => m.TargetId).Distinct().Where(Runs).ToList())
+            foreach (var message in HeldMessages.TakeFor(Held, targetId))
+            {
+                changed = true;
+                var run = WakeRun(message, resume: false);
+                TaskLog($"wake: held message delivered to {targetId} ({run.Task.Id})");
+                _ = AdvanceAsync(run);
+            }
+        if (changed) SaveHeld();
     }
 
     /// <summary>A Claude Code cron job of one thread fired in another (Claude Code keeps durable jobs per folder), and
@@ -348,6 +418,12 @@ sealed partial class ShellController
                 else if (DateTimeOffset.Now - run.Since > TaskWaitLimit) Finish(run, false, "its thread stayed busy for 12 hours");
                 return;
             }
+            if (run.HoldIfEnded is { } again)
+            {
+                pendingRuns.Remove(task.Id);
+                Hold(again);
+                return;
+            }
             if (run.ResumedAt is { } resumed)
             {
                 if (DateTimeOffset.Now - resumed > ResumeLimit) Finish(run, false, "its thread did not start again");
@@ -423,7 +499,7 @@ sealed partial class ShellController
             if (!delivered) toasts?.Show(task.TargetThreadId, $"Could not wake: {task.Name}", result);
             // The sender is told too, so it can send again instead of waiting for an answer that cannot come.
             if (!delivered && run.AskerId is { } asker && Runs(asker))
-                _ = TypeIntoAsync(asker, $"[Reframe: your message to \"{task.Name}\" was not delivered: {result}. Send it again with wake_thread if it is still needed.]");
+                _ = TypeIntoAsync(asker, $"[Reframe: your message to \"{task.Name}\" was not delivered: {result}. Send it again with message_thread if it is still needed.]");
             return;
         }
         var runs = ScheduledTasks.ReadRuns(TasksDir, task.Id);

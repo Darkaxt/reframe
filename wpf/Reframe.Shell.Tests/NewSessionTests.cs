@@ -20,7 +20,7 @@ public class NewSessionTests
         var opener = new SessionRecord { Id = "s1", Cwd = @"D:\Projects\app", Name = "Lead", Launch = new LaunchOptions { Provider = "anthropic" } };
         var request = NewSession.OpenedBy(JsonNode.Parse("""{ "name": " Docs ", "prompt": "Review the API", "provider": "openai" }"""), opener, preferences);
         Assert.Equal(new NewSessionRequest(@"D:\Projects\app", "chatgpt", "Docs", Model: "gpt-6.1-sol", PermissionMode: "auto",
-            InitialPrompt: "[opened by the Reframe thread \"Lead\" on Claude (Anthropic); answer it with wake_thread to \"Lead\"]\nReview the API", OpenedBy: "s1"),
+            InitialPrompt: "[opened by the Reframe thread \"Lead\" on Claude (Anthropic); answer it with message_thread to \"Lead\"]\nReview the API", OpenedBy: "s1"),
             request! with { Follows = null });
         Assert.Equal(new[] { "permissionMode", "model", "effort" }, request.Follows!);
         var claude = NewSession.OpenedBy(JsonNode.Parse("""{ "name": "B", "prompt": "x", "provider": "claude", "folder": "E:\\w", "model": "opus" }"""),
