@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "60df217c636960327446ea27ed523d246291b1c8",
+  "sourceBase": "be261e2668d023452e0d874d10d79782e4ea9789",
   "scope": "Wake delivery confirmed",
   "inputHashes": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "file": "docs/releases/v0.11.0-claudegpt.147.md",
-      "sha256": "20e56edf3bda355f994cb553b3c80198d6a6a6b62f3b43dc02fe5b1bec1482c5"
+      "sha256": "476e3f19a50aaa7298f7c13eee52f0630f72c68ffb83517bd6e1578086248b33"
     },
     {
       "file": "docs/wpf-cutover.md",
@@ -21,8 +21,16 @@
       "sha256": "38be6740099224322a1dc5d2fcba75c367da96372a91c237685cd0ef8b00f63b"
     },
     {
+      "file": "wpf/Reframe.Shell.Core/LongMessages.cs",
+      "sha256": "140858d2f125283ef7a10264c29465973fdfe61ece239cc74ad7a4b195a75b4a"
+    },
+    {
+      "file": "wpf/Reframe.Shell.Tests/LongMessagesTests.cs",
+      "sha256": "ad64afc1b6aed3b185fe669d1a45b142615009e12e59ea709d0114e91ccdd470"
+    },
+    {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
-      "sha256": "18594917942d1d74e2b2bc600dea3381d394e7df8c96b9ffc62cbf9850ab45fb"
+      "sha256": "de8a5bebe9d8eed05207f6369ecd2c8c522707c92d5241875fe3d4aed7f02714"
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.cs",
