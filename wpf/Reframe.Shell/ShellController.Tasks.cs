@@ -340,7 +340,7 @@ sealed partial class ShellController
                 if (StatusOf(record.Id) == "idle")
                 {
                     typedInto[record.Id] = DateTimeOffset.Now;
-                    var typed = await TypeIntoAsync(record.Id, run.Wake ?? ScheduledTasks.RunText(task));
+                    var typed = await TypeIntoAsync(record.Id, ThroughFile(record, run.Wake ?? ScheduledTasks.RunText(task)));
                     if (!typed) typedInto.Remove(record.Id);
                     Finish(run, typed, typed ? "delivered" : "could not type into its thread");
                 }
@@ -376,6 +376,28 @@ sealed partial class ShellController
         finally
         {
             run.Busy = false;
+        }
+    }
+
+    /// <summary>Where long messages for threads are kept (<see cref="LongMessages"/>).</summary>
+    public static string MessagesDir => Path.Combine(App.ProfileDir, "messages");
+
+    /// <summary>A long message goes to a file and the thread gets a line naming it (as a WSL thread reaches it); a short
+    /// one, or one whose file could not be written, is typed in as it is.</summary>
+    static string ThroughFile(SessionRecord record, string text)
+    {
+        try
+        {
+            var distro = WslPaths.Parse(record.Cwd)?.Distro;
+            Func<string, string>? reader = distro is null ? null : p => WslPaths.LinuxPathOf(p, distro, WslPaths.DefaultMountRoot) ?? p;
+            var prepared = LongMessages.Prepare(text, MessagesDir, DateTimeOffset.Now, reader);
+            if (prepared != text) TaskLog($"{record.Id}: a message of {text.Length} characters goes through a file");
+            return prepared ?? text;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            TaskLog($"{record.Id}: the long message's file was not written ({e.Message}); typed in as it is");
+            return text;
         }
     }
 
