@@ -1,7 +1,7 @@
 {
   "schema": "reframe.source-ready.v1",
   "status": "source_ready_for_validation",
-  "sourceBase": "45e240173fcab1d66c207abfd7d20590f5728966",
+  "sourceBase": "b4803e29e86cc1ecdcec72976dab739f22824f4e",
   "scope": "Slash commands not confirmed; sender told of undelivered wakes",
   "inputHashes": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "file": "wpf/Reframe.Shell/ShellController.Tasks.cs",
-      "sha256": "d3a01e52b358b99f5a042493490fa41df449ec0313bc03638110384e692371b9"
+      "sha256": "ed5bcfb3ca92a69f026636eae902581ea3211012aaf31cc2199473f40f3c6543"
     }
   ],
   "checksNotYetRun": [
