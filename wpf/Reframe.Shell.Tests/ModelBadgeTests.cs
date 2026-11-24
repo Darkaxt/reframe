@@ -41,4 +41,43 @@ public class ModelBadgeTests
         Assert.Equal("default model · low effort", ModelBadge.Describe(null, null, "low")!.Value.Text);
         Assert.Null(ModelBadge.Describe(null, null, null));
     }
+
+    [Fact]
+    public void The_last_assistant_turn_of_the_transcript_tells_the_effort()
+    {
+        var tail = string.Join("\n",
+            """ffort":"high","type":"assistant"} (a cut first line)""",
+            """{"type":"assistant","effort":"high","message":{"model":"claude-opus-5-5"}}""",
+            """{"type":"user","effort":"max","message":{}}""",
+            """{"type":"assistant","effort":"low","perTurnEffort":"low","message":{"model":"claude-opus-5-5"}}""",
+            """{"type":"attachment","attachment":{"type":"hook_success"}}""",
+            "");
+        Assert.Equal(new ModelInUse("claude-opus-5-5", "low"), ModelBadge.FromTranscriptTail(tail));
+        Assert.Null(ModelBadge.FromTranscriptTail("""{"type":"assistant","message":{"model":"m"}}"""));
+        // The status line's display name with the transcript's effort.
+        Assert.Equal(new ModelInUse("Opus 5.5", "low"),
+            ModelBadge.Combine(new ModelInUse("Opus 5.5", null), new ModelInUse("claude-opus-5-5", "low")));
+        Assert.Equal(new ModelInUse("Opus 5.5", "high"), ModelBadge.Combine(new ModelInUse("Opus 5.5", "high"), null));
+    }
+
+    [Fact]
+    public void Reads_the_tail_of_a_file_being_written()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"modelbadge-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            using (var writer = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.ReadWrite))
+            {
+                var bytes = System.Text.Encoding.UTF8.GetBytes(new string('x', 1000) + "\nlast");
+                writer.Write(bytes);
+                writer.Flush();
+                Assert.Equal("x\nlast", ModelBadge.ReadTail(path, 6));
+            }
+            Assert.Null(ModelBadge.ReadTail(path + ".missing"));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }

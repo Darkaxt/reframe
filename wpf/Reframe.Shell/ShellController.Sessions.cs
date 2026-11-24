@@ -69,12 +69,8 @@ sealed partial class ShellController
             {
                 if (Quotas.ApplyStatusLine(hook["payload"]?["rate_limits"], DateTimeOffset.Now.ToUnixTimeMilliseconds()))
                     QuotaChanged?.Invoke();
-                if ((string?)hook["sessionId"] is { Length: > 0 } sessionId && ModelBadge.FromStatusLine(hook["payload"]) is { } now
-                    && modelsInUse.GetValueOrDefault(sessionId) != now)
-                {
-                    modelsInUse[sessionId] = now;
-                    foreach (var window in windows.Values) window.ModelChanged(sessionId);
-                }
+                if ((string?)hook["sessionId"] is { Length: > 0 } sessionId)
+                    _ = ReadModelInUseAsync(sessionId, ModelBadge.FromStatusLine(hook["payload"]), (string?)hook["payload"]?["transcript_path"]);
             }
             return;
         }

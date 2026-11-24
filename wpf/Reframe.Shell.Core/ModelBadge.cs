@@ -28,9 +28,50 @@ public static class ModelBadge
         var text = string.Join(" · ", new[] { model ?? "default model", effort is null ? null : $"{effort} effort" }.OfType<string>());
         var source = live is null ? "as launched (the session has not reported yet)"
             : live.Effort is null && effort is not null ? "the model as the session reports it now, the effort as launched"
-            : "as the session reports it now";
+            : "as the running session reports them (its last turn)";
         return (text, $"Model and reasoning effort, {source}", effort is "low" or "minimal");
     }
+
+    /// <summary>The effort (and model) of the last assistant turn in a Claude Code transcript's tail: each assistant entry
+    /// carries the "effort" its request ran with. Null when the tail has none.</summary>
+    public static ModelInUse? FromTranscriptTail(string tail)
+    {
+        var lines = tail.Split('\n');
+        for (var i = lines.Length - 1; i >= 0; i--)
+        {
+            var line = lines[i];
+            if (!line.Contains("\"effort\"", StringComparison.Ordinal) || !line.Contains("\"assistant\"", StringComparison.Ordinal)) continue;
+            JsonNode? entry;
+            try { entry = JsonNode.Parse(line); }
+            catch (System.Text.Json.JsonException) { continue; }
+            if (entry is not JsonObject o || Text(o["type"]) != "assistant" || Text(o["effort"]) is not { } effort) continue;
+            return new ModelInUse(Text(o["message"]?["model"]), effort);
+        }
+        return null;
+    }
+
+    /// <summary>The last <paramref name="bytes"/> of a file, read while Claude Code keeps writing it; null if unreadable.</summary>
+    public static string? ReadTail(string path, int bytes = 256 * 1024)
+    {
+        try
+        {
+            using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            var start = Math.Max(0, file.Length - bytes);
+            file.Seek(start, SeekOrigin.Begin);
+            var buffer = new byte[file.Length - start];
+            var read = file.ReadAtLeast(buffer, buffer.Length, throwOnEndOfStream: false);
+            return System.Text.Encoding.UTF8.GetString(buffer, 0, read);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The status line's model with the transcript's effort (what the last turn ran with) when it has one.</summary>
+    public static ModelInUse? Combine(ModelInUse? statusLine, ModelInUse? transcript) =>
+        statusLine is null && transcript is null ? null
+            : new ModelInUse(statusLine?.Model ?? transcript?.Model, transcript?.Effort ?? statusLine?.Effort);
 
     static string? Text(JsonNode? node) => node is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim() is { Length: > 0 } t ? t : null;
 }
