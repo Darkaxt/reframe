@@ -242,37 +242,55 @@ sealed partial class ShellController
     /// <summary>A thread messaged another by name (its <c>message_thread</c> or <c>wake_thread</c> tool): the message is
     /// delivered like a task's run (waiting until it can be typed in, resuming an ended thread); without "resume"
     /// (message_thread's wake false) an ended thread is not resumed: the message is held until it next runs. An older
-    /// host posts no "resume": it wakes. An unknown or ambiguous name is told to the asker.</summary>
+    /// host posts no "resume": it wakes. Threads sharing the name all get it (only the running ones if any runs), unless
+    /// "provider" picks one; the asker is told which got it, or that no thread has the name.</summary>
     async Task WakeThreadAsync(JsonObject hook)
     {
         var askerId = (string?)hook["sessionId"];
         string? Text(string key) => hook["payload"] is JsonObject o && o[key] is JsonValue v && v.TryGetValue<string>(out var s) && s.Trim() is { Length: > 0 } t ? t : null;
         if (askerId is null || !State.Sessions.TryGetValue(askerId, out var asker) || Text("wake") is not { } name || Text("message") is not { } message) return;
-        var matches = ThreadsNamed(askerId, name);
+        var provider = Text("provider");
+        var matches = ThreadsNamed(askerId, name).Where(r => provider is null || ToolProvider(r) == provider).ToList();
+        // Several of that name all get it (a copy of a thread, or one per provider), only the running ones if any runs.
+        if (matches.Count > 1 && matches.Any(r => Runs(r.Id))) matches = matches.Where(r => Runs(r.Id)).ToList();
         var askerName = StateValues.SessionLabel(asker.Name, asker.ClaudeName, asker.Cwd);
-        if (matches.Count != 1)
+        if (matches.Count == 0)
         {
-            var why = matches.Count == 0 ? $"no thread is named \"{name}\"" : $"more than one thread is named \"{name}\"";
+            var why = $"no thread{(provider is null ? "" : $" on {provider}")} is named \"{name}\"";
             TaskLog($"wake: {askerId}: {why}");
-            if (Runs(askerId)) await TypeIntoAsync(askerId, $"[Reframe: could not wake: {why}]");
+            if (Runs(askerId)) await TypeIntoAsync(askerId, $"[Reframe: your message was not delivered: {why}]");
             return;
         }
-        var target = matches[0];
         var resume = hook["payload"]?["resume"] is not JsonValue r || !r.TryGetValue<bool>(out var b) || b;
         // message_thread answers it, whatever its provider (a Gemini thread has no SendMessage).
         var by = $"[message from the Reframe thread \"{askerName}\"; answer it with message_thread to \"{askerName}\"]";
-        var kept = new HeldMessage(target.Id, name, askerId, askerName, $"{by}\n{message}", DateTimeOffset.Now.ToUnixTimeMilliseconds());
-        if (!resume && !Runs(target.Id))
+        var notes = new List<string>();
+        if (matches.Count > 1)
+            notes.Add($"{matches.Count} threads are named \"{name}\" and each gets your message: {string.Join(", ", matches.Select(t => $"[{t.Id[..6]}] ({ToolProvider(t)}, {(Runs(t.Id) ? "running" : "ended")})"))}. Give provider, or the id in brackets after the name, to reach one.");
+        var runs = new List<PendingRun>();
+        foreach (var target in matches)
         {
-            Hold(kept);
-            if (Runs(askerId))
-                await TypeIntoAsync(askerId, $"[Reframe: \"{name}\" has ended; your message is kept and given to it when it next starts. Send it with wake: true to start it now.]");
-            return;
+            var kept = new HeldMessage(target.Id, name, askerId, askerName, $"{by}\n{message}", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+            if (!resume && !Runs(target.Id))
+            {
+                Hold(kept);
+                notes.Add($"\"{name}\"{(matches.Count > 1 ? $" [{target.Id[..6]}]" : "")} has ended; your message is kept and given to it when it next starts. Send it with wake: true to start it now.");
+                continue;
+            }
+            runs.Add(WakeRun(kept, resume));
+            TaskLog($"wake: {askerId} {(resume ? "wakes" : "messages")} {target.Id}");
         }
-        var run = WakeRun(kept, resume);
-        TaskLog($"wake: {askerId} {(resume ? "wakes" : "messages")} {target.Id}");
-        await AdvanceAsync(run);
+        if (notes.Count > 0 && Runs(askerId)) await TypeIntoAsync(askerId, $"[Reframe: {string.Join(" ", notes)}]");
+        await Task.WhenAll(runs.Select(AdvanceAsync));
     }
+
+    /// <summary>The provider as the thread tools name it (openai, claude or gemini).</summary>
+    static string ToolProvider(SessionRecord record) => (record.Launch.Provider ?? "chatgpt") switch
+    {
+        "anthropic" => "claude",
+        "gemini" => "gemini",
+        _ => "openai",
+    };
 
     /// <summary>A pending run typing <paramref name="message"/> into its thread; without <paramref name="resume"/> it
     /// is held again if the thread has ended by then.</summary>
