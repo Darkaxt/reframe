@@ -197,14 +197,16 @@ fn message_tool() -> Value {
             is in that thread's tile or writing in it, or it asks a permission or a question; a busy Gemini thread gets \
             it when idle. An ended thread is not started: it gets the message when it next runs (the user's Resume, a \
             task, a wake), unless wake is true, which resumes it now (its own conversation, as the user's Resume does). \
-            The message is marked with your thread's name, so it can answer with message_thread too. If no thread has \
-            that name, Reframe tells you in a message.",
+            The message is marked with your thread's name, so it can answer with message_thread too. When several \
+            threads have that name, all of them get it (only the running ones if any runs), unless provider picks one. \
+            If no thread has that name, Reframe tells you in a message.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "name": { "type": "string", "description": "The name of the thread, as Reframe shows it." },
                 "message": { "type": "string", "description": "What it should do or know: stand-alone, as it does not know why you write." },
                 "wake": { "type": "boolean", "description": "Resume the thread now if it has ended. False by default: it gets the message when it next starts." },
+                "provider": { "type": "string", "enum": ["openai", "claude", "gemini"], "description": "Only the thread of that name running on these models, when several share the name." },
             },
             "required": ["name", "message"],
         },
@@ -244,8 +246,13 @@ fn wake(arguments: &Value, resume: bool, post: &mut dyn FnMut(&[u8]) -> bool) ->
             "The message is too long; put the details in a file and point to it.",
         );
     }
+    let provider = match text("provider") {
+        None => None,
+        Some(p @ ("openai" | "claude" | "gemini")) => Some(p),
+        Some(_) => return text_result(true, "provider is one of openai, claude or gemini."),
+    };
     if !post(
-        json!({ "wake": name, "message": message, "resume": resume })
+        json!({ "wake": name, "message": message, "resume": resume, "provider": provider })
             .to_string()
             .as_bytes(),
     ) {
@@ -255,7 +262,8 @@ fn wake(arguments: &Value, resume: bool, post: &mut dyn FnMut(&[u8]) -> bool) ->
         false,
         &format!(
             "Reframe was asked to give the thread \"{name}\" your message. A running thread gets it now; {} If no \
-             thread has that name, a message tells you.",
+             thread has that name, a message tells you; if several have it, all of them get it unless provider says \
+             which.",
             if resume {
                 "an ended one is resumed first, which takes a minute."
             } else {
@@ -457,7 +465,7 @@ mod tests {
         assert_eq!(result["result"]["isError"], false);
         assert_eq!(
             posted,
-            [json!({ "wake": "Navic", "message": "Carry on", "resume": true })]
+            [json!({ "wake": "Navic", "message": "Carry on", "resume": true, "provider": null })]
         );
         let bad = rpc(
             "tools/call",
@@ -473,6 +481,7 @@ mod tests {
         for arguments in [
             json!({ "name": "Navic", "message": "Hi" }),
             json!({ "name": "Navic", "message": "Hi", "wake": true }),
+            json!({ "name": "Navic", "message": "Hi", "provider": "gemini" }),
         ] {
             let call = rpc(
                 "tools/call",
@@ -488,8 +497,9 @@ mod tests {
         assert_eq!(
             posted,
             [
-                json!({ "wake": "Navic", "message": "Hi", "resume": false }),
-                json!({ "wake": "Navic", "message": "Hi", "resume": true }),
+                json!({ "wake": "Navic", "message": "Hi", "resume": false, "provider": null }),
+                json!({ "wake": "Navic", "message": "Hi", "resume": true, "provider": null }),
+                json!({ "wake": "Navic", "message": "Hi", "resume": false, "provider": "gemini" }),
             ]
         );
     }
