@@ -13,6 +13,10 @@ sealed partial class ShellController
     List<SessionRecord> ThreadsNamed(string askerId, string name)
     {
         var others = State.Sessions.Values.Where(r => r.Id != askerId).ToList();
+        // A thread's id or its conversation's (list_threads' id and conversationId) is that thread.
+        if (Guid.TryParse(name, out _) && others.Where(r => string.Equals(r.Id, name, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(r.ClaudeSessionId, name, StringComparison.OrdinalIgnoreCase)).ToList() is { Count: > 0 } byId)
+            return byId;
         // "name [0e0e25]": the id suffix the thread list shows picks one of several threads of the same name.
         var suffix = System.Text.RegularExpressions.Regex.Match(name, @"^(.*\S)\s*\[([0-9a-fA-F]{4,})\]$");
         if (suffix.Success)

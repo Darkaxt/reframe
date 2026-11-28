@@ -78,6 +78,7 @@ fn answer(message: &Value, tasks: Option<&Tasks>, post: &mut dyn FnMut(&[u8]) ->
         "tools/list" => {
             let mut tools = vec![tool(), message_tool(), wake_tool(), read_tool(), close_tool()];
             if tasks.is_some() {
+                tools.push(list_tool());
                 tools.extend(tasks::tools());
             }
             json!({ "tools": tools })
@@ -90,6 +91,10 @@ fn answer(message: &Value, tasks: Option<&Tasks>, post: &mut dyn FnMut(&[u8]) ->
         "tools/call" if message["params"]["name"] == "wake_thread" => wake(&message["params"]["arguments"], true, post),
         "tools/call" if message["params"]["name"] == "read_thread" => read(&message["params"]["arguments"], post),
         "tools/call" if message["params"]["name"] == "close_thread" => close(&message["params"]["arguments"], post),
+        "tools/call" if message["params"]["name"] == "list_threads" => match tasks {
+            Some(tasks) => list(&tasks.dir),
+            None => text_result(true, "Reframe gave this thread no thread list."),
+        },
         "tools/call" => match (tasks, message["params"]["name"].as_str()) {
             (Some(tasks), Some(name)) if tasks::NAMES.contains(&name) => {
                 match tasks.call(name, &message["params"]["arguments"]) {
@@ -388,6 +393,34 @@ fn close(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
     )
 }
 
+fn list_tool() -> Value {
+    json!({
+        "name": "list_threads",
+        "description": "The threads Reframe has, as JSON: for each its name (as Reframe shows it), id (also its client's \
+            REFRAME_SESSION environment variable), provider and model, conversationId (the Claude session or agy \
+            conversation), pid of its client while it runs, status (idle, busy, waiting, ended), folder, and for a Gemini \
+            thread its hookFolder (where its agy runs). Read from the file Reframe keeps, threads.json in its profile, \
+            which tools outside Reframe can read too. message_thread, read_thread and close_thread also take an id or \
+            conversationId as the name.",
+        "inputSchema": { "type": "object", "properties": {} },
+    })
+}
+
+/// The thread map the shell writes beside the tasks folder (ShellController.ThreadMap.cs).
+fn list(tasks_dir: &std::path::Path) -> Value {
+    let file = tasks_dir.parent().unwrap_or(tasks_dir).join("threads.json");
+    match std::fs::read_to_string(&file) {
+        Ok(text) => text_result(false, &format!("{}\n{text}", file.display())),
+        Err(e) => text_result(
+            true,
+            &format!(
+                "Reframe's thread list {} could not be read ({e}); this Reframe may be older.",
+                file.display()
+            ),
+        ),
+    }
+}
+
 fn text_result(error: bool, text: &str) -> Value {
     json!({ "content": [{ "type": "text", "text": text }], "isError": error })
 }
@@ -527,6 +560,32 @@ mod tests {
     }
 
     #[test]
+    fn lists_the_threads_from_the_map_beside_the_tasks() {
+        let root = std::env::temp_dir().join(format!("reframe-map-{}", std::process::id()));
+        let tasks = Tasks {
+            dir: root.join("tasks"),
+            session_id: "s1".into(),
+        };
+        let mut never = |_: &[u8]| panic!("nothing is posted");
+        let call = rpc("tools/call", json!({ "name": "list_threads", "arguments": {} }));
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(
+            answer(&call, Some(&tasks), &mut never).unwrap()["result"]["isError"],
+            true
+        );
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("threads.json"), r#"{"threads":[{"name":"Doodle Jump"}]}"#).unwrap();
+        let result = answer(&call, Some(&tasks), &mut never).unwrap();
+        assert_eq!(result["result"]["isError"], false);
+        assert!(result["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("Doodle Jump"));
+        assert_eq!(answer(&call, None, &mut never).unwrap()["result"]["isError"], true);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
     fn asks_for_the_turns_of_a_thread() {
         let mut posted = Vec::new();
         for arguments in [
@@ -604,7 +663,7 @@ mod tests {
         let bare = answer(&rpc("initialize", json!({})), None, &mut never).unwrap();
         assert_eq!(bare["result"]["instructions"], MESSAGING);
         let list = answer(&rpc("tools/list", json!({})), Some(&tasks), &mut never).unwrap();
-        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 9);
+        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 10);
         let call = rpc(
             "tools/call",
             json!({ "name": "schedule_task", "arguments": { "name": "Daily", "prompt": "p", "rrule": "FREQ=DAILY" } }),

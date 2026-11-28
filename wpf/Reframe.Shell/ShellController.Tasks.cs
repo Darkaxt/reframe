@@ -39,6 +39,7 @@ sealed partial class ShellController
 
     List<ScheduledTask> tasks = [];
     readonly Dictionary<string, PendingRun> pendingRuns = [];
+    DateTimeOffset prunedHooksAt;
     DispatcherTimer? taskTimer;
     DispatcherTimer? taskReload;
     FileSystemWatcher? taskWatcher;
@@ -176,6 +177,13 @@ sealed partial class ShellController
         DeliverHeld(now);
         foreach (var run in pendingRuns.Values.Where(r => !r.Busy).ToList()) _ = AdvanceAsync(run);
         SyncNames();
+        WriteThreadMap();
+        if (now - prunedHooksAt > TimeSpan.FromHours(1))
+        {
+            prunedHooksAt = now;
+            var known = State.Sessions.Keys.ToHashSet();
+            if (Writable) _ = System.Threading.Tasks.Task.Run(() => PruneHooks(known));
+        }
     }
 
     readonly HashSet<string> renaming = [];
