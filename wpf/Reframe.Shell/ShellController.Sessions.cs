@@ -55,7 +55,7 @@ sealed partial class ShellController
         {
             if (message["message"] is JsonObject asked && (string?)asked["event"] == "OpenThread")
             {
-                _ = asked["payload"] is JsonObject { } body ? body.ContainsKey("wake") ? WakeThreadAsync(asked) : body.ContainsKey("close") ? CloseThreadAsync(asked) : OpenThreadAsync(asked) : OpenThreadAsync(asked);
+                _ = asked["payload"] is JsonObject { } body ? body.ContainsKey("wake") ? WakeThreadAsync(asked) : body.ContainsKey("read") ? ReadThreadAsync(asked) : body.ContainsKey("close") ? CloseThreadAsync(asked) : OpenThreadAsync(asked) : OpenThreadAsync(asked);
                 return;
             }
             if (message["message"] is JsonObject handed && (string?)handed["event"] == "HandOff")

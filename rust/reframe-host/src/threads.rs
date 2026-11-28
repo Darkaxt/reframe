@@ -76,7 +76,7 @@ fn answer(message: &Value, tasks: Option<&Tasks>, post: &mut dyn FnMut(&[u8]) ->
         }
         "ping" => json!({}),
         "tools/list" => {
-            let mut tools = vec![tool(), message_tool(), wake_tool(), close_tool()];
+            let mut tools = vec![tool(), message_tool(), wake_tool(), read_tool(), close_tool()];
             if tasks.is_some() {
                 tools.extend(tasks::tools());
             }
@@ -88,6 +88,7 @@ fn answer(message: &Value, tasks: Option<&Tasks>, post: &mut dyn FnMut(&[u8]) ->
             wake(arguments, arguments["wake"].as_bool().unwrap_or(false), post)
         }
         "tools/call" if message["params"]["name"] == "wake_thread" => wake(&message["params"]["arguments"], true, post),
+        "tools/call" if message["params"]["name"] == "read_thread" => read(&message["params"]["arguments"], post),
         "tools/call" if message["params"]["name"] == "close_thread" => close(&message["params"]["arguments"], post),
         "tools/call" => match (tasks, message["params"]["name"].as_str()) {
             (Some(tasks), Some(name)) if tasks::NAMES.contains(&name) => {
@@ -186,7 +187,7 @@ fn call(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
 const MESSAGING: &str = "To give another Reframe thread a message (Claude, ChatGPT or Gemini, running or ended), use \
     message_thread with its name; an ended thread gets it when it next starts, or now with wake: true. A message \
     starting with \"[message from the Reframe thread ...]\" came that way: answer with message_thread to that name \
-    when an answer is wanted.";
+    when an answer is wanted. To see what another thread has been doing, use read_thread.";
 
 fn message_tool() -> Value {
     json!({
@@ -227,6 +228,56 @@ fn wake_tool() -> Value {
             "required": ["name", "message"],
         },
     })
+}
+
+fn read_tool() -> Value {
+    json!({
+        "name": "read_thread",
+        "description": "See what another Reframe thread has been doing: its last turns (what it was asked, what it \
+            answered, the tools it ran with a short result), whatever its provider, running or ended. Reframe types \
+            them into this thread in a message (through a file when long), with the path of its full transcript. Use it \
+            to check on a thread you opened or work with, instead of guessing from the files it changes.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string", "description": "The name of the thread, as Reframe shows it (the id in brackets after it picks one of several)." },
+                "turns": { "type": "integer", "description": "How many of its last turns (a turn starts at a message it was given). 10 by default, at most 100." },
+                "provider": { "type": "string", "enum": ["openai", "claude", "gemini"], "description": "Only the thread of that name running on these models, when several share the name." },
+            },
+            "required": ["name"],
+        },
+    })
+}
+
+fn read(arguments: &Value, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
+    let Some(name) = arguments
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    else {
+        return text_result(true, "Give the name of the thread.");
+    };
+    let provider = match arguments.get("provider").and_then(Value::as_str) {
+        None => None,
+        Some(p @ ("openai" | "claude" | "gemini")) => Some(p),
+        Some(_) => return text_result(true, "provider is one of openai, claude or gemini."),
+    };
+    let turns = arguments.get("turns").and_then(Value::as_u64).map(|n| n.clamp(1, 100));
+    if !post(
+        json!({ "read": name, "turns": turns, "provider": provider })
+            .to_string()
+            .as_bytes(),
+    ) {
+        return text_result(true, "Reframe's host did not take the request (is Reframe running?).");
+    }
+    text_result(
+        false,
+        &format!(
+            "Reframe was asked for the recent turns of \"{name}\"; they come in a message in a moment (or a message \
+             says no thread has that name)."
+        ),
+    )
 }
 
 fn wake(arguments: &Value, resume: bool, post: &mut dyn FnMut(&[u8]) -> bool) -> Value {
@@ -476,6 +527,30 @@ mod tests {
     }
 
     #[test]
+    fn asks_for_the_turns_of_a_thread() {
+        let mut posted = Vec::new();
+        for arguments in [
+            json!({ "name": " Worker " }),
+            json!({ "name": "Worker", "turns": 500, "provider": "claude" }),
+        ] {
+            let call = rpc("tools/call", json!({ "name": "read_thread", "arguments": arguments }));
+            let result = answer(&call, None, &mut |body| {
+                posted.push(serde_json::from_slice::<Value>(body).unwrap());
+                true
+            })
+            .unwrap();
+            assert_eq!(result["result"]["isError"], false);
+        }
+        assert_eq!(
+            posted,
+            [
+                json!({ "read": "Worker", "turns": null, "provider": null }),
+                json!({ "read": "Worker", "turns": 100, "provider": "claude" }),
+            ]
+        );
+    }
+
+    #[test]
     fn messages_a_thread_waking_it_only_when_asked() {
         let mut posted = Vec::new();
         for arguments in [
@@ -529,7 +604,7 @@ mod tests {
         let bare = answer(&rpc("initialize", json!({})), None, &mut never).unwrap();
         assert_eq!(bare["result"]["instructions"], MESSAGING);
         let list = answer(&rpc("tools/list", json!({})), Some(&tasks), &mut never).unwrap();
-        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 8);
+        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 9);
         let call = rpc(
             "tools/call",
             json!({ "name": "schedule_task", "arguments": { "name": "Daily", "prompt": "p", "rrule": "FREQ=DAILY" } }),
